@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 168 40" role="img" aria-label="QueenBee's">
+  <title>QueenBee's</title>
+  <g fill="none">
+    <path d="M20 5.5c3.4 0 6.2 2.3 7.1 5.4h4.6l-3.2 3.3 3.2 3.3h-4.6a7.4 7.4 0 0 1-14.2 0H8.3l3.2-3.3-3.2-3.3h4.6C13.8 7.8 16.6 5.5 20 5.5Z" fill="#f6b3cc"/>
+    <path d="M13.1 18.4h13.8a7.4 7.4 0 0 1-6.9 5.1 7.4 7.4 0 0 1-6.9-5.1Z" fill="#a680ff"/>
+    <path d="M16.2 24.6h7.6L20 33.5Z" fill="#f6b3cc"/>
+  </g>
+  <text x="40" y="26" font-family="var(--logo-font, 'Segoe UI', system-ui, sans-serif)" font-size="19" font-weight="700" letter-spacing="-0.4" fill="#ffffff">QueenBee's</text>
+</svg>

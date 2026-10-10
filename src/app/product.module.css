@@ -1,0 +1,231 @@
+.page {
+  display: grid;
+  gap: var(--space-6);
+}
+
+.breadcrumb ol {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  font-size: var(--text-xs);
+  color: var(--color-ink-muted);
+}
+
+.breadcrumb li + li::before {
+  content: '/';
+  margin-inline-end: var(--space-2);
+  color: var(--color-ink-subtle);
+}
+
+/* Breadcrumb and source links are inline text, so give them a comfortable tap
+   target (WCAG 2.5.8 minimum 24px) without breaking the text flow. */
+.breadcrumb a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 0 var(--space-1);
+}
+
+.breadcrumb a:hover {
+  color: var(--color-action);
+}
+
+.layout {
+  display: grid;
+  gap: var(--space-6);
+}
+
+.figure {
+  margin: 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: var(--color-surface);
+}
+
+.figure img {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+}
+
+.figcaption {
+  padding: var(--space-2) var(--space-3);
+  border-top: 1px solid var(--color-border);
+  font-size: var(--text-xs);
+  color: var(--color-ink-subtle);
+  background: var(--color-surface-sunken);
+}
+
+.figureFallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 1 / 1;
+  border: 1px dashed var(--color-border-strong);
+  border-radius: var(--radius-lg);
+  color: var(--color-ink-subtle);
+}
+
+.info {
+  display: grid;
+  gap: var(--space-4);
+  align-content: start;
+}
+
+.brand {
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-ink-subtle);
+}
+
+.title {
+  font-size: var(--text-2xl);
+  line-height: var(--leading-tight);
+}
+
+.pricing {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+}
+
+.currentPrice {
+  font-size: 1.75rem;
+  font-weight: 700;
+}
+
+.comparePrice {
+  color: var(--color-ink-subtle);
+  text-decoration: line-through;
+}
+
+.saving {
+  color: var(--color-success);
+  font-weight: 600;
+  font-size: var(--text-sm);
+}
+
+.facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: var(--space-3);
+  margin: 0;
+  padding: var(--space-4) 0;
+  border-top: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.facts dt {
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-ink-muted);
+  margin-bottom: 2px;
+}
+
+.facts dd {
+  margin: 0;
+  font-weight: 600;
+}
+
+.availabilityNote {
+  display: flex;
+  gap: var(--space-2);
+  align-items: flex-start;
+  font-size: var(--text-xs);
+  color: var(--color-ink-muted);
+}
+
+.purchase {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+}
+
+.quantityLabel {
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+
+.purchaseRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: center;
+}
+
+.addButton {
+  flex: 1;
+  min-width: 180px;
+  min-height: 46px;
+  border: none;
+  border-radius: var(--radius-md);
+  background: var(--color-action);
+  color: #fff;
+  font-weight: 650;
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+
+.addButton:hover {
+  background: var(--color-action-hover);
+}
+
+.buyNote {
+  font-size: var(--text-xs);
+  color: var(--color-ink-muted);
+}
+
+.liveRegion {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 20px;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--color-success);
+}
+
+.details {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.description {
+  color: var(--color-ink);
+}
+
+.descriptionMissing {
+  color: var(--color-ink-muted);
+  font-style: italic;
+}
+
+.source {
+  font-size: var(--text-xs);
+  color: var(--color-ink-subtle);
+  word-break: break-all;
+}
+
+.related {
+  display: grid;
+  gap: var(--space-4);
+  border-top: 1px solid var(--color-border);
+  padding-top: var(--space-5);
+}
+
+@media (min-width: 880px) {
+  .layout {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: var(--space-7);
+    align-items: start;
+  }
+}

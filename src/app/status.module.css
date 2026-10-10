@@ -1,0 +1,30 @@
+.page {
+  display: grid;
+  gap: var(--space-3);
+  justify-items: start;
+  padding: var(--space-7) 0;
+  max-width: 52ch;
+}
+
+.page p {
+  color: var(--color-ink-muted);
+}
+
+.action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 var(--space-5);
+  border: none;
+  border-radius: var(--radius-md);
+  background: var(--color-action);
+  color: #fff;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.action:hover {
+  background: var(--color-action-hover);
+  color: #fff;
+}

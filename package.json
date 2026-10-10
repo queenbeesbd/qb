@@ -1,0 +1,32 @@
+{
+  "name": "queenbees-storefront",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "check:catalog": "tsx scripts/check-catalog.ts",
+    "check:i18n": "tsx scripts/check-i18n.ts",
+    "verify:browser": "node scripts/verify-browser.cjs"
+  },
+  "dependencies": {
+    "next": "16.4.0",
+    "react": "19.3.0",
+    "react-dom": "19.3.0"
+  },
+  "devDependencies": {
+    "@types/node": "22.18.9",
+    "@types/react": "19.2.2",
+    "@types/react-dom": "19.2.1",
+    "eslint": "9.39.0",
+    "eslint-config-next": "16.4.0",
+    "tsx": "4.20.6",
+    "typescript": "5.9.3"
+  },
+  "engines": {
+    "node": ">=20.9.0"
+  }
+}

@@ -1,0 +1,29 @@
+.grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-4);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.grid > li {
+  display: flex;
+}
+
+.grid > li > * {
+  width: 100%;
+}
+
+@media (min-width: 720px) {
+  .grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1024px) {
+  .grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: var(--space-5);
+  }
+}

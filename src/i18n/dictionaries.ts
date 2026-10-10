@@ -1,0 +1,315 @@
+import type { Locale } from '@/lib/types';
+
+/**
+ * Central UI dictionary. Every user-facing string in the implemented scope
+ * lives here; components must not contain hardcoded interface copy.
+ *
+ * `bn` is the approved default locale and must be complete. `en` mirrors it.
+ * Run `npm run check:i18n` to assert key parity between the two locales.
+ */
+export const dictionary = {
+  bn: {
+    'common.brand': 'QueenBee’s',
+    'common.demoBadge': 'ডেমো',
+    'common.demoNotice':
+      'এটি একটি ডেমো স্টোরফ্রন্ট। কোনো প্রকৃত অর্ডার, পেমেন্ট বা ডেলিভারি এখানে সম্পন্ন হয় না।',
+    'common.skipToContent': 'মূল কনটেন্টে যান',
+    'common.loading': 'লোড হচ্ছে…',
+    'common.close': 'বন্ধ করুন',
+    'common.retry': 'আবার চেষ্টা করুন',
+    'common.required': 'আবশ্যক',
+    'common.optional': 'ঐচ্ছিক',
+
+    'nav.home': 'হোম',
+    'nav.shop': 'সব পণ্য',
+    'nav.categories': 'ক্যাটাগরি',
+    'nav.cart': 'কার্ট',
+    'nav.menu': 'মেনু',
+    'nav.closeMenu': 'মেনু বন্ধ করুন',
+    'nav.openMenu': 'মেনু খুলুন',
+    'nav.language': 'ভাষা',
+    'nav.switchToEnglish': 'Switch to English',
+    'nav.switchToBangla': 'বাংলায় দেখুন',
+    'nav.currentLanguage': 'বর্তমান ভাষা: বাংলা',
+
+    'search.label': 'পণ্য খুঁজুন',
+    'search.placeholder': 'পণ্যের নাম বা ব্র্যান্ড লিখুন',
+    'search.submit': 'খুঁজুন',
+    'search.clear': 'সার্চ মুছুন',
+    'search.resultsFor': '“{query}” এর ফলাফল',
+    'search.noResultsTitle': 'কোনো পণ্য পাওয়া যায়নি',
+    'search.noResultsBody': 'অন্য শব্দে খুঁজুন অথবা সব পণ্য দেখুন।',
+
+    'home.heroEyebrow': 'বাংলাদেশের কসমেটিকস',
+    'home.heroTitle': 'যত্নে বাছাই করা স্কিন ও হেয়ার কেয়ার',
+    'home.heroBody':
+      'ব্র্যান্ড, সাইজ ও দাম দেখে পণ্য বাছুন। ডেমো ক্যাটালগটি পাবলিক স্টোরফ্রন্ট থেকে যাচাই করা তথ্যে তৈরি।',
+    'home.heroPrimary': 'সব পণ্য দেখুন',
+    'home.heroSecondary': 'ক্যাটাগরি দেখুন',
+    'home.categoriesTitle': 'ক্যাটাগরি',
+    'home.categoriesBody': 'প্রতিটি ক্যাটাগরিতে আছে নির্দিষ্ট যত্নের পণ্য।',
+    'home.featuredTitle': 'নির্বাচিত পণ্য',
+    'home.featuredBody': 'ডেমোর জন্য বাছাই করা পণ্য — বিক্রয় বা জনপ্রিয়তার দাবি নয়।',
+    'home.dealsTitle': 'ছাড়ের পণ্য',
+    'home.dealsBody': 'স্টোরফ্রন্টে প্রকাশিত আগের দামের ভিত্তিতে।',
+    'home.dealsEmptyTitle': 'কোনো ছাড়ের পণ্য নেই',
+    'home.dealsEmptyBody': 'এখন যাচাই করা কোনো ছাড়ের তথ্য নেই।',
+    'home.newTitle': 'সাম্প্রতিক যোগ হওয়া',
+    'home.newUnavailableTitle': 'তারিখ যাচাই করা যায়নি',
+    'home.newUnavailableBody':
+      'স্টোরফ্রন্ট কোনো নির্ভরযোগ্য যোগ হওয়ার তারিখ প্রকাশ করে না, তাই এই তালিকা দেখানো হচ্ছে না।',
+    'home.viewAll': 'সব দেখুন',
+
+    'catalog.title': 'সব পণ্য',
+    'catalog.count': '{count} টি পণ্য',
+    'catalog.filters': 'ফিল্টার',
+    'catalog.filterCategory': 'ক্যাটাগরি',
+    'catalog.filterBrand': 'ব্র্যান্ড',
+    'catalog.allCategories': 'সব ক্যাটাগরি',
+    'catalog.allBrands': 'সব ব্র্যান্ড',
+    'catalog.sort': 'সাজান',
+    'catalog.sortRelevance': 'ডিফল্ট',
+    'catalog.sortPriceAsc': 'দাম: কম থেকে বেশি',
+    'catalog.sortPriceDesc': 'দাম: বেশি থেকে কম',
+    'catalog.sortNameAsc': 'নাম: অ → হ',
+    'catalog.activeFilters': 'সক্রিয় ফিল্টার',
+    'catalog.clearFilters': 'ফিল্টার মুছুন',
+    'catalog.emptyTitle': 'কোনো পণ্য মেলেনি',
+    'catalog.emptyBody': 'ফিল্টার বদলে দেখুন অথবা সব পণ্য ব্রাউজ করুন।',
+
+    'product.addToCart': 'কার্টে যোগ করুন',
+    'product.added': 'কার্টে যোগ হয়েছে',
+    'product.buyNowNote': 'ডেমো — প্রকৃত অর্ডার তৈরি হয় না।',
+    'product.quantity': 'পরিমাণ',
+    'product.decrease': 'পরিমাণ কমান',
+    'product.increase': 'পরিমাণ বাড়ান',
+    'product.brand': 'ব্র্যান্ড',
+    'product.pack': 'সাইজ',
+    'product.details': 'পণ্যের তথ্য',
+    'product.noDescription': 'এই পণ্যের বিস্তারিত বিবরণ পাবলিক স্টোরফ্রন্টে প্রকাশ করা নেই।',
+    'product.related': 'সম্পর্কিত পণ্য',
+    'product.availabilityLabel': 'স্টক তথ্য',
+    'product.availability.in_stock': 'স্টোরফ্রন্ট অনুযায়ী স্টকে আছে',
+    'product.availability.out_of_stock': 'স্টকে নেই',
+    'product.availability.unknown': 'স্টক তথ্য যাচাই করা যায়নি',
+    'product.availabilityNote':
+      'স্টকের তথ্য {date} তারিখের প্রকাশিত অবস্থা — প্রকৃত লাইভ স্টক নয়।',
+    'product.sourceLabel': 'তথ্যের সূত্র',
+    'product.notFoundTitle': 'পণ্যটি পাওয়া যায়নি',
+    'product.notFoundBody': 'লিংকটি পুরোনো হতে পারে। সব পণ্য দেখুন।',
+    'product.save': 'সাশ্রয় {amount}',
+    'product.wasPrice': 'আগের দাম',
+    'product.imagePlaceholder': 'ছবির প্লেসহোল্ডার',
+
+    'cart.title': 'আপনার কার্ট',
+    'cart.emptyTitle': 'কার্ট খালি',
+    'cart.emptyBody': 'পণ্য যোগ করে শুরু করুন।',
+    'cart.continueShopping': 'শপিং চালিয়ে যান',
+    'cart.remove': 'সরান',
+    'cart.removeItem': '{name} সরান',
+    'cart.quantityFor': '{name} এর পরিমাণ',
+    'cart.itemCount': '{count} টি আইটেম',
+    'cart.subtotal': 'সাবটোটাল',
+    'cart.delivery': 'ডেলিভারি',
+    'cart.deliveryUnknown': 'চেকআউটে নির্ধারিত হবে',
+    'cart.total': 'সম্ভাব্য মোট',
+    'cart.totalNote': 'ডেমো হিসাব — প্রকৃত চার্জ নয়।',
+    'cart.checkout': 'ডেমো চেকআউট দেখুন',
+    'cart.clearCart': 'কার্ট খালি করুন',
+    'cart.updatedAnnouncement': 'কার্ট হালনাগাদ হয়েছে: {count} টি আইটেম',
+
+    'checkout.title': 'চেকআউট প্রিভিউ (ডেমো)',
+    'checkout.banner': 'এটি শুধু একটি প্রিভিউ। কোনো প্রকৃত অর্ডার তৈরি হয়নি এবং কোনো পেমেন্ট নেওয়া হয়নি।',
+    'checkout.demoOnly': 'ডেমো প্রিভিউ',
+    'checkout.summary': 'অর্ডার সারাংশ',
+    'checkout.noPaymentTitle': 'পেমেন্ট নেওয়া হয় না',
+    'checkout.noPaymentBody':
+      'এই ডেমোতে কার্ড, মোবাইল ব্যাংকিং বা অন্য কোনো পেমেন্ট তথ্য নেওয়া হয় না, সংরক্ষণ করা হয় না।',
+    'checkout.noOrderTitle': 'কোনো অর্ডার পাঠানো হয় না',
+    'checkout.noOrderBody':
+      'কোনো তথ্য মার্চেন্ট সিস্টেমে পাঠানো হয় না। প্রকৃত চেকআউট পরবর্তী অনুমোদিত ধাপে তৈরি হবে।',
+    'checkout.nextStepTitle': 'পরবর্তী ধাপ',
+    'checkout.nextStepBody':
+      'প্রকৃত চেকআউট, ডেলিভারি চার্জ ও পেমেন্ট যাচাই কার্যকর করতে মার্চেন্ট ব্যাকএন্ড সক্ষমতা অডিট প্রয়োজন।',
+    'checkout.backToCart': 'কার্টে ফিরে যান',
+    'checkout.continueShopping': 'শপিং চালিয়ে যান',
+
+    'footer.shop': 'শপ',
+    'footer.allProducts': 'সব পণ্য',
+    'footer.support': 'সহায়তা',
+    'footer.about': 'আমাদের সম্পর্কে',
+    'footer.contact': 'যোগাযোগ',
+    'footer.demoNote':
+      'এটি একটি ফ্রন্টএন্ড ডেমো। কোনো প্রকৃত অর্ডার বা পেমেন্ট প্রক্রিয়া এখানে যুক্ত নয়।',
+    'footer.catalogNote': 'ডেমো ক্যাটালগ তথ্য সংগ্রহ: {date}',
+    'footer.rights': 'এই সাইটের ডেমো কনটেন্ট শুধুমাত্র উপস্থাপনার জন্য।',
+
+    'error.genericTitle': 'কিছু একটা ভুল হয়েছে',
+    'error.genericBody': 'পাতাটি লোড করা যায়নি। আবার চেষ্টা করুন।',
+
+    'notFound.title': 'পাতা পাওয়া যায়নি',
+    'notFound.body': 'আপনি যে পাতাটি খুঁজছেন সেটি নেই।',
+    'notFound.home': 'হোমে ফিরে যান',
+
+    'validation.quantityInvalid': '১ থেকে {max} এর মধ্যে একটি সংখ্যা দিন।',
+  },
+  en: {
+    'common.brand': "QueenBee's",
+    'common.demoBadge': 'Demo',
+    'common.demoNotice':
+      'This is a demo storefront. No real order, payment or delivery is completed here.',
+    'common.skipToContent': 'Skip to main content',
+    'common.loading': 'Loading…',
+    'common.close': 'Close',
+    'common.retry': 'Try again',
+    'common.required': 'Required',
+    'common.optional': 'Optional',
+
+    'nav.home': 'Home',
+    'nav.shop': 'All products',
+    'nav.categories': 'Categories',
+    'nav.cart': 'Cart',
+    'nav.menu': 'Menu',
+    'nav.closeMenu': 'Close menu',
+    'nav.openMenu': 'Open menu',
+    'nav.language': 'Language',
+    'nav.switchToEnglish': 'Switch to English',
+    'nav.switchToBangla': 'Switch to Bangla',
+    'nav.currentLanguage': 'Current language: English',
+
+    'search.label': 'Search products',
+    'search.placeholder': 'Search by product name or brand',
+    'search.submit': 'Search',
+    'search.clear': 'Clear search',
+    'search.resultsFor': 'Results for “{query}”',
+    'search.noResultsTitle': 'No products found',
+    'search.noResultsBody': 'Try a different word or browse all products.',
+
+    'home.heroEyebrow': 'Cosmetics retailer in Bangladesh',
+    'home.heroTitle': 'Carefully chosen skincare and haircare',
+    'home.heroBody':
+      'Compare brand, pack size and price before you buy. This demo catalog is built from verified information published on the public storefront.',
+    'home.heroPrimary': 'Browse all products',
+    'home.heroSecondary': 'See categories',
+    'home.categoriesTitle': 'Categories',
+    'home.categoriesBody': 'Each category groups products for one kind of care.',
+    'home.featuredTitle': 'Featured products',
+    'home.featuredBody': 'Products selected for this demo — not a sales or popularity claim.',
+    'home.dealsTitle': 'On offer',
+    'home.dealsBody': 'Based on comparison prices published on the storefront.',
+    'home.dealsEmptyTitle': 'No discounted products',
+    'home.dealsEmptyBody': 'No verified discount information is available right now.',
+    'home.newTitle': 'Recently added',
+    'home.newUnavailableTitle': 'Dates not verifiable',
+    'home.newUnavailableBody':
+      'The storefront does not publish a reliable date-added field, so this list is not shown.',
+    'home.viewAll': 'View all',
+
+    'catalog.title': 'All products',
+    'catalog.count': '{count} products',
+    'catalog.filters': 'Filters',
+    'catalog.filterCategory': 'Category',
+    'catalog.filterBrand': 'Brand',
+    'catalog.allCategories': 'All categories',
+    'catalog.allBrands': 'All brands',
+    'catalog.sort': 'Sort',
+    'catalog.sortRelevance': 'Default',
+    'catalog.sortPriceAsc': 'Price: low to high',
+    'catalog.sortPriceDesc': 'Price: high to low',
+    'catalog.sortNameAsc': 'Name: A to Z',
+    'catalog.activeFilters': 'Active filters',
+    'catalog.clearFilters': 'Clear filters',
+    'catalog.emptyTitle': 'No products match',
+    'catalog.emptyBody': 'Adjust the filters or browse all products.',
+
+    'product.addToCart': 'Add to cart',
+    'product.added': 'Added to cart',
+    'product.buyNowNote': 'Demo — no real order is created.',
+    'product.quantity': 'Quantity',
+    'product.decrease': 'Decrease quantity',
+    'product.increase': 'Increase quantity',
+    'product.brand': 'Brand',
+    'product.pack': 'Size',
+    'product.details': 'Product information',
+    'product.noDescription':
+      'A detailed description for this product is not published on the public storefront.',
+    'product.related': 'Related products',
+    'product.availabilityLabel': 'Stock information',
+    'product.availability.in_stock': 'Published as in stock',
+    'product.availability.out_of_stock': 'Out of stock',
+    'product.availability.unknown': 'Stock not verified',
+    'product.availabilityNote':
+      'Stock reflects the published listing on {date} — not live inventory.',
+    'product.sourceLabel': 'Information source',
+    'product.notFoundTitle': 'Product not found',
+    'product.notFoundBody': 'The link may be out of date. Browse all products.',
+    'product.save': 'Save {amount}',
+    'product.wasPrice': 'Previous price',
+    'product.imagePlaceholder': 'Image placeholder',
+
+    'cart.title': 'Your cart',
+    'cart.emptyTitle': 'Your cart is empty',
+    'cart.emptyBody': 'Add a product to get started.',
+    'cart.continueShopping': 'Continue shopping',
+    'cart.remove': 'Remove',
+    'cart.removeItem': 'Remove {name}',
+    'cart.quantityFor': 'Quantity for {name}',
+    'cart.itemCount': '{count} items',
+    'cart.subtotal': 'Subtotal',
+    'cart.delivery': 'Delivery',
+    'cart.deliveryUnknown': 'Calculated at checkout',
+    'cart.total': 'Estimated total',
+    'cart.totalNote': 'Demo calculation — not a real charge.',
+    'cart.checkout': 'View demo checkout',
+    'cart.clearCart': 'Clear cart',
+    'cart.updatedAnnouncement': 'Cart updated: {count} items',
+
+    'checkout.title': 'Checkout preview (demo)',
+    'checkout.banner':
+      'This is a preview only. No real order was created and no payment was taken.',
+    'checkout.demoOnly': 'Demo preview',
+    'checkout.summary': 'Order summary',
+    'checkout.noPaymentTitle': 'No payment is taken',
+    'checkout.noPaymentBody':
+      'This demo does not request or store card, mobile banking or any other payment details.',
+    'checkout.noOrderTitle': 'No order is sent',
+    'checkout.noOrderBody':
+      'Nothing is submitted to the merchant system. A real checkout will be built in a later authorised phase.',
+    'checkout.nextStepTitle': 'Next step',
+    'checkout.nextStepBody':
+      'A merchant backend capability audit is required before real checkout, delivery charges and payment verification can be implemented.',
+    'checkout.backToCart': 'Back to cart',
+    'checkout.continueShopping': 'Continue shopping',
+
+    'footer.shop': 'Shop',
+    'footer.allProducts': 'All products',
+    'footer.support': 'Support',
+    'footer.about': 'About',
+    'footer.contact': 'Contact',
+    'footer.demoNote':
+      'This is a frontend demonstration. No real ordering or payment processing is connected.',
+    'footer.catalogNote': 'Demo catalog captured: {date}',
+    'footer.rights': 'Demo content on this site is for presentation only.',
+
+    'error.genericTitle': 'Something went wrong',
+    'error.genericBody': 'The page could not be loaded. Please try again.',
+
+    'notFound.title': 'Page not found',
+    'notFound.body': 'The page you are looking for does not exist.',
+    'notFound.home': 'Go to homepage',
+
+    'validation.quantityInvalid': 'Enter a number between 1 and {max}.',
+  },
+} as const;
+
+export type Dictionary = typeof dictionary.bn;
+export type TranslationKey = keyof Dictionary;
+export type DictionaryShape = Record<TranslationKey, string>;
+
+export function isTranslationKey(key: string): key is TranslationKey {
+  return Object.prototype.hasOwnProperty.call(dictionary.bn, key);
+}
+
+export function getDictionary(locale: Locale): DictionaryShape {
+  return dictionary[locale];
+}

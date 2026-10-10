@@ -1,0 +1,236 @@
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.inner {
+  max-width: var(--container);
+  margin: 0 auto;
+  min-height: var(--header-height);
+  padding: 0 var(--space-4);
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.brand img {
+  height: 32px;
+  width: auto;
+}
+
+.primaryNav {
+  display: none;
+}
+
+.search {
+  display: none;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  justify-content: flex-end;
+}
+
+.iconButton {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-ink);
+  cursor: pointer;
+  transition: background var(--transition-fast), border-color var(--transition-fast);
+}
+
+.iconButton:hover {
+  background: var(--color-surface-sunken);
+  border-color: var(--color-border);
+  color: var(--color-action);
+}
+
+.badge {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border-radius: var(--radius-pill);
+  background: var(--color-action);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 18px;
+  text-align: center;
+}
+
+.languageButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-ink);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.languageButton:hover {
+  border-color: var(--color-action);
+  color: var(--color-action);
+}
+
+.drawer {
+  border-top: 1px solid var(--color-border);
+  background: var(--color-surface);
+}
+
+.drawerInner {
+  max-width: var(--container);
+  margin: 0 auto;
+  padding: var(--space-4);
+  display: grid;
+  gap: var(--space-4);
+}
+
+.drawerSearch {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.drawerSearch input {
+  flex: 1;
+  min-height: 44px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-ink);
+  font: inherit;
+}
+
+.drawerSearch button {
+  min-height: 44px;
+  padding: 0 var(--space-4);
+  border: none;
+  border-radius: var(--radius-md);
+  background: var(--color-action);
+  color: #fff;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.drawerList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+}
+
+.drawerList a {
+  display: block;
+  padding: var(--space-3) var(--space-2);
+  border-bottom: 1px solid var(--color-border);
+  font-weight: 500;
+}
+
+@media (min-width: 720px) {
+  .inner {
+    grid-template-columns: auto auto 1fr auto;
+    padding: 0 var(--space-5);
+  }
+
+  .primaryNav {
+    display: block;
+  }
+
+  .navList {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    gap: var(--space-4);
+    align-items: center;
+  }
+
+  .navList a {
+    font-size: var(--text-sm);
+    font-weight: 550;
+    color: var(--color-ink-muted);
+    padding: var(--space-2) 0;
+    border-bottom: 2px solid transparent;
+  }
+
+  .navList a:hover {
+    color: var(--color-action);
+    border-bottom-color: var(--color-primary);
+  }
+
+  .search {
+    display: flex;
+    justify-self: end;
+    align-items: center;
+    gap: var(--space-2);
+    min-width: 220px;
+    max-width: 320px;
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-md);
+    padding: 0 var(--space-2) 0 var(--space-3);
+    background: var(--color-surface);
+  }
+
+  .search:focus-within {
+    border-color: var(--color-action);
+    outline: 2px solid var(--color-focus);
+    outline-offset: 1px;
+  }
+
+  .search input {
+    flex: 1;
+    border: none;
+    outline: none;
+    background: transparent;
+    min-height: 40px;
+    font: inherit;
+    color: var(--color-ink);
+    min-width: 0;
+  }
+
+  .search button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    border: none;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--color-action);
+    cursor: pointer;
+  }
+
+  .search button:hover {
+    background: var(--color-action-soft);
+  }
+}
+
+@media (min-width: 1024px) {
+  .iconButton:first-child {
+    display: none;
+  }
+}
