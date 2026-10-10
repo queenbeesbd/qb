@@ -16,6 +16,18 @@ const config = [
       '@next/next/no-img-element': 'off',
     },
   },
+  {
+    // Plain CommonJS Node scripts: `require` is the correct module system here,
+    // and they are not part of the app bundle.
+    files: ['**/*.cjs'],
+    languageOptions: {
+      sourceType: 'commonjs',
+      globals: { require: 'readonly', module: 'writable', process: 'readonly', console: 'readonly' },
+    },
+    rules: {
+      '@typescript-eslint/no-require-imports': 'off',
+    },
+  },
 ];
 
 export default config;
