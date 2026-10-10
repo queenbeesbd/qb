@@ -1,3 +1,6 @@
+# Pi harness state: managed by the tool, not application infrastructure
+.pi/
+
 node_modules/
 .next/
 out/
