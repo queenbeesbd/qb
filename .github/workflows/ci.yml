@@ -1,0 +1,110 @@
+name: CI
+
+# Runs the checks that gate a change. The database job provisions PostgreSQL as a service container
+# rather than using a cloud database, so CI needs no credentials and cannot reach a deployment.
+#
+# Deliberately absent: any deploy step, any secret, and any provider credential. Phase 11 is a local
+# foundation; deployment is a separate authorization.
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    name: Typecheck, lint and unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Catalog integrity
+        run: npm run check:catalog
+
+      - name: i18n integrity
+        run: npm run check:i18n
+
+      - name: Unit tests
+        run: npm run test
+
+      - name: Build
+        run: npm run build
+
+      - name: Secret and client-bundle check
+        run: npm run check:secrets
+
+  database:
+    name: Migrations and database constraints
+    runs-on: ubuntu-latest
+
+    # PostgreSQL as a throwaway service. The harness in scripts/local-pg.ts creates its own cluster,
+    # but this confirms the workflow also runs against a service-provided instance.
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: queenbees_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/queenbees_ci
+      QUEENBEES_ENV: test
+      QUEENBEES_ALLOW_REMOTE_TEST_DB: '0'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Migration files are consistent with the schema
+        run: npm run db:check
+
+      - name: Apply migrations from an empty database
+        run: npm run db:migrate
+
+      - name: Report migration status
+        run: npm run db:status
+
+      - name: Validate the live schema against the migrations
+        run: npm run db:validate
+
+      - name: Apply least-privilege grants (no-op without the app role)
+        run: npm run db:grants
+
+      # Re-running must be a no-op: migrations are idempotent and the guards are re-runnable.
+      - name: Migrations are idempotent
+        run: npm run db:migrate
+
+      - name: Database constraint and transaction tests
+        run: npm run test:db

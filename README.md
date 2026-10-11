@@ -128,7 +128,8 @@ public/catalog/         22 product image sets (local WebP + JPEG variants)
 - [Demo catalog provenance](docs/catalog.md)
 - [Merchant backend capability audit](docs/backend-capability-audit.md) (Phase 7 reference; not an integration target)
 - [Platform architecture](docs/platform-architecture.md)
-- [Data model and schema architecture](docs/data-model.md) (Phase 10 design; nothing implemented)
+- [Data model and schema architecture](docs/data-model.md)
+- [Database foundation and operations](docs/database.md) (Phase 11; implemented locally, not deployed)
 - [Admin dashboard scope](docs/admin-dashboard.md)
 - [Catalog migration plan](docs/migration-plan.md)
 - [Implementation plan](docs/implementation-plan.md)
@@ -156,7 +157,11 @@ Phases 0-8 are complete. The owner has approved an independent-platform directio
 
 Cost policy: keep initial costs as close to zero as reasonably possible, do not upgrade pre-emptively, and recheck provider pricing and plan terms before implementing or recommending an upgrade. The ~$15 and ~$20 figures are the owner's intended future budget, not guaranteed permanent prices.
 
-**Phase 10 is complete as a design.** [docs/data-model.md](docs/data-model.md) specifies 35 tables with their keys, constraints, indexes, retention rules and authorization boundaries, **eight separate state machines**, the transaction and concurrency design (including the atomic claim-allocation transaction and the 24-hour expiry sweep), the authorization matrix, the image-storage and upload architecture, the authentication architecture, and migration, rollback and operational safety. [docs/security.md](docs/security.md) carries the authorization matrix and a 16-part threat model.
+**Phase 11 is complete, locally.** The database foundation exists: a 39-table Drizzle schema, reviewed SQL migrations (a generated baseline plus a hand-written guards migration for append-only enforcement, order immutability, state-transition guards and the privileged-permission rule), a server-only typed data-access layer, strict environment validation, migration commands, least-privilege grants, and tests that exercise the schema constraints and the Phase 10 concurrency invariants against real PostgreSQL. See [database foundation](docs/database.md).
+
+**Nothing is deployed and no cloud resource exists** - no Neon project, branch, database or bucket, and no credential. Provisioning requires separate owner authorization.
+
+**Phase 10 was complete as a design.** [docs/data-model.md](docs/data-model.md) specifies 35 tables with their keys, constraints, indexes, retention rules and authorization boundaries, **eight separate state machines**, the transaction and concurrency design (including the atomic claim-allocation transaction and the 24-hour expiry sweep), the authorization matrix, the image-storage and upload architecture, the authentication architecture, and migration, rollback and operational safety. [docs/security.md](docs/security.md) carries the authorization matrix and a 16-part threat model.
 
 **Nothing is implemented.** No database, migration, dependency, environment change, credential, bucket or deployment exists. One acceptance criterion is deliberately unmet: the concurrency guarantees are **reasoned and structurally constrained but not executed**, because no database exists.
 

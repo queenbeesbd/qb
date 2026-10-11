@@ -303,15 +303,25 @@ These fix the **schema and transaction shape** and the **order state machine**, 
 - **Risks:** modelling variants too late (mitigated: the inventory ledger points at the stock-keeping unit from the start); money and bilingual conventions drifting from the storefront's existing rules (mitigated: integer poisha and paired `bn`/`en` columns are schema-level constraints); the customer-auth design being deferred and forced in later (mitigated: designed in section 15).
 - **Owner decisions:** **D17 (customer authentication provider) is newly raised and blocks implementation of checkout.** D10, D13-D16 remain open and do not block the design. **Out of scope, and not performed:** application code, migrations, dependency installation, environment or configuration changes, credential creation, provisioning, deployment, DNS, and any expiry job or automatic stock-release logic.
 
-### Phase 11 - independent backend foundation (unblocked; not started)
+### Phase 11 - independent backend foundation (complete - local only)
 
 - **Objective:** stand up the platform skeleton with no commerce behaviour yet.
-- **Deliverables:** application and database provisioned; migration tooling; typed data-access layer; configuration and secret handling; health checks; structured logging; CI running typecheck, lint and tests.
-- **Dependencies:** Phase 9 infrastructure approval; **Phase 10 schema, complete**. **Requires explicit owner authorization to begin**, and D14 (ORM/query layer) must be decided first because it selects the migration tool.
-- **Acceptance:** a clean environment can be provisioned from the repository alone; migrations apply and roll back; no secret is committed; CI is green.
-- **Verification gate:** provision-from-scratch rehearsal plus a passing migration rollback.
-- **Risks:** environment drift between local and deployed; underestimated provisioning cost.
-- **Owner decisions:** none, given Phase 9 approval. **Out of scope:** any storefront or admin UI, any provider integration.
+- **Status:** **complete, locally.** Implemented and verified against a disposable local PostgreSQL cluster. **Nothing is deployed and no cloud resource exists.**
+- **Decisions resolved to unblock it:** **D14** - Drizzle ORM + drizzle-kit, pinned to stable `0.45.x`; and the driver question it raised - **`@neondatabase/serverless` Pool over WebSockets** for the deployed runtime, because the D11 claim-allocation transaction is interactive and Neon's HTTP driver is documented as non-interactive only. Both recorded in **ADR 0007** as **D14** and **D18**. Migration `0001` establishes the full approved schema (owner decision, 2026-10-11).
+- **Deliverables produced:**
+  - **Schema:** all 39 approved tables in `src/db/schema/`, with 209 CHECK constraints, 13 partial unique indexes and 8 guard triggers.
+  - **Migrations:** `drizzle/0000_baseline_schema.sql` (generated, reviewed) and `drizzle/0001_guards_and_privileges.sql` (hand-written: append-only enforcement, order immutability, state-transition guards, the privileged-permission rule).
+  - **Typed data access:** `src/db/client.ts` is the only place a connection is created, and it is server-only. `withTransaction` provides the interactive transaction the design requires.
+  - **Configuration and secrets:** `src/server/env.ts` validates and fails safely, and throws if imported into a client bundle. `.env.example` carries placeholders only. `npm run check:secrets` scans tracked files and the built client bundle.
+  - **Migration commands:** `db:generate`, `db:check`, `db:status`, `db:migrate`, `db:validate`, `db:grants`.
+  - **Tests:** unit tests for configuration and schema integrity; integration tests exercising every constraint and the concurrency invariants against real PostgreSQL.
+  - **CI:** `.github/workflows/ci.yml` - checks job plus a database job using a PostgreSQL service container. No deploy step and no secret.
+  - **Documentation:** `docs/database.md`, plus ADR 0007.
+- **Dependencies:** Phase 10 schema (complete); owner authorization for local implementation (granted 2026-10-11).
+- **Acceptance:** a clean environment is reproducible from the repository alone; migrations apply from empty and re-apply idempotently; no secret is committed and the client bundle contains no server-only marker; the typed data-access layer is the only path to the database. **Met** - with one deliberate exception: **a rollback is not exercised**, because the chosen tooling generates no down-migrations and the documented strategy is forward-fix plus rehearsed restore. That is a documented limitation, not a passing check.
+- **Verification gate:** migrations applied from empty, schema validated against the migration files, every constraint and guard exercised, and the Phase 10 concurrency invariants - the oversell backstop, the one-active-claim bound, idempotent release and expiry exclusion - **executed against real PostgreSQL**, which is what converts Phase 10's unexecuted acceptance criterion A14 into evidence.
+- **Risks:** environment drift between local and deployed (unverified - no deployment exists); the driver's pooler semantics differ from local TCP; provisioning cost remains unmeasured.
+- **Owner decisions:** **D17 (customer authentication provider) still blocks implementation of checkout.** D10, D13, D15 and D16 remain open and do not block this phase. **Out of scope, and not performed:** provisioning, deployment, DNS, credential creation, any storefront or admin UI, any provider integration, and any commerce feature.
 
 ### Phase 12 - merchant authentication and admin shell (blocked on Phase 11)
 

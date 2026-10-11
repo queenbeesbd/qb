@@ -1,6 +1,6 @@
 # Verified project status
 
-Audit snapshot: 2026-10-11, updated after the Phase 10 architecture design. Source of truth: working tree and commit `d765cd4`; roadmap in `docs/implementation-plan.md`; direction in `docs/decisions/0004-independent-platform-direction.md`; schema and security design in `docs/data-model.md`; Phase 7 findings (now reference only) in `docs/backend-capability-audit.md`.
+Audit snapshot: 2026-10-11, updated after the Phase 11 backend foundation. Source of truth: working tree and commit `d765cd4`; roadmap in `docs/implementation-plan.md`; direction in `docs/decisions/0004-independent-platform-direction.md`; schema and security design in `docs/data-model.md`; Phase 7 findings (now reference only) in `docs/backend-capability-audit.md`.
 
 ## Repository and implementation
 
@@ -24,6 +24,7 @@ Audit snapshot: 2026-10-11, updated after the Phase 10 architecture design. Sour
 | 7 | Read-only merchant-backend audit; findings and limitations in `docs/backend-capability-audit.md`. | Authorization is spent. Findings are now reference material only, not an integration plan. |
 | 8 | Strategic reset: independent-platform direction approved; `docs/platform-architecture.md`, `docs/admin-dashboard.md` and `docs/migration-plan.md` produced; vendor-integration plan withdrawn; roadmap renumbered. | Documentation and planning only. No backend, database or dashboard scaffolded; no stack selected. |
 | 9 | Provider decision review: D1, D2, D3, D7, D8, D9, D11 and D12 approved and recorded in ADRs 0005-0006 and the register; `docs/payment-workflow.md` sections 13.1-13.10; `docs/admin-dashboard.md`. | Decisions and documentation only. **No resource provisioned, no account created, no code written.** |
+| 11 | **Backend foundation implemented locally.** 39-table Drizzle schema in `src/db/schema/`; reviewed SQL baseline plus a hand-written guards migration (append-only triggers, order immutability, state-transition guards, privileged-permission rule); server-only connection layer; strict environment validation; migration CLI; least-privilege grants; disposable local PostgreSQL harness; unit and database tests; CI workflow; `docs/database.md` and ADR 0007. | **Local only.** No cloud resource, no credential, no deployment. Migrations and constraints were verified against a disposable local cluster; rollback is forward-fix plus restore, not a reversed migration. |
 | 10 | **Data model and security architecture designed.** `docs/data-model.md` (baseline, 13 conventions, ER diagram, 35 tables with keys/constraints/indexes/retention/authorization, eight state machines, transaction and concurrency design, authorization matrix, image storage, authentication, migration and rollback) and `docs/security.md` (authorization matrix and 16-part threat model). Ten documentation contradictions corrected. | **Design only.** No application code, migration, dependency, configuration, credential or resource. The concurrency guarantees are **reasoned, not executed**. |
 
 ## Limitations and owner decisions
@@ -65,9 +66,13 @@ Supporting documents produced in Phase 8: `docs/platform-architecture.md` (archi
 
 ## Current phase and gate
 
-**Phase 10 is complete as a design.** The schema, the eight state machines, the transaction and concurrency design, the authorization matrix and the threat model are documented in `docs/data-model.md` and `docs/security.md`, and are internally consistent with the approved D9 and D11 rules. **Nothing is implemented:** no database, migration, dependency, configuration change, credential, bucket or deployment exists.
+**Phase 11 is complete, locally.** The database foundation exists: the 39-table schema, reviewed SQL migrations, a server-only typed data-access layer, strict environment validation, migration tooling, least-privilege grants and a test suite that exercises the schema constraints and the Phase 10 concurrency invariants against real PostgreSQL. `docs/database.md` documents the workflow and its limits.
 
-**Phase 11 (independent backend foundation) is unblocked but not started, and requires explicit owner authorization.** It is also the first phase that would create real resources, so authorization to provision is part of that decision.
+**Nothing is deployed and no cloud resource exists.** No Neon project, branch, database or object-storage bucket has been created; no credential has been generated; no DNS or production configuration has changed. Provisioning requires separate explicit owner authorization.
+
+**Phase 10 was complete as a design.** The schema, the eight state machines, the transaction and concurrency design, the authorization matrix and the threat model are documented in `docs/data-model.md` and `docs/security.md`, and are internally consistent with the approved D9 and D11 rules. **Nothing is implemented:** no database, migration, dependency, configuration change, credential, bucket or deployment exists.
+
+**Phase 12 (merchant authentication and admin shell) is next, and requires explicit owner authorization.** It is the first phase that would need a real deployment and real credentials, so provisioning authorization is part of that decision. **D17 (customer authentication provider) must be decided before any customer-facing authentication or checkout work.**
 
 **One acceptance criterion is deliberately unmet.** A14 in `docs/data-model.md` section 17.5 records that the concurrency guarantees are reasoned and structurally constrained but **have not been executed**, because no database exists. They must be proven by test during implementation.
 

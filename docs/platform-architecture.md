@@ -1,6 +1,6 @@
 # Independent platform architecture
 
-Status: 2026-10-11. Direction approved in `docs/decisions/0004-independent-platform-direction.md`; **D1, D2, D3, D7, D8, D9, D11 and D12 are owner-approved** (ADRs 0005 and 0006, and section 11). The remaining entries (D4, D5, D6, D10, D13-D17) are deferred with stated reasons. **Phase 10 designed the full relational schema, state machines and security architecture in `docs/data-model.md`**; none of the deferred entries blocks that design, and **D17 is the only one that blocks implementation of checkout**. This supersedes the "backend integration boundary" section previously in `docs/architecture.md`.
+Status: 2026-10-11. Direction approved in `docs/decisions/0004-independent-platform-direction.md`; **D1, D2, D3, D7, D8, D9, D11 and D12 are owner-approved** (ADRs 0005 and 0006, and section 11), and **D14 and D18 (the ORM/query layer and the database driver) are approved in ADR 0007**. The remaining entries (D4, D5, D6, D10, D13, D15, D16, D17) are deferred with stated reasons. **Phase 10 designed the full relational schema, state machines and security architecture in `docs/data-model.md`**; none of the deferred entries blocks that design, and **D17 is the only one that blocks implementation of checkout**. This supersedes the "backend integration boundary" section previously in `docs/architecture.md`.
 
 Companion documents: `docs/architecture.md` (implemented storefront boundaries), `docs/admin-dashboard.md` (dashboard scope and analytics), `docs/security.md` (controls), `docs/migration-plan.md` (data migration), `docs/implementation-plan.md` (roadmap).
 
@@ -419,10 +419,15 @@ Phase 9 has converted the proposals into owner decisions. **D1, D2, D3, D7, D8, 
 | D11 | Inventory reservation and release | **APPROVED.** Owner's rule: the **first submitted payment claim** gets the product, so a later claim preempts an earlier **unsubmitted** hold. Bound decided: **at most one active submitted claim per unit**. Invariants fixed: atomic allocation, no oversell, idempotent release, no preemption or release once a claim is submitted, returns restored only after inspection | **APPROVED** | Settled |
 | D12 | Checkout model | **Account required.** Guests may browse and build a cart; login or registration is required before placing an order, with the cart preserved and the customer returned to checkout | **APPROVED** | Settled |
 | D13 | Staff authentication | **First-party database sessions**, hashed credentials, httpOnly cookies | **Recommended, awaiting approval** | No (Phase 12) |
-| D14 | ORM / query layer | Evaluate Prisma vs Drizzle at Phase 11; both are conventional and reversible | **Deferred to Phase 11** | No |
+| D14 | ORM / query layer | **Drizzle ORM + drizzle-kit**, pinned to stable `0.45.x`; owned SQL migrations because the schema's safety is its partial unique indexes, CHECK constraints, triggers and grants. Prisma's larger ecosystem is a recorded trade-off | **APPROVED** (ADR 0007) | Settled |
 | D15 | Single app vs split storefront/admin | **Single Next.js app** with route groups initially | **Recommended, awaiting approval** | No |
 | D16 | Background jobs | Database-backed job table plus a scheduled task; no hosted queue until volume justifies it. The approved 24-hour expiry sweep is written to be scheduler-agnostic | **Recommended, awaiting approval** | No |
 | D17 | Customer authentication provider | **First-party database sessions** - adaptive password hashing, server-side sessions in httpOnly cookies, single-use recovery tokens, rate limiting. Schema designed in `docs/data-model.md` sections 4 and 15 | **Recommended, awaiting approval** | **Yes - blocks implementation of checkout, not the schema** |
+| D18 | Database driver | **`@neondatabase/serverless` `Pool` over WebSockets** for the deployed runtime, because the D11 claim-allocation transaction is interactive and Neon's HTTP driver is documented as non-interactive only. `pg` (node-postgres) locally and in tests. Selected behind one server-only module | **APPROVED** (ADR 0007) | Settled |
+
+### Database tooling (approved 2026-10-11, Phase 11)
+
+**D14** and **D18** are recorded in **[ADR 0007](decisions/0007-drizzle-and-database-driver.md)**: Drizzle ORM + drizzle-kit pinned to stable `0.45.x`, and `@neondatabase/serverless` Pool over WebSockets for the deployed runtime because the D11 claim-allocation transaction is interactive. Migration `0001` establishes the full approved schema. Implementation and operations are documented in `docs/database.md`.
 
 ### Cost policy (approved with D1 and D2)
 
@@ -454,7 +459,9 @@ Phase 9 has converted the proposals into owner decisions. **D1, D2, D3, D7, D8, 
 
 These fix the **schema and transaction shape** (expiry duration and allocation bound) and the **order state machine** (post-dispatch cancellation and COD), so Phase 10 can proceed.
 
-**Still open, but not blocking the Phase 10 design:** D5, D6, D10, D13, D14, D15, D16. These can be settled later without rework, because they do not change the schema or the transaction shape. **D17 (customer authentication provider) does not block the design but does block implementation of checkout**, because D12 requires accounts before ordering and no authentication exists today.
+**Resolved in Phase 11:** **D14** (Drizzle ORM + drizzle-kit) and **D18** (the WebSocket driver) are approved in **ADR 0007**, together with the decision that migration `0001` establishes the full approved schema.
+
+**Still open, but not blocking:** D5, D6, D10, D13, D15, D16. These can be settled later without rework, because they do not change the schema or the transaction shape. **D17 (customer authentication provider) does not block the schema but does block implementation of checkout**, because D12 requires accounts before ordering and no authentication exists today.
 
 ### Approved decisions (owner, 2026-10-11)
 

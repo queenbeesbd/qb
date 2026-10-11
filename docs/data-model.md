@@ -1509,8 +1509,15 @@ BEGIN;
   --    at most one ACTIVE SUBMITTED claim per allocated unit.
   --    The partial unique index on payment_claim(order_id) enforces it per order;
   --    this query enforces it across orders competing for the same variant.
+  --
+  --    Corrected in Phase 11 (mechanical, rule unchanged): the join is on order_id. An earlier
+  --    revision wrote "oi.id = c.order_item_id", but payment_claim has no order_item_id column -
+  --    section 8.2 defines a claim against the ORDER, not against a line, which is also what the
+  --    partial unique index above expresses and what section 17.4.1 assumes conservatively. Only
+  --    the join key was wrong; adding an order_item_id column would decide the unresolved
+  --    per-unit versus all-or-nothing question, so it is deliberately not added.
   SELECT count(*) FROM payment_claim c
-    JOIN order_item oi ON oi.id = c.order_item_id
+    JOIN order_item oi ON oi.order_id = c.order_id
    WHERE oi.variant_id = $vid
      AND c.state = 'submitted'
      AND c.order_id <> $orderId;
@@ -2220,9 +2227,16 @@ forbid.
 | Money | `payment_recipient`, `payment_claim`, `refund` |
 | Operations | `customer_notification`, `operational_exception`, `audit_event`, `idempotency_key`, `store_setting`, `customer_flag` |
 
-**35 tables.** Four are append-only by database grant: `inventory_movement`, `order_event`,
-`audit_event` and `import_record`'s provenance rows are write-once by policy. Every other table is
-written only through a state-guarded statement or a guarded update.
+**39 tables.** Three are append-only **by database grant**: `inventory_movement`, `order_event` and
+`audit_event`. `order_item` is frozen by a guard trigger rather than by a revoked grant, because an
+order line is a snapshot rather than a ledger. Every other table is written only through a
+state-guarded statement or a guarded update.
+
+**Correction (Phase 11).** Earlier revisions of this document said "35 tables" and listed four
+tables as append-only by grant. Both were counting errors in the summary prose, not in the design:
+the authoritative list in this section contains **39** tables, and section 16.4 already named the
+three grant-revoked tables correctly. Phase 11 implemented 39 tables and the three grants. No
+business rule changed.
 
 ---
 
