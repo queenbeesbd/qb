@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { products } from '@/data/catalog';
 import { getCategory } from '@/data/categories';
+import { DETAIL_SIZES, isPlaceholder } from '@/lib/images';
 import { discountAmount, discountPercent } from '@/lib/money';
 import { formatDate } from '@/lib/format';
 import { demoCatalogMeta } from '@/data/catalog';
@@ -12,6 +13,7 @@ import { useCart } from '@/features/cart/useCart';
 import { ProductCard } from '@/components/ProductCard';
 import { ProductGrid } from '@/components/ProductGrid';
 import { QuantityStepper } from '@/components/QuantityStepper';
+import { ProductPhoto } from '@/components/ProductPhoto';
 import { CheckIcon, InfoIcon } from '@/components/icons';
 import styles from '@/app/product.module.css';
 
@@ -61,22 +63,20 @@ export function ProductDetailView({ product }: { product: (typeof products)[numb
 
       <div className={styles.layout}>
         <div className={styles.media}>
-          {image ? (
-            <figure className={styles.figure}>
-              <img
-                src={image.localPath}
-                alt={pick(image.alt) ?? name}
-                width={720}
-                height={720}
-                decoding="async"
-              />
+          <figure className={styles.figure}>
+            <ProductPhoto
+              image={image}
+              alt={pick(image?.alt) ?? name}
+              sizes={DETAIL_SIZES}
+              priority
+              fallbackLabel={t('product.imagePlaceholder')}
+            />
+            {image && !isPlaceholder(image) && (
               <figcaption className={styles.figcaption}>
-                {t('product.imagePlaceholder')}
+                {t('product.imageSourceNote')}
               </figcaption>
-            </figure>
-          ) : (
-            <div className={styles.figureFallback}>{t('product.imagePlaceholder')}</div>
-          )}
+            )}
+          </figure>
         </div>
 
         <div className={styles.info}>

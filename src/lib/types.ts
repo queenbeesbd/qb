@@ -16,15 +16,31 @@ export type Money = number;
 
 export type Availability = 'in_stock' | 'out_of_stock' | 'unknown';
 
-export type ImageRights = 'pending_review' | 'placeholder';
+/**
+ * Image rights are recorded honestly rather than assumed.
+ *
+ * - `merchant_source_pending_confirmation`: the file was retrieved from the
+ *   retailer's own public product page and is used here for the retailer's own
+ *   storefront demo, but explicit written confirmation of redistribution
+ *   rights has NOT been received. See docs/catalog.md.
+ * - `placeholder`: locally generated abstract artwork, no third-party rights.
+ */
+export type ImageRights = 'merchant_source_pending_confirmation' | 'placeholder';
 
 export type ProductImage = {
-  /** Absolute source URL (public storefront) - never rendered directly. */
-  sourceUrl: string;
-  /** Locally generated, deterministic placeholder derived from sourceUrl. */
-  localPath: string;
+  /**
+   * Base key under `/catalog/<key>-<width>.<ext>`. Generated variants exist for
+   * every entry in `IMAGE_WIDTHS`, so a broken path is a build-time error.
+   */
+  key: string;
   alt: LocalizedText;
   rights: ImageRights;
+  /** Public product page the image was retrieved from (provenance). */
+  sourcePage: string;
+  /** Original asset URL as published. Recorded for provenance; never rendered. */
+  sourceAsset: string;
+  /** ISO date the image was retrieved from the public page. */
+  retrievedAt: string;
 };
 
 export type Product = {
@@ -78,4 +94,28 @@ export type Category = {
 export type CartLine = {
   productId: string;
   quantity: number;
+};
+
+/**
+ * Announcement strip configuration.
+ *
+ * Locally configured for the demo. A later authorised phase may populate this
+ * from the merchant backend; no API or admin surface exists today.
+ */
+export type AnnouncementVariant = 'demo' | 'info';
+
+export type Announcement = {
+  id: string;
+  enabled: boolean;
+  /**
+   * Both locales are required. A visible strip can therefore never fall back to
+   * an untranslated or empty message.
+   */
+  message: { bn: string; en: string };
+  variant: AnnouncementVariant;
+  /**
+   * A locked announcement is rendered even when `enabled` is false. This is how
+   * the demo warning survives ordinary configuration mistakes.
+   */
+  locked: boolean;
 };

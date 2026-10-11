@@ -11,8 +11,9 @@ export const dictionary = {
   bn: {
     'common.brand': 'QueenBee’s',
     'common.demoBadge': 'ডেমো',
-    'common.demoNotice':
-      'এটি একটি ডেমো স্টোরফ্রন্ট। কোনো প্রকৃত অর্ডার, পেমেন্ট বা ডেলিভারি এখানে সম্পন্ন হয় না।',
+    'announcement.regionLabel': 'ঘোষণা',
+    'announcement.badge.demo': 'ডেমো',
+    'announcement.badge.info': 'তথ্য',
     'common.skipToContent': 'মূল কনটেন্টে যান',
     'common.loading': 'লোড হচ্ছে…',
     'common.close': 'বন্ধ করুন',
@@ -59,6 +60,9 @@ export const dictionary = {
     'home.newUnavailableBody':
       'স্টোরফ্রন্ট কোনো নির্ভরযোগ্য যোগ হওয়ার তারিখ প্রকাশ করে না, তাই এই তালিকা দেখানো হচ্ছে না।',
     'home.viewAll': 'সব দেখুন',
+    'home.shelfPrevious': 'আগের পণ্যগুলো দেখুন',
+    'home.shelfNext': 'পরের পণ্যগুলো দেখুন',
+    'home.shelfLabel': 'নির্বাচিত পণ্যের তাক',
 
     'catalog.title': 'সব পণ্য',
     'catalog.count': '{count} টি পণ্য',
@@ -100,6 +104,7 @@ export const dictionary = {
     'product.save': 'সাশ্রয় {amount}',
     'product.wasPrice': 'আগের দাম',
     'product.imagePlaceholder': 'ছবির প্লেসহোল্ডার',
+    'product.imageSourceNote': 'ছবি: স্টোরফ্রন্টের পাবলিক পণ্য পেজ থেকে নেওয়া',
 
     'cart.title': 'আপনার কার্ট',
     'cart.emptyTitle': 'কার্ট খালি',
@@ -156,8 +161,9 @@ export const dictionary = {
   en: {
     'common.brand': "QueenBee's",
     'common.demoBadge': 'Demo',
-    'common.demoNotice':
-      'This is a demo storefront. No real order, payment or delivery is completed here.',
+    'announcement.regionLabel': 'Announcement',
+    'announcement.badge.demo': 'Demo',
+    'announcement.badge.info': 'Info',
     'common.skipToContent': 'Skip to main content',
     'common.loading': 'Loading…',
     'common.close': 'Close',
@@ -204,6 +210,9 @@ export const dictionary = {
     'home.newUnavailableBody':
       'The storefront does not publish a reliable date-added field, so this list is not shown.',
     'home.viewAll': 'View all',
+    'home.shelfPrevious': 'Show previous products',
+    'home.shelfNext': 'Show next products',
+    'home.shelfLabel': 'Featured products shelf',
 
     'catalog.title': 'All products',
     'catalog.count': '{count} products',
@@ -246,6 +255,7 @@ export const dictionary = {
     'product.save': 'Save {amount}',
     'product.wasPrice': 'Previous price',
     'product.imagePlaceholder': 'Image placeholder',
+    'product.imageSourceNote': "Photo: taken from the storefront's public product page",
 
     'cart.title': 'Your cart',
     'cart.emptyTitle': 'Your cart is empty',

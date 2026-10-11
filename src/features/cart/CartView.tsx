@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useTranslation } from '@/i18n/useTranslation';
 import { useCart } from './useCart';
 import { QuantityStepper } from '@/components/QuantityStepper';
+import { ProductPhoto } from '@/components/ProductPhoto';
 import { TrashIcon } from '@/components/icons';
 import styles from '@/app/cart.module.css';
 
@@ -51,13 +52,11 @@ export function CartView() {
                   tabIndex={-1}
                   aria-hidden="true"
                 >
-                  <img
-                    className={styles.thumb}
-                    src={entry.product.images[0]?.localPath}
+                  <ProductPhoto
+                    image={entry.product.images[0]}
                     alt=""
-                    width={120}
-                    height={120}
-                    loading="lazy"
+                    sizes="88px"
+                    className={styles.thumb}
                   />
                 </Link>
 

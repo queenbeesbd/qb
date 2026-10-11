@@ -1,0 +1,54 @@
+.bar {
+  background: var(--color-action-soft);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.bar[data-variant='info'],
+.item[data-variant='info'] {
+  background: var(--color-accent-soft);
+}
+
+.inner {
+  max-width: var(--container);
+  margin: 0 auto;
+  padding: var(--space-2) var(--space-4);
+  display: grid;
+  gap: var(--space-2);
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin: 0;
+  /* Small but comfortably readable; Bangla line-height comes from the locale rule. */
+  font-size: var(--text-sm);
+  line-height: 1.5;
+  color: var(--color-ink);
+  /* Long messages wrap rather than forcing horizontal overflow. */
+  flex-wrap: wrap;
+  overflow-wrap: anywhere;
+}
+
+.badge {
+  flex: none;
+  background: var(--color-action);
+  color: #fff;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.message {
+  min-width: 0;
+}
+
+@media (min-width: 720px) {
+  .inner {
+    padding: var(--space-2) var(--space-5);
+  }
+}

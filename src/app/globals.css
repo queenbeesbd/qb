@@ -124,9 +124,22 @@ h2,
 h3,
 h4 {
   margin: 0;
-  font-weight: 650;
+  font-weight: 600;
   line-height: var(--leading-tight);
   letter-spacing: -0.01em;
+}
+
+/**
+ * Negative tracking is a Latin typographic device. Applied to Bengali it
+ * distorts conjunct clusters and ligatures, so it is explicitly reset. See
+ * AGENTS.md and docs/design-system.md.
+ */
+html[lang='bn'] h1,
+html[lang='bn'] h2,
+html[lang='bn'] h3,
+html[lang='bn'] h4,
+html[lang='bn'] .ui-label {
+  letter-spacing: normal;
 }
 
 h1 {

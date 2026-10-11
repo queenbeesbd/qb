@@ -1,12 +1,12 @@
 # QueenBee's storefront (demo)
 
-A bilingual (Bangla/English) cosmetics storefront for QueenBee's, a Bangladeshi cosmetics retailer. Built as a **client-ready frontend demonstration**: the shopping experience is complete and interactive, but no order, payment or delivery is real.
+A bilingual (Bangla/English) cosmetics storefront for QueenBee's, a Bangladeshi cosmetics retailer. Built as a **client-ready frontend demonstration**: the shopping experience is complete and interactive, with authentic product photography, but no order, payment or delivery is real.
 
 - Public catalog source: https://queenbees.sellbd.shop/
 - Functional reference (patterns only, no assets copied): https://ghorerbazar.com/
 - Merchant backend: https://merchant.zatiqeasy.com/ - **not accessed, not integrated**
 
-> **This is a demonstration.** Checkout is a preview with no form, no payment fields and no submit path. No data leaves the browser. See [Known limitations](#known-limitations).
+> **This is a demonstration.** A locked announcement strip says so on every route. Checkout is a preview with no form, no payment fields and no submit path. No data leaves the browser. See [Known limitations](#known-limitations).
 
 ## Stack
 
@@ -17,10 +17,12 @@ A bilingual (Bangla/English) cosmetics storefront for QueenBee's, a Bangladeshi 
 | Runtime | Node >= 20.9.0 (verified on Node 26.11.1) |
 | Package manager | npm 12.2.0, lockfile committed |
 | Styling | CSS Modules + CSS custom-property tokens |
-| Rendering | Server Components by default; Client Components only for cart, locale, filters, drawer |
+| Rendering | Server Components by default; Client Components only for cart, locale, filters, drawer, shelf |
 | Data | Local typed fixtures in `src/data/` (no API calls at runtime) |
+| Imagery | 16 authentic product photos served locally as WebP + JPEG at 3:4, two widths |
 | i18n | Central typed dictionaries, `useSyncExternalStore` locale store |
-| Tests | Zero-dependency integrity scripts + a CDP-driven Chromium smoke suite |
+| Fonts | Inter (Latin, variable) + Noto Sans Bengali, self-hosted via `next/font`; weights limited to 400/500/600/700 |
+| Tests | Zero-dependency integrity scripts + a CDP-driven Chromium suite (41 checks) |
 
 No database, ORM, auth provider, CMS, state-management library, UI component library or animation library is used. See [ADR 0001](docs/decisions/0001-nextjs-typescript-foundation.md).
 
@@ -47,9 +49,9 @@ npm run start        # http://localhost:3000
 | `npm run start` | Serve the production build |
 | `npm run lint` | ESLint (Next core-web-vitals + TypeScript rules) |
 | `npm run typecheck` | `tsc --noEmit` |
-| `npm run check:catalog` | Catalog integrity: ids, slugs, prices, categories, local image files |
+| `npm run check:catalog` | Content integrity: ids, slugs, prices, categories, image files, provenance, locked demo warning |
 | `npm run check:i18n` | Bangla/English key parity and placeholder-token equality |
-| `npm run verify:browser` | 31-check Chromium journey suite (requires a running server) |
+| `npm run verify:browser` | 41-check Chromium journey suite (requires a running server) |
 
 Browser suite usage:
 
@@ -65,7 +67,7 @@ It drives a local Chromium over the DevTools Protocol using only Node built-ins 
 
 | Route | Rendering | Notes |
 | --- | --- | --- |
-| `/` | Static | Hero, categories, featured, verified offers, explicit "recently added" gap notice |
+| `/` | Static | Hero with product composition, categories, two-row featured shelf, verified offers, explicit "recently added" gap notice |
 | `/products` | Server-rendered | Search, category/brand filter, sort; all state in the query string |
 | `/categories/[slug]` | Server-rendered | Five reviewed categories |
 | `/products/[slug]` | Prerendered (16) | Gallery placeholder, price hierarchy, quantity, add to cart, related products |
@@ -100,7 +102,9 @@ public/catalog/         16 generated placeholder product images
 ## Known limitations
 
 - **Checkout is simulated.** No order, payment, address or customer data is collected, transmitted or stored.
-- **Product photography is not included.** The merchant's images are not redistributed; every product uses a clearly labelled local placeholder pending rights review. See [docs/catalog.md](docs/catalog.md).
+- **Photography rights are not confirmed in writing.** The 16 images were retrieved from the merchant's own public product pages for this same merchant's demo, and are tagged `merchant_source_pending_confirmation`. Public availability is not a licence. See [docs/catalog.md](docs/catalog.md).
+- **The merchant's photography is lifestyle-style, not studio packshots** - mixed backgrounds (banana leaf, outdoors, white fur), gloved hands, and occasional watermarks. Normalised with a uniform 3:4 crop and a neutral surface; not hidden.
+- **Placeholder fallbacks remain available** for any product without verified, permitted imagery.
 - **No "recently added" list.** The public storefront publishes no reliable date-added field, so the homepage states that instead of inventing one.
 - **No product descriptions.** The public pages publish none; the product page says so rather than generating copy.
 - **Bangla product names are transliterations** prepared for this demo and require native review.

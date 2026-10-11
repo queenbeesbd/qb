@@ -1,0 +1,26 @@
+/* The <picture> wrapper fills its grid/flex cell so the intrinsic aspect
+   ratio governs height without any fixed-height text container. */
+.picture {
+  display: block;
+}
+
+.img {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 3 / 4;
+  object-fit: cover;
+  background: var(--color-surface-sunken);
+}
+
+.fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 3 / 4;
+  padding: var(--space-4);
+  text-align: center;
+  color: var(--color-ink-subtle);
+  font-size: var(--text-xs);
+  background: var(--color-surface-sunken);
+}

@@ -370,8 +370,166 @@ async function main() {
     const skipActivation = await evaluate(client, `(() => { const a = document.querySelector('a.skip-link'); a.focus(); a.click(); return { hash: location.hash, mainFocused: document.activeElement?.id === 'main-content' }; })()`);
     record('23. skip link is reachable by Tab, becomes visible and targets main content', skip.isSkip && skip.focusMatches && parseFloat(skip.top) >= 0 && skipActivation.hash === '#main-content' && skipActivation.mainFocused, { skip, skipActivation });
 
-    // 24 - no console errors
-    record('24. no console errors or uncaught exceptions across all journeys', consoleErrors.length === 0, consoleErrors.slice(0, 5));
+    // 24 - announcement strip: present, readable, localized, above the header
+    await client.send('Emulation.clearDeviceMetricsOverride');
+    await evaluate(client, `localStorage.setItem('queenbees.locale.v1', 'bn')`);
+    await nav(client, '/');
+    const barBn = await evaluate(client, `(() => {
+      const bar = document.querySelector('main')?.parentElement?.querySelector('aside');
+      const header = document.querySelector('header');
+      const msg = bar ? bar.innerText.replace(/\\s+/g, ' ').trim() : '';
+      const cs = bar ? getComputedStyle(bar) : null;
+      const item = bar ? bar.querySelector('p') : null;
+      const fontSize = item ? parseFloat(getComputedStyle(item).fontSize) : null;
+      const headerSize = header ? parseFloat(getComputedStyle(header.querySelector('nav a')).fontSize) : null;
+      return {
+        present: !!bar,
+        aboveHeader: bar && header ? bar.getBoundingClientRect().bottom <= header.getBoundingClientRect().top + 1 : false,
+        bangla: /[\u0980-\u09FF]/.test(msg),
+        mentionsPreview: /প্রিভিউ/.test(msg),
+        mentionsNoOrder: /অর্ডার/.test(msg) && /পেমেন্ট/.test(msg),
+        fontSize,
+        headerSize,
+        subordinate: fontSize !== null && headerSize !== null ? fontSize <= headerSize + 1 : false,
+        height: bar ? Math.round(bar.getBoundingClientRect().height) : null,
+        role: bar ? bar.tagName : null,
+      };
+    })()`);
+    record('24. announcement strip present in Bangla, above header, mentions no real orders/payments', barBn.present && barBn.aboveHeader && barBn.bangla && barBn.mentionsPreview && barBn.mentionsNoOrder, barBn);
+
+    // 25 - announcement strip in English and mobile fit
+    await evaluate(client, `localStorage.setItem('queenbees.locale.v1', 'en')`);
+    await nav(client, '/');
+    const barEn = await evaluate(client, `(() => {
+      const bar = document.querySelector('main')?.parentElement?.querySelector('aside');
+      const msg = bar ? bar.innerText.replace(/\\s+/g, ' ').trim() : '';
+      return { present: !!bar, english: /preview/i.test(msg) && /orders/i.test(msg) && /payments/i.test(msg), noBangla: !/[\u0980-\u09FF]/.test(msg), text: msg.slice(0, 90) };
+    })()`);
+    record('25. announcement strip switches to English copy', barEn.present && barEn.english && barEn.noBangla, barEn);
+
+    await client.send('Emulation.setDeviceMetricsOverride', { width: 320, height: 720, deviceScaleFactor: 1, mobile: true });
+    await nav(client, '/');
+    const barMobile = await evaluate(client, `(() => {
+      const bar = document.querySelector('main')?.parentElement?.querySelector('aside');
+      const item = bar ? bar.querySelector('p') : null;
+      return {
+        overflow: document.documentElement.scrollWidth - window.innerWidth,
+        wraps: item ? item.getBoundingClientRect().height : null,
+        visible: bar ? bar.getBoundingClientRect().height > 0 : false,
+      };
+    })()`);
+    record('25b. announcement strip readable at 320px with no horizontal overflow', barMobile.visible && barMobile.overflow <= 1, barMobile);
+    await client.send('Emulation.clearDeviceMetricsOverride');
+
+    // 26 - authentic product imagery on cards and detail
+    await nav(client, '/products');
+    const imagery = await evaluate(client, `(() => {
+      const imgs = [...document.querySelectorAll('main article picture img')];
+      const loaded = imgs.filter((i) => i.complete && i.naturalWidth > 0);
+      const webp = [...document.querySelectorAll('main article picture source[type="image/webp"]')];
+      const ratios = [...new Set(imgs.map((i) => (i.getAttribute('width') + 'x' + i.getAttribute('height'))))];
+      const altTexts = imgs.map((i) => i.getAttribute('alt'));
+      return {
+        total: imgs.length,
+        loaded: loaded.length,
+        webpSources: webp.length,
+        ratios,
+        localOnly: imgs.every((i) => (i.currentSrc || i.src).startsWith('http://127.0.0.1') || (i.currentSrc || i.src).startsWith('/')),
+        anyRemoteHost: imgs.some((i) => /zatiqeasy|ghorerbazar/.test(i.currentSrc || i.src)),
+        decoded3x4: imgs.length > 0 && imgs.every((i) => Math.abs(i.naturalWidth / i.naturalHeight - 0.75) < 0.02),
+      };
+    })()`);
+    record('26. product cards use local WebP imagery at 3:4 with no remote host', imagery.total === 16 && imagery.loaded === 16 && imagery.webpSources === 16 && imagery.localOnly && !imagery.anyRemoteHost && imagery.decoded3x4, imagery);
+
+    await nav(client, '/products/oriox-tinted-lipbalm-strawberry');
+    const detailImg = await evaluate(client, `(() => {
+      const img = document.querySelector('main picture img');
+      const caption = document.querySelector('main figure figcaption');
+      return {
+        loaded: !!img && img.complete && img.naturalWidth > 0,
+        eager: img ? img.getAttribute('loading') === 'eager' : false,
+        alt: img ? (img.getAttribute('alt') || '').trim() : null,
+        caption: caption ? caption.innerText.trim() : null,
+        ratio: img ? Number((img.naturalWidth / img.naturalHeight).toFixed(3)) : null,
+      };
+    })()`);
+    record('26b. detail photo loads eagerly with descriptive alt and source note', detailImg.loaded && detailImg.eager && (detailImg.alt || '').length > 3 && !!detailImg.caption && detailImg.ratio === 0.75, detailImg);
+
+    // 27 - featured shelf: two rows, bounded controls, group advance
+    await nav(client, '/');
+    const shelfStart = await evaluate(client, `(() => {
+      const s = document.querySelector('[role="group"][aria-label]');
+      if (!s) return { error: 'no shelf' };
+      const cards = [...s.children];
+      const tops = [...new Set(cards.map((c) => Math.round(c.getBoundingClientRect().top)))];
+      const wrap = s.parentElement;
+      const btns = [...wrap.querySelectorAll(':scope > div > button')];
+      return {
+        cards: cards.length,
+        rows: tops.length,
+        overflow: Math.round(s.scrollWidth - s.clientWidth),
+        pageOverflow: document.documentElement.scrollWidth - window.innerWidth,
+        controls: btns.length,
+        labels: btns.map((b) => b.getAttribute('aria-label')),
+        prevDisabled: btns[0] ? btns[0].disabled : null,
+        nextDisabled: btns[1] ? btns[1].disabled : null,
+        scrollLeft: Math.round(s.scrollLeft),
+        focusable: (() => { s.focus(); return document.activeElement === s; })(),
+      };
+    })()`);
+    record('27. featured shelf shows two rows with bounded group controls', shelfStart.rows === 2 && shelfStart.cards === 10 && shelfStart.overflow > 0 && shelfStart.pageOverflow <= 1 && shelfStart.controls === 2 && shelfStart.prevDisabled === true && shelfStart.nextDisabled === false && shelfStart.focusable, shelfStart);
+
+    await evaluate(client, `(() => { const s = document.querySelector('[role="group"][aria-label]'); const b = [...s.parentElement.querySelectorAll(':scope > div > button')]; b[1].click(); return true; })()`);
+    await sleep(900);
+    const shelfAdvanced = await evaluate(client, `(() => {
+      const s = document.querySelector('[role="group"][aria-label]');
+      const b = [...s.parentElement.querySelectorAll(':scope > div > button')];
+      const cards = [...s.children];
+      const tops = [...new Set(cards.map((c) => Math.round(c.getBoundingClientRect().top)))];
+      return { scrollLeft: Math.round(s.scrollLeft), rows: tops.length, prevDisabled: b[0].disabled, nextDisabled: b[1].disabled };
+    })()`);
+    record('27b. advancing moves both rows together and updates control states', shelfAdvanced.scrollLeft > 0 && shelfAdvanced.rows === 2 && shelfAdvanced.prevDisabled === false && shelfAdvanced.nextDisabled === true, shelfAdvanced);
+
+    // 28 - hero has a purposeful product composition
+    const hero = await evaluate(client, `(() => {
+      const heroSection = document.querySelector('main section');
+      const photos = [...heroSection.querySelectorAll('picture img')];
+      const copy = heroSection.querySelector('div');
+      const cs = getComputedStyle(document.querySelector('h1'));
+      return {
+        heroPhotos: photos.length,
+        photosLoaded: photos.filter((i) => i.complete && i.naturalWidth > 0).length,
+        hasHeading: !!heroSection.querySelector('h1'),
+        hasPrimaryCta: !!heroSection.querySelector('a[href="/products"]'),
+        h1Weight: cs.fontWeight,
+        h1Tracking: cs.letterSpacing,
+        lang: document.documentElement.lang,
+      };
+    })()`);
+    record('28. hero composes real product photos alongside the copy and CTAs', hero.heroPhotos === 3 && hero.photosLoaded === 3 && hero.hasHeading && hero.hasPrimaryCta, hero);
+
+    // 29 - Bangla headings carry no negative tracking and use a shared weight
+    await evaluate(client, `localStorage.setItem('queenbees.locale.v1', 'bn')`);
+    await nav(client, '/');
+    const bnType = await evaluate(client, `(() => {
+      const h1 = document.querySelector('h1');
+      const h2 = document.querySelector('h2');
+      const cs = getComputedStyle(h1);
+      return { weight: cs.fontWeight, tracking: cs.letterSpacing, h2Weight: getComputedStyle(h2).fontWeight, lang: document.documentElement.lang };
+    })()`);
+    record('29. Bangla headings use no negative tracking and a shared weight', bnType.lang === 'bn' && (bnType.tracking === 'normal' || parseFloat(bnType.tracking) >= 0) && bnType.weight === bnType.h2Weight, bnType);
+
+    await evaluate(client, `localStorage.setItem('queenbees.locale.v1', 'en')`);
+    await nav(client, '/');
+    const enType = await evaluate(client, `(() => {
+      const h1 = document.querySelector('h1');
+      const h2 = document.querySelector('h2');
+      return { weight: getComputedStyle(h1).fontWeight, h2Weight: getComputedStyle(h2).fontWeight, lang: document.documentElement.lang };
+    })()`);
+    record('29b. English headings use the same weight as Bangla', enType.lang === 'en' && enType.weight === enType.h2Weight && enType.weight === bnType.weight, { en: enType, bn: bnType });
+
+    // 30 - no console errors
+    record('30. no console errors or uncaught exceptions across all journeys', consoleErrors.length === 0, consoleErrors.slice(0, 5));
   } catch (error) {
     record('browser suite completed', false, String(error && error.message));
   } finally {

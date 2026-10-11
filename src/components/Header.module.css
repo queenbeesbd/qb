@@ -170,7 +170,7 @@
 
   .navList a {
     font-size: var(--text-sm);
-    font-weight: 550;
+    font-weight: 500;
     color: var(--color-ink-muted);
     padding: var(--space-2) 0;
     border-bottom: 2px solid transparent;

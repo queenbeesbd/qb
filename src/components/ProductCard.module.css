@@ -19,20 +19,11 @@
   background: var(--color-surface-sunken);
 }
 
-.image {
+/* Product photography is 3:4 portrait; the shared ProductPhoto component
+   owns the aspect ratio and responsive sources. */
+.photo {
+  display: block;
   width: 100%;
-  height: auto;
-  aspect-ratio: 1 / 1;
-  object-fit: cover;
-}
-
-.imageFallback {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  aspect-ratio: 1 / 1;
-  color: var(--color-ink-subtle);
-  font-size: var(--text-xs);
 }
 
 .body {

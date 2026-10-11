@@ -1,9 +1,11 @@
 'use client';
 
 import Link from 'next/link';
+import { CARD_SIZES } from '@/lib/images';
 import { discountAmount, discountPercent } from '@/lib/money';
 import { useTranslation } from '@/i18n/useTranslation';
 import type { Product } from '@/lib/types';
+import { ProductPhoto } from './ProductPhoto';
 import styles from './ProductCard.module.css';
 
 /**
@@ -20,19 +22,13 @@ export function ProductCard({ product }: { product: Product }) {
   return (
     <article className={styles.card}>
       <Link href={`/products/${product.slug}`} className={styles.imageLink} tabIndex={-1} aria-hidden="true">
-        {image ? (
-          <img
-            className={styles.image}
-            src={image.localPath}
-            alt=""
-            width={360}
-            height={360}
-            loading="lazy"
-            decoding="async"
-          />
-        ) : (
-          <span className={styles.imageFallback}>{t('product.imagePlaceholder')}</span>
-        )}
+        <ProductPhoto
+          image={image}
+          alt=""
+          sizes={CARD_SIZES}
+          className={styles.photo}
+          fallbackLabel={t('product.imagePlaceholder')}
+        />
       </Link>
 
       <div className={styles.body}>

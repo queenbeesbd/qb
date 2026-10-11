@@ -9,7 +9,20 @@ import { useTranslation } from '@/i18n/useTranslation';
 import { CategoryIcon, InfoIcon } from '@/components/icons';
 import { ProductCard } from '@/components/ProductCard';
 import { ProductGrid } from '@/components/ProductGrid';
+import { ProductPhoto } from '@/components/ProductPhoto';
+import { FeaturedShelf } from './FeaturedShelf';
 import styles from '@/app/home.module.css';
+
+/**
+ * Products shown in the hero composition. These are real catalog records whose
+ * photography is verified and whose reuse status is recorded, so the hero is
+ * never padded with unrelated or decorative imagery.
+ */
+const HERO_SLUGS = [
+  'lilac-5-niacinamide-serum-30-ml',
+  'mamaearth-beetroot-hydraful-face-wash-100ml',
+  'earth-beauty-hydrasilk-conditioner-with-argan-oil-keratin-350-ml',
+] as const;
 
 /**
  * Homepage composition. Sections are limited to those the verified data can
@@ -28,6 +41,9 @@ export function HomeView() {
     );
 
   const featured = products.filter((product) => product.featured);
+  const heroProducts = HERO_SLUGS.map((slug) =>
+    products.find((product) => product.slug === slug),
+  ).filter((product): product is (typeof products)[number] => Boolean(product));
   const hasDatedProducts = products.some((product) => product.addedAt !== null);
 
   return (
@@ -48,19 +64,34 @@ export function HomeView() {
             </a>
           </div>
         </div>
-        <div className={styles.heroAside} aria-hidden="true">
-          <span className={styles.heroMark}>
-            <svg viewBox="0 0 120 120" width="120" height="120">
-              <circle cx="60" cy="60" r="56" fill="var(--color-accent-soft)" />
-              <path
-                d="M60 22c9.4 0 17.1 6.4 19.6 15h12.7l-8.8 9 8.8 9H79.6a20.4 20.4 0 0 1-39.2 0H27.7l8.8-9-8.8-9h12.7C42.9 28.4 50.6 22 60 22Z"
-                fill="var(--color-action)"
-              />
-              <path d="M41 51h38a20.4 20.4 0 0 1-19 14 20.4 20.4 0 0 1-19-14Z" fill="var(--color-secondary)" />
-              <path d="M49.5 68h21L60 92Z" fill="var(--color-action)" />
-            </svg>
-          </span>
-        </div>
+
+        {heroProducts.length > 0 && (
+          <div className={styles.heroCollage}>
+            <ul className={styles.collageList}>
+              {heroProducts.map((product, index) => (
+                <li
+                  key={product.id}
+                  className={styles.collageItem}
+                  data-position={index === 0 ? 'lead' : index === 1 ? 'second' : 'third'}
+                >
+                  <Link
+                    href={`/products/${product.slug}`}
+                    className={styles.collageLink}
+                    aria-label={pick(product.name) ?? product.slug}
+                  >
+                    <ProductPhoto
+                      image={product.images[0]}
+                      alt={pick(product.name) ?? product.slug}
+                      sizes="(max-width: 719px) 30vw, 220px"
+                      priority={index === 0}
+                      className={styles.collagePhoto}
+                    />
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
       </section>
 
       <section className={styles.section} aria-labelledby="categories-title" id="categories">
@@ -100,11 +131,7 @@ export function HomeView() {
             {t('home.viewAll')}
           </Link>
         </header>
-        <ProductGrid>
-          {featured.map((product) => (
-            <ProductCard key={product.id} product={product} />
-          ))}
-        </ProductGrid>
+        <FeaturedShelf products={featured} />
       </section>
 
       <section className={styles.section} aria-labelledby="deals-title">

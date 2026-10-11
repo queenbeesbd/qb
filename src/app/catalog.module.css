@@ -102,7 +102,7 @@
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--color-ink-muted);
-  font-weight: 650;
+  font-weight: 600;
   margin-bottom: var(--space-3);
   padding: 0;
 }

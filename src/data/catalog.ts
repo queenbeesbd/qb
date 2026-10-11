@@ -1,16 +1,102 @@
-import type { LocalizedText, Product } from '@/lib/types';
+import type { LocalizedText, Product, ProductImage } from '@/lib/types';
 
 const CAPTURED_AT = '2026-10-11';
-const RIGHTS_PENDING = 'pending_review' as const;
+const RETRIEVED_AT = '2026-10-11';
 
 /**
- * Deterministic local placeholder. Product photography from the public
- * storefront is NOT redistributed by this demo pending image rights review, so
- * every record points at a generated placeholder file instead of a remote URL.
+ * Rights status for the authentic product photography used by this demo.
+ * Retrieved from the retailer's own public product pages for the retailer's own
+ * storefront demo, but NOT yet confirmed in writing. See docs/catalog.md.
  */
-function placeholder(id: string): string {
-  return `/catalog/${id}.svg`;
-}
+const RIGHTS_MERCHANT = 'merchant_source_pending_confirmation' as const;
+
+/**
+ * Verified image provenance. Every asset URL and page below was read from the
+ * public product page on RETRIEVED_AT. Images are stored locally rather than
+ * hotlinked so the demo cannot break when the merchant CDN changes.
+ */
+const IMAGE_PROVENANCE: Record<string, { primary: string; gallery: string | null; page: string }> = {
+  'lilac-5-niacinamide-serum-30-ml': {
+    primary: 'https://assets.zatiqeasy.com/easy/uploads/42239/inventories/99/a0/1000516338-8896912979378875/original.jpg',
+    gallery: null,
+    page: 'https://queenbees.sellbd.shop/products/lilac-5-niacinamide-serum-30-ml-1449672',
+  },
+  'dabo-rice-ferment-foam-100ml': {
+    primary: 'https://assets.zatiqeasy.com/easy/uploads/42239/inventories/1000319434-2912280283105681.jpg',
+    gallery: null,
+    page: 'https://queenbees.sellbd.shop/products/dabo-rice-ferment-foam-100ml-633301',
+  },
+  'the-derma-plus-kojic-acid-daily-facewash-100ml': {
+    primary: 'https://assets.zatiqeasy.com/inventories/1992144870348902.jpg',
+    gallery: null,
+    page: 'https://queenbees.sellbd.shop/products/the-derma-plus-kojic-acid-daily-facewash-100ml-859526',
+  },
+  'innsaei-hyaluronic-sunscreen-50ml': {
+    primary: 'https://assets.zatiqeasy.com/inventories/565115981654228.jpg',
+    gallery: null,
+    page: 'https://queenbees.sellbd.shop/products/innsaei-hyaluronic-sunscreen-50ml-572547',
+  },
+  'skin-o-hydration-boost-gel-moisturizer-70ml': {
+    primary: 'https://assets.zatiqeasy.com/easy/uploads/42239/inventories/de/19/1000150362-6304180917387748/original.jpg',
+    gallery: null,
+    page: 'https://queenbees.sellbd.shop/products/skin-o-hydration-boost-gel-moisturizer-70ml-642304',
+  },
+  'bioaqua-collagen-firming-good-night-mask': {
+    primary: 'https://assets.zatiqeasy.com/easy/uploads/42239/inventories/8f/91/1000155967-8288234473352232/original.jpg',
+    gallery: null,
+    page: 'https://queenbees.sellbd.shop/products/bioaqua-collagen-firming-good-night-mask-1422355',
+  },
+  'laikou-hydrating-milk-mud-mask-5g': {
+    primary: 'https://assets.zatiqeasy.com/easy/uploads/42239/inventories/b9/ac/1000155974-8286547552710470/original.jpg',
+    gallery: null,
+    page: 'https://queenbees.sellbd.shop/products/laikou-hydrating-milk-mud-mask-5g-1422285',
+  },
+  'earth-beauty-hydrasilk-conditioner-with-argan-oil-keratin-350-ml': {
+    primary: 'https://assets.zatiqeasy.com/easy/uploads/42239/inventories/24/0a/1000517506-8993119140836675/original.jpg',
+    gallery: null,
+    page: 'https://queenbees.sellbd.shop/products/earth-beauty-hydrasilk-conditioner-with-argan-oil-keratin-350-ml-1453328',
+  },
+  'earth-beauty-restore-repair-shampoo-with-honey-infused-350-ml': {
+    primary: 'https://assets.zatiqeasy.com/easy/uploads/42239/inventories/13/2e/1000517509-8992510756076516/original.jpg',
+    gallery: null,
+    page: 'https://queenbees.sellbd.shop/products/earth-beauty-restore-repair-shampoo-with-honey-infused-350-ml-1453300',
+  },
+  'chaoba-hair-mask-500ml': {
+    primary: 'https://assets.zatiqeasy.com/easy/uploads/42239/inventories/df/d4/1000156218-8284014372319640/original.jpg',
+    gallery: 'https://assets.zatiqeasy.com/easy/uploads/42239/inventories/7a/7e/1000156162-8283755773111602/original.jpg',
+    page: 'https://queenbees.sellbd.shop/products/chaoba-hair-mask-500ml-1421979',
+  },
+  'mamaearth-onion-hair-oil-100ml': {
+    primary: 'https://assets.zatiqeasy.com/easy/uploads/42239/inventories/f9/7e/1000155965-8284448376072597/original.jpg',
+    gallery: null,
+    page: 'https://queenbees.sellbd.shop/products/mamaearth-onion-hair-oil-100ml-1422075',
+  },
+  'mamaearth-beetroot-hydraful-face-wash-100ml': {
+    primary: 'https://assets.zatiqeasy.com/easy/uploads/42239/inventories/70/b6/1000156227-8284836793368412/original.jpg',
+    gallery: null,
+    page: 'https://queenbees.sellbd.shop/products/mamaearth-beetroot-hydraful-face-wash-100ml-1422101',
+  },
+  'body-brightening-combo-rajkonna-brightening-body-lotion-the-derma-plus-kojic-acid-body-wash': {
+    primary: 'https://assets.zatiqeasy.com/easy/uploads/42239/inventories/06/57/1000156203-8283610933168212/original.jpg',
+    gallery: null,
+    page: 'https://queenbees.sellbd.shop/products/body-brightening-combo-rajkonna-brightening-body-lotion-the-derma-plus-kojic-acid-body-wash-1421950',
+  },
+  'oriox-tinted-lipbalm-strawberry': {
+    primary: 'https://assets.zatiqeasy.com/easy/uploads/42239/inventories/b8/ab/1000156205-8283247986772764/original.jpg',
+    gallery: null,
+    page: 'https://queenbees.sellbd.shop/products/oriox-tinted-lipbalm-strawberry-1421895',
+  },
+  'oriox-tinted-lipbalm-cherry': {
+    primary: 'https://assets.zatiqeasy.com/easy/uploads/42239/inventories/36/85/1000156204-8283457893799922/original.jpg',
+    gallery: null,
+    page: 'https://queenbees.sellbd.shop/products/oriox-tinted-lipbalm-cherry-1421892',
+  },
+  'exfoliating-shower-gloves-1pair': {
+    primary: 'https://assets.zatiqeasy.com/easy/uploads/42239/inventories/72/e9/1000156155-8283960797579798/original.jpg',
+    gallery: null,
+    page: 'https://queenbees.sellbd.shop/products/exfoliating-shower-gloves-1pair-1422056',
+  },
+};
 
 function text(en: string | null, bn: string | null): LocalizedText {
   return { en, bn };
@@ -34,6 +120,8 @@ type Draft = {
   priceBdt: number;
   compareAtBdt: number | null;
   featured: boolean;
+  /** Optional override used only by the placeholder branch. */
+  sourcePage?: string;
 };
 
 /**
@@ -117,7 +205,7 @@ const drafts: Draft[] = [
     pack: '70ml',
     priceBdt: 390,
     compareAtBdt: null,
-    featured: false,
+    featured: true,
   },
   {
     slug: 'bioaqua-collagen-firming-good-night-mask',
@@ -192,7 +280,7 @@ const drafts: Draft[] = [
     pack: '500ml',
     priceBdt: 1150,
     compareAtBdt: 1250,
-    featured: false,
+    featured: true,
   },
   {
     slug: 'mamaearth-onion-hair-oil-100ml',
@@ -207,7 +295,7 @@ const drafts: Draft[] = [
     pack: '100ml',
     priceBdt: 650,
     compareAtBdt: 750,
-    featured: false,
+    featured: true,
   },
   {
     slug: 'mamaearth-beetroot-hydraful-face-wash-100ml',
@@ -238,7 +326,7 @@ const drafts: Draft[] = [
     pack: null,
     priceBdt: 830,
     compareAtBdt: 900,
-    featured: false,
+    featured: true,
   },
   {
     slug: 'oriox-tinted-lipbalm-strawberry',
@@ -283,17 +371,47 @@ const drafts: Draft[] = [
     pack: null,
     priceBdt: 290,
     compareAtBdt: 350,
-    featured: false,
+    featured: true,
   },
 ];
 
-const SLUG_SUFFIX = /-\d{5,}$/;
-
 function toProduct(draft: Draft): Product {
-  const slug = `${draft.slug}${SLUG_SUFFIX.test(draft.slug) ? '' : ''}`;
+  const provenance = IMAGE_PROVENANCE[draft.slug];
+  const images: ProductImage[] = [];
+
+  if (provenance) {
+    images.push({
+      key: draft.slug,
+      alt: text(draft.nameEn, draft.nameBn),
+      rights: RIGHTS_MERCHANT,
+      sourcePage: provenance.page,
+      sourceAsset: provenance.primary,
+      retrievedAt: RETRIEVED_AT,
+    });
+    if (provenance.gallery) {
+      images.push({
+        key: `${draft.slug}-2`,
+        alt: text(draft.nameEn, draft.nameBn),
+        rights: RIGHTS_MERCHANT,
+        sourcePage: provenance.page,
+        sourceAsset: provenance.gallery,
+        retrievedAt: RETRIEVED_AT,
+      });
+    }
+  } else {
+    images.push({
+      key: draft.slug,
+      alt: text(draft.nameEn, draft.nameBn),
+      rights: 'placeholder',
+      sourcePage: draft.sourcePage ?? 'https://queenbees.sellbd.shop/',
+      sourceAsset: '',
+      retrievedAt: RETRIEVED_AT,
+    });
+  }
+
   return {
     id: draft.sourceProductId,
-    slug,
+    slug: draft.slug,
     sourceProductId: draft.sourceProductId,
     sourceUrl: `https://queenbees.sellbd.shop/products/${draft.slug}-${draft.sourceProductId}`,
     capturedAt: CAPTURED_AT,
@@ -306,14 +424,7 @@ function toProduct(draft: Draft): Product {
     priceMinor: money(draft.priceBdt),
     compareAtPriceMinor: draft.compareAtBdt === null ? null : money(draft.compareAtBdt),
     availability: 'in_stock',
-    images: [
-      {
-        sourceUrl: 'https://queenbees.sellbd.shop/',
-        localPath: placeholder(draft.slug),
-        alt: text(draft.nameEn, draft.nameBn),
-        rights: RIGHTS_PENDING,
-      },
-    ],
+    images,
     addedAt: null,
     featured: draft.featured,
     isDemo: true,
