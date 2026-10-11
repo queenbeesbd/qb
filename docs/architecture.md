@@ -1,6 +1,6 @@
 # Architecture
 
-Status: implemented for the Phase 1 frontend demonstration, 2026-10-11. Decisions recorded in `docs/decisions/`. This describes what exists, not a proposal.
+Status: current implementation is the Phase 1 frontend-demo architecture, refined through Phases 2-5; verified audit snapshot: 2026-10-11. Decisions recorded in `docs/decisions/`. This describes what exists, not a proposal.
 
 ## Applied stack
 
@@ -32,7 +32,7 @@ route params / searchParams
   -> ProductDetailView (client)          -> useCart / useTranslation
 ```
 
-- Routes resolve their own data on the server. `/products` and `/categories/[slug]` are server-rendered; the 16 product routes are prerendered via `generateStaticParams`; `/`, `/cart`, `/checkout` and `/_not-found` are static.
+- Routes resolve their own data on the server. `/products` and `/categories/[slug]` are server-rendered; the 22 product routes are prerendered via `generateStaticParams`; `/`, `/cart`, `/checkout` and `/_not-found` are static.
 - `parseCatalogQuery` treats `searchParams` as untrusted: it truncates lengths, validates the category against the real taxonomy, and falls back to `relevance` for an unknown sort. Malformed input cannot crash a listing page.
 - Client Components are limited to `Header`, `Footer`, `LanguageToggle`, `ProductCard`, `QuantityStepper`, `HomeView`, `CatalogView`, `ProductDetailView`, `CartView`, `CheckoutPreview`, the providers, and the error/not-found boundaries. Everything else is server-rendered.
 
@@ -67,11 +67,22 @@ Every value the client holds - price, discount, stock, total - is a **display pr
 
 Components depend on the `Product` type and the accessors `getProductBySlug`, `getProductById` and `products`, not on the fixture module internals. An authorised backend adapter can therefore replace `src/data/catalog.ts` without touching any view. The adapter must still keep price/stock authority server-side and preserve the same normalized shape, including explicit `null` for unknown optional fields.
 
-## Open architecture questions for the backend phase
+## Where the backend comes from (strategic reset)
 
-- Which merchant endpoints exist, with what authentication, and whether a public read-only catalog surface is permitted.
-- Whether a server/BFF layer is required, and how it must delegate price, stock and order authority.
-- Session model (cookie vs bearer) and its CSRF/CORS consequences.
-- Payment provider, notification verification and idempotency guarantees.
-- Whether the merchant backend can remain the system of record for orders and catalog administration.
-- Localised URL strategy and whether product content will ever be published in Bangla.
+The Phase 7 audit found no supported integration surface on the merchant platform. The owner has therefore approved an **independent platform**: QueenBee's builds and owns its own backend, database and admin dashboard. See `docs/decisions/0004-independent-platform-direction.md` for the decision and `docs/platform-architecture.md` for the proposed architecture, evaluated options and the decisions still requiring owner approval.
+
+The Zatiq dashboard is now a **UX and feature reference only**. Nothing in this repository depends on its API, endpoints, cookies or tenant identifiers.
+
+### What does not change
+
+This document's implemented content stands as-is. In particular, the properties below were designed in from Phase 1 and are now load-bearing rather than hypothetical:
+
+- The frontend is **never** authoritative for price, discount, stock, totals or orders.
+- Catalog data is reached only through the typed accessors in `src/data/`, so a backend adapter replaces the fixtures without touching a single view component.
+- Server Components resolve data on the server, so the trust boundary is already in the right place for a real backend.
+- The cart stores ids and quantities only, never prices, so totals are always recomputed.
+- The demo's inert checkout, locked announcement and `noindex` remain until a real, authorized checkout exists.
+
+### What is now this project's responsibility
+
+Database and schema, staff authentication and authorization, the admin dashboard, order integrity, payment verification, shipping and courier integration, image storage, analytics and operations. None of these exist yet, and none is implemented by this documentation change.

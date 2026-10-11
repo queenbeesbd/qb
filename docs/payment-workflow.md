@@ -1,0 +1,483 @@
+# Payment workflow (manual mobile financial service verification)
+
+Status: 2026-10-11. **D7, D8, D9 and D12 are approved, and D11 is approved.** Nothing here is implemented. Companion documents: `docs/platform-architecture.md` (§5, §6), `docs/security.md` (threat model), `docs/admin-dashboard.md` (verification queue), `docs/implementation-plan.md` (phases 15-16).
+
+## 1. Launch model
+
+QueenBee's accepts **manual bKash**, **manual Nagad** and **Cash on Delivery** (D7, approved). The two prepaid methods are verified by a human through the owner's merchant arrangements. **No automated payment gateway is authorized.** Ordering requires a customer account (D12, approved).
+
+This is deliberately simple and is not a compromise: it removes the largest source of correctness risk (asynchronous provider state) from the first release, while keeping real money flowing. **No automated payment gateway is authorized** - see §12.
+
+### What this is
+
+- A customer-initiated transfer to the owner's merchant account.
+- A customer-submitted claim of payment (reference number and related details).
+- An **independent human verification** step performed by authorized staff.
+- An auditable payment decision recorded against the order.
+
+### What this is not
+
+- Not a payment gateway, and not a payment provider integration.
+- Not automatic confirmation of anything.
+- **A customer-submitted transaction id, screenshot, sender number or confirmation message is never proof that payment succeeded.**
+
+## 2. Payment methods
+
+Stored as an explicit enum on the payment record, not as free text:
+
+| Value | Meaning | Launch status |
+| --- | --- | --- |
+| `bkash_manual` | Manual bKash transfer to the owner's merchant number | **APPROVED** (D7) |
+| `nagad_manual` | Manual Nagad transfer to the owner's merchant number | **APPROVED** (D7) |
+| `cod` | Cash on delivery | **APPROVED** (D7) - a distinct method, see below |
+| `gateway` | Reserved for a future automated provider | **Not authorized** - no automated gateway, no value written |
+
+The recipient numbers, account names and customer-facing instructions are **owner configuration stored as settings**, never hardcoded in the storefront. Enabling a method is a settings change, not a code change.
+
+### COD is a distinct approved method, not a variation of this flow
+
+Cash on delivery is **approved (D7)** but is modelled as a **separate payment method with its own lifecycle**, because it is a different commerce model rather than an extra payment option. The prepaid verification flow in this document does **not** apply to COD orders - there is no customer transaction to verify.
+
+The following consequences are **in scope** and are now approved (13.7 and 13.9.3):
+
+| Area | What COD changes |
+| --- | --- |
+| Order confirmation | COD orders are confirmed without any payment verification step. The verification queue does not apply to them at all |
+| Delivery | The courier collects cash, so the courier relationship becomes a **cash-handling** relationship with its own settlement terms |
+| Failed delivery | A refused or undeliverable parcel returns stock and creates a remittance question. This needs explicit states, which do not exist for prepaid orders |
+| Reconciliation | Cash arrives via courier settlement, on the courier's schedule, minus their charges. It reconciles against a statement, not against a customer transaction |
+| Risk | The merchant absorbs non-delivery and refusal risk, and a repeated-refusal pattern is a business cost with no prepaid equivalent |
+| Customer identity | COD raises the value of a phone-number check, since the parcel is handed over against payment |
+
+**Status:** COD is **approved for launch (D7)**, and the owner's rule that every COD order is **manually approved from the dashboard before dispatch** is approved (13.7). There is no prepaid verification step for COD.
+
+**Approved (13.9.3):** COD cancellation before and after dispatch, refused and undeliverable parcels, return-to-store handling, and cash reconciliation against courier settlement. **Delivery completion, cash collection and cash reconciliation are separate states**; COD cash is never treated as collected before it is collected.
+
+## 3. Order status and payment status are separate
+
+Conflating these is the single most common source of confused order handling. They are two independent enums.
+
+**`order.status`** - where the order is in fulfilment:
+
+`pending` → `confirmed` → `processing` → `shipped` → `delivered` → `completed`, with `cancelled` and `returned` as terminal or side states.
+
+**`order.payment_status`** - where the money is:
+
+| Value | Meaning | Set by |
+| --- | --- | --- |
+| `awaiting_payment` | Order placed; customer has not yet submitted payment details | System, at order creation |
+| `awaiting_verification` | Customer submitted details; **no human has reviewed them yet** | System, on submission |
+| `verified` | An authorized person independently confirmed receipt | **Admin only** |
+| `rejected` | Reviewed, but receipt could **not** be confirmed. **Not an accusation** | **Admin only** |
+| `falsely_claimed` | Admin **confirmed** the payment claim was false - a fake-order finding | **Admin only** |
+| `cod_pending_approval` | COD order placed, awaiting owner approval before dispatch | System, at order creation |
+| `cod_approved` | Owner approved the COD order for dispatch | **Admin only** |
+| `cod_collected` | Cash received on delivery | **Admin only** |
+| `cod_failed` | Delivery failed or the parcel was refused | **Admin only** |
+| `expired` | An order with **no submitted payment claim** lapsed 24 hours after placement (13.9) | System, on the approved expiry rule |
+
+**Refund state is not part of this enum.** It is a separate field, `order.refund_status`: `none` / `requested` / `processing` / `completed` / `failed` (13.6). A payment is never described as refunded because a refund was requested.
+
+**COD is modelled as its own state field, not inside the payment enum (Phase 10 design).** The `cod_*` values above are the approved COD states, and their names are preserved exactly. In the schema they live in `order.cod_state` rather than `order.payment_state`, because COD approval is an **authorization to dispatch** rather than a money fact, and because collection, delivery and reconciliation are separate events (13.7). A COD order has no MFS payment state at all. See `docs/data-model.md` sections 7.1 and 11.6. **No approved COD state, meaning or rule changes** - only which column carries it.
+
+The storefront can move payment status to `awaiting_verification` at most. **Every other transition is an authenticated administrative action**, except `expired`, which is a system transition governed by the approved expiry rule. No client request can set a paid or fake state, and no code path derives one from a customer-supplied value.
+
+`rejected` and `falsely_claimed` are **different facts**. `rejected` means receipt could not be confirmed, which includes a delayed transaction or a mistyped reference. `falsely_claimed` means an admin **confirmed** the claim was false. Only the latter may flag the customer account for review, and it is never set automatically.
+
+Order fulfilment does not begin on `awaiting_verification`. The owner's rule for when an order may move to `confirmed` (on payment verification, or on dispatch for COD) is a business decision - see §13.
+
+## 4. Customer workflow
+
+0. **Authentication is required before ordering (D12).** A guest may browse and build a cart, but on proceeding to checkout is presented with login or registration. The **cart is preserved** across authentication and the customer is **returned to checkout** on success. No order exists before this step.
+1. Customer completes checkout and supplies order and delivery details.
+2. The storefront displays the payment instructions and recipient details **from owner configuration**.
+3. The customer completes the transfer externally, in their own bKash/Nagad app.
+4. The customer submits the transaction reference and the required details in the checkout form.
+5. The order is recorded with `payment_status = awaiting_verification`.
+6. Authorized staff review the submission and **independently verify the transaction** through the merchant account or provider record.
+7. Staff explicitly mark the payment `verified` or `rejected`, with a reason where appropriate. Where an admin **confirms** the claim was false, the payment is marked `falsely_claimed` and the customer account may be flagged for review - never automatically, and never merely because a transaction was delayed or a reference was mistyped.
+8. Order progression follows the approved payment and fulfilment rules. If the payment is not verified within the **24-hour maximum**, the order enters the exceptions queue (13.2) and keeps its stock reservation.
+
+The customer is told plainly, at step 2 and again at step 5, that payment is **pending manual verification** and that this is not instant. Setting that expectation is part of the workflow, not a nicety - a customer who expects instant confirmation will submit duplicate payments.
+
+**COD orders skip steps 2-6 entirely.** They are placed without a transfer and without a verification step, so the prepaid verification flow does not apply to them. The owner **manually approves** each COD order from the dashboard before dispatch (13.7). COD cancellation, delivery failure, refused parcels and reconciliation are approved in **13.9.3**.
+
+## 5. Data captured, and data never captured
+
+### Captured (minimum necessary)
+
+**Approved field set (D8):**
+
+| Field | Required? | Purpose |
+| --- | --- | --- |
+| Payment method (enum) | **Yes** | Which account to check |
+| **Sender mobile number** | **Yes - required** | Identifies the paying account so the verifier can match the transaction |
+| **Transaction ID / reference** | **Yes - required** | To find the transaction in the merchant record |
+| Amount claimed | **Yes** | To compare against the order total. Recorded, never trusted |
+| Payment screenshot | **No - not required** | Not collected, not requested |
+| Submitted timestamp | System-generated | Ordering and expiry |
+
+Recipient account details are **owner-configurable settings**, never hardcoded into application code.
+
+Nothing beyond this is collected. In particular, no screenshot is requested, no account number is requested, and no customer identity document is requested.
+
+### Never captured or stored
+
+- **PINs, OTPs, passwords or any MFS credentials.** No exception.
+- Customer bKash/Nagad account credentials - never requested.
+- Full account numbers where a partial or none is sufficient.
+- Any provider secret key or merchant credential in the storefront, the client bundle, logs or documentation.
+
+### Screenshots
+
+**Approved (D8): screenshots are not required.** They are not requested and not stored. The sender mobile number and transaction reference are sufficient for independent verification, and not collecting customer financial imagery removes a whole class of retention and breach exposure.
+
+The controls below are **not active**; they are retained only so that, if the owner later reverses this decision, the requirements are already documented rather than improvised.
+
+If the owner elects to accept them, these controls are **required**, not optional:
+
+| Concern | Requirement |
+| --- | --- |
+| Storage | **Private bucket only.** Never publicly readable, never served through the storefront's image path |
+| Validation | Content type and size checked server-side; the file decoded as an image before acceptance; server-generated object key, never the uploaded filename |
+| Access | Readable only by roles permitted to verify payments, through an authenticated, authorized route |
+| Retention | Deleted on a defined schedule after verification completes and the dispute window passes - not kept indefinitely |
+| Deletion | The deletion is recorded, and the customer is told the retention period before uploading |
+| Status | Treated as a **claim**, never as evidence. A screenshot never marks a payment verified |
+
+**A screenshot is not proof of payment** any more than a transaction reference is. It is a convenience for the customer and a hint for the verifier, nothing more.
+
+## 6. Server-side validation of submissions
+
+The submission endpoint validates, at the server boundary:
+
+- The order exists and belongs to the submitting session.
+- The order's payment status is `awaiting_payment`, or `rejected` where the customer is submitting a corrected claim. **These are the only two states that accept a submission.** A resubmission cannot overwrite a completed decision, and an order with an active `submitted` claim cannot accept a second one (13.10.7).
+- The method is an enabled method.
+- The transaction reference is present, trimmed, and within a bounded length and character set.
+- The claimed amount is a positive integer in poisha and is **recorded, not trusted**.
+- Rate limits apply per order and per source.
+
+**The claimed amount never overrides the order total.** The order total is authoritative from the database. A mismatch is a flag for the verifier, not an automatic acceptance or rejection.
+
+## 7. Admin verification queue
+
+Detailed module scope is in `docs/admin-dashboard.md`. Requirements:
+
+- A queue of orders in `awaiting_verification`, oldest first, with the age of each clearly shown.
+- Each row shows: order reference, order total, claimed amount, method, transaction reference, sender number (if given), and time since submission.
+- **Duplicate-reference detection:** if the same transaction reference has been submitted against more than one order, both are flagged before a decision is made.
+- **Three actions: verify, reject and mark falsely claimed.** Verify records an actor and the confirmed amount; reject and mark-falsely-claimed both require a reason. The reason is mandatory for rejection and for a false-claim finding, and optional for verification, which asserts a confirmed fact. (An earlier revision of this document said "two actions only"; that predates the D9 fake-order rule and is superseded.)
+- A mismatch between claimed and order total is surfaced prominently and requires an explicit acknowledgement.
+- The queue shows no customer data beyond what the verification task requires.
+
+## 8. Verification and rejection, and the audit record
+
+Every decision writes an append-only audit record containing:
+
+| Field | Notes |
+| --- | --- |
+| Order reference | The subject of the decision |
+| Decision | `verified` or `rejected` |
+| Actor | The authenticated staff identity - never a free-text name |
+| Timestamp | Server time, not client-supplied |
+| Reason | Required on rejection; optional on verification per policy |
+| Prior status | The state the decision moved from |
+
+Requirements:
+
+- **Idempotent transitions.** A repeated action (double click, retry, concurrent tab) does not create a second decision or a duplicate audit entry. The transition is guarded by the expected prior state, so the second attempt is a no-op rather than a conflict.
+- **Authorization is server-side, per request.** Verifying a payment is a permissioned action. Hiding the button is not access control.
+- **No payment status is writable from the storefront** by any route, including a forged or replayed request.
+- The audit log records the decision, not the customer's financial details. The reference is stored on the payment record where it is operationally needed; it is **not** duplicated into general application logs.
+
+## 9. Customer-facing states
+
+| Payment status | What the customer sees |
+| --- | --- |
+| `awaiting_payment` | Instructions and recipient details, with the amount due and a clear statement that payment is manual |
+| `awaiting_verification` | "We have received your payment details and are verifying them. This is done manually and is not instant." Plus what to do if they made a mistake. |
+| `verified` | Confirmation that payment is confirmed, and what happens next |
+| `rejected` | Plain explanation, the reason where appropriate, and the recovery path (resubmit with correct details, or contact support) |
+| `falsely_claimed` | That the payment claim could not be confirmed and the order was not accepted |
+| `cod_pending_approval` | That the order is placed and awaits owner approval before dispatch |
+| `cod_approved` | That the order is approved and will be dispatched |
+| `cod_collected` | That the order is complete and cash was received |
+| `cod_failed` | That delivery did not complete, and what happens next |
+| `expired` | The order lapsed, that any held stock has been released, and whether it can still be revived (which depends on stock remaining) |
+| *(display label, not a status)* | **Verification delayed** is a **derived queue label** for an order still in `awaiting_verification` past the 24-hour maximum. It is **not** a payment status value, and no order is ever stored in a state of that name. The customer is told that verification is taking longer than usual, that the order is still held, and that no action is needed |
+
+**Refund state is shown from `refund_status`, not `payment_status`:** requested, processing, completed or failed - the **actual** state, never "completed" merely because a refund was requested or approved.
+
+The customer can always see the order's current payment status. A pending order must never look confirmed, and a rejected order must never look lost.
+
+**Order status requires an account (D12, approved).** Because ordering requires authentication, a customer reaches their orders **through their own authenticated account**. There is no anonymous order-lookup surface. Requirements:
+
+- Order views are scoped to the authenticated customer; a request for another customer's order is refused **server-side**, not merely hidden in the UI.
+- Sessions are server-side, in httpOnly, `Secure`, `SameSite` cookies, with a bounded lifetime.
+- Login, registration and account recovery are **rate limited** and return generic failures, so accounts and recovery tokens cannot be enumerated.
+- Account recovery uses single-use, expiring tokens delivered to the verified contact channel.
+- Order references remain long and non-sequential as defence in depth, but they are no longer the access control.
+- The cart is preserved across the authentication step, so requiring an account does not lose the customer's selection.
+
+## 10. Retention and minimization
+
+- Payment reference and decision are retained as long as the order requires for accounting and dispute resolution, per the owner's policy.
+- Screenshots, if collected, are **deleted on a defined schedule** once verification is complete and the dispute window has passed.
+- Logs exclude payment references, sender numbers and customer contact details.
+- Retention periods are a business decision requiring owner input, and must be stated in the storefront's privacy information.
+
+## 11. Threat model
+
+Controls below are **requirements, not implemented work**. None exists yet.
+
+| # | Threat | Required control |
+| --- | --- | --- |
+| T1 | Customer submits a fabricated transaction id | Payment is never auto-verified. Status changes only through an authorized human decision after independent confirmation |
+| T2 | One transaction reference reused across multiple orders | Duplicate-reference detection flags all affected orders for review before a decision. A hard block is not used, because legitimate mistyping exists |
+| T3 | Forged or replayed request sets payment status | Payment status is server-side only; the storefront has no writable path; transitions are state-guarded and idempotent |
+| T4 | Unauthorized or insider misuse of verification | Permissioned action, server-side authorization per request, actor identity and reason recorded, append-only audit |
+| T5 | Order marked paid without money received | Periodic reconciliation of verified payments against the merchant statement, with a documented discrepancy procedure |
+| T6 | Sensitive customer financial data over-retained or leaked | Minimisation, defined retention, no PIN/OTP/credential storage, logs exclude references and personal data |
+| T7 | Uploaded screenshot abused as an attack vector | Private storage, access control, type and size validation, treated as untrusted input. Recommendation: do not collect screenshots at launch |
+| T8 | Submission endpoint abused or enumerated | Rate limiting per order and per source; bounded input lengths |
+| T9 | Customer claims payment that cannot be found | Documented recovery path: the order **stays in `awaiting_verification` with its stock held** and enters the exceptions queue past the 24-hour maximum. It is **never auto-expired** - a submitted claim never expires (13.9.2). An authorized person resolves it explicitly: verify, reject with an explanation, or escalate to support |
+| T10 | Verification performed by an unqualified person | Role-based permission; only named roles may verify. Role list is an owner decision |
+
+## 12. Automated gateways - not authorized
+
+Explicitly **not authorized**, and not to be implemented, provisioned or onboarded: SSLCommerz, automated bKash/Nagad APIs, payment webhooks, automatic payment confirmation, automated refund processing.
+
+The manual workflow is designed to be complete and secure **without** them, so nothing about launch depends on a future gateway.
+
+### What changes when a gateway is approved later
+
+The extension point is the payment record and the payment-status enum - not a pre-built abstraction. When a gateway is added:
+
+| Concern | Change |
+| --- | --- |
+| Method | A new enum value such as `gateway` becomes writable, with a provider reference |
+| Status source | `verified` may be set by a **signature-verified webhook** or an explicit server-side verification call, in addition to the existing manual path |
+| Webhook authentication | Signature verification against the provider secret, held server-side only |
+| Idempotency | Webhook processing keyed on the provider's event id, so replays are no-ops |
+| Matching | Amount, currency and order reference are matched before any state change |
+| Reconciliation | A scheduled job compares provider settlements against local payment records and flags mismatches |
+| Failure handling | Timeout and uncertain outcomes resolve by re-querying the provider, never by assumption |
+| Refunds | Provider refund API replaces the manual refund record |
+
+No abstraction layer is built now for this. The manual workflow uses the same payment record, the same status enum and the same audit trail, so the gateway path is an addition rather than a rewrite. Building a provider-abstraction framework before a second provider exists would be speculative complexity.
+
+## 13. D9 - approved payment and order policy
+
+**Status: D9 is APPROVED.** Every rule below is **approved and binding on implementation**, including the policies in 13.9 for unpaid-order expiry, cancellation after the 24-hour window, and the COD lifecycle.
+
+**D11 is APPROVED** - the allocation rule and its bound are decided in 13.10.
+
+### 13.1 Approved - prepaid verification window
+
+- Customers pay by **manual bKash or manual Nagad** (D7), supplying the **sender mobile number and transaction reference**; screenshots are not required (D8).
+- The owner verifies authenticity manually from the dashboard.
+- **The owner has up to 24 hours from order placement to verify.** This is a **maximum, not a promise** - normal operations are expected to be much faster.
+- **The 24-hour maximum is an internal service maximum, not a customer-facing commitment.** The storefront tells the customer that verification is manual and not instant; it publishes no deadline and no turnaround promise.
+- The dashboard must distinguish, at minimum: **awaiting payment**, **payment submitted / awaiting verification**, **verified**, **rejected / unverified**, and **fake-order finding**.
+
+### 13.2 Approved - genuine payment that cannot be verified within 24 hours
+
+A possible legitimate payment is **never silently discarded**:
+
+- The order does **not** expire automatically.
+- It moves to an **exceptions queue** (`verification overdue`) in the dashboard, sorted above newer submissions.
+- Its **stock reservation stays held** - no timer releases it, because a genuine payment may exist.
+- The customer sees that verification is still in progress and that no action is needed.
+- The owner must resolve it explicitly: **verify** (payment found), **reject** (payment not found - the order may then expire under the expiry rule), or **escalate to support** (money confirmed received but the order cannot be fulfilled, which leads to a manual refund).
+- The resolution is recorded with actor, timestamp and outcome.
+
+### 13.3 Approved - false payment claims and fake orders
+
+- A customer who claims to have paid but whose payment cannot be verified **must not** have the order marked as paid.
+- Where the owner **confirms** that the claim was false, the owner may mark the order as a **fake order** and **flag the associated customer account for review**, preserving an auditable **reason and actor**.
+- **A delayed transaction or a mistyped reference is not evidence of fraud.** `falsely_claimed` and the customer review flag are **admin-set only** and are never derived automatically by the system.
+- The customer flag is **independent of the order's payment status**: it records a concern for review, and does not by itself block or close the account.
+
+### 13.4 Approved - ordinary unpaid orders versus confirmed false claims
+
+- If the customer **never claimed** payment, the order is an **ordinary unpaid order**, subject to the expiry policy (13.9).
+- If the customer **claimed** payment and the owner verifies that none was received, the owner marks it **not paid / fake as appropriate**, and the order **expires immediately** on that explicit decision.
+- These are **different facts** and must remain distinguishable in the data. An unpaid order is not a fraud signal.
+
+### 13.5 Approved - cancellation
+
+- A customer may cancel **within 24 hours of placing the order**, under the owner's rule.
+- Cancellation is requested **through support with the order ID**. Support handles the request and follow-up.
+- **The customer does not cancel or refund self-service**, and no refund is initiated from the storefront.
+
+### 13.6 Approved - refunds
+
+- Refunds are processed **manually through support**, never automatically through a payment API.
+- The owner manually updates the refund status in the dashboard **after the real-world action**.
+- **A dashboard status must never say a refund is completed merely because it was requested or approved.** Separate states are required: `requested`, `processing`, `completed`, `failed`.
+- `refund_status` is a **separate field from `payment_status`** and from `order.status`.
+
+### 13.7 Approved - cash on delivery
+
+- COD is an approved, **distinct** payment method (D7).
+- The owner **manually approves** each COD order from the dashboard **before dispatch**.
+- COD has **no** sender-number or transaction-reference requirement and **no** prepaid verification step. The prepaid queue does not apply to it.
+- Cash collection, delivery completion, failed delivery, refused parcels, returns and reconciliation are **distinct states**.
+
+### 13.8 Approved - state separation (binding)
+
+These five concepts are **never collapsed into one field**:
+
+1. `payment_status` - where the money is.
+2. `order.status` - where fulfilment is.
+3. `refund_status` - where the refund is (`requested` / `processing` / `completed` / `failed`).
+4. Inventory reservation state - `held` / `consumed` / `released`.
+5. Customer review flag - a concern for review, set by an admin, separate from all of the above.
+
+Also distinct: the **24-hour verification maximum** (how long the owner has to verify) and the **24-hour cancellation window** (how long the customer may request cancellation from placement) are different rules that happen to share a duration. They must not be presented as one thing.
+
+### 13.9 Approved - unpaid-order expiry (owner decision, 2026-10-11)
+
+Expiry is **automatic and system-driven**, and applies **only** to an order whose customer has **never submitted a payment claim**.
+
+1. **Duration: 24 hours from order placement.** An order still in `awaiting_payment` 24 hours after placement **expires**, and its reservation is released through the normal state-guarded transition (13.10.6).
+2. **A submitted claim never expires.** An order in `awaiting_verification` is **never** expired by a timer and is **never** released automatically, because a genuine payment may exist (13.2, 13.10.8). It stays in the exceptions queue until an explicit admin decision.
+3. **Confirmed false claim.** Where the owner **confirms** a claim was false, the owner rejects it and the order expires **immediately on that explicit decision**, releasing its reservation at once (13.10.5).
+4. **Revival is checked, never assumed.** An expired order may be **recreated or reactivated only after re-checking current stock availability**. An expired reservation is **never silently revived** - the unit may already belong to another order. If stock is gone, the customer is told plainly rather than sold a unit that does not exist.
+5. **Expiry is recorded and visible.** The transition writes the reason, timestamp and reservation release to the ledger, and the customer is told the order lapsed and that held stock was released.
+
+**The 24-hour expiry window is an internal service rule, not a customer-facing promise.** The storefront publishes no deadline.
+
+### 13.9.1 Customer notifications (approved baseline)
+
+| Event | Customer is told |
+| --- | --- |
+| Details submitted | Verification is pending, manual and not instant |
+| Verification delayed past the maximum | Still in progress, no action needed |
+| Verified | Payment confirmed, and what happens next |
+| Rejected / unverified | Plain reason, and the recovery path |
+| Fake-order finding | That the claim could not be verified and the order was not accepted |
+| Expired | The order lapsed and any held stock was released |
+| Refund requested / processing / completed / failed | The **actual** refund state, never an optimistic one |
+| COD placed | That the order awaits owner approval before dispatch |
+
+**Baseline: the customer's authenticated order page.** Email or SMS notifications require a provider and are **not assumed** - they are a separate owner decision with its own cost. The customer must be able to see their status without waiting for a message.
+
+### 13.9.2 Approved - cancellation after the 24-hour window (owner decision, 2026-10-11)
+
+- Cancellation is always requested **through support with the order ID**. There is no customer self-service cancellation (13.5).
+- **Before dispatch**, a cancellation may be approved through the documented support workflow, including after the 24-hour window. Approval records actor, timestamp and reason, and releases stock through the ledger.
+- **After dispatch**, the request is **not** an ordinary pre-dispatch cancellation. It is handled as a **delivery cancellation / return case**, and an order already with the courier follows the documented delivery and return process.
+- **Prepaid refunds remain manual through support** (13.6). The owner updates `refund_status` **only when the corresponding real-world action is confirmed** - never on request or approval.
+- Stock returns to sellable only after physical receipt and inspection (13.10.10).
+
+### 13.9.3 Approved - COD lifecycle (owner decision, 2026-10-11)
+
+- **Owner approval is required before dispatch** (13.7). An unapproved COD order is never dispatched.
+- **Before dispatch**, cancellation goes through support, exactly as for a prepaid order.
+- **After dispatch**, the case follows the **delivery cancellation / return workflow**, not ordinary cancellation.
+- **Failed delivery or customer refusal** leads to **return-to-store handling**. The parcel is not treated as stock until it is physically back at the store.
+- **Returned products become sellable only after physical receipt and inspection.** Goods that fail inspection are written off rather than restored (13.10.10).
+- **Delivery completion, cash collection and cash reconciliation are separate states and events.** `cod_collected` is set only when cash is **actually collected** - never on approval, dispatch or a delivery attempt. Cash is reconciled against the courier statement, never assumed.
+
+### 13.10 D11 - inventory reservation and release (APPROVED)
+
+**Status: approved.** The owner's core rule is recorded, the engineering invariants are fixed, and the allocation bound is decided (13.10.7).
+
+#### The owner's rule
+
+> When only limited stock is available, the customer whose payment is successfully completed/verified first gets the product.
+
+This is a **payment-priority rule**. It is explicitly **not** permission to oversell, and it does not override stock availability.
+
+#### The stock concepts, and the states that are not stock
+
+| Concept | Meaning |
+| --- | --- |
+| `on_hand` | Physical units the merchant holds |
+| `reserved` | Units held by orders that are neither fulfilled nor released |
+| `available` | `on_hand - reserved` - the only figure a new order may consume |
+| reservation state | Per order: `held` -> `consumed` (fulfilled) or `released` (given up) |
+
+`payment_status`, `order.status`, `refund_status` and the customer review flag are **separate from stock** and from each other (13.8).
+
+#### 13.10.1 How an order reserves stock while payment is pending
+
+At order creation, **in the same transaction** as the order, its items and the payment record, the reservation is created and `reserved` is incremented by a **guarded atomic update** that fails when `available < n`. The reservation exists independently of money: it concerns stock, not payment. It carries an expiry derived from the unpaid-expiry policy (13.9).
+
+#### 13.10.2 How verified payment establishes the buyer's allocation
+
+Verification does **not** move stock. It **clears the reservation's expiry** and marks the allocation confirmed, so the hold becomes permanent until fulfilment. The reservation reaches `consumed` only when the goods actually ship. This keeps stock correctly unavailable through the whole post-verification fulfilment window, and keeps "payment verified" and "stock consumed" as different facts.
+
+#### 13.10.3 Concurrent orders for the final unit
+
+Both transactions attempt the guarded decrement. **Exactly one succeeds**, because the guard is atomic and evaluates against `available`; the other fails cleanly. Overselling is therefore impossible at the database level regardless of which model 13.10.7 selects - the models differ only in what the losing customer is *offered*, never in whether stock can go negative.
+
+#### 13.10.4 Earlier order, later verified payment
+
+**Preemption is approved as part of the allocation rule (13.10.7).** A reservation in `held` whose order has **not submitted** a payment claim may be preempted by a later order that submits a claim first. The preempted order is cancelled with an explicit reason and its customer told the item became unavailable.
+
+**Preemption is never safe once a claim exists.** An order that has submitted payment details is **never** preempted and **never** released by a timer, because a genuine payment may exist. Once a unit has a submitted claim, it is committed until an explicit admin decision.
+
+#### 13.10.5 Immediate expiry after a confirmed false payment claim
+
+Marking `falsely_claimed` is an explicit **admin** action, not a timer. It releases the reservation through the normal guarded transition, cancels the order, and flags the customer for review. Because the claim was confirmed false, **no genuine payment exists**, so releasing immediately is safe - this is the one case where an order with a submitted claim may release stock at once. It is recorded with actor, reason and timestamp.
+
+#### 13.10.6 Eligible cancellations without double release
+
+Release is a single transition `held -> released`, **guarded by the current state** and therefore idempotent: a repeat attempt finds the reservation already released and is a no-op. Each release writes exactly one `inventory_movement` row keyed to the reservation, so the ledger cannot record the same unit twice. Cancellation, expiry, false-claim and preemption all funnel through this one transition.
+
+#### 13.10.7 The allocation rule - ANSWERED by the owner
+
+**Owner's decision (2026-10-11), recorded verbatim:** *"the customer who first paid (like place order with transaction id and number) will get the product"*.
+
+**Interpretation recorded.** Priority is decided by the **order in which payment claims are submitted** - not by order placement time, and not by the owner's verification time. The first order to reach `awaiting_verification` is allocated the unit. This is the workable reading because the owner cannot observe the true transfer time without inspecting each record, and submission is the moment the customer has demonstrably acted.
+
+**Consequence - this is the payment-priority model (Model B), and it has a real cost.**
+
+For the rule to be operative, a later customer must be able to order and claim a unit that an earlier, still-unsubmitted order is holding. Therefore:
+
+- An order **may be accepted** for a unit already held by an order that has **not yet submitted** a payment claim.
+- The unit is allocated **atomically to the first submitted claim**.
+- A later claim loses. If that customer had already transferred money, they must be **refunded manually through support** - the accepted cost of the priority rule, and the reason the refund path in 13.6 exists.
+- **Design mitigation (required):** claim the unit **at submission, before showing payment instructions**, so a customer learns the item is gone *before* transferring rather than after. This narrows the refund window but cannot close it, because manual transfer always precedes submission.
+
+**Decided - the bound (owner, 2026-10-11).** **At most one active submitted payment claim per unit.** Once a unit carries a submitted claim, **no further claim is accepted for it**, and the storefront stops offering that unit for payment-claim submission while the claim is live.
+
+This is the narrowest bound that still satisfies the owner's rule. Under it the race produces **one winner and, at most, one never-paid loser**: a second customer who transferred before the first claim was submitted must be refunded manually through support (13.6). Because the second claim is refused **before payment instructions are shown**, the customer learns the item is gone before transferring.
+
+#### 13.10.8 Pending verification, delayed review, genuine late payment
+
+An order awaiting verification **holds its reservation** and is **never released by a timer**, because a genuine payment may exist. Past the 24-hour maximum it enters the exceptions queue (13.2) with the hold intact. Only an explicit admin decision - verify, reject, false claim, or cancel - releases it. A genuine payment verified late still wins the unit if it is still held.
+
+#### 13.10.9 COD stock
+
+On owner approval, the COD reservation is **confirmed and its expiry cleared**, so the unit is held until delivery. On successful delivery with cash collected, the reservation is `consumed`. On failed delivery, refusal or return, the unit is **not** returned to sellable stock on the delivery event.
+
+**Where the "pending inspection" fact lives (Phase 10 clarification).** The goods have left the store and are not sellable, so the **reservation stays `consumed`** - the reservation has exactly three states (`held` / `consumed` / `released`, 13.8) and none of them means "possibly coming back". The pending-inspection fact belongs to the **return record** (`customer_return`), which is what can later post a restock movement after physical receipt and inspection (13.10.10). This keeps "goods are with a courier" from ever being mistaken for "stock is available". See `docs/data-model.md` sections 6.3 and 11.7.
+
+#### 13.10.10 Returned goods
+
+**Stock is restored to sellable only after the goods are physically received and inspected by an admin.** The transition records actor, timestamp and outcome. Goods that fail inspection are written off rather than restored. This applies equally to prepaid returns and COD refusals, and prevents the ledger from claiming sellable stock that is still with a courier or a customer.
+
+#### Engineering invariants (binding, whichever model is chosen)
+
+1. Reservation and availability checks are **atomic**.
+2. Concurrent orders **never oversell**.
+3. Release is **idempotent** and guarded by valid state transitions.
+4. **No automatic release solely because a verification deadline passed** while a genuine payment may exist.
+5. The database **prevents two customers owning the same final unit**.
+6. Every allocation, release, adjustment and restoration is **auditable**.
+7. Payment verification, order cancellation, refund status and inventory release are **never the same state**.
+8. **No expiry jobs or automatic stock-release logic are implemented in Phase 9.**
+
+## 14. Honest limitations
+
+- This document records approved decisions (D7, D8, D9, D11, D12). **No code, schema, table, enum or setting exists**, and nothing here is implemented.
+- No merchant account, provider arrangement or onboarding has been initiated or verified.
+- No MFS provider documentation was consulted for this design, because the launch model deliberately depends on **no provider API**. If a gateway is later approved, its documented contract must be read before that design is written.
+- Nothing here establishes that the workflow is secure. Every control in §11 is a requirement awaiting implementation and verification.
+- **D9 is approved.** Approved: the 24-hour verification maximum (internal, not a customer promise), exceptions handling for late genuine payments, fake-order findings with audited reasons, cancellation through support, manual refunds with separate requested/processing/completed/failed states, COD owner approval before dispatch, the five-way state separation, and the policies in 13.9 - **24-hour unpaid-order expiry with checked revival**, **cancellation after the window as a pre-dispatch support decision or a post-dispatch return**, and the **full COD lifecycle**.
+- **D11 is approved.** The allocation rule is the **first submitted payment claim**, and the bound is **at most one active submitted claim per unit** (13.10.7).
+- Because ordering now requires an account (D12), the customer-authentication design - credential storage, sessions, recovery, authorization and the cart-preservation handoff - is a **launch requirement** that does not exist yet and is not specified in this document.

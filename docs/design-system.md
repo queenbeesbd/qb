@@ -1,6 +1,6 @@
 # Design system
 
-Status: refined in the mobile/discovery phase (2026-10-11). Tokens live in `src/app/globals.css`; component styles are CSS Modules. Items marked *not built* are explicitly deferred.
+Status: refined through Phase 5 layout-width work (2026-10-11). Tokens live in `src/app/globals.css`; component styles are CSS Modules. Items marked *not built* are explicitly deferred. Current overall state and verification limits: `docs/project-status.md`.
 
 ## Direction
 
@@ -187,7 +187,7 @@ Two traps are worth remembering because both caused real page overflow:
 1. **Nested grids default to `min-width: auto`.** A grid item cannot be narrower than its content's minimum unless `min-width: 0` is set. Without it, the shelf reported its whole column set as its minimum width and pushed the page sideways. Both `.wrap` and `.scroller` set it explicitly.
 2. **`overflow-x: auto` clips visually but does not stop the content contributing to an ancestor's scroll width.** The shelf needed `contain: layout paint` before the row stopped widening the page. Containment fixes the cause; `overflow: hidden` on the parent would only have hidden it.
 
-Verified with no horizontal overflow on `/`, `/products`, `/cart`, `/checkout`, a product page and a category page at 320px, and across 320-1440px.
+The Phase 3 checkpoint recorded no horizontal overflow on `/`, `/products`, `/cart`, `/checkout`, a product page and a category page at 320px. Phase 5 extended browser coverage to 320-1920px and recorded 64/64 passing checks. These are historical suite results; see `docs/project-status.md` for current audit verification boundaries.
 
 Touch targets: primary controls at least 40px; breadcrumb links raised to a 24px minimum (WCAG 2.5.8).
 

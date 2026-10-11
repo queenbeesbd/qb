@@ -1,14 +1,39 @@
 # QueenBee's - agent instructions
 
+## Mandatory end-of-task planning rule
+
+Every implementation prompt and completed implementation report must end with one recommended next step from docs/implementation-plan.md: name it, explain why, state prerequisites and owner approval, and give its acceptance condition. If blocked, recommend the prerequisite action instead. Do not execute the recommended next phase without explicit authorization. Avoid unrelated work and new features.
+
 ## Scope and authority
 
-- Read `README.md` and the relevant `docs/` file before changing code. Phase 0 produced the audit and plan; Phase 1 produced the working storefront.
+- Read `README.md` and the relevant `docs/` file before changing code. Phase 0 produced the audit and plan; Phase 1 produced the working storefront. Phase 8 approved an **independent platform** direction - read `docs/decisions/0004-independent-platform-direction.md` and `docs/platform-architecture.md` before any backend work, and **`docs/data-model.md` before writing any schema, migration or state transition** - it is the designed source of truth for tables, constraints, indexes, state machines and transactions.
 - Preserve user changes and `.pi/` (harness state, not application infrastructure).
 - Ask before: replacing the framework, changing approved requirements, adding a major dependency, or anything irreversible. Reversible conventional choices are yours to make.
 - Separate verified facts, assumptions, proposals and unresolved questions. Record significant approved choices in `docs/decisions/`.
 - Keep documentation synchronized when an approved decision or requirement changes.
 
+## Strategic direction (owner-approved, Phase 8)
+
+- **QueenBee's is an independent e-commerce platform.** It owns its own backend, database, merchant dashboard, analytics and commerce workflows. Zatiq Easy is a **UX and feature reference only** - not a target backend, not a platform dependency.
+- **No undocumented third-party APIs.** Do not build against Zatiq's private API (`easybill.zatiq.tech`), its internal endpoints, cookies or tenant identifiers. Do not treat any vendor's internal id as a QueenBee's identifier.
+- **No real payment or production commerce operations** - no live charges, refunds, orders, courier bookings or customer communications - without explicit written authorization.
+- **Ask before fundamentally changing approved architecture or business behaviour.** Stack choices (database, hosting, ORM, auth, payment, courier, image storage) require the owner's decision and a recorded ADR. Do not select one unilaterally, even as a conventional default.
+- **Apply sensible conventional e-commerce logic** to reduce complexity - but never invent business policy. Delivery charges, refund rules, tax treatment and reservation timing are owner decisions, not engineering guesses.
+- **Work in defined phases** (`docs/implementation-plan.md`) and verify at phase checkpoints rather than after every small task.
+- **Preserve working behaviour and avoid unnecessary dependencies.** The existing storefront is the frontend foundation, not a prototype to discard.
+- For UI/UX work use Design with Intent and Impeccable; use Superpowers brainstorming skills when comparing options.
+- Apply Karpathy-style discipline: inspect first, make the minimal justified change, and verify actual behaviour rather than assuming it.
+
 ## Architecture constraints (accepted)
+
+- **The schema and state machines are designed in `docs/data-model.md`, and the security model in `docs/security.md`.** Phase 10 produced them; **none of it is implemented**. Treat the design as the authority for table shape, state values and transaction behaviour, and treat "it is documented" as different from "it exists".
+- **Five separate state concepts must never be collapsed:** order fulfilment (`order.status`), prepaid payment (`order.payment_state`), COD (`order.cod_state`), refund (`refund.state`) and the inventory reservation (`stock_reservation.state`). A refund is not a stock fact; a delivered parcel is not collected cash; a verified payment is not consumed stock. Do not add a generic `status` column that means several of these.
+- **Stock is enforced by the database, not only by code.** `inventory_balance` carries `CHECK (reserved <= on_hand)`, every reservation change goes through a guarded conditional update, and every movement is an append-only ledger row with a unique `movement_key`. Never decrement a counter directly, never read-then-write, and never add a second release path.
+- **At most one active submitted payment claim exists per unit.** Allocation happens in the same transaction as the claim, under a row lock, before payment instructions are shown. Do not relax this to simplify a flow.
+- **A submitted payment claim is never expired or released by a timer.** Only an explicit administrative decision releases it, except on a confirmed false claim. Do not write expiry logic that can touch it.
+- **Returned goods become sellable only after physical receipt and inspection.** No delivery event, refund, or cancellation restores sellable stock on its own.
+- **Roles and permissions are database rows, not code constants**, because D10 is an open owner decision. Do not hard-code a role list.
+- **Deny by default, server-side.** Ownership comes from the session, never from a request parameter. Another customer's resource returns 404, not 403. Hiding a UI control is never the control.
 
 - Next.js App Router + strict TypeScript, npm with committed lockfile. See `docs/decisions/0001-nextjs-typescript-foundation.md`.
 - Server Components by default; add `'use client'` only where interaction requires it.
@@ -23,8 +48,10 @@
 - **Never present curated products as recency, popularity or sales.** The storefront publishes no date-added field, so there is no "recently added" list; the section is named and worded as a curated selection. Do not add a section that implies arrival order.
 - **The comparison price is struck through only when it is genuinely greater than the current price.** Gate it on the derived saving being non-null; never print a discount that `discountAmount`/`discountPercent` did not compute.
 - **Do not let a horizontally scrolling row widen the page.** Nested grid items need `min-width: 0`, and `overflow-x: auto` alone is not enough - the shelf also needs `contain: layout paint`. See `docs/design-system.md`.
-- Catalog data lives in `src/data/` and is reached only through the typed accessors, so an authorised backend adapter can replace it without rewriting components.
-- Do not add a database, ORM, auth provider, CMS, UI component library, animation library or test framework without a demonstrated need and approval.
+- **Catalog data lives in `src/data/` and is reached only through the typed accessors.** This is now the load-bearing seam for the real backend: a backend adapter must implement the same accessor contract so no view component changes. Keep it that way.
+- Do not add a database, ORM, auth provider, CMS, UI component library, animation library or test framework without a demonstrated need and approval. This applies with extra force now that a backend is planned: **stack selection is an owner decision recorded in `docs/platform-architecture.md`**, not an incidental choice made while implementing a feature.
+- **The storefront never writes authoritative commerce state.** The cart stores ids and quantities only, never prices. Prices, discounts, stock and totals are recomputed server-side.
+- **Analytics are derived from QueenBee's own database**, not from a third-party analytics product, so revenue figures reconcile against orders and customer data is not shipped to a vendor. See `docs/admin-dashboard.md`.
 
 ## Design principles
 
@@ -46,6 +73,27 @@
 - The frontend is **never** authoritative for prices, discounts, stock, permissions, totals, payment status or orders. Production validation belongs to a trusted server.
 - Never put secrets in client bundles, `NEXT_PUBLIC_*` variables, documentation, logs or committed files.
 - No merchant backend access, live security testing, order submission or customer-data collection without explicit written authorisation and a defined scope.
+- **The Phase 7 backend audit is complete; its authorization is spent.** Do not log into `merchant.zatiqeasy.com` again, and do not re-run backend reconnaissance, without fresh written authorization for a specific question. The audit's findings are in `docs/backend-capability-audit.md`.
+- **The platform's private API (`easybill.zatiq.tech`) is not a supported integration surface.** Do not build against it. A supported interface must be confirmed by the provider first.
+- Merchant-tenant credentials must never reach the browser, the storefront bundle, `NEXT_PUBLIC_*`, logs, docs or committed files. Any future integration keeps them server-side only, in a least-privilege identity.
+- **A customer-submitted transaction id, screenshot, sender number or confirmation message is never proof of payment.** Payment may be marked `verified` only by an authorized administrative action after independent confirmation through the merchant account. Design and controls: `docs/payment-workflow.md`.
+- **Never request, collect, log or store payment PINs, OTPs, passwords or mobile financial service credentials.** No customer MFS credentials are ever handled.
+- **No automated payment gateway is authorized (D7).** Do not implement, provision or onboard SSLCommerz, bKash/Nagad APIs, payment webhooks, automatic confirmation or automated refunds. Leave the extension point; do not build the abstraction.
+- **Approved payment methods (D7): manual bKash, manual Nagad, and Cash on Delivery.** COD is a **distinct method**, not a variation of prepaid MFS: it has no verification step, the courier collects cash, and it needs its own confirmation, failed-delivery and reconciliation handling. Do not route COD orders through the prepaid verification queue.
+- **Approved payment fields (D8): sender mobile number and transaction ID/reference are required; a payment screenshot is not required, not requested and not stored.** Recipient account details are owner-configurable settings and are never hardcoded into application code.
+- **Ordering requires a customer account (D12).** Guests may browse and build a cart, but must log in or register before placing an order; the cart must be preserved and the customer returned to checkout. **Do not silently reintroduce guest checkout**, and do not treat an anonymous order-lookup surface as acceptable.
+- **Object storage boundary (D3, approved - ADR 0006): Neon Object Storage.** Image **bytes** live in Neon Object Storage (S3-compatible, branches with the database); image **metadata and our own object key** live in PostgreSQL. Never store product image bytes in PostgreSQL - no documented technical constraint justifies it - and never use Vercel's writable temporary filesystem for persistent uploads. The database never stores a provider URL as a product's identity, because Neon's public URLs embed the branch id.
+- **Never point a development or preview environment at the production storage branch.** Neon isolates writes per branch, but the credential is lineage-bound rather than environment-bound, so isolation depends on each environment having its own endpoint and credential.
+- **Never auto-release stock reserved by an order awaiting payment verification.** Expiry releases stock only from `awaiting_payment`; an order whose customer has submitted payment details is held until an administrative decision. Releasing it would sell stock the customer may already have paid for. Release must be state-guarded so it cannot happen twice.
+- **Do not invent payment, delivery, expiry or refund policy.** Durations, deadlines, charges and eligibility are owner decisions. The approved values are: a **24-hour unpaid-order expiry** (an order with a submitted claim never expires automatically, and an expired reservation is never silently revived), **cancellation after the window** handled by support before dispatch or as a return after dispatch, and manual refunds updated only on confirmed real-world action. The storefront states no customer-facing deadline and no delivery promise.
+- **D11 allocation rule (owner-decided): the first submitted payment claim gets the product.** Priority is by **claim submission order**, not by order placement and not by verification order. A later claim may **preempt** an earlier order that has **not submitted** a claim. An order that **has** submitted a claim is **never** preempted and **never** released by a timer. **At most one active submitted claim exists per unit** - once a unit carries a claim, no further claim is accepted for it. A losing customer who transferred before submitting must be refunded manually through support.
+- **D9 and D11 are approved.** D9: the **24-hour verification maximum** as an *internal* service maximum - never a customer-facing deadline or turnaround promise; the exceptions queue for genuine payments that cannot be verified in time; fake-order findings with an audited reason; cancellation via support; manual refunds with separate states; COD owner approval before dispatch; a **24-hour unpaid-order expiry** that applies only to orders with no submitted claim; **cancellation after the window** as a pre-dispatch support decision or a post-dispatch return; and the **full COD lifecycle** with return-to-store and separate delivery, cash-collection and reconciliation states. D11: the **first submitted payment claim wins**, with **at most one active submitted claim per unit**. Do not publish or implement a policy the owner has not approved - a guessed policy becomes a published commitment.
+- **A delayed transaction or a mistyped reference is never fraud.** `rejected` (receipt not confirmed) and `falsely_claimed` (an admin **confirmed** a false claim) are different states. The customer review flag is **admin-set only**, always carries an audited reason and actor, and is never derived automatically. An ordinary unpaid order never sets it.
+- **Never report a refund as completed because it was requested or approved.** `refund_status` (`requested` / `processing` / `completed` / `failed`) is a separate field from `payment_status` and from `order.status`.
+- **Never collapse payment status, order status, refund status, inventory reservation state and the customer review flag.** They are five separate, auditable concepts.
+- **No automatic release of stock for an order whose customer submitted a payment claim.** It may be released only by an explicit admin decision. Do not write expiry jobs, automatic cancellation or automatic stock-release logic.
+- **Do not provision infrastructure, create provider accounts, deploy, or change DNS** without explicit owner approval. Approval of a *provider* (ADR 0005) is not approval to provision it: the owner approved Neon and Vercel as choices, not the creation of resources.
+- **Cost policy (owner-approved):** keep initial infrastructure costs as close to zero as reasonably possible; **do not upgrade pre-emptively**; justify any upgrade from measured usage, actual plan limits, reliability requirements or business growth. **Recheck current provider pricing and plan terms before implementation and before any upgrade recommendation** - the stated ~$15/mo (Neon) and ~$20/mo (Vercel) figures are the owner's intended future budget, not guaranteed prices.
 - Treat persisted cart/locale data as untrusted: parse defensively, validate ids against the catalog, and clamp numeric values.
 - Never render untrusted HTML. Product copy is plain text by design; do not introduce `dangerouslySetInnerHTML` or an unreviewed sanitizer.
 - Public image visibility is not a licence. The product photography (22 products) is tagged `rights: 'merchant_source_pending_confirmation'` and is **not** cleared for public launch. Do not relabel it as cleared, and do not add further merchant assets without recorded permission - see `docs/catalog.md`.
@@ -62,4 +110,12 @@
 
 ## Phase status
 
-Phase 0 (audit and foundation documentation), Phase 1 (foundation + client-ready frontend demo), Phase 2 (imagery, hero, announcement strip, typography) and Phase 3 (single-row featured shelf, curated selections, pricing hierarchy, catalog expansion, mobile-first refinement) are complete. The next phase is an **authorised merchant-backend capability audit and integration plan** - do not begin it automatically.
+Phases 0-8 are documented complete; see evidence and limits in `docs/project-status.md` and the roadmap in `docs/implementation-plan.md`. Phase 8 approved the independent-platform direction and withdrew the vendor-integration plan.
+
+**Phase 9 is complete.** D1 (Neon PostgreSQL), D2 (Vercel), D3 (Neon Object Storage), D7 (manual bKash + manual Nagad + COD), D8 (sender number and transaction reference required, no screenshot), D9 (payment and order policy - including 24-hour unpaid-order expiry, cancellation after the window, and the COD lifecycle), D11 (inventory reservation and release - first submitted claim wins, at most one active claim per unit) and D12 (account-required checkout) are owner-approved.
+
+**Phase 10 is complete as a design.** `docs/data-model.md` holds the schema (35 tables with keys, constraints, indexes, retention and authorization), the eight state machines, the transaction and concurrency design, the authorization matrix, the image-storage and upload architecture, the authentication architecture, and migration and rollback. `docs/security.md` holds the authorization matrix and a 16-part threat model. **Nothing is implemented:** no database, migration, dependency, environment change, credential, bucket or deployment exists.
+
+**Phase 11 (independent backend foundation) is unblocked but not started, and requires explicit owner authorization** - it is also the first phase that would create real resources, so provisioning must be authorized separately. **D17 (customer authentication provider) is newly raised and blocks implementation of checkout.** D10, D13, D14, D15 and D16 remain open and do not block the design. Do not scaffold any backend, dashboard or infrastructure automatically, and do not provision resources.
+
+**Known exposure.** An untracked, gitignored `.env` file in the working tree holds a plaintext credential for the withdrawn `merchant.zatiqeasy.com` vendor. It is read by no code and is not committed. **Rotation and removal are owner actions** - do not read the value into output, and do not delete or rotate it on the owner's behalf.

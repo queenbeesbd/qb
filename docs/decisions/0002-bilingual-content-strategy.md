@@ -30,4 +30,4 @@ English and Bangla are both required, and the owner approved **Bangla as the def
 
 ## Verification
 
-`npm run check:i18n` reports 124 keys present in both locales with matching placeholders. Browser checks confirm the toggle switches all interface copy, persists across reload, and that corrupt/unsupported stored values fall back to Bangla.
+At the original Phase 1 checkpoint, `npm run check:i18n` reported 124 keys. Current audit rerun reports 129 keys in both locales with matching placeholders; the dictionary has grown since this historical decision. Browser checks confirm the toggle switches all interface copy, persists across reload, and that corrupt/unsupported stored values fall back to Bangla.

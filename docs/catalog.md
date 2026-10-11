@@ -4,7 +4,7 @@ Status: 22 products, 5 categories. Last expanded 2026-10-11.
 
 ## Why the catalog is local
 
-The storefront reads a typed local fixture (`src/data/catalog.ts`). Nothing is fetched at runtime. This keeps the demo deterministic, keeps every claim traceable to a captured source, and means an authorised backend adapter can replace the data layer later without rewriting components.
+The storefront reads a typed local fixture (`src/data/catalog.ts`). Nothing is fetched at runtime. This keeps the demo deterministic, keeps every claim traceable to a captured source, and means a backend adapter can replace the data layer later without rewriting components. That adapter is now planned rather than hypothetical - see `docs/platform-architecture.md` and `docs/migration-plan.md`.
 
 ## Source and capture
 
@@ -13,7 +13,7 @@ The storefront reads a typed local fixture (`src/data/catalog.ts`). Nothing is f
 | Source | `https://queenbees.sellbd.shop/` |
 | Capture date | 2026-10-11 |
 | Method | Public product pages and listing pages, read as rendered HTML |
-| Merchant backend | **Never accessed.** No credentials, no private endpoints |
+| Merchant backend | Read-only audit in Phase 7 (`docs/backend-capability-audit.md`). No write, no order, no customer record, no credential exposed |
 
 Every price, name, brand, pack size and comparison price is a value the storefront itself publishes. Where a field is not published, it is stored as `null` and the interface states the gap instead of filling it.
 
@@ -84,6 +84,15 @@ Unknown ids are dropped rather than thrown on, so a stale configuration shortens
 `npm run check:catalog` asserts, across all 22 records: unique ids and slugs, positive integer poisha prices, comparison prices that are greater integers or `null`, known categories, at least one localized name, trimmed English names, an image entry with alt text, provenance page and asset URL for photography, a valid retrieval date, every declared image variant present on disk for both widths and both formats, a plausible whole-percent discount, a positive saving, and the `isDemo` marker.
 
 It also asserts the locked demo announcement exists, is locked, carries both locales, and is active - and now the curation constraints above.
+
+## Phase 7 backend audit: catalog findings
+
+The merchant dashboard was audited read-only. Two findings bear directly on this catalog's provenance:
+
+1. **The audited tenant reports an empty catalog** - 0 products, 0 categories - while the live storefront `queenbees.sellbd.shop` publishes **24 product links** and serves imagery from a Zatiq shop path carrying shop id **42239**. Whether the supplied credential owns that shop is **unresolved**. The 22-record fixture in this repository is a curated sample captured from the public storefront; it was never a mirror of the dashboard.
+2. **No product schema could be read.** The dashboard's Add Product form did not render in headless Chromium, so no authoritative field list (SKU, variant, stock, compare-at price, images, bilingual fields) was obtained.
+
+Consequence: the local fixture remains the only catalog source, and no mapping to an authoritative backend catalog can be specified yet. The fixture must not be presented as a verified production catalog.
 
 ## Known gaps
 
