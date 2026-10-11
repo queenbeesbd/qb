@@ -1,10 +1,10 @@
 # Design system
 
-Status: Phase 2 refinement complete (2026-10-11). Tokens live in `src/app/globals.css`; component styles are CSS Modules. Items marked *not built* are explicitly deferred.
+Status: refined in the mobile/discovery phase (2026-10-11). Tokens live in `src/app/globals.css`; component styles are CSS Modules. Items marked *not built* are explicitly deferred.
 
 ## Direction
 
-Product-led, calm, precise. The shopper compares brand, pack size, price and availability without hunting, and purple/pink are used deliberately rather than painted over every surface. Authentic product photography now carries the visual weight.
+Product-led, calm, precise. The shopper compares brand, pack size, price and availability without hunting, and purple/pink are used deliberately rather than painted over every surface. Authentic product photography carries the visual weight.
 
 ## Colour tokens
 
@@ -27,94 +27,80 @@ Product-led, calm, precise. The shopper compares brand, pack size, price and ava
 | `--color-focus` | `#7952B3` | Focus ring, 2px with offset. |
 | `--color-success` / `-soft` | `#23633E` / `#E8F3EC` | Savings and confirmations. |
 | `--color-danger` / `-soft` | `#9B263E` / `#FBEAEE` | Removal and destructive actions. |
-| `--color-warning` / `-soft` | `#755100` / `#FDF3E2` | Demo notices and unavailable data. |
+| `--color-warning` / `-soft` | `#755100` / `#FDF3E2` | Unverified data notices. |
 
 ### Measured contrast
-
-Computed WCAG relative-luminance ratios, which drove the palette:
 
 | Pair | Ratio | Verdict |
 | --- | --- | --- |
 | White on `#A680FF` | 2.94:1 | **Fails** - never used for text |
 | White on `#F6B3CC` | 1.72:1 | **Fails** - decorative only |
 | Ink on `#A680FF` | 5.76:1 | Passes AA |
-| Ink on `#F6B3CC` | 9.86:1 | Passes AA |
 | White on `#56358C` | 9.20:1 | Passes AAA - all filled actions |
 | Muted on white | 5.89:1 | Passes AA |
-| Focus on white | 5.72:1 | Passes AA |
-| Ink on `#F3EDFF` (announcement strip) | 14.2:1 | Passes AAA |
-
-White-on-primary fails, which is why filled buttons use `--color-action`. Deliberate, not an oversight.
+| Ink on `#F3EDFF` | 14.2:1 | Passes AAA |
 
 ## Typography
 
-### Families
-
-- **English: Inter** (`next/font/google`, self-hosted at build, `display: swap`). Variable, weight axis 100-900.
-- **Bangla: Noto Sans Bengali**, weights 400/500/600/700, self-hosted the same way.
-- Wired as `--font-latin` / `--font-noto-bengali`; `html[lang='bn'] body` switches to the Bengali stack and raises base line-height to 1.7.
-
-### Phase 2 decision: retain both families, fix the weight scale
-
-The English typeface was reviewed against the brief's criteria - letterform character, small-size readability, heading personality, navigation density, product-name wrapping, numerical clarity, consistency with the Bangla face, and cross-device rendering - and **retained**. Inter is a neutral, high-x-height grotesque with excellent small-size legibility and a full variable weight axis, and it pairs cleanly with Noto Sans Bengali. There was no demonstrated weakness that justified a change, and changing for novelty is explicitly out of scope.
-
-A real inconsistency was found and fixed instead. The CSS requested **550** and **650**, which Inter (variable) renders exactly but Noto Sans Bengali (discrete 400/500/600/700) cannot - so Bangla silently substituted to 700/600 while English rendered 650/550. The two scripts disagreed at the same nominal value.
-
-All weights are now constrained to the **intersection both families actually ship**:
-
-| Weight | Use |
-| --- | --- |
-| 400 | Body copy, descriptions |
-| 500 | Navigation, secondary labels, muted values |
-| 600 | Headings h1-h4, card titles, buttons, emphasis |
-| 700 | Prices, totals, badges, numeric emphasis |
-
-Verified in the browser: Bangla and English headings both resolve to 600 and report identical weights.
-
-### Scale and rules
-
-- Scale: 12 / 13 / 15 / 16 / 18 / 22 / 28 / 34 px via `--text-xs` to `--text-3xl`. Body 15px with 1.6 leading; headings tight leading.
-- **No letter-spacing on Bengali text.** Negative tracking is a Latin device; applied to Bengali it distorts conjunct clusters. `html[lang='bn']` resets tracking to `normal` for h1-h4 and `.ui-label`, overriding the global `-0.01em`. Verified in the browser.
+- **English: Inter** (variable), **Bangla: Noto Sans Bengali**, both self-hosted via `next/font`.
+- **Weights are restricted to 400 / 500 / 600 / 700.** Inter is variable but Noto Sans Bengali ships only these four, so an intermediate value (550/650) renders at *different* effective weights in the two scripts. This was a real defect and is now prevented.
+- **No letter-spacing on Bengali text.** `html[lang='bn']` resets tracking for headings, overriding the global `-0.01em`.
+- Scale: 12 / 13 / 15 / 16 / 18 / 22 / 28 / 34 px. Body 15px, 1.6 leading (1.7 for Bangla).
 - No fixed-height text containers, so Bangla conjuncts and long product names never clip.
-- Prices use `font-variant-numeric: tabular-nums` so columns align in both digit systems.
+
+## Price hierarchy
+
+The price is the loudest commercial fact on every surface. Hierarchy is carried by **size, weight and contrast** - not by colour, badges or decoration. The same three-step structure is used on cards, the product page and the cart, so a shopper learns it once.
+
+| Surface | Current price | Comparison price | Saving |
+| --- | --- | --- | --- |
+| Product card | `--text-lg`, weight 700, full-contrast ink | `--text-sm`, subtle, struck through | `--text-xs`, success colour |
+| Product detail | `--text-2xl` (`--text-3xl` from 880px), weight 700 | `--text-md`, subtle, struck through | `--text-sm`, success colour |
+| Cart line / total | `--text-lg` / `--text-xl`, weight 700 | - | - |
+
+Rules that hold everywhere:
+
+- All money uses `font-variant-numeric: tabular-nums` and `white-space: nowrap`, so figures never break across lines and columns stay aligned in both digit systems.
+- The comparison price is struck through **only** when it is genuinely greater than the current price. The card and the detail page both gate it on the derived saving being non-null, so a discount cannot be displayed that does not exist.
+- Savings are always derived in `src/lib/money.ts` from stored integer poisha. Nothing is stored as a precomputed discount, and percentages are floored so they never overstate.
+- Prices never change with locale; only the digit system and the `৳`/`Tk` prefix do.
+- Prices stay large enough to dominate but small enough not to crowd the product name or the add-to-cart action. Card heights stay consistent because the price block is pushed to the bottom of the card with `margin-top: auto`.
 
 ## Spacing, shape, motion
 
-- Spacing scale: 4 / 8 / 12 / 16 / 24 / 32 / 48 / 64 px (`--space-1` to `--space-8`).
-- Radii: 4 / 8 / 12 px plus a pill for filter chips only. Cards are not all rounded.
-- Two shadows only, used for hover elevation and sticky panels.
-- Motion: 120ms state feedback, 180ms panel transitions. `prefers-reduced-motion` collapses all durations globally; the featured shelf also switches its scroll to instant rather than smooth. No parallax, marquee or autoplay.
+- Spacing scale: 4 / 8 / 12 / 16 / 24 / 32 / 48 / 64 px.
+- Radii: 4 / 8 / 12 px plus a pill for filter chips only.
+- Two shadows only. Motion: 120ms state feedback, 180ms panels. `prefers-reduced-motion` collapses all durations and switches the shelf scroll to instant.
 
 ## Components
 
-- **AnnouncementBar** - slim strip above the header, driven by `src/data/announcements.ts`. Tinted `--color-action-soft`, 13px text, wraps rather than overflowing. Visually subordinate to navigation by size and weight.
-- **ProductPhoto** - one `<picture>` for all catalog imagery: WebP source, JPEG fallback, explicit dimensions, `sizes` hints, lazy by default and eager for the detail hero. Owns the 3:4 aspect ratio.
-- **ProductCard** - 3:4 photo, brand eyebrow, title, pack, price row (current bold, comparison struck through) and a derived saving. No badges, ratings or urgency.
-- **FeaturedShelf** - two-row horizontally navigable shelf. Column-wise grid flow with horizontal overflow; controls appear only when scrolling is possible and disable at each end.
-- **QuantityStepper** - accessible minus/plus with a numeric input clamped to 1..20 before reaching the parent.
-- **Header** - sticky, three-column grid. Desktop shows inline nav plus search; below 720px both collapse into a focus-trapped drawer.
-- **Filter chips** - pill-shaped buttons with `aria-pressed`; only filters get pills.
-- **Empty/absent states** - dashed-border note blocks with an info icon, used for missing discounts, unverifiable dates, empty search and empty cart.
-
-## Logo and favicon
-
-Original geometry, no stock beauty icon and no imitation of another brand: a hexagonal badge built from an abstract bee/wing form with a pink body band and a small pointed tail.
-
-| Asset | Path | Use |
-| --- | --- | --- |
-| Wordmark | `public/brand/logo.svg` | Header. Colours driven by CSS variables. |
-| Mark | `public/brand/logo-mark.svg` | Square mark for compact contexts. |
-| Dark variant | `public/brand/logo-dark.svg` | Light text for dark surfaces. |
-| Favicon | `public/brand/favicon.svg` | Simplified badge on a `#56358C` tile - legible at 16px. |
-
-*Not built:* category iconography beyond the five restrained line glyphs in `src/components/icons.tsx`, and a Bangla wordmark variant.
+- **AnnouncementBar** - slim strip above the header, driven by `src/data/announcements.ts`. Present on every route.
+- **ProductPhoto** - one `<picture>` for all catalog imagery: WebP source, JPEG fallback, explicit dimensions, `sizes` hints, lazy by default and eager for the detail hero.
+- **ProductCard** - 3:4 photo, brand eyebrow, title, pack, price row and a derived saving. No badges, ratings or urgency.
+- **FeaturedShelf** - **exactly one row**, horizontally scrollable, group controls that disable at each end. No clones, no autoplay, no dependency.
+- **QuantityStepper** - accessible minus/plus with a numeric input clamped to 1..20.
+- **Header** - sticky. Inline nav and search appear from **880px**; below that both live in a focus-trapped drawer.
 
 ## Responsive behaviour
 
-Breakpoints: 600px (category grid 1 to 2 columns), 720px (nav and search appear, footer to 3 columns, grid to 3), 880px (hero splits into copy plus product composition, category grid to 5, catalog sidebar, PDP and cart to two columns), 1024px (grid to 4, shelf to 4 columns).
+Breakpoints: 600px (category grid 2 columns), 720px (category section appears, footer 3 columns), 880px (header nav + search, hero splits, catalog sidebar, PDP and cart two columns), 1024px (grid 4 columns, shelf 4 visible).
 
-Featured shelf visible columns: 2 on mobile, 3 on tablet, 4 on desktop, always in exactly two rows.
+Featured shelf visible columns: 2 on mobile, 3 on tablet, 4 on desktop - always one row.
 
-Verified with no horizontal overflow at 320, 375, 768, 1024 and 1440px, including with the announcement strip present. Touch targets: primary controls at least 40px; breadcrumb links raised to a 24px minimum (WCAG 2.5.8).
+### Mobile-first decisions
+
+- **The homepage category section is hidden below 720px.** Rationale: the mobile header collapses into a drawer that already lists every category, so the section would be a second navigation surface consuming most of the first screen. 720px is deliberately the same breakpoint at which the header's own category navigation appears, so a category link is always reachable through exactly one of the two surfaces. The hero's "See categories" anchor is hidden on the same breakpoint rather than pointing at a target that is not rendered. Category filtering on `/products` and the category routes are untouched.
+- **Header height, hero padding and the display type size all step up only where the measure allows it**, rather than starting large and being shrunk for mobile.
+
+### Overflow discipline
+
+Two traps are worth remembering because both caused real page overflow:
+
+1. **Nested grids default to `min-width: auto`.** A grid item cannot be narrower than its content's minimum unless `min-width: 0` is set. Without it, the shelf reported its whole column set as its minimum width and pushed the page sideways. Both `.wrap` and `.scroller` set it explicitly.
+2. **`overflow-x: auto` clips visually but does not stop the content contributing to an ancestor's scroll width.** The shelf needed `contain: layout paint` before the row stopped widening the page. Containment fixes the cause; `overflow: hidden` on the parent would only have hidden it.
+
+Verified with no horizontal overflow on `/`, `/products`, `/cart`, `/checkout`, a product page and a category page at 320px, and across 320-1440px.
+
+Touch targets: primary controls at least 40px; breadcrumb links raised to a 24px minimum (WCAG 2.5.8).
 
 *Unverified:* real iOS Safari and Android Chrome, 200% zoom reflow, and screen-reader output on real assistive technology.

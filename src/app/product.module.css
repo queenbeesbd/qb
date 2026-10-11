@@ -53,14 +53,6 @@
   object-fit: cover;
 }
 
-.figcaption {
-  padding: var(--space-2) var(--space-3);
-  border-top: 1px solid var(--color-border);
-  font-size: var(--text-xs);
-  color: var(--color-ink-subtle);
-  background: var(--color-surface-sunken);
-}
-
 .info {
   display: grid;
   gap: var(--space-4);
@@ -79,20 +71,28 @@
   line-height: var(--leading-tight);
 }
 
+/* Mobile-first price hierarchy: the current price dominates, the comparison
+   price is secondary, and neither is allowed to break mid-figure. */
 .pricing {
   display: flex;
   align-items: baseline;
   gap: var(--space-3);
+  flex-wrap: wrap;
+  row-gap: var(--space-1);
 }
 
 .currentPrice {
-  font-size: 1.75rem;
+  font-size: var(--text-2xl);
   font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .comparePrice {
+  font-size: var(--text-md);
   color: var(--color-ink-subtle);
   text-decoration: line-through;
+  white-space: nowrap;
 }
 
 .saving {
@@ -170,11 +170,6 @@
   background: var(--color-action-hover);
 }
 
-.buyNote {
-  font-size: var(--text-xs);
-  color: var(--color-ink-muted);
-}
-
 .liveRegion {
   display: flex;
   align-items: center;
@@ -199,12 +194,6 @@
   font-style: italic;
 }
 
-.source {
-  font-size: var(--text-xs);
-  color: var(--color-ink-subtle);
-  word-break: break-all;
-}
-
 .related {
   display: grid;
   gap: var(--space-4);
@@ -217,5 +206,9 @@
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     gap: var(--space-7);
     align-items: start;
+  }
+
+  .currentPrice {
+    font-size: var(--text-3xl);
   }
 }

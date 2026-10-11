@@ -1,6 +1,6 @@
 # Requirements
 
-Status: Phase 1 built the storefront; Phase 2 (2026-10-11) refined imagery, hero, featured shelf, announcement configuration and typography. Production items remain blocked on an authorised backend audit.
+Status: Phase 1 built the storefront; Phase 2 refined imagery, hero, announcement configuration and typography; Phase 3 (2026-10-11) made the featured shelf a single row, moved curation into an id-based config, expanded the catalog to 22 verified products, strengthened the pricing hierarchy, removed redundant demo wording and refined the mobile-first layout. Production items remain blocked on an authorised backend audit.
 
 ## Product context
 
@@ -17,15 +17,18 @@ Demonstration success: find a product, inspect correct information, choose a qua
 | D3 | Search, filter, sort | Done | URL-driven search across name/brand/pack/tags, category and brand filters, 4 sorts, clear-all |
 | D4 | Product detail | Done | 3:4 photo with source note, price hierarchy, brand, pack, availability note, quantity, add to cart, explicit missing-description state |
 | D5 | Variants and availability | Partial | Availability is a dated snapshot with a visible caveat. No variant grouping - the storefront publishes no confirmed groups |
-| D6 | Recently added | Not shown, by design | No reliable date field exists; the homepage states this instead of fabricating order |
+| D6 | Recently added | **Replaced, not shown** | No reliable date field exists. The section is now "More to explore", a curated collection, so no recency claim is made |
 | D7 | Hot deals | Done | Only records with a published comparison price above current; savings and floored percentage derived |
 | D8 | Cart and quantity | Done | Add/update/remove, duplicate lines merged, empty state, derived integer totals |
 | D9 | Responsive and accessible | Done (headless-verified) | No overflow 320-1440px; drawer focus trap and Escape; skip link; reduced motion; 40px targets |
 | D10 | Language switching | Done | Whole-UI toggle, persistence, `documentElement.lang`, per-field content fallback |
 | D11 | Non-happy paths | Done | Empty search, empty category, empty cart, unknown product (404), corrupt storage, unsupported locale, error boundary |
-| D12 | Honest demo presentation | Done | Locked announcement strip on every route, inert checkout, `robots: noindex, nofollow` |
+| D12 | Honest demo presentation | Done | Locked announcement strip on every route, identified simulated checkout, inert checkout route, `robots: noindex, nofollow`. Redundant explanatory demo lines were removed from the shopping UI in Phase 3 |
 | D13 | Authentic product imagery | Done | 16 products with locally served WebP/JPEG at 3:4, provenance recorded, rights pending confirmation |
-| D14 | Featured shelf navigation | Done | Two rows, group advance, controls bounded and disabled at ends, keyboard reachable, no dependency |
+| D14 | Featured shelf navigation | Done | **Exactly one row at every viewport**, 4 visible on desktop, 2 on mobile, group advance, controls bounded and disabled at ends, keyboard reachable, no dependency |
+| D16 | Featured selection configuration | Done | `src/data/curation.ts` id list, max 6, validated against the catalog, graceful when empty |
+| D17 | Curated collection | Done | "More to explore", 8 id-referenced products, disjoint from the featured and offer rows |
+| D18 | Mobile category discovery | Done | Homepage category section hidden below 720px; the header drawer lists all five categories on that same breakpoint |
 | D15 | Announcement configuration | Done | Typed local model with message, enabled, variant, per-locale text and a locked demo entry |
 
 ## Announcement configuration

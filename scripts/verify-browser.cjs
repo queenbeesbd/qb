@@ -122,6 +122,73 @@ const HELPERS = `
     removeButton() {
       return [...document.querySelectorAll('main button')].find((b) => /সরান|Remove/.test(b.getAttribute('aria-label') || '')) || null;
     },
+    shelf() {
+      const s = document.querySelector('[role="group"][aria-label]');
+      if (!s) return null;
+      const cards = [...s.children];
+      const tops = [...new Set(cards.map((c) => Math.round(c.getBoundingClientRect().top)))];
+      const box = s.getBoundingClientRect();
+      const fullyVisible = cards.filter((c) => {
+        const r = c.getBoundingClientRect();
+        return r.width > 0 && r.left >= box.left - 1 && r.right <= box.right + 1;
+      }).length;
+      const btns = [...s.parentElement.querySelectorAll(':scope > div > button')];
+      return {
+        cards: cards.length,
+        rows: tops.length,
+        fullyVisible,
+        overflow: Math.round(s.scrollWidth - s.clientWidth),
+        scrollLeft: Math.round(s.scrollLeft),
+        pageOverflow: document.documentElement.scrollWidth - window.innerWidth,
+        controls: btns.length,
+        labels: btns.map((b) => b.getAttribute('aria-label')),
+        prevDisabled: btns[0] ? btns[0].disabled : null,
+        nextDisabled: btns[1] ? btns[1].disabled : null,
+      };
+    },
+    shelfNext() {
+      const s = document.querySelector('[role="group"][aria-label]');
+      if (!s) return false;
+      const btns = [...s.parentElement.querySelectorAll(':scope > div > button')];
+      btns[1].click();
+      return true;
+    },
+    cardDiscounts() {
+      const num = window.__qb.num;
+      return [...document.querySelectorAll('main article')].map((card) => {
+        const cur = card.querySelector('span[class$="_current"]');
+        const cmp = card.querySelector('span[class$="_compare"]');
+        const sav = card.querySelector('p[class$="_saving"]');
+        let savingAmount = null;
+        let savingPercent = null;
+        if (sav) {
+          // The saving line reads "Save <amount> - <percent>%"; splitting on the
+          // dash avoids depending on whitespace or on digit script.
+          const text = sav.innerText;
+          const dash = text.indexOf('-');
+          if (dash >= 0) {
+            savingAmount = num(text.slice(0, dash));
+            savingPercent = num(text.slice(dash));
+          } else {
+            savingAmount = num(text);
+          }
+        }
+        return {
+          current: cur ? num(cur.innerText) : null,
+          compare: cmp ? num(cmp.innerText) : null,
+          savingAmount,
+          savingPercent,
+        };
+      });
+    },
+    sectionHrefs(id) {
+      const heading = document.getElementById(id);
+      const section = heading ? heading.closest('section') : null;
+      if (!section) return null;
+      return [...new Set([...section.querySelectorAll('article a')]
+        .map((a) => a.getAttribute('href'))
+        .filter((href) => href && href.indexOf('/products/') === 0))];
+    },
   }; true;`;
 
 async function nav(client, path) {
@@ -224,7 +291,7 @@ async function main() {
     // 3 - category browse
     await nav(client, '/categories/haircare');
     const category = await evaluate(client, `({ count: document.querySelector('[aria-live="polite"]')?.textContent?.trim(), products: document.querySelectorAll('main article').length, links: [...new Set([...document.querySelectorAll('main article a[href^="/products/"]')].map((a) => a.getAttribute('href')))].length })`);
-    record('3. category page lists only its own 4 products', category.products === 4 && category.links === 4, category);
+    record('3. category page lists only its own 6 products', category.products === 6 && category.links === 6, category);
 
     // 4 - search
     await nav(client, '/products');
@@ -241,7 +308,7 @@ async function main() {
     const ascending = await evaluate(client, `(() => { const p = window.__qb.cardPrices(); return { prices: p, ascending: p.every((v, i) => i === 0 || p[i - 1] <= v), count: p.length }; })()`);
     await nav(client, '/products?sort=price-desc');
     const descending = await evaluate(client, `(() => { const p = window.__qb.cardPrices(); return { first: p.slice(0, 3), descending: p.every((v, i) => i === 0 || p[i - 1] >= v), count: p.length }; })()`);
-    record('5. price sorting is monotonic in both directions', ascending.ascending && descending.descending && ascending.count === 16 && ascending.prices[0] === 30 && ascending.prices[15] === 1150, { ascending, descending });
+    record('5. price sorting is monotonic in both directions', ascending.ascending && descending.descending && ascending.count === 22 && ascending.prices[0] === 30 && ascending.prices[21] === 1150, { ascending, descending });
 
     // 6 - filters compose
     await nav(client, '/products?category=skincare&brand=Lilac');
@@ -255,8 +322,8 @@ async function main() {
 
     // 8 - product detail
     await nav(client, '/products/oriox-tinted-lipbalm-strawberry');
-    const detail = await evaluate(client, `(() => { const p = window.__qb.pdpPrices(); return { h1: document.querySelector('h1')?.textContent?.trim(), current: p.current, compare: p.compare, saving: [...document.querySelectorAll('main p')].map((n) => n.innerText).find((t) => /Save/.test(t)), imagesLoaded: [...document.querySelectorAll('main img')].every((i) => i.complete && i.naturalWidth > 0), imageCount: document.querySelectorAll('main img').length, hasQuantity: !!document.getElementById('pdp-quantity'), sourceIsQueenbees: (document.querySelector('a[href^="https://queenbees"]')?.getAttribute('href') || '').startsWith('https://queenbees.sellbd.shop/') }; })()`);
-    record('8. product page shows verified price, comparison price and loaded images', detail.current === 350 && detail.compare === 420 && detail.imagesLoaded && detail.imageCount > 0 && detail.hasQuantity && detail.sourceIsQueenbees, detail);
+    const detail = await evaluate(client, `(() => { const p = window.__qb.pdpPrices(); return { h1: document.querySelector('h1')?.textContent?.trim(), current: p.current, compare: p.compare, saving: [...document.querySelectorAll('main p')].map((n) => n.innerText).find((t) => /Save/.test(t)), imagesLoaded: [...document.querySelectorAll('main img')].every((i) => i.complete && i.naturalWidth > 0), imageCount: document.querySelectorAll('main img').length, hasQuantity: !!document.getElementById('pdp-quantity'), externalLinks: document.querySelectorAll('main a[href^="http"]').length, captions: document.querySelectorAll('main figure figcaption').length }; })()`);
+    record('8. product page shows verified price, comparison price and loaded images', detail.current === 350 && detail.compare === 420 && detail.imagesLoaded && detail.imageCount > 0 && detail.hasQuantity && detail.externalLinks === 0 && detail.captions === 0, detail);
 
     // 9 - add to cart
     await setValue(client, '#pdp-quantity', 2);
@@ -423,6 +490,19 @@ async function main() {
 
     // 26 - authentic product imagery on cards and detail
     await nav(client, '/products');
+    // Cards below the fold are lazy-loaded by design, so scrolling through the
+    // page is what exercises every declared asset. Asserting on a settled state
+    // afterwards avoids racing the network.
+    for (let y = 0; y <= 8000; y += 600) {
+      await evaluate(client, `window.scrollTo(0, ${y})`);
+      await sleep(120);
+    }
+    await evaluate(client, `window.scrollTo(0, 0)`);
+    const imagerySettled = await poll(
+      client,
+      `(() => { const imgs = [...document.querySelectorAll('main article picture img')]; return imgs.length === 22 && imgs.every((i) => i.complete && i.naturalWidth > 0); })()`,
+      20000,
+    );
     const imagery = await evaluate(client, `(() => {
       const imgs = [...document.querySelectorAll('main article picture img')];
       const loaded = imgs.filter((i) => i.complete && i.naturalWidth > 0);
@@ -439,7 +519,7 @@ async function main() {
         decoded3x4: imgs.length > 0 && imgs.every((i) => Math.abs(i.naturalWidth / i.naturalHeight - 0.75) < 0.02),
       };
     })()`);
-    record('26. product cards use local WebP imagery at 3:4 with no remote host', imagery.total === 16 && imagery.loaded === 16 && imagery.webpSources === 16 && imagery.localOnly && !imagery.anyRemoteHost && imagery.decoded3x4, imagery);
+    record('26. product cards use local WebP imagery at 3:4 with no remote host', imagerySettled && imagery.total === 22 && imagery.loaded === 22 && imagery.webpSources === 22 && imagery.localOnly && !imagery.anyRemoteHost && imagery.decoded3x4, { ...imagery, imagerySettled });
 
     await nav(client, '/products/oriox-tinted-lipbalm-strawberry');
     const detailImg = await evaluate(client, `(() => {
@@ -453,42 +533,26 @@ async function main() {
         ratio: img ? Number((img.naturalWidth / img.naturalHeight).toFixed(3)) : null,
       };
     })()`);
-    record('26b. detail photo loads eagerly with descriptive alt and source note', detailImg.loaded && detailImg.eager && (detailImg.alt || '').length > 3 && !!detailImg.caption && detailImg.ratio === 0.75, detailImg);
+    record('26b. detail photo loads eagerly with descriptive alt and no audit caption', detailImg.loaded && detailImg.eager && (detailImg.alt || '').length > 3 && detailImg.caption === null && detailImg.ratio === 0.75, detailImg);
 
-    // 27 - featured shelf: two rows, bounded controls, group advance
+    // 27 - featured shelf: exactly one row, bounded controls, real advancement
     await nav(client, '/');
-    const shelfStart = await evaluate(client, `(() => {
-      const s = document.querySelector('[role="group"][aria-label]');
-      if (!s) return { error: 'no shelf' };
-      const cards = [...s.children];
-      const tops = [...new Set(cards.map((c) => Math.round(c.getBoundingClientRect().top)))];
-      const wrap = s.parentElement;
-      const btns = [...wrap.querySelectorAll(':scope > div > button')];
-      return {
-        cards: cards.length,
-        rows: tops.length,
-        overflow: Math.round(s.scrollWidth - s.clientWidth),
-        pageOverflow: document.documentElement.scrollWidth - window.innerWidth,
-        controls: btns.length,
-        labels: btns.map((b) => b.getAttribute('aria-label')),
-        prevDisabled: btns[0] ? btns[0].disabled : null,
-        nextDisabled: btns[1] ? btns[1].disabled : null,
-        scrollLeft: Math.round(s.scrollLeft),
-        focusable: (() => { s.focus(); return document.activeElement === s; })(),
-      };
-    })()`);
-    record('27. featured shelf shows two rows with bounded group controls', shelfStart.rows === 2 && shelfStart.cards === 10 && shelfStart.overflow > 0 && shelfStart.pageOverflow <= 1 && shelfStart.controls === 2 && shelfStart.prevDisabled === true && shelfStart.nextDisabled === false && shelfStart.focusable, shelfStart);
+    const shelfStart = await evaluate(client, `window.__qb.shelf()`);
+    const shelfFocusable = await evaluate(client, `(() => { const s = document.querySelector('[role="group"][aria-label]'); s.focus(); return document.activeElement === s; })()`);
+    record('27. featured shelf is one row of six with bounded group controls',
+      !!shelfStart && shelfStart.rows === 1 && shelfStart.cards === 6 && shelfStart.overflow > 0 &&
+      shelfStart.pageOverflow <= 1 && shelfStart.controls === 2 &&
+      shelfStart.prevDisabled === true && shelfStart.nextDisabled === false && shelfFocusable,
+      { ...shelfStart, focusable: shelfFocusable });
 
-    await evaluate(client, `(() => { const s = document.querySelector('[role="group"][aria-label]'); const b = [...s.parentElement.querySelectorAll(':scope > div > button')]; b[1].click(); return true; })()`);
+    await evaluate(client, `window.__qb.shelfNext()`);
     await sleep(900);
-    const shelfAdvanced = await evaluate(client, `(() => {
-      const s = document.querySelector('[role="group"][aria-label]');
-      const b = [...s.parentElement.querySelectorAll(':scope > div > button')];
-      const cards = [...s.children];
-      const tops = [...new Set(cards.map((c) => Math.round(c.getBoundingClientRect().top)))];
-      return { scrollLeft: Math.round(s.scrollLeft), rows: tops.length, prevDisabled: b[0].disabled, nextDisabled: b[1].disabled };
-    })()`);
-    record('27b. advancing moves both rows together and updates control states', shelfAdvanced.scrollLeft > 0 && shelfAdvanced.rows === 2 && shelfAdvanced.prevDisabled === false && shelfAdvanced.nextDisabled === true, shelfAdvanced);
+    const shelfAdvanced = await evaluate(client, `window.__qb.shelf()`);
+    record('27b. advancing reveals the remaining products and flips both control states',
+      !!shelfAdvanced && shelfAdvanced.scrollLeft > 0 && shelfAdvanced.rows === 1 &&
+      shelfAdvanced.prevDisabled === false && shelfAdvanced.nextDisabled === true &&
+      shelfAdvanced.fullyVisible === 4,
+      shelfAdvanced);
 
     // 28 - hero has a purposeful product composition
     const hero = await evaluate(client, `(() => {
@@ -528,8 +592,197 @@ async function main() {
     })()`);
     record('29b. English headings use the same weight as Bangla', enType.lang === 'en' && enType.weight === enType.h2Weight && enType.weight === bnType.weight, { en: enType, bn: bnType });
 
-    // 30 - no console errors
-    record('30. no console errors or uncaught exceptions across all journeys', consoleErrors.length === 0, consoleErrors.slice(0, 5));
+    // 31 - the shelf is one row of at most six at every supported viewport
+    const shelfViewports = [
+      { w: 320, h: 720, mobile: true },
+      { w: 375, h: 812, mobile: true },
+      { w: 768, h: 1024, mobile: true },
+      { w: 1024, h: 768, mobile: false },
+      { w: 1440, h: 900, mobile: false },
+    ];
+    const shelfShapes = [];
+    for (const vp of shelfViewports) {
+      await client.send('Emulation.setDeviceMetricsOverride', { width: vp.w, height: vp.h, deviceScaleFactor: 1, mobile: vp.mobile });
+      await nav(client, '/');
+      const s = await evaluate(client, `window.__qb.shelf()`);
+      shelfShapes.push({ w: vp.w, rows: s && s.rows, cards: s && s.cards, visible: s && s.fullyVisible, pageOverflow: s && s.pageOverflow });
+    }
+    record('31. featured shelf is exactly one row of at most six cards at every viewport',
+      shelfShapes.every((r) => r.rows === 1 && r.cards === 6 && r.cards <= 6 && r.pageOverflow <= 1),
+      shelfShapes);
+
+    record('31b. four featured cards are visible initially on desktop widths',
+      shelfShapes.filter((r) => r.w >= 1024).every((r) => r.visible === 4),
+      shelfShapes.filter((r) => r.w >= 1024));
+
+    record('31c. mobile shows two featured cards without pushing the page sideways',
+      shelfShapes.filter((r) => r.w <= 375).every((r) => r.visible === 2),
+      shelfShapes.filter((r) => r.w <= 375));
+
+    // 32 - pricing hierarchy on cards
+    await client.send('Emulation.clearDeviceMetricsOverride');
+    await evaluate(client, `localStorage.setItem('queenbees.locale.v1', 'en')`);
+    await nav(client, '/products');
+    const cardType = await evaluate(client, `(() => {
+      const card = [...document.querySelectorAll('main article')].find((c) => c.querySelector('span[class$="_compare"]'));
+      if (!card) return { error: 'no discounted card' };
+      const cur = card.querySelector('span[class$="_current"]');
+      const cmp = card.querySelector('span[class$="_compare"]');
+      const cs = getComputedStyle(cur);
+      const ccs = getComputedStyle(cmp);
+      return {
+        currentSize: parseFloat(cs.fontSize),
+        currentWeight: cs.fontWeight,
+        compareSize: parseFloat(ccs.fontSize),
+        compareDecoration: ccs.textDecorationLine,
+        numeric: cs.fontVariantNumeric,
+      };
+    })()`);
+    record('32. the card current price dominates the struck-through comparison price',
+      cardType.currentSize > cardType.compareSize && cardType.currentWeight === '700' &&
+      cardType.compareDecoration.includes('line-through') && cardType.numeric.includes('tabular-nums'),
+      cardType);
+
+    // 33 - every shown discount is derived correctly from the stored prices
+    const discounts = await evaluate(client, `window.__qb.cardDiscounts()`);
+    const withCompare = discounts.filter((d) => d.compare !== null);
+    const wrongDiscount = discounts.filter((d) => {
+      if (d.compare === null) return d.savingAmount !== null || d.savingPercent !== null;
+      if (!(d.compare > d.current)) return true;
+      const amount = d.compare - d.current;
+      const percent = Math.floor((amount / d.compare) * 100);
+      return d.savingAmount !== amount || d.savingPercent !== percent;
+    });
+    record('33. comparison prices are always genuine and savings are derived correctly',
+      discounts.length === 22 && withCompare.length === 13 && wrongDiscount.length === 0,
+      { cards: discounts.length, withComparisonPrice: withCompare.length, wrong: wrongDiscount.slice(0, 4) });
+
+    // 34 - pricing hierarchy is consistent on the detail page and in the cart
+    await nav(client, '/products/oriox-tinted-lipbalm-strawberry');
+    const pdpType = await evaluate(client, `(() => {
+      const cur = document.querySelector('main span[class$="_currentPrice"]');
+      const cmp = document.querySelector('main span[class$="_comparePrice"]');
+      if (!cur || !cmp) return { error: 'pricing markup missing' };
+      const cs = getComputedStyle(cur);
+      const ccs = getComputedStyle(cmp);
+      return {
+        currentSize: parseFloat(cs.fontSize),
+        currentWeight: cs.fontWeight,
+        compareSize: parseFloat(ccs.fontSize),
+        compareDecoration: ccs.textDecorationLine,
+      };
+    })()`);
+    await evaluate(client, `window.__qb.addButton().click()`);
+    await sleep(400);
+    await nav(client, '/cart');
+    const cartType = await evaluate(client, `(() => {
+      const line = document.querySelector('main p[class$="_linePrice"]');
+      const dds = [...document.querySelectorAll('main aside dd')];
+      const total = dds[dds.length - 1];
+      return {
+        lineSize: line ? parseFloat(getComputedStyle(line).fontSize) : null,
+        lineWeight: line ? getComputedStyle(line).fontWeight : null,
+        totalSize: total ? parseFloat(getComputedStyle(total).fontSize) : null,
+        totalWeight: total ? getComputedStyle(total).fontWeight : null,
+      };
+    })()`);
+    record('34. price hierarchy is consistent on the product page and in the cart',
+      pdpType.currentSize > pdpType.compareSize && pdpType.currentWeight === '700' &&
+      pdpType.compareDecoration.includes('line-through') &&
+      cartType.lineWeight === '700' && cartType.totalWeight === '700' &&
+      cartType.totalSize > cartType.lineSize,
+      { pdpType, cartType });
+
+    // 35 - homepage sections complement each other instead of repeating cards
+    await nav(client, '/');
+    const featuredHrefs = await evaluate(client, `window.__qb.sectionHrefs('featured-title')`);
+    const dealsHrefs = await evaluate(client, `window.__qb.sectionHrefs('deals-title')`);
+    const collectionHrefs = await evaluate(client, `window.__qb.sectionHrefs('collection-title')`);
+    const shared = (a, b) => a.filter((href) => b.includes(href));
+    record('35. homepage sections show distinct products with no repeated card',
+      featuredHrefs.length === 6 && dealsHrefs.length === 4 && collectionHrefs.length === 8 &&
+      shared(featuredHrefs, dealsHrefs).length === 0 &&
+      shared(featuredHrefs, collectionHrefs).length === 0 &&
+      shared(dealsHrefs, collectionHrefs).length === 0,
+      { featured: featuredHrefs.length, offers: dealsHrefs.length, collection: collectionHrefs.length });
+
+    // 36 - the category section is desktop-only, and mobile keeps a route to every category
+    await client.send('Emulation.setDeviceMetricsOverride', { width: 375, height: 812, deviceScaleFactor: 2, mobile: true });
+    await nav(client, '/');
+    const mobileCategories = await evaluate(client, `(() => {
+      const section = document.getElementById('categories');
+      if (!section) return { present: false };
+      return {
+        present: true,
+        display: getComputedStyle(section).display,
+        height: Math.round(section.getBoundingClientRect().height),
+        visibleLinks: [...section.querySelectorAll('a')].filter((a) => a.getBoundingClientRect().height > 0).length,
+      };
+    })()`);
+    await evaluate(client, `document.querySelector('header button[aria-controls="site-menu"]').click()`);
+    await poll(client, `!!document.getElementById('site-menu')`);
+    const drawerCategories = await evaluate(client, `(() => {
+      const d = document.getElementById('site-menu');
+      if (!d) return { open: false, categories: 0 };
+      return { open: true, categories: [...new Set([...d.querySelectorAll('a[href^="/categories/"]')].map((a) => a.getAttribute('href')))].length };
+    })()`);
+    record('36. category section is absent on mobile while the drawer still reaches all five categories',
+      mobileCategories.present && mobileCategories.display === 'none' && mobileCategories.height === 0 &&
+      mobileCategories.visibleLinks === 0 && drawerCategories.open && drawerCategories.categories === 5,
+      { mobileCategories, drawerCategories });
+
+    const heroCtaMobile = await evaluate(client, `(() => {
+      const a = document.querySelector('a[class*="_heroCategoriesAction"]');
+      if (!a) return { present: false };
+      return { present: true, display: getComputedStyle(a).display, height: Math.round(a.getBoundingClientRect().height) };
+    })()`);
+    record('36b. the category anchor is hidden on mobile instead of pointing at a hidden target',
+      heroCtaMobile.present && heroCtaMobile.display === 'none' && heroCtaMobile.height === 0,
+      heroCtaMobile);
+
+    await client.send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false });
+    await nav(client, '/');
+    const desktopCategories = await evaluate(client, `(() => {
+      const section = document.getElementById('categories');
+      const cards = [...section.querySelectorAll('a[href^="/categories/"]')];
+      const a = document.querySelector('a[class*="_heroCategoriesAction"]');
+      return {
+        display: getComputedStyle(section).display,
+        visibleCards: cards.filter((c) => c.getBoundingClientRect().height > 0).length,
+        ctaVisible: a ? a.getBoundingClientRect().height > 0 : false,
+      };
+    })()`);
+    record('36c. category section and its anchor are both present on desktop',
+      desktopCategories.display !== 'none' && desktopCategories.visibleCards === 5 && desktopCategories.ctaVisible,
+      desktopCategories);
+    await client.send('Emulation.clearDeviceMetricsOverride');
+
+    // 37 - the preview announcement survives on every route
+    const barRoutes = [];
+    for (const route of ['/', '/products', '/cart', '/checkout', '/products/oriox-tinted-lipbalm-strawberry']) {
+      await nav(client, route);
+      const state = await evaluate(client, `(() => {
+        const bar = document.querySelector('main')?.parentElement?.querySelector('aside');
+        const msg = bar ? bar.innerText.replace(/\\s+/g, ' ').trim() : '';
+        return { present: !!bar, mentions: /preview/i.test(msg) && /orders/i.test(msg) && /payments/i.test(msg) };
+      })()`);
+      barRoutes.push({ route, present: state.present, mentions: state.mentions });
+    }
+    record('37. the preview announcement is present on every route', barRoutes.every((r) => r.present && r.mentions), barRoutes);
+
+    // 38 - no horizontal overflow on the key routes at the narrowest width
+    await client.send('Emulation.setDeviceMetricsOverride', { width: 320, height: 720, deviceScaleFactor: 1, mobile: true });
+    const overflowRoutes = [];
+    for (const route of ['/', '/products', '/cart', '/checkout', '/products/lilac-5-niacinamide-serum-30-ml', '/categories/haircare']) {
+      await nav(client, route);
+      const state = await evaluate(client, `({ overflow: document.documentElement.scrollWidth - window.innerWidth })`);
+      overflowRoutes.push({ route, overflow: state.overflow });
+    }
+    record('38. no horizontal overflow on the key routes at 320px', overflowRoutes.every((r) => r.overflow <= 1), overflowRoutes);
+    await client.send('Emulation.clearDeviceMetricsOverride');
+
+    // 39 - no console errors
+    record('39. no console errors or uncaught exceptions across all journeys', consoleErrors.length === 0, consoleErrors.slice(0, 5));
   } catch (error) {
     record('browser suite completed', false, String(error && error.message));
   } finally {

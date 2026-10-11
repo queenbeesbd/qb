@@ -2,9 +2,15 @@
 
 import Link from 'next/link';
 import { categories } from '@/data/categories';
-import { demoCatalogMeta, products } from '@/data/catalog';
+import { products } from '@/data/catalog';
+import {
+  COLLECTION_MAX,
+  COLLECTION_PRODUCT_IDS,
+  FEATURED_MAX,
+  FEATURED_PRODUCT_IDS,
+  resolveSelection,
+} from '@/data/curation';
 import { discountAmount } from '@/lib/money';
-import { formatDate } from '@/lib/format';
 import { useTranslation } from '@/i18n/useTranslation';
 import { CategoryIcon, InfoIcon } from '@/components/icons';
 import { ProductCard } from '@/components/ProductCard';
@@ -25,26 +31,44 @@ const HERO_SLUGS = [
 ] as const;
 
 /**
- * Homepage composition. Sections are limited to those the verified data can
- * actually support; "recently added" is deliberately not rendered as a product
- * list because the storefront publishes no reliable date field.
+ * Homepage composition.
+ *
+ * Sections are limited to those the verified data can actually support. There is
+ * deliberately no "recently added" list: the storefront publishes no reliable
+ * date-added field, so ordering products by arrival would be invented. The
+ * collection below is presented as what it is - a curated selection - rather
+ * than as a recency claim.
  */
 export function HomeView() {
-  const { t, pick, locale } = useTranslation();
+  const { t, pick } = useTranslation();
 
+  // Both selections are id lists resolved against the catalog, so a stale entry
+  // shortens the section instead of breaking the page.
+  const featured = resolveSelection(FEATURED_PRODUCT_IDS, FEATURED_MAX);
+  const collection = resolveSelection(COLLECTION_PRODUCT_IDS, COLLECTION_MAX);
+
+  /**
+   * The offer row complements the shelf above instead of repeating it: products
+   * already featured are filtered out, so the same card never appears twice on
+   * the homepage. Four is deliberate - the row stays one line on desktop and the
+   * full discounted set is still reachable from the catalog.
+   */
+  const featuredIds = new Set(featured.map((product) => product.id));
   const deals = products
-    .filter((product) => discountAmount(product.priceMinor, product.compareAtPriceMinor) !== null)
+    .filter(
+      (product) =>
+        !featuredIds.has(product.id) &&
+        discountAmount(product.priceMinor, product.compareAtPriceMinor) !== null,
+    )
     .sort(
       (a, b) =>
         discountAmount(b.priceMinor, b.compareAtPriceMinor)! -
         discountAmount(a.priceMinor, a.compareAtPriceMinor)!,
-    );
-
-  const featured = products.filter((product) => product.featured);
+    )
+    .slice(0, 4);
   const heroProducts = HERO_SLUGS.map((slug) =>
     products.find((product) => product.slug === slug),
   ).filter((product): product is (typeof products)[number] => Boolean(product));
-  const hasDatedProducts = products.some((product) => product.addedAt !== null);
 
   return (
     <div className={styles.page}>
@@ -59,7 +83,10 @@ export function HomeView() {
             <Link className={styles.primaryAction} href="/products">
               {t('home.heroPrimary')}
             </Link>
-            <a className={styles.secondaryAction} href="#categories">
+            <a
+              className={`${styles.secondaryAction} ${styles.heroCategoriesAction}`}
+              href="#categories"
+            >
               {t('home.heroSecondary')}
             </a>
           </div>
@@ -94,7 +121,11 @@ export function HomeView() {
         )}
       </section>
 
-      <section className={styles.section} aria-labelledby="categories-title" id="categories">
+      <section
+        className={`${styles.section} ${styles.categoriesSection}`}
+        aria-labelledby="categories-title"
+        id="categories"
+      >
         <header className={styles.sectionHeader}>
           <div>
             <h2 id="categories-title">{t('home.categoriesTitle')}</h2>
@@ -131,7 +162,11 @@ export function HomeView() {
             {t('home.viewAll')}
           </Link>
         </header>
-        <FeaturedShelf products={featured} />
+        {featured.length > 0 ? (
+          <FeaturedShelf products={featured} />
+        ) : (
+          <EmptyNote title={t('home.selectionEmptyTitle')} body={t('home.selectionEmptyBody')} />
+        )}
       </section>
 
       <section className={styles.section} aria-labelledby="deals-title">
@@ -152,17 +187,24 @@ export function HomeView() {
         )}
       </section>
 
-      <section className={styles.section} aria-labelledby="new-title">
+      <section className={styles.section} aria-labelledby="collection-title">
         <header className={styles.sectionHeader}>
           <div>
-            <h2 id="new-title">{t('home.newTitle')}</h2>
-            <p className={styles.sectionBody}>
-              {t('footer.catalogNote', { date: formatDate(demoCatalogMeta.capturedAt, locale) })}
-            </p>
+            <h2 id="collection-title">{t('home.collectionTitle')}</h2>
+            <p className={styles.sectionBody}>{t('home.collectionBody')}</p>
           </div>
+          <Link className={styles.viewAll} href="/products">
+            {t('home.viewAll')}
+          </Link>
         </header>
-        {hasDatedProducts ? null : (
-          <EmptyNote title={t('home.newUnavailableTitle')} body={t('home.newUnavailableBody')} />
+        {collection.length > 0 ? (
+          <ProductGrid>
+            {collection.map((product) => (
+              <ProductCard key={product.id} product={product} />
+            ))}
+          </ProductGrid>
+        ) : (
+          <EmptyNote title={t('home.selectionEmptyTitle')} body={t('home.selectionEmptyBody')} />
         )}
       </section>
     </div>

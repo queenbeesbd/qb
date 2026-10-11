@@ -18,6 +18,11 @@ export function ProductCard({ product }: { product: Product }) {
   const image = product.images[0];
   const saving = discountAmount(product.priceMinor, product.compareAtPriceMinor);
   const percent = discountPercent(product.priceMinor, product.compareAtPriceMinor);
+  /**
+   * Only struck through when the comparison price is genuinely higher than the
+   * current price, so the card can never show a discount that does not exist.
+   */
+  const compareAt = saving === null ? null : product.compareAtPriceMinor;
 
   return (
     <article className={styles.card}>
@@ -40,8 +45,11 @@ export function ProductCard({ product }: { product: Product }) {
 
         <p className={styles.pricing}>
           <span className={styles.current}>{price(product.priceMinor)}</span>
-          {product.compareAtPriceMinor !== null && (
-            <span className={styles.compare}>{price(product.compareAtPriceMinor)}</span>
+          {compareAt !== null && (
+            <span className={styles.compare}>
+              <span className="sr-only">{t('product.wasPrice')}: </span>
+              {price(compareAt)}
+            </span>
           )}
         </p>
 

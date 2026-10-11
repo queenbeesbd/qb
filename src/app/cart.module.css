@@ -109,6 +109,7 @@
 }
 
 .linePrice {
+  font-size: var(--text-lg);
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
@@ -164,13 +165,8 @@
 }
 
 .totalRow dd {
-  font-size: var(--text-lg);
+  font-size: var(--text-xl);
   font-weight: 700;
-}
-
-.summaryNote {
-  font-size: var(--text-xs);
-  color: var(--color-ink-subtle);
 }
 
 .primaryAction {

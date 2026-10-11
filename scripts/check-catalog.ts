@@ -7,6 +7,13 @@ import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { products } from '../src/data/catalog';
 import { categories } from '../src/data/categories';
+import {
+  COLLECTION_MAX,
+  COLLECTION_PRODUCT_IDS,
+  FEATURED_MAX,
+  FEATURED_PRODUCT_IDS,
+  resolveSelection,
+} from '../src/data/curation';
 import { activeAnnouncements, announcements } from '../src/data/announcements';
 import { IMAGE_WIDTHS } from '../src/lib/images';
 import { discountAmount, discountPercent } from '../src/lib/money';
@@ -82,12 +89,51 @@ for (const product of products) {
     }
   }
 
-  if (product.availability === 'in_stock' && discountPercent(product.priceMinor, product.compareAtPriceMinor) === -1) {
-    errors.push(`${label}: invalid discount percentage`);
+  // A published comparison price must yield a plausible whole-percent saving.
+  // This previously compared against -1, which the helper can never return, so
+  // the assertion was dead.
+  const percent = discountPercent(product.priceMinor, product.compareAtPriceMinor);
+  if (percent !== null && (percent < 1 || percent > 99)) {
+    errors.push(`${label}: implausible discount percentage ${percent}`);
   }
   const saving = discountAmount(product.priceMinor, product.compareAtPriceMinor);
   if (saving !== null && saving <= 0) errors.push(`${label}: non-positive saving`);
   if (product.isDemo !== true) errors.push(`${label}: demo marker missing`);
+}
+
+/*
+ * Curated selections are lists of product ids. A typo would silently shorten a
+ * homepage section instead of failing, so every id is checked here: it must
+ * resolve, must not repeat within its own list, and the two lists must not
+ * share a product. The caps are enforced as well as declared.
+ */
+const selections = [
+  { name: 'featured', ids: FEATURED_PRODUCT_IDS, max: FEATURED_MAX },
+  { name: 'collection', ids: COLLECTION_PRODUCT_IDS, max: COLLECTION_MAX },
+];
+
+for (const selection of selections) {
+  if (selection.ids.length > selection.max) {
+    errors.push(
+      `curation: ${selection.name} lists ${selection.ids.length} products, above its ${selection.max} cap`,
+    );
+  }
+  const seen = new Set<string>();
+  for (const id of selection.ids) {
+    if (seen.has(id)) errors.push(`curation: ${selection.name} repeats product id ${id}`);
+    seen.add(id);
+    if (!products.some((product) => product.id === id)) {
+      errors.push(`curation: ${selection.name} references unknown product id ${id}`);
+    }
+  }
+  if (resolveSelection(selection.ids, selection.max).length !== selection.ids.length) {
+    errors.push(`curation: ${selection.name} does not resolve to its declared length`);
+  }
+}
+
+const shared = FEATURED_PRODUCT_IDS.filter((id) => COLLECTION_PRODUCT_IDS.includes(id));
+if (shared.length > 0) {
+  errors.push(`curation: featured and collection share product id(s) ${shared.join(', ')}`);
 }
 
 // The demonstration must never be able to present itself as a live shop.
@@ -127,5 +173,7 @@ const withPhoto = products.filter((product) =>
 console.log(
   `Content OK: ${products.length} products (${withPhoto} with product photography), ` +
     `${categories.length} categories, ${discounted} with verified discounts, ` +
+    `${FEATURED_PRODUCT_IDS.length}/${FEATURED_MAX} featured, ` +
+    `${COLLECTION_PRODUCT_IDS.length}/${COLLECTION_MAX} in the collection, ` +
     `${activeAnnouncements().length} active announcement(s) including the locked demo warning.`,
 );

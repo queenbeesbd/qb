@@ -2,6 +2,10 @@
   position: relative;
   display: grid;
   gap: var(--space-3);
+  /* A grid item defaults to min-width:auto, so without this the nested grid
+     below would report its whole column set as its minimum and push the page
+     wider than the viewport instead of scrolling inside itself. */
+  min-width: 0;
 }
 
 .controls {
@@ -40,20 +44,30 @@
 }
 
 /**
- * Two rows, column-wise flow, horizontal overflow. Exact column widths keep the
- * visible column count predictable (2 / 3 / 4) and make one page of scrolling
- * line up with the columns.
+ * Exactly one row at every viewport, column-wise flow, horizontal overflow.
+ * Exact column widths keep the visible column count predictable (2 / 3 / 4) so
+ * one page of scrolling advances by whole columns and the last card lands on a
+ * column boundary rather than mid-card.
  */
 .scroller {
   display: grid;
   grid-auto-flow: column;
-  grid-template-rows: repeat(2, auto);
   grid-auto-columns: calc((100% - var(--space-4)) / 2);
   gap: var(--space-4);
   overflow-x: auto;
   overscroll-behavior-x: contain;
   scrollbar-width: thin;
   padding-bottom: var(--space-2);
+  /* Same min-width:auto trap as .wrap - this element must be allowed to be
+     narrower than its own scrollable content. */
+  min-width: 0;
+  /*
+   * `overflow-x: auto` alone clips the cards visually but still lets the row's
+   * full width contribute to the ancestors' scroll width, which pushed the whole
+   * page sideways at 1024px. Layout+paint containment makes the scroller's
+   * internal layout independent, so the row can never widen the page.
+   */
+  contain: layout paint;
 }
 
 .scroller:focus-visible {

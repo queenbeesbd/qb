@@ -5,9 +5,9 @@
 
 .hero {
   display: grid;
-  gap: var(--space-6);
+  gap: var(--space-5);
   align-items: center;
-  padding: var(--space-6) 0 var(--space-4);
+  padding: var(--space-5) 0 var(--space-3);
 }
 
 .heroCopy {
@@ -24,7 +24,8 @@
 
 .heroTitle {
   margin-top: var(--space-3);
-  font-size: var(--text-3xl);
+  /* Mobile-first: the display size steps up only where the measure allows it. */
+  font-size: var(--text-2xl);
   letter-spacing: -0.02em;
 }
 
@@ -74,6 +75,15 @@
 }
 
 /**
+ * The category section is desktop-only (see .categoriesSection below), so the
+ * hero anchor that jumps to it is hidden on the same breakpoint rather than
+ * pointing at a target that is not rendered.
+ */
+.heroCategoriesAction {
+  display: none;
+}
+
+/**
  * Hero product composition. Three real product photographs arranged as a
  * curated trio with intentional scale and negative space - no decorative
  * shapes, no floating UI cards, no invented promotional content.
@@ -113,14 +123,6 @@
   display: block;
 }
 
-/* The middle image leads the composition by sitting slightly larger and lower. */
-.collageItem[data-position='second'] .collageLink {
-  margin-top: var(--space-4);
-}
-
-.collageItem[data-position='third'] .collageLink {
-  margin-top: var(--space-2);
-}
 
 .section {
   display: grid;
@@ -223,9 +225,30 @@
   font-size: var(--text-sm);
 }
 
-@media (min-width: 600px) {
+/**
+ * Mobile-first breakpoint for the category section.
+ *
+ * Below 720px the header collapses into a drawer that already lists every
+ * category, so the section would be a second navigation surface occupying most
+ * of the first screen. 720px is deliberately the same breakpoint at which the
+ * header's own category navigation appears, so a category link is always on
+ * screen through exactly one of the two surfaces.
+ */
+.categoriesSection {
+  display: none;
+}
+
+@media (min-width: 720px) {
+  .categoriesSection {
+    display: grid;
+  }
+
   .categoryGrid {
     grid-template-columns: repeat(2, 1fr);
+  }
+
+  .heroCategoriesAction {
+    display: inline-flex;
   }
 }
 
@@ -235,6 +258,10 @@
     gap: var(--space-7);
     padding: var(--space-7) 0 var(--space-5);
     align-items: center;
+  }
+
+  .heroTitle {
+    font-size: var(--text-3xl);
   }
 
   .collageList {

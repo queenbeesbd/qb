@@ -96,6 +96,36 @@ const IMAGE_PROVENANCE: Record<string, { primary: string; gallery: string | null
     gallery: null,
     page: 'https://queenbees.sellbd.shop/products/exfoliating-shower-gloves-1pair-1422056',
   },
+  'bioaqua-hydrating-moisture-aloe-vera-multi-functional-mask': {
+    primary: 'https://assets.zatiqeasy.com/easy/uploads/42239/inventories/e5/18/1000155976-8288185227740264/original.jpg',
+    gallery: null,
+    page: 'https://queenbees.sellbd.shop/products/bioaqua-hydrating-moisture-aloe-vera-multi-functional-mask-1422353',
+  },
+  'sadoer-composite-acid-carrot-foam-mask': {
+    primary: 'https://assets.zatiqeasy.com/easy/uploads/42239/inventories/fa/e3/1000155966-10268366866229029/original.jpg',
+    gallery: null,
+    page: 'https://queenbees.sellbd.shop/products/sadoer-composite-acid-carrot-foam-mask-1422350',
+  },
+  'laikou-sakura-mud-mask-5g': {
+    primary: 'https://assets.zatiqeasy.com/easy/uploads/42239/inventories/88/76/1000155975-8286055315249868/original.jpg',
+    gallery: null,
+    page: 'https://queenbees.sellbd.shop/products/laikou-sakura-mud-mask-5g-1422242',
+  },
+  'mamaearth-vitamin-c-daily-glow-face-wash-100ml': {
+    primary: 'https://assets.zatiqeasy.com/easy/uploads/42239/inventories/d3/23/1000156160-8285025508742115/original.jpg',
+    gallery: null,
+    page: 'https://queenbees.sellbd.shop/products/mamaearth-vitamin-c-daily-glow-face-wash-100ml-1422095',
+  },
+  'earth-beauty-glosse-shampoo-with-argan-oil-amla-keratin-350-ml': {
+    primary: 'https://assets.zatiqeasy.com/easy/uploads/42239/inventories/d1/ff/1000517511-8992817041133098/original.jpg',
+    gallery: null,
+    page: 'https://queenbees.sellbd.shop/products/earth-beauty-glosse-shampoo-with-argan-oil-amla-keratin-350-ml-1453323',
+  },
+  'earth-beauty-anti-hairfall-shampoo-with-biotin-caffeine-350-ml': {
+    primary: 'https://assets.zatiqeasy.com/easy/uploads/42239/inventories/14/5f/1000517510-8992571427400269/original.jpg',
+    gallery: null,
+    page: 'https://queenbees.sellbd.shop/products/earth-beauty-anti-hairfall-shampoo-with-biotin-caffeine-350-ml-1453306',
+  },
 };
 
 function text(en: string | null, bn: string | null): LocalizedText {
@@ -119,7 +149,6 @@ type Draft = {
   pack: string | null;
   priceBdt: number;
   compareAtBdt: number | null;
-  featured: boolean;
   /** Optional override used only by the placeholder branch. */
   sourcePage?: string;
 };
@@ -130,6 +159,9 @@ type Draft = {
  * 2026-10-11. Comparison prices come from the storefront's own published
  * "Save BDT" pairs. Nothing here is inferred, and unverified fields
  * (descriptions, arrival dates, variant groups, stock counts) stay null.
+ *
+ * The featured shelf is not configured here; it is a separate id list in
+ * `src/data/curation.ts`, so curation cannot drift from the product record.
  */
 const drafts: Draft[] = [
   {
@@ -145,7 +177,6 @@ const drafts: Draft[] = [
     pack: '30 ml',
     priceBdt: 750,
     compareAtBdt: null,
-    featured: true,
   },
   {
     slug: 'dabo-rice-ferment-foam-100ml',
@@ -160,7 +191,6 @@ const drafts: Draft[] = [
     pack: '100ml',
     priceBdt: 650,
     compareAtBdt: null,
-    featured: true,
   },
   {
     slug: 'the-derma-plus-kojic-acid-daily-facewash-100ml',
@@ -175,7 +205,6 @@ const drafts: Draft[] = [
     pack: '100ml',
     priceBdt: 325,
     compareAtBdt: null,
-    featured: false,
   },
   {
     slug: 'innsaei-hyaluronic-sunscreen-50ml',
@@ -190,7 +219,6 @@ const drafts: Draft[] = [
     pack: '50ml',
     priceBdt: 690,
     compareAtBdt: null,
-    featured: true,
   },
   {
     slug: 'skin-o-hydration-boost-gel-moisturizer-70ml',
@@ -205,7 +233,6 @@ const drafts: Draft[] = [
     pack: '70ml',
     priceBdt: 390,
     compareAtBdt: null,
-    featured: true,
   },
   {
     slug: 'bioaqua-collagen-firming-good-night-mask',
@@ -220,7 +247,6 @@ const drafts: Draft[] = [
     pack: null,
     priceBdt: 40,
     compareAtBdt: 80,
-    featured: false,
   },
   {
     slug: 'laikou-hydrating-milk-mud-mask-5g',
@@ -235,7 +261,6 @@ const drafts: Draft[] = [
     pack: '5g',
     priceBdt: 30,
     compareAtBdt: 40,
-    featured: false,
   },
   {
     slug: 'earth-beauty-hydrasilk-conditioner-with-argan-oil-keratin-350-ml',
@@ -250,7 +275,6 @@ const drafts: Draft[] = [
     pack: '350 ml',
     priceBdt: 499,
     compareAtBdt: null,
-    featured: true,
   },
   {
     slug: 'earth-beauty-restore-repair-shampoo-with-honey-infused-350-ml',
@@ -265,7 +289,6 @@ const drafts: Draft[] = [
     pack: '350 ml',
     priceBdt: 399,
     compareAtBdt: null,
-    featured: false,
   },
   {
     slug: 'chaoba-hair-mask-500ml',
@@ -280,7 +303,6 @@ const drafts: Draft[] = [
     pack: '500ml',
     priceBdt: 1150,
     compareAtBdt: 1250,
-    featured: true,
   },
   {
     slug: 'mamaearth-onion-hair-oil-100ml',
@@ -295,7 +317,6 @@ const drafts: Draft[] = [
     pack: '100ml',
     priceBdt: 650,
     compareAtBdt: 750,
-    featured: true,
   },
   {
     slug: 'mamaearth-beetroot-hydraful-face-wash-100ml',
@@ -310,7 +331,6 @@ const drafts: Draft[] = [
     pack: '100ml',
     priceBdt: 480,
     compareAtBdt: 550,
-    featured: false,
   },
   {
     slug: 'body-brightening-combo-rajkonna-brightening-body-lotion-the-derma-plus-kojic-acid-body-wash',
@@ -326,7 +346,6 @@ const drafts: Draft[] = [
     pack: null,
     priceBdt: 830,
     compareAtBdt: 900,
-    featured: true,
   },
   {
     slug: 'oriox-tinted-lipbalm-strawberry',
@@ -341,7 +360,6 @@ const drafts: Draft[] = [
     pack: null,
     priceBdt: 350,
     compareAtBdt: 420,
-    featured: true,
   },
   {
     slug: 'oriox-tinted-lipbalm-cherry',
@@ -356,7 +374,6 @@ const drafts: Draft[] = [
     pack: null,
     priceBdt: 350,
     compareAtBdt: 420,
-    featured: false,
   },
   {
     slug: 'exfoliating-shower-gloves-1pair',
@@ -371,7 +388,99 @@ const drafts: Draft[] = [
     pack: null,
     priceBdt: 290,
     compareAtBdt: 350,
-    featured: true,
+  },
+
+  /*
+   * Added in the mobile/discovery refinement phase. Every value below was read
+   * from the product's own public page on 2026-10-11: the title gives the name,
+   * pack size and variant, the published "BDT x BDT y Save BDT z" line gives the
+   * current and comparison price, and the page's Brand field gives the brand.
+   * Where the page publishes no comparison price, compareAtBdt stays null rather
+   * than being inferred from a sibling product.
+   */
+  {
+    slug: 'bioaqua-hydrating-moisture-aloe-vera-multi-functional-mask',
+    sourceProductId: '1422353',
+    nameEn: 'BIOAQUA Hydrating & Moisture Aloe Vera Multi Functional Mask',
+    nameBn: 'বায়োঅ্যাকুয়া হাইড্রেটিং ও ময়েশ্চার অ্যালোভেরা মাল্টি ফাংশনাল মাস্ক',
+    descriptionEn: null,
+    descriptionBn: null,
+    brand: 'BIOAQUA',
+    categoryId: 'skincare',
+    tags: ['mask'],
+    pack: null,
+    priceBdt: 40,
+    compareAtBdt: 80,
+  },
+  {
+    slug: 'sadoer-composite-acid-carrot-foam-mask',
+    sourceProductId: '1422350',
+    nameEn: 'SADOER Composite Acid Carrot Foam Mask',
+    nameBn: 'সাদোয়ার কম্পোজিট অ্যাসিড ক্যারট ফোম মাস্ক',
+    descriptionEn: null,
+    descriptionBn: null,
+    brand: 'SADOER',
+    categoryId: 'skincare',
+    tags: ['mask'],
+    pack: null,
+    priceBdt: 40,
+    compareAtBdt: 80,
+  },
+  {
+    slug: 'laikou-sakura-mud-mask-5g',
+    sourceProductId: '1422242',
+    nameEn: 'LAIKOU Sakura Mud Mask 5g',
+    nameBn: 'লাইকো সাকুরা মাড মাস্ক ৫ গ্রাম',
+    descriptionEn: null,
+    descriptionBn: null,
+    brand: 'LAIKOU',
+    categoryId: 'skincare',
+    tags: ['mask'],
+    pack: '5g',
+    priceBdt: 30,
+    compareAtBdt: 60,
+  },
+  {
+    slug: 'mamaearth-vitamin-c-daily-glow-face-wash-100ml',
+    sourceProductId: '1422095',
+    nameEn: 'Mamaearth Vitamin C Daily Glow Face Wash 100ml',
+    nameBn: 'মামাআর্থ ভিটামিন সি ডেইলি গ্লো ফেস ওয়াশ ১০০ মিলি',
+    descriptionEn: null,
+    descriptionBn: null,
+    brand: 'Mamaearth',
+    categoryId: 'skincare',
+    tags: ['cleanser'],
+    pack: '100ml',
+    priceBdt: 530,
+    compareAtBdt: 550,
+  },
+  {
+    slug: 'earth-beauty-glosse-shampoo-with-argan-oil-amla-keratin-350-ml',
+    sourceProductId: '1453323',
+    nameEn: 'Earth Beauty Glosse Shampoo with Argan Oil + Amla + Keratin 350 ml',
+    nameBn: 'আর্থ বিউটি গ্লস শ্যাম্পু (আরগান অয়েল, আমলা ও কেরাটিন) ৩৫০ মিলি',
+    descriptionEn: null,
+    descriptionBn: null,
+    brand: 'Earth Beauty & You',
+    categoryId: 'haircare',
+    tags: ['shampoo'],
+    pack: '350 ml',
+    priceBdt: 399,
+    compareAtBdt: null,
+  },
+  {
+    slug: 'earth-beauty-anti-hairfall-shampoo-with-biotin-caffeine-350-ml',
+    sourceProductId: '1453306',
+    nameEn: 'Earth Beauty Anti Hairfall Shampoo with Biotin + Caffeine 350 ml',
+    nameBn: 'আর্থ বিউটি অ্যান্টি হেয়ারফল শ্যাম্পু (বায়োটিন ও ক্যাফেইন) ৩৫০ মিলি',
+    descriptionEn: null,
+    descriptionBn: null,
+    brand: 'Earth Beauty & You',
+    categoryId: 'haircare',
+    tags: ['shampoo'],
+    pack: '350 ml',
+    priceBdt: 399,
+    compareAtBdt: null,
   },
 ];
 
@@ -426,7 +535,6 @@ function toProduct(draft: Draft): Product {
     availability: 'in_stock',
     images,
     addedAt: null,
-    featured: draft.featured,
     isDemo: true,
   };
 }

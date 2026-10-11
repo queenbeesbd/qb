@@ -73,11 +73,6 @@ export type Product = {
    * the public storefront does not expose a trustworthy date field.
    */
   addedAt: string | null;
-  /**
-   * Explicit demo curation flag. Never a claim about sales, popularity,
-   * merchant recommendation, or real arrival order.
-   */
-  featured: boolean;
   isDemo: true;
 };
 

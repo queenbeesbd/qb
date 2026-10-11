@@ -114,8 +114,6 @@ export function CartView() {
               <dd>{price(cart.subtotalMinor)}</dd>
             </div>
           </dl>
-          <p className={styles.summaryNote}>{t('cart.totalNote')}</p>
-
           <Link className={styles.primaryAction} href="/checkout">
             {t('cart.checkout')}
           </Link>

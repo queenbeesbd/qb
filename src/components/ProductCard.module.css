@@ -56,6 +56,12 @@
   color: var(--color-ink-muted);
 }
 
+/**
+ * The current price is the loudest commercial fact on the card: larger, heavier
+ * and in full-contrast ink, while the comparison price and the saving stay
+ * subordinate. Weight and size carry the hierarchy rather than colour or
+ * decoration.
+ */
 .pricing {
   margin-top: auto;
   padding-top: var(--space-3);
@@ -63,17 +69,23 @@
   align-items: baseline;
   gap: var(--space-2);
   flex-wrap: wrap;
+  row-gap: var(--space-1);
 }
 
 .current {
-  font-size: var(--text-md);
+  font-size: var(--text-lg);
   font-weight: 700;
+  color: var(--color-ink);
+  font-variant-numeric: tabular-nums;
+  /* A money amount must never break across lines mid-figure. */
+  white-space: nowrap;
 }
 
 .compare {
   font-size: var(--text-sm);
   color: var(--color-ink-subtle);
   text-decoration: line-through;
+  white-space: nowrap;
 }
 
 .saving {

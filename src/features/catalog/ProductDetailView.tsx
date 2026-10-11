@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { products } from '@/data/catalog';
 import { getCategory } from '@/data/categories';
-import { DETAIL_SIZES, isPlaceholder } from '@/lib/images';
+import { DETAIL_SIZES } from '@/lib/images';
 import { discountAmount, discountPercent } from '@/lib/money';
 import { formatDate } from '@/lib/format';
 import { demoCatalogMeta } from '@/data/catalog';
@@ -39,6 +39,11 @@ export function ProductDetailView({ product }: { product: (typeof products)[numb
   const category = getCategory(product.categoryId);
   const saving = discountAmount(product.priceMinor, product.compareAtPriceMinor);
   const percent = discountPercent(product.priceMinor, product.compareAtPriceMinor);
+  /**
+   * Only struck through when the comparison price is genuinely higher than the
+   * current price, so the page can never show a discount that does not exist.
+   */
+  const compareAt = saving === null ? null : product.compareAtPriceMinor;
   const image = product.images[0];
 
   const related = products
@@ -71,11 +76,6 @@ export function ProductDetailView({ product }: { product: (typeof products)[numb
               priority
               fallbackLabel={t('product.imagePlaceholder')}
             />
-            {image && !isPlaceholder(image) && (
-              <figcaption className={styles.figcaption}>
-                {t('product.imageSourceNote')}
-              </figcaption>
-            )}
           </figure>
         </div>
 
@@ -85,10 +85,10 @@ export function ProductDetailView({ product }: { product: (typeof products)[numb
 
           <p className={styles.pricing}>
             <span className={styles.currentPrice}>{price(product.priceMinor)}</span>
-            {product.compareAtPriceMinor !== null && (
+            {compareAt !== null && (
               <span className={styles.comparePrice}>
                 <span className="sr-only">{t('product.wasPrice')}: </span>
-                {price(product.compareAtPriceMinor)}
+                {price(compareAt)}
               </span>
             )}
           </p>
@@ -149,7 +149,6 @@ export function ProductDetailView({ product }: { product: (typeof products)[numb
                 {t('product.addToCart')}
               </button>
             </div>
-            <p className={styles.buyNote}>{t('product.buyNowNote')}</p>
             <p className={styles.liveRegion} role="status" aria-live="polite">
               {justAdded ? (
                 <>
@@ -165,12 +164,6 @@ export function ProductDetailView({ product }: { product: (typeof products)[numb
             <h2 id="details-title">{t('product.details')}</h2>
             <p className={description ? styles.description : styles.descriptionMissing}>
               {description ?? t('product.noDescription')}
-            </p>
-            <p className={styles.source}>
-              {t('product.sourceLabel')}:{' '}
-              <a href={product.sourceUrl} rel="nofollow noopener noreferrer" target="_blank">
-                {product.sourceUrl}
-              </a>
             </p>
           </section>
         </div>

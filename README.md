@@ -22,7 +22,7 @@ A bilingual (Bangla/English) cosmetics storefront for QueenBee's, a Bangladeshi 
 | Imagery | 16 authentic product photos served locally as WebP + JPEG at 3:4, two widths |
 | i18n | Central typed dictionaries, `useSyncExternalStore` locale store |
 | Fonts | Inter (Latin, variable) + Noto Sans Bengali, self-hosted via `next/font`; weights limited to 400/500/600/700 |
-| Tests | Zero-dependency integrity scripts + a CDP-driven Chromium suite (41 checks) |
+| Tests | Zero-dependency integrity scripts + a CDP-driven Chromium suite (53 checks) |
 
 No database, ORM, auth provider, CMS, state-management library, UI component library or animation library is used. See [ADR 0001](docs/decisions/0001-nextjs-typescript-foundation.md).
 
@@ -51,7 +51,7 @@ npm run start        # http://localhost:3000
 | `npm run typecheck` | `tsc --noEmit` |
 | `npm run check:catalog` | Content integrity: ids, slugs, prices, categories, image files, provenance, locked demo warning |
 | `npm run check:i18n` | Bangla/English key parity and placeholder-token equality |
-| `npm run verify:browser` | 41-check Chromium journey suite (requires a running server) |
+| `npm run verify:browser` | 53-check Chromium journey suite (requires a running server) |
 
 Browser suite usage:
 
@@ -67,7 +67,7 @@ It drives a local Chromium over the DevTools Protocol using only Node built-ins 
 
 | Route | Rendering | Notes |
 | --- | --- | --- |
-| `/` | Static | Hero with product composition, categories, two-row featured shelf, verified offers, explicit "recently added" gap notice |
+| `/` | Static | Hero with product composition, desktop-only category section, single-row featured shelf, verified offers, curated "more to explore" collection |
 | `/products` | Server-rendered | Search, category/brand filter, sort; all state in the query string |
 | `/categories/[slug]` | Server-rendered | Five reviewed categories |
 | `/products/[slug]` | Prerendered (16) | Gallery placeholder, price hierarchy, quantity, add to cart, related products |
@@ -105,7 +105,8 @@ public/catalog/         16 generated placeholder product images
 - **Photography rights are not confirmed in writing.** The 16 images were retrieved from the merchant's own public product pages for this same merchant's demo, and are tagged `merchant_source_pending_confirmation`. Public availability is not a licence. See [docs/catalog.md](docs/catalog.md).
 - **The merchant's photography is lifestyle-style, not studio packshots** - mixed backgrounds (banana leaf, outdoors, white fur), gloved hands, and occasional watermarks. Normalised with a uniform 3:4 crop and a neutral surface; not hidden.
 - **Placeholder fallbacks remain available** for any product without verified, permitted imagery.
-- **No "recently added" list.** The public storefront publishes no reliable date-added field, so the homepage states that instead of inventing one.
+- **No "recently added" list.** The public storefront publishes no reliable date-added field. The section was renamed to "More to explore" and is presented as a curated collection rather than a recency claim.
+- **The homepage category section is hidden below 720px.** Category discovery on mobile goes through the header drawer, which lists every category. Category filtering and the category routes are unaffected.
 - **No product descriptions.** The public pages publish none; the product page says so rather than generating copy.
 - **Bangla product names are transliterations** prepared for this demo and require native review.
 - **Stock is a snapshot**, not live inventory. It reflects the public listing on the capture date.

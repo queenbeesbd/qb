@@ -151,8 +151,19 @@
 
 @media (min-width: 720px) {
   .inner {
-    grid-template-columns: auto auto 1fr auto;
     padding: 0 var(--space-5);
+  }
+}
+
+/**
+ * Inline navigation and search need roughly 700px of chrome before they fit
+ * beside the brand and the action buttons. Between 720px and 880px the drawer
+ * stays the navigation surface - and it lists every category, so nothing is
+ * unreachable - which is what keeps the header from overflowing at those widths.
+ */
+@media (min-width: 880px) {
+  .inner {
+    grid-template-columns: auto auto 1fr auto;
   }
 
   .primaryNav {
@@ -186,7 +197,7 @@
     justify-self: end;
     align-items: center;
     gap: var(--space-2);
-    min-width: 220px;
+    min-width: 180px;
     max-width: 320px;
     border: 1px solid var(--color-border-strong);
     border-radius: var(--radius-md);

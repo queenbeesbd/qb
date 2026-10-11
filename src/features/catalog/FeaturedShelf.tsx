@@ -10,10 +10,10 @@ import styles from './FeaturedShelf.module.css';
 /**
  * Horizontally navigable product shelf.
  *
- * Products flow column-wise into two rows and the container scrolls sideways, so
- * both rows always advance together as one coordinated group. There are no
- * cloned cards, no infinite loop, no autoplay and no carousel dependency - the
- * browser's own overflow scrolling does the work.
+ * Products flow column-wise into a single row that scrolls sideways. There are
+ * no cloned cards, no infinite loop, no autoplay and no carousel dependency -
+ * the browser's own overflow scrolling does the work, and the card count is
+ * bounded by the selection cap in `src/data/curation.ts`.
  *
  * Controls are hidden entirely when there is nowhere to navigate, so they can
  * never imply movement that will not happen.
@@ -58,7 +58,7 @@ export function FeaturedShelf({ products }: { products: readonly Product[] }) {
     if (!element) return;
     const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     element.scrollBy({
-      // One page equals one viewport of columns, so the group advances evenly.
+      // One page equals one viewport of columns, so the shelf advances evenly.
       left: element.clientWidth * direction,
       behavior: prefersReducedMotion ? 'auto' : 'smooth',
     });
