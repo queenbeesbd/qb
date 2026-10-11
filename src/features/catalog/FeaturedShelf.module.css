@@ -8,16 +8,23 @@
   min-width: 0;
 }
 
+/*
+ * The controls live inside the section header's own flex row, so they occupy
+ * the space the "View all" link used to take. The parent already handles the
+ * alignment and wrapping; this only sets the control grouping.
+ */
 .controls {
   display: flex;
+  flex: none;
   gap: var(--space-2);
-  justify-content: flex-end;
 }
 
 .control {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  /* Kept at 40px so the controls stay comfortable touch targets while sitting
+     inline with the section heading. */
   width: 40px;
   height: 40px;
   border: 1px solid var(--color-border-strong);
@@ -26,6 +33,11 @@
   color: var(--color-ink);
   cursor: pointer;
   transition: border-color var(--transition-fast), color var(--transition-fast);
+}
+
+.control:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
 }
 
 .control:hover:not(:disabled) {

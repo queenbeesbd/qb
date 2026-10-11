@@ -86,7 +86,7 @@ export function Header() {
         </button>
 
         <Link href="/" className={styles.brand} aria-label={t('common.brand')}>
-          <img src="/brand/logo.svg" alt={t('common.brand')} width={168} height={40} />
+          <img src="/brand/logo.svg" alt={t('common.brand')} width={173} height={40} />
         </Link>
 
         <nav className={styles.primaryNav} aria-label={t('nav.categories')}>

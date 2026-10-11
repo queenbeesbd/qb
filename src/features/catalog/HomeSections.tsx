@@ -152,22 +152,13 @@ export function HomeView() {
         </ul>
       </section>
 
-      <section className={styles.section} aria-labelledby="featured-title">
-        <header className={styles.sectionHeader}>
-          <div>
-            <h2 id="featured-title">{t('home.featuredTitle')}</h2>
-            <p className={styles.sectionBody}>{t('home.featuredBody')}</p>
-          </div>
-          <Link className={styles.viewAll} href="/products">
-            {t('home.viewAll')}
-          </Link>
-        </header>
-        {featured.length > 0 ? (
-          <FeaturedShelf products={featured} />
-        ) : (
-          <EmptyNote title={t('home.selectionEmptyTitle')} body={t('home.selectionEmptyBody')} />
-        )}
-      </section>
+      {/*
+       * The shelf owns its own section header, because the previous/next controls
+       * sit in the same row as the title. There is deliberately no "View all" here:
+       * the controls are the way to see more of this selection, and a second link
+       * to the catalog would sit next to them doing the same job less precisely.
+       */}
+      <FeaturedShelf products={featured} />
 
       <section className={styles.section} aria-labelledby="deals-title">
         <header className={styles.sectionHeader}>

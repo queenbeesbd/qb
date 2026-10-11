@@ -123,7 +123,9 @@ const HELPERS = `
       return [...document.querySelectorAll('main button')].find((b) => /সরান|Remove/.test(b.getAttribute('aria-label') || '')) || null;
     },
     shelf() {
-      const s = document.querySelector('[role="group"][aria-label]');
+      // The controls group also carries role=group, so target the scroller by
+      // its own class rather than by role, which is no longer unique.
+      const s = document.querySelector('div[class$="_scroller"]');
       if (!s) return null;
       const cards = [...s.children];
       const tops = [...new Set(cards.map((c) => Math.round(c.getBoundingClientRect().top)))];
@@ -132,7 +134,7 @@ const HELPERS = `
         const r = c.getBoundingClientRect();
         return r.width > 0 && r.left >= box.left - 1 && r.right <= box.right + 1;
       }).length;
-      const btns = [...s.parentElement.querySelectorAll(':scope > div > button')];
+      const btns = resolveButtons(s);
       return {
         cards: cards.length,
         rows: tops.length,
@@ -145,11 +147,19 @@ const HELPERS = `
         prevDisabled: btns[0] ? btns[0].disabled : null,
         nextDisabled: btns[1] ? btns[1].disabled : null,
       };
+
+      function resolveButtons(node) {
+        // The controls are rendered inside the shelf's section header, so the
+        // section is the stable boundary - not a fixed DOM nesting.
+        const section = node.closest('section');
+        return section ? [...section.querySelectorAll('button')] : [];
+      }
     },
     shelfNext() {
-      const s = document.querySelector('[role="group"][aria-label]');
+      const s = document.querySelector('div[class$="_scroller"]');
       if (!s) return false;
-      const btns = [...s.parentElement.querySelectorAll(':scope > div > button')];
+      const section = s.closest('section');
+      const btns = section ? [...section.querySelectorAll('button')] : [];
       btns[1].click();
       return true;
     },
@@ -538,7 +548,7 @@ async function main() {
     // 27 - featured shelf: exactly one row, bounded controls, real advancement
     await nav(client, '/');
     const shelfStart = await evaluate(client, `window.__qb.shelf()`);
-    const shelfFocusable = await evaluate(client, `(() => { const s = document.querySelector('[role="group"][aria-label]'); s.focus(); return document.activeElement === s; })()`);
+    const shelfFocusable = await evaluate(client, `(() => { const s = document.querySelector('div[class$="_scroller"]'); s.focus(); return document.activeElement === s; })()`);
     record('27. featured shelf is one row of six with bounded group controls',
       !!shelfStart && shelfStart.rows === 1 && shelfStart.cards === 6 && shelfStart.overflow > 0 &&
       shelfStart.pageOverflow <= 1 && shelfStart.controls === 2 &&
@@ -553,6 +563,34 @@ async function main() {
       shelfAdvanced.prevDisabled === false && shelfAdvanced.nextDisabled === true &&
       shelfAdvanced.fullyVisible === 4,
       shelfAdvanced);
+
+    // 27c - the shelf owns its header: controls in the former "View all" slot
+    const shelfHeader = await evaluate(client, `(() => {
+      const s = document.querySelector('div[class$="_scroller"]');
+      const section = s.closest('section');
+      const header = section.querySelector('header');
+      const btns = [...section.querySelectorAll('button')];
+      const cbox = btns[0].parentElement.getBoundingClientRect();
+      const titleBox = header.querySelector('div').getBoundingClientRect();
+      return {
+        heading: header.querySelector('h2')?.textContent?.trim(),
+        controlsInsideHeader: header.contains(btns[0]),
+        controlCount: btns.length,
+        labels: btns.map((b) => b.getAttribute('aria-label')),
+        headerHasViewAll: /View all|সব দেখুন/.test(header.innerText),
+        noOverlap: cbox.left >= titleBox.right - 1,
+        groupLabel: btns[0].parentElement.getAttribute('aria-label'),
+      };
+    })()`);
+    record('27c. featured controls sit in the section header and "View all" is gone from that section',
+      shelfHeader.heading === 'Featured products' && shelfHeader.controlsInsideHeader &&
+      shelfHeader.controlCount === 2 && shelfHeader.headerHasViewAll === false &&
+      shelfHeader.noOverlap && !!shelfHeader.groupLabel,
+      shelfHeader);
+
+    // 27d - other homepage sections keep their "View all" links
+    const viewAllCount = await evaluate(client, `[...document.querySelectorAll('main section')].filter((s) => /View all|সব দেখুন/.test(s.innerText)).length`);
+    record('27d. other homepage sections keep their "View all" links', viewAllCount >= 2, { viewAllCount });
 
     // 28 - hero has a purposeful product composition
     const hero = await evaluate(client, `(() => {
@@ -781,6 +819,71 @@ async function main() {
     record('38. no horizontal overflow on the key routes at 320px', overflowRoutes.every((r) => r.overflow <= 1), overflowRoutes);
     await client.send('Emulation.clearDeviceMetricsOverride');
 
+    // 40 - brand assets: one identity, outlined wordmark, favicon linked, old variant gone
+    const brand = await evaluate(client, `Promise.all([
+      fetch('/brand/logo.svg').then(async (r) => ({ url: '/brand/logo.svg', status: r.status, body: await r.text() })),
+      fetch('/brand/logo-mark.svg').then(async (r) => ({ url: '/brand/logo-mark.svg', status: r.status, body: await r.text() })),
+      fetch('/brand/favicon.svg').then(async (r) => ({ url: '/brand/favicon.svg', status: r.status, body: await r.text() })),
+      fetch('/brand/logo-dark.svg').then((r) => ({ url: '/brand/logo-dark.svg', status: r.status })),
+    ])`);
+    const byUrl = Object.fromEntries(brand.map((b) => [b.url, b]));
+    const logo = byUrl['/brand/logo.svg'];
+    const mark = byUrl['/brand/logo-mark.svg'];
+    const favicon = byUrl['/brand/favicon.svg'];
+    const safe = (svg) => svg && !/<script/i.test(svg) && !/xlink:href|href=\"http|url\(/i.test(svg);
+    const headerBrand = await evaluate(client, `(() => {
+      const img = document.querySelector('header img[src="/brand/logo.svg"]');
+      if (!img) return { present: false };
+      const r = img.getBoundingClientRect();
+      return {
+        present: true,
+        loaded: img.complete && img.naturalWidth === 173 && img.naturalHeight === 40,
+        declared: img.getAttribute('width') + 'x' + img.getAttribute('height'),
+        alt: (img.getAttribute('alt') || '').trim(),
+        height: Math.round(r.height),
+      };
+    })()`);
+    const faviconLink = await evaluate(client, `(() => {
+      const link = document.querySelector('link[rel="icon"]');
+      return link ? { href: link.getAttribute('href'), type: link.getAttribute('type') } : null;
+    })()`);
+    record('40. brand assets share one identity: outlined wordmark, no scripts, no old variant, favicon linked',
+      logo.status === 200 && mark.status === 200 && favicon.status === 200 &&
+      byUrl['/brand/logo-dark.svg'].status === 404 &&
+      safe(logo.body) && safe(mark.body) && safe(favicon.body) &&
+      !/<text/i.test(logo.body) && logo.body.includes('aria-label="QueenBee\u2019s"') &&
+      mark.body.includes('viewBox="0 0 40 40"') &&
+      headerBrand.present && headerBrand.loaded && headerBrand.alt.length > 0 &&
+      headerBrand.height <= 40 && headerBrand.declared === '173x40' &&
+      faviconLink && faviconLink.href === '/brand/favicon.svg' && faviconLink.type === 'image/svg+xml',
+      { logo: logo.status, mark: mark.status, favicon: favicon.status, headerBrand, faviconLink,
+        oldVariantStatus: byUrl['/brand/logo-dark.svg'].status });
+
+    // 40b - the symbol stays legible when rendered at favicon size
+    const favProbe = await evaluate(client, `(async () => {
+      const img = new Image();
+      img.src = '/brand/favicon.svg?' + Math.random();
+      img.style.cssText = 'width:16px;height:16px;position:absolute;left:-9999px';
+      document.body.appendChild(img);
+      await new Promise((res, rej) => { img.onload = res; img.onerror = () => rej(new Error('favicon load')); });
+      const c = document.createElement('canvas');
+      c.width = 16; c.height = 16;
+      c.getContext('2d').drawImage(img, 0, 0, 16, 16);
+      const d = c.getContext('2d').getImageData(0, 0, 16, 16).data;
+      const palette = {};
+      for (let i = 0; i < d.length; i += 4) {
+        const key = d[i] + ',' + d[i + 1] + ',' + d[i + 2];
+        palette[key] = (palette[key] || 0) + 1;
+      }
+      const top = Object.entries(palette).sort((a, b) => b[1] - a[1]).slice(0, 4);
+      const total = Object.values(palette).reduce((n, v) => n + v, 0);
+      img.remove();
+      return { top, total, tilePixels: palette['86,53,140'] || 0 };
+    })()`);
+    record('40b. the favicon mark keeps its ink and tile colour at 16px',
+      favProbe.total === 256 && favProbe.tilePixels >= 140 && favProbe.top[0][0] === '86,53,140' &&
+      favProbe.top.length >= 3,
+      favProbe);
     // 39 - no console errors
     record('39. no console errors or uncaught exceptions across all journeys', consoleErrors.length === 0, consoleErrors.slice(0, 5));
   } catch (error) {

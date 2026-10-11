@@ -4,19 +4,22 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from '@/i18n/useTranslation';
 import type { Product } from '@/lib/types';
 import { ProductCard } from '@/components/ProductCard';
-import { ChevronIcon } from '@/components/icons';
+import { ChevronIcon, InfoIcon } from '@/components/icons';
+import homeStyles from '@/app/home.module.css';
 import styles from './FeaturedShelf.module.css';
 
 /**
- * Horizontally navigable product shelf.
+ * Horizontally navigable featured shelf, including the section header it lives
+ * in.
  *
- * Products flow column-wise into a single row that scrolls sideways. There are
- * no cloned cards, no infinite loop, no autoplay and no carousel dependency -
- * the browser's own overflow scrolling does the work, and the card count is
- * bounded by the selection cap in `src/data/curation.ts`.
+ * The header owns the previous/next controls so they sit where the section's
+ * "View all" link used to be: one row, one place to look for "see more of this
+ * selection". The controls are only rendered when the row can actually scroll,
+ * so they never imply movement that will not happen.
  *
- * Controls are hidden entirely when there is nowhere to navigate, so they can
- * never imply movement that will not happen.
+ * There are no cloned cards, no autoplay and no carousel dependency - the
+ * browser's own overflow scrolling does the work, and the card count is bounded
+ * by the selection cap in `src/data/curation.ts`.
  */
 export function FeaturedShelf({ products }: { products: readonly Product[] }) {
   const { t } = useTranslation();
@@ -64,46 +67,62 @@ export function FeaturedShelf({ products }: { products: readonly Product[] }) {
     });
   }, []);
 
-  const showControls = canScrollBack || canScrollForward;
+  const showControls = products.length > 0 && (canScrollBack || canScrollForward);
 
   return (
-    <div className={styles.wrap}>
-      {showControls && (
-        <div className={styles.controls}>
-          <button
-            type="button"
-            className={styles.control}
-            onClick={() => scrollByPage(-1)}
-            disabled={!canScrollBack}
-            aria-label={t('home.shelfPrevious')}
-          >
-            <ChevronIcon className={styles.iconBack} width={18} height={18} />
-          </button>
-          <button
-            type="button"
-            className={styles.control}
-            onClick={() => scrollByPage(1)}
-            disabled={!canScrollForward}
-            aria-label={t('home.shelfNext')}
-          >
-            <ChevronIcon width={18} height={18} />
-          </button>
+    <section className={homeStyles.section} aria-labelledby="featured-title">
+      <header className={homeStyles.sectionHeader}>
+        <div>
+          <h2 id="featured-title">{t('home.featuredTitle')}</h2>
+          <p className={homeStyles.sectionBody}>{t('home.featuredBody')}</p>
+        </div>
+        {showControls && (
+          <div className={styles.controls} role="group" aria-label={t('home.shelfControls')}>
+            <button
+              type="button"
+              className={styles.control}
+              onClick={() => scrollByPage(-1)}
+              disabled={!canScrollBack}
+              aria-label={t('home.shelfPrevious')}
+            >
+              <ChevronIcon className={styles.iconBack} width={18} height={18} />
+            </button>
+            <button
+              type="button"
+              className={styles.control}
+              onClick={() => scrollByPage(1)}
+              disabled={!canScrollForward}
+              aria-label={t('home.shelfNext')}
+            >
+              <ChevronIcon width={18} height={18} />
+            </button>
+          </div>
+        )}
+      </header>
+
+      {products.length > 0 ? (
+        <div
+          className={styles.scroller}
+          ref={scrollerRef}
+          tabIndex={0}
+          role="group"
+          aria-label={t('home.shelfLabel')}
+        >
+          {products.map((product) => (
+            <div className={styles.slot} key={product.id}>
+              <ProductCard product={product} />
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className={homeStyles.emptyNote}>
+          <InfoIcon width={22} height={22} />
+          <div>
+            <p className={homeStyles.emptyTitle}>{t('home.selectionEmptyTitle')}</p>
+            <p className={homeStyles.emptyBody}>{t('home.selectionEmptyBody')}</p>
+          </div>
         </div>
       )}
-
-      <div
-        className={styles.scroller}
-        ref={scrollerRef}
-        tabIndex={0}
-        role="group"
-        aria-label={t('home.shelfLabel')}
-      >
-        {products.map((product) => (
-          <div className={styles.slot} key={product.id}>
-            <ProductCard product={product} />
-          </div>
-        ))}
-      </div>
-    </div>
+    </section>
   );
 }

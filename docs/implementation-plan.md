@@ -1,6 +1,6 @@
 # Implementation plan
 
-Status: Phases 0-3 complete (2026-10-11). The next phase is an authorised merchant-backend capability audit - not started, and not to begin automatically.
+Status: Phases 0-4 complete (2026-10-11). The next phase is an authorised merchant-backend capability audit - not started, and not to begin automatically.
 
 ## Phase 0 - audit and foundation (complete)
 
@@ -66,7 +66,42 @@ Browser coverage now includes the Phase 1 and 2 journeys plus: the shelf being e
 
 Not verified and must not be claimed: real iOS Safari, real Android Chrome, screen-reader output on real assistive technology, 200% zoom reflow, and any production security control.
 
-## Phase 4 - authorised backend capability audit (next, not started)
+## Phase 4 - brand mark redesign and shelf polish (complete)
+
+Two scoped fixes; no redesign of the wider storefront.
+
+| Workstream | Delivered |
+| --- | --- |
+| Logo | The old unexplained geometric badge replaced by a **crown of three petals over a body band** - a queen bee abstracted to regalia plus a striped abdomen |
+| Wordmark | Converted from SVG `<text>` to **real Inter outlines** at weight 600, so the lockup matches the interface type. Inside an `<img>` the old `font-family: var(...)` could not resolve, so the wordmark had silently been a system font |
+| Assets | `logo.svg`, `logo-mark.svg`, `favicon.svg` rewritten; the unused `logo-dark.svg` deleted. Paths unchanged |
+| Shelf controls | Previous/next moved into the section header, occupying the former "View all" slot; "View all" removed from that section only |
+| Defect fix | The lockup was squashing at 320px (measured 3.04:1 against a true 4.33:1) because the global `img { max-width: 100% }` capped width while height stayed fixed. Fixed with `object-fit: contain` and a 26px step-down below 360px |
+
+### Verification-driven corrections
+
+- The controls group and the scroller both carry `role="group"`, which made the browser suite's shelf selector ambiguous - it measured the controls as if they were the shelf. The suite now targets the scroller by class.
+- A favicon canvas probe was asserted against only the top four palette entries, so antialias blends broke the count. Fixed to census every pixel.
+- Two earlier favicon measurements returned all-white because the probe page was fetched from `/tmp`, which Next does not serve - it was screenshotting the 404 page. Re-measured from a served page.
+
+### Verification gates executed
+
+| Gate | Command | Result |
+| --- | --- | --- |
+| Production build | `npm run build` | Pass |
+| Type checking | `npm run typecheck` | Pass - 0 errors |
+| Linting | `npm run lint` | Pass - 0 errors, 0 warnings |
+| Content integrity | `npm run check:catalog` | Pass - 22 products, locked demo warning active |
+| Translation completeness | `npm run check:i18n` | Pass - 129 keys |
+| Browser journeys | `npm run verify:browser` | Pass - **57/57** |
+
+New browser coverage: the lockup loads at its declared 173x40, the wordmark is outlined rather than `<text>`, no script or external reference in any SVG, the unused variant returns 404, the metadata favicon is linked, the reversed mark keeps its tile and ink at 16px on light and dark, the featured header holds the title plus two labelled controls with no "View all", the title and controls never overlap, and other sections keep their "View all" links.
+
+### Explicitly not done in Phase 4
+
+Backend integration, real checkout or payment, any new homepage section, redesign of unrelated components, and a Bangla wordmark variant.
+
+## Phase 5 - authorised backend capability audit (next, not started)
 
 Prerequisites (owner-supplied, none available today): explicit written authorisation, a defined test scope, a staging or test tenant, API documentation or access, and permitted read/write actions.
 
@@ -76,11 +111,11 @@ Exclusions: no production writes, no real orders, no live customer data, no secu
 
 Deliverables: capability matrix, integration architecture decision record, revised security checklist, realistic integration plan with acceptance criteria.
 
-## Phase 5 - integration and hardening (blocked)
+## Phase 6 - integration and hardening (blocked)
 
 Depends entirely on Phase 4. Likely shape: a trusted server boundary owning price, discount, shipping, stock and order authority; server-validated cart; supported authentication with correct CSRF/CORS posture; verified payment notification handling with idempotency; reconciliation for uncertain outcomes. The demo's cart and checkout components must be replaced rather than extended.
 
-## Phase 6 - production release (blocked)
+## Phase 7 - production release (blocked)
 
 Requires every unchecked item in `docs/security.md`, approved delivery/return/payment policies, confirmed imagery rights, reviewed Bangla product copy, real-device and screen-reader testing, and an operational owner with alerts and a tested rollback.
 
@@ -98,4 +133,4 @@ Requires every unchecked item in `docs/security.md`, approved delivery/return/pa
 
 ## Next single step
 
-Owner reviews the Phase 3 result, confirms photography rights, then authorises the Phase 4 backend audit with a defined scope and access. Nothing in Phase 4 begins before that authorisation.
+Owner reviews the Phase 4 result, confirms photography rights, then authorises the Phase 5 backend audit with a defined scope and access. Nothing in Phase 5 begins before that authorisation.

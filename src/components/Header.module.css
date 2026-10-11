@@ -20,6 +20,21 @@
 .brand img {
   height: 32px;
   width: auto;
+  /*
+   * The global `img { max-width: 100% }` rule caps the box width on narrow
+   * screens while this height stays fixed, which would squash the artwork
+   * (measured 3.04:1 instead of 4.33:1 at 320px). Contain keeps the drawn
+   * mark proportionate inside whatever box it is given.
+   */
+  object-fit: contain;
+}
+
+/* Below the point where the header grid can no longer offer the full lockup
+   width, the artwork scales down instead of being squeezed. */
+@media (max-width: 359px) {
+  .brand img {
+    height: 26px;
+  }
 }
 
 .primaryNav {

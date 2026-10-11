@@ -62,6 +62,7 @@ export const dictionary = {
     'home.shelfPrevious': 'আগের পণ্যগুলো দেখুন',
     'home.shelfNext': 'পরের পণ্যগুলো দেখুন',
     'home.shelfLabel': 'নির্বাচিত পণ্যের তাক',
+    'home.shelfControls': 'নির্বাচিত পণ্য আগে বা পরে দেখুন',
 
     'catalog.title': 'সব পণ্য',
     'catalog.count': '{count} টি পণ্য',
@@ -208,6 +209,7 @@ export const dictionary = {
     'home.shelfPrevious': 'Show previous products',
     'home.shelfNext': 'Show next products',
     'home.shelfLabel': 'Featured products shelf',
+    'home.shelfControls': 'Browse the featured products backwards or forwards',
 
     'catalog.title': 'All products',
     'catalog.count': '{count} products',

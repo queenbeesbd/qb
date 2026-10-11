@@ -72,6 +72,49 @@ Rules that hold everywhere:
 - Radii: 4 / 8 / 12 px plus a pill for filter chips only.
 - Two shadows only. Motion: 120ms state feedback, 180ms panels. `prefers-reduced-motion` collapses all durations and switches the shelf scroll to instant.
 
+## Logo and favicon
+
+Status: redesigned in the brand-mark phase (2026-10-11).
+
+### Concept
+
+The identity is a **crown of three petals** over a **body band** - a queen bee abstracted to her two defining ideas, regalia and a striped abdomen, without drawing a literal insect.
+
+| Element | Reading | Colour |
+| --- | --- | --- |
+| Centre petal, tallest and forward | The queen, and the regal peak of a crown | `--color-action` `#56358C` |
+| Two side petals, symmetric and lower | Crown points; also the mirrored wings of a bee in flight | `--brand-primary` `#A680FF` |
+| Rounded band beneath | The striped abdomen of a bee; a cosmetic swatch | `--brand-secondary` `#F6B3CC` |
+
+Deliberate exclusions: no clip-art bee, no stripes-as-literal-lines, no gradients, no facial features, no drop shadow. Three shapes carry the whole mark, so it stays legible when reduced.
+
+The three shapes map one-to-one onto the approved palette, which is what keeps the mark feeling native to the storefront rather than applied to it.
+
+### Assets
+
+| Asset | Path | Use |
+| --- | --- | --- |
+| Horizontal lockup | `public/brand/logo.svg` | Header. 173x40 viewBox, symbol plus wordmark. |
+| Standalone symbol | `public/brand/logo-mark.svg` | Compact placements. 40x40. |
+| Favicon | `public/brand/favicon.svg` | Browser tab. 32x32, reversed symbol on a `#56358C` tile. |
+
+`public/brand/logo-dark.svg` was **removed**: no surface used it, and an unreferenced asset invites drift from the real mark. The favicon is the reversed variant for anyone who needs light-on-dark.
+
+Asset paths are unchanged from the previous mark, so the header `<img>` and the metadata icon needed no path changes.
+
+### Wordmark
+
+The wordmark is **real vector outlines**, not SVG `<text>`. This matters: inside an `<img>`, `font-family: var(--font-latin)` cannot resolve, so the old lockup silently rendered its wordmark in a system font while the rest of the site used Inter. The outlines are instanced from the project's own self-hosted Inter variable font at weight 600 - the same family and the same weight the storefront uses for headings - so the wordmark and the interface now genuinely match.
+
+Outlined text is not real text, so the SVG carries `role="img"` and an `aria-label` of `QueenBee's` and the header `<img>` repeats `alt={t('common.brand')}`. The accessible name is preserved in both locales.
+
+### Header sizing rules
+
+- The lockup renders at a fixed 32px height with `width: auto` and **`object-fit: contain`**.
+- The global `img { max-width: 100% }` rule caps the box on narrow screens while the height stays fixed, which would otherwise squash the artwork (measured 3.04:1 against a true 4.33:1 at 320px). Contain keeps the drawn mark proportionate inside whatever box it gets; the leftover space reads as letterboxing, not distortion.
+- Below 360px the height steps down to 26px so the lockup and the action buttons keep room.
+- The favicon is verified to 16px: the tile remains the dominant colour on both light and dark tab backgrounds, and the reversed symbol keeps its ink.
+
 ## Components
 
 - **AnnouncementBar** - slim strip above the header, driven by `src/data/announcements.ts`. Present on every route.
