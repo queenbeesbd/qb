@@ -15,6 +15,15 @@
   width: 100%;
 }
 
+/*
+ * Explicit column counts rather than auto-fill.
+ *
+ * auto-fill was measured and rejected: the homepage rows are curated at 4 and
+ * 8 items, so a 5- or 6-column track left 1-4 trailing holes (at 1920px the
+ * 8-item row filled only 4 of 6 columns). Both counts divide evenly by 2, 3
+ * and 4, so explicit columns keep every row complete while the container cap
+ * - not the track count - is what stops cards growing too wide.
+ */
 @media (min-width: 720px) {
   .grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));

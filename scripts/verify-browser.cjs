@@ -155,6 +155,60 @@ const HELPERS = `
         return section ? [...section.querySelectorAll('button')] : [];
       }
     },
+    /**
+     * Layout geometry shared by the width checks: the content box of main,
+     * whether the header and footer resolve to that same box, and the shape of
+     * every product grid.
+     */
+    layout() {
+      const R = (el) => (el ? el.getBoundingClientRect() : null);
+      const px = (v) => Math.round(v * 10) / 10;
+      const main = document.querySelector('main');
+      const mcs = getComputedStyle(main);
+      const mR = R(main);
+      const contentL = mR.left + parseFloat(mcs.paddingLeft);
+      const contentR = mR.right - parseFloat(mcs.paddingRight);
+      const headerInner = document.querySelector('header').firstElementChild;
+      const hcs = getComputedStyle(headerInner);
+      const hR = R(headerInner);
+      const headerL = hR.left + parseFloat(hcs.paddingLeft);
+      const headerR = hR.right - parseFloat(hcs.paddingRight);
+      const footer = document.querySelector('footer');
+      const footerInner = footer ? footer.querySelector('[class$="_inner"]') : null;
+      const fcs = footerInner ? getComputedStyle(footerInner) : null;
+      const fR = R(footerInner);
+      const footerL = fR && fcs ? fR.left + parseFloat(fcs.paddingLeft) : null;
+      const footerR = fR && fcs ? fR.right - parseFloat(fcs.paddingRight) : null;
+      const grids = [...document.querySelectorAll('[class$="_grid"]')].map((g) => {
+        const kids = [...g.children];
+        const boxes = kids.map((k) => R(k));
+        const cols = getComputedStyle(g).gridTemplateColumns.split(' ').length;
+        const lastTop = boxes.length ? Math.max(...boxes.map((b) => Math.round(b.top))) : 0;
+        const inLastRow = boxes.filter((b) => Math.abs(Math.round(b.top) - lastTop) < 2).length;
+        return {
+          items: kids.length,
+          cols,
+          rows: [...new Set(boxes.map((b) => Math.round(b.top)))].length,
+          cardW: boxes.length ? px(boxes[0].width) : null,
+          trailingHoles: cols - inLastRow,
+        };
+      });
+      return {
+        vw: window.innerWidth,
+        contentW: px(contentR - contentL),
+        marginL: px(contentL),
+        marginR: px(window.innerWidth - contentR),
+        fillPct: Math.round(((contentR - contentL) / window.innerWidth) * 1000) / 10,
+        headerAlignedL: Math.abs(headerL - contentL) < 1.5,
+        headerAlignedR: Math.abs(headerR - contentR) < 1.5,
+        footerAlignedL: footerL === null ? null : Math.abs(footerL - contentL) < 1.5,
+        footerAlignedR: footerR === null ? null : Math.abs(footerR - contentR) < 1.5,
+        headerH: px(hR.height),
+        pageOverflow: document.documentElement.scrollWidth - window.innerWidth,
+        grids,
+      };
+    },
+
     shelfNext() {
       const s = document.querySelector('div[class$="_scroller"]');
       if (!s) return false;
@@ -402,7 +456,7 @@ async function main() {
     record('17. unknown product shows not-found copy with a route home', notFound.copy && notFound.recovery, notFound);
 
     // 18 - viewports
-    const viewports = [{ w: 320, h: 720, mobile: true }, { w: 375, h: 812, mobile: true }, { w: 768, h: 1024, mobile: true }, { w: 1024, h: 768, mobile: false }, { w: 1440, h: 900, mobile: false }];
+    const viewports = [{ w: 320, h: 720, mobile: true }, { w: 375, h: 812, mobile: true }, { w: 768, h: 1024, mobile: true }, { w: 1024, h: 768, mobile: false }, { w: 1280, h: 800, mobile: false }, { w: 1440, h: 900, mobile: false }, { w: 1920, h: 1080, mobile: false }];
     for (const vp of viewports) {
       await client.send('Emulation.setDeviceMetricsOverride', { width: vp.w, height: vp.h, deviceScaleFactor: 1, mobile: vp.mobile });
       await nav(client, '/');
@@ -636,7 +690,9 @@ async function main() {
       { w: 375, h: 812, mobile: true },
       { w: 768, h: 1024, mobile: true },
       { w: 1024, h: 768, mobile: false },
+      { w: 1280, h: 800, mobile: false },
       { w: 1440, h: 900, mobile: false },
+      { w: 1920, h: 1080, mobile: false },
     ];
     const shelfShapes = [];
     for (const vp of shelfViewports) {
@@ -884,6 +940,113 @@ async function main() {
       favProbe.total === 256 && favProbe.tilePixels >= 140 && favProbe.top[0][0] === '86,53,140' &&
       favProbe.top.length >= 3,
       favProbe);
+    // 41 - one content grid: container, gutters and aligned chrome at every width
+    const widthViewports = [
+      { w: 320, h: 720, mobile: true },
+      { w: 375, h: 812, mobile: true },
+      { w: 768, h: 1024, mobile: true },
+      { w: 1024, h: 768, mobile: false },
+      { w: 1280, h: 800, mobile: false },
+      { w: 1440, h: 900, mobile: false },
+      { w: 1920, h: 1080, mobile: false },
+    ];
+    const widthShapes = [];
+    for (const vp of widthViewports) {
+      await client.send('Emulation.setDeviceMetricsOverride', { width: vp.w, height: vp.h, deviceScaleFactor: 1, mobile: vp.mobile });
+      await nav(client, '/');
+      const shape = await evaluate(client, `window.__qb.layout()`);
+      widthShapes.push({
+        w: vp.w,
+        contentW: shape.contentW,
+        marginL: shape.marginL,
+        marginR: shape.marginR,
+        fill: shape.fillPct,
+        headerAligned: shape.headerAlignedL && shape.headerAlignedR,
+        footerAligned: shape.footerAlignedL && shape.footerAlignedR,
+        headerH: shape.headerH,
+        overflow: shape.pageOverflow,
+        cards: shape.grids.map((g) => g.cardW),
+        holes: shape.grids.map((g) => g.trailingHoles),
+        rows: shape.grids.map((g) => g.rows),
+      });
+    }
+    record('41. every section shares one content grid: header, main and footer align at all seven widths',
+      widthShapes.every((r) => r.headerAligned && r.footerAligned) &&
+      widthShapes.every((r) => r.overflow <= 1),
+      widthShapes);
+
+    /*
+     * Below the cap the layout is fluid, so fill is the meaningful number.
+     * At and above it the container binds by design, so the assertions switch
+     * to the absolute content width - which must still beat the previous
+     * 1200px container's 1152px - and to a reduced margin.
+     */
+    record('41b. desktop content occupies substantially more of the viewport than the previous 1200px container',
+      /* Mobile keeps 16px gutters, so its fill is legitimately ~90%; the fluid
+         desktop range is where a high fill is the goal. */
+      widthShapes.filter((r) => r.w >= 1024 && r.w <= 1440).every((r) => r.fill >= 92) &&
+      widthShapes.filter((r) => r.w === 1440).every((r) => r.marginL <= 48) &&
+      widthShapes.filter((r) => r.w >= 1920).every((r) => r.contentW >= 1300 && r.contentW > 1152 && r.marginL < 384),
+      widthShapes.filter((r) => r.w >= 1280));
+
+    record('41c. mobile gutters stay at 16px and are unaffected by the desktop container',
+      widthShapes.filter((r) => r.w <= 375).every((r) => r.marginL === 16 && r.marginR === 16 && r.contentW === r.w - 32),
+      widthShapes.filter((r) => r.w <= 375));
+
+    /*
+     * Two different things, asserted separately:
+     *
+     *  - A grid that renders as ONE row must fill its track. This is the defect
+     *    that auto-fill produced: at 1920px the 4-item curated row was given six
+     *    columns and filled only four, leaving two empty columns inside a row
+     *    that is meant to read as complete.
+     *  - At the desktop design width the curated 4- and 8-item selections must
+     *    divide evenly into the 4-column track, so no row is left ragged.
+     *
+     * A multi-row grid ending on a partial row is normal and is not asserted
+     * against: at 768px the 3-column tablet track cannot divide 4 or 8 items
+     * evenly, and the alternatives were measured and rejected (2 columns gives
+     * 357px cards, wider than desktop; 4 columns gives 170px cards, smaller
+     * than the phone grid). The tablet card size is the priority there.
+     */
+    record('41d. product grids keep complete rows with proportionate cards',
+      widthShapes.every((r) => r.rows.every((n, i) => n !== 1 || r.holes[i] === 0)) &&
+      widthShapes.filter((r) => r.w >= 1024).every((r) => r.holes.every((h) => h === 0)) &&
+      widthShapes.filter((r) => r.w >= 1024).every((r) => r.cards.every((c) => c >= 200 && c <= 340)),
+      widthShapes.map((r) => ({ w: r.w, cards: r.cards, holes: r.holes, rows: r.rows })));
+
+    // 41e - the inline navigation and the drawer trigger swap at one breakpoint,
+    // and the header stays a single row on both sides of it.
+    const headerSwap = [];
+    for (const w of [880, 1023, 1024, 1280, 1920]) {
+      await client.send('Emulation.setDeviceMetricsOverride', { width: w, height: 900, deviceScaleFactor: 1, mobile: false });
+      await nav(client, '/');
+      const state = await evaluate(client, `(() => {
+        const inner = document.querySelector('header').firstElementChild;
+        const R = (el) => (el ? el.getBoundingClientRect() : null);
+        const nav = inner.querySelector('nav');
+        const search = inner.querySelector('form[role="search"]');
+        const trigger = inner.querySelector('button');
+        const nR = R(nav), sR = R(search), tR = R(trigger), iR = R(inner);
+        const navVisible = !!nR && nR.width > 0;
+        const searchVisible = !!sR && sR.width > 0;
+        return {
+          headerH: Math.round(iR.height),
+          navVisible,
+          triggerVisible: !!tR && tR.width > 0,
+          searchVisible,
+          overlap: navVisible && searchVisible ? Math.round(nR.right - sR.left) : null,
+        };
+      })()`);
+      headerSwap.push({ w, ...state });
+    }
+    record('41e. the inline navigation and the drawer trigger swap at one breakpoint on a single header row',
+      headerSwap.every((r) => r.headerH === 64) &&
+      headerSwap.filter((r) => r.w < 1024).every((r) => !r.navVisible && r.triggerVisible) &&
+      headerSwap.filter((r) => r.w >= 1024).every((r) => r.navVisible && !r.triggerVisible && r.searchVisible && r.overlap <= 0),
+      headerSwap);
+
+
     // 39 - no console errors
     record('39. no console errors or uncaught exceptions across all journeys', consoleErrors.length === 0, consoleErrors.slice(0, 5));
   } catch (error) {

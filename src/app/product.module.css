@@ -208,6 +208,21 @@
     align-items: start;
   }
 
+  /*
+   * The photograph fills its column rather than being capped. Capping it was
+   * tried and rejected: at a 1360px content width a 560px image left ~96px of
+   * dead space beside it, which is exactly the "more whitespace inside a
+   * component" the width change is meant to avoid. The container cap already
+   * keeps the image sane (~656px wide, ~875px tall at 3:4).
+   */
+  /*
+   * Body copy is capped so the extra width does not produce over-long lines -
+   * a readability limit, not a layout one.
+   */
+  .info {
+    max-width: 68ch;
+  }
+
   .currentPrice {
     font-size: var(--text-3xl);
   }

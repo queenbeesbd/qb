@@ -122,13 +122,58 @@ Outlined text is not real text, so the SVG carries `role="img"` and an `aria-lab
 - **ProductCard** - 3:4 photo, brand eyebrow, title, pack, price row and a derived saving. No badges, ratings or urgency.
 - **FeaturedShelf** - **exactly one row**, horizontally scrollable, group controls that disable at each end. No clones, no autoplay, no dependency.
 - **QuantityStepper** - accessible minus/plus with a numeric input clamped to 1..20.
-- **Header** - sticky. Inline nav and search appear from **880px**; below that both live in a focus-trapped drawer.
+- **Header** - sticky. Inline nav and search appear from **1024px**; below that both live in a focus-trapped drawer.
+
+## Layout width system
+
+Two tokens in `globals.css` define the content grid, and every piece of page
+chrome reads them - header, announcement strip, shell, footer. No component sets
+its own horizontal padding, so no section can drift out of alignment.
+
+| Token | Value | Rationale |
+| --- | --- | --- |
+| `--container` | `1440px` | Derived from the reference capture, not chosen by eye: that screenshot fills ~94% of its viewport, and at its apparent CSS width (~1320px) a 1440px container does not bind, so our content lands at the same ~94% fill. |
+| `--gutter` | `clamp(16px, 2.5vw, 40px)` | Responsive gutters rather than fixed margins. 16px on phones (matching the reference), growing with the viewport and capping at 40px so wide screens gain content instead of ever-larger empty edges. |
+
+The previous system was a 1200px container with fixed 16px/24px padding, which
+left content at 80% of a 1440px viewport and only 60% at 1920px.
+
+The container cap, not the grid's column count, is what stops cards growing.
+Product cards are 136px on a phone and 322px at 1920px - bounded by the cap
+rather than inflated by the extra width.
+
+**`auto-fill` was tried and rejected.** Bounding card width with
+`repeat(auto-fill, minmax(220px, 1fr))` did keep cards ~224px, but because the
+homepage selections are curated at 4 and 8 items, a 5- or 6-column track left
+1-4 trailing holes in the final row (at 1920px the 8-item row filled only 4 of 6
+columns). Explicit column counts were kept and the container cap does the work.
 
 ## Responsive behaviour
 
-Breakpoints: 600px (category grid 2 columns), 720px (category section appears, footer 3 columns), 880px (header nav + search, hero splits, catalog sidebar, PDP and cart two columns), 1024px (grid 4 columns, shelf 4 visible).
+Breakpoints: 600px (category grid 2 columns), 720px (category section appears, footer 3 columns), 880px (hero splits, catalog sidebar, PDP and cart two columns), 1024px (header nav + search, grid 4 columns, shelf 4 visible).
 
 Featured shelf visible columns: 2 on mobile, 3 on tablet, 4 on desktop - always one row.
+
+### Why the desktop header starts at 1024px
+
+The full desktop header - brand, inline navigation, search and action buttons -
+needs roughly 1000px of content width to fit on one row. Measured: at 880px it
+required ~1003px but the container offered only 858px, so the action group
+wrapped and the header grew to 104px.
+
+At **1024px** the inline navigation and the drawer trigger therefore swap
+together, on a single 64px row. Below it the drawer is the navigation surface,
+and because the drawer carries both the search field and every category, nothing
+is unreachable at those widths. Verified in both locales: the Bangla navigation
+is 441.9px and the English 446.7px, so the breakpoint holds for the wider of the
+two.
+
+The header search field stretches to fill the space between the navigation and
+the action buttons, capped at 720px. It previously held its intrinsic ~284px
+while sitting in a `1fr` track with `justify-self: end`, which meant it spilled
+leftwards and overlapped the navigation once the track fell below that width
+(measured -47px at 1024px). Stretching it fixed the overlap and the 348-500px
+dead gap at wide widths in one change.
 
 ### Mobile-first decisions
 

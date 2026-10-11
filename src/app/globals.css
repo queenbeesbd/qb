@@ -58,7 +58,29 @@
   --shadow-sm: 0 1px 2px rgba(32, 26, 41, 0.06);
   --shadow-md: 0 6px 18px rgba(32, 26, 41, 0.08);
 
-  --container: 1200px;
+  /*
+   * Layout width system. Every piece of page chrome (header, announcement,
+   * shell, footer) reads these two tokens, so all sections share one content
+   * grid instead of each picking its own padding.
+   *
+   * 1440px, up from 1200px. The number is derived from the reference capture
+   * rather than chosen by eye: that screenshot fills ~94% of its viewport, and
+   * at its apparent CSS width (~1320px) a 1440px container does not bind, so
+   * our content lands at the same ~94% fill. Below 1440px the layout is
+   * fluid and the container never binds.
+   *
+   * Above 1440px the cap is what keeps the 4-column product grid from
+   * inflating: at 1920px content is 1360px, so a card is ~322px. Letting the
+   * container run to 1600px was measured at 362px cards, which is wider than
+   * the card design was verified at.
+   */
+  --container: 1440px;
+  /*
+   * Responsive gutters rather than fixed margins: 16px on phones (matching the
+   * reference), growing with the viewport and capping at 40px so wide screens
+   * gain content width instead of ever-larger empty edges.
+   */
+  --gutter: clamp(16px, 2.5vw, 40px);
   --header-height: 64px;
 
   --transition-fast: 120ms ease;

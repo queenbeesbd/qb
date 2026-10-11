@@ -10,7 +10,7 @@
   max-width: var(--container);
   margin: 0 auto;
   min-height: var(--header-height);
-  padding: 0 var(--space-4);
+  padding: 0 var(--gutter);
   display: grid;
   grid-template-columns: auto 1fr auto;
   align-items: center;
@@ -118,7 +118,7 @@
 .drawerInner {
   max-width: var(--container);
   margin: 0 auto;
-  padding: var(--space-4);
+  padding: var(--space-4) var(--gutter);
   display: grid;
   gap: var(--space-4);
 }
@@ -164,21 +164,26 @@
   font-weight: 500;
 }
 
-@media (min-width: 720px) {
-  .inner {
-    padding: 0 var(--space-5);
-  }
-}
 
 /**
- * Inline navigation and search need roughly 700px of chrome before they fit
- * beside the brand and the action buttons. Between 720px and 880px the drawer
- * stays the navigation surface - and it lists every category, so nothing is
- * unreachable - which is what keeps the header from overflowing at those widths.
+ * The full desktop header - brand, inline navigation, search and the action
+ * buttons - needs roughly 1000px of content width before it fits on one row.
+ * Measured: at 880px it requires ~1003px but the container only offers 858px,
+ * so the action group wrapped to a second row and the header grew to 104px.
+ *
+ * 1024px is therefore the one breakpoint where the desktop header appears and
+ * the drawer trigger disappears together. Below it the drawer is the navigation
+ * surface, and because the drawer carries the search field and every category,
+ * nothing is unreachable at those widths.
  */
-@media (min-width: 880px) {
+@media (min-width: 1024px) {
   .inner {
     grid-template-columns: auto auto 1fr auto;
+  }
+
+  /* The drawer trigger is redundant once the inline navigation is present. */
+  .iconButton:first-child {
+    display: none;
   }
 
   .primaryNav {
@@ -209,11 +214,27 @@
 
   .search {
     display: flex;
+    /*
+     * The flexible middle column. Previously this field kept its intrinsic
+     * width (~284px) while sitting in a 1fr track with justify-self: end, so
+     * once the track fell below that width the field spilled leftwards and
+     * overlapped the navigation (measured -47px at 1024px). Stretching it to
+     * the track and capping it fixes the overlap and stops the wide-screen
+     * dead gap at the same time: the field absorbs the spare width instead of
+     * leaving 348-500px of empty header between nav and search.
+     */
     justify-self: end;
+    width: 100%;
+    min-width: 0;
+    /*
+     * 720px rather than the previous 320px cap: the field now absorbs the
+     * spare width instead of leaving a 224px void between the navigation and
+     * the field at 1920px. At 1600px and above the header still keeps a
+     * deliberate ~64px of separation rather than a hole in the middle.
+     */
+    max-width: 720px;
     align-items: center;
     gap: var(--space-2);
-    min-width: 180px;
-    max-width: 320px;
     border: 1px solid var(--color-border-strong);
     border-radius: var(--radius-md);
     padding: 0 var(--space-2) 0 var(--space-3);
@@ -255,8 +276,4 @@
   }
 }
 
-@media (min-width: 1024px) {
-  .iconButton:first-child {
-    display: none;
-  }
-}
+

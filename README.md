@@ -51,7 +51,7 @@ npm run start        # http://localhost:3000
 | `npm run typecheck` | `tsc --noEmit` |
 | `npm run check:catalog` | Content integrity: ids, slugs, prices, categories, image files, provenance, locked demo warning |
 | `npm run check:i18n` | Bangla/English key parity and placeholder-token equality |
-| `npm run verify:browser` | 57-check Chromium journey suite (requires a running server) |
+| `npm run verify:browser` | 64-check Chromium journey suite (requires a running server) |
 
 Browser suite usage:
 

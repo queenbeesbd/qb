@@ -15,7 +15,12 @@ export const IMAGE_WIDTHS = [600, 1050] as const;
 export const IMAGE_ASPECT = { width: 600, height: 800 } as const;
 
 /** `sizes` hints matching the responsive grid and detail layout. */
-export const CARD_SIZES = '(max-width: 719px) 50vw, (max-width: 1023px) 33vw, 25vw';
+/*
+ * Must track ProductGrid's actual column count and the container cap, or the
+ * browser downloads a source far larger than the rendered card. Four columns
+ * inside a 1440px container top out at ~322px per card.
+ */
+export const CARD_SIZES = '(max-width: 719px) 50vw, (max-width: 1023px) 33vw, 330px';
 export const DETAIL_SIZES = '(max-width: 879px) 100vw, 45vw';
 
 export type ImageSources = {

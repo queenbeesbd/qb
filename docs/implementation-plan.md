@@ -1,6 +1,6 @@
 # Implementation plan
 
-Status: Phases 0-4 complete (2026-10-11). The next phase is an authorised merchant-backend capability audit - not started, and not to begin automatically.
+Status: Phases 0-5 complete (2026-10-11). The next phase is an authorised merchant-backend capability audit - not started, and not to begin automatically.
 
 ## Phase 0 - audit and foundation (complete)
 
@@ -101,7 +101,94 @@ New browser coverage: the lockup loads at its declared 173x40, the wordmark is o
 
 Backend integration, real checkout or payment, any new homepage section, redesign of unrelated components, and a Bangla wordmark variant.
 
-## Phase 5 - authorised backend capability audit (next, not started)
+## Phase 5 - layout width and horizontal spacing refinement (complete)
+
+Focused layout change; no redesign, no new sections.
+
+### The problem, measured
+
+The container was 1200px with fixed 16px/24px padding, so content was 1152px wide
+and the page used only part of a large viewport:
+
+| Viewport | Content before | Fill before | Margin per side |
+| --- | --- | --- | --- |
+| 1440px | 1152px | 80% | 144px |
+| 1920px | 1152px | 60% | 384px |
+
+The supplied reference capture was measured programmatically (per-column ink
+variance, since the image cannot be viewed directly): its content occupies
+**94.4%** of the viewport with roughly 24px gutters and no binding max-width.
+
+### The fix
+
+Two tokens, adopted by every piece of chrome so no section can drift:
+
+| Token | Before | After |
+| --- | --- | --- |
+| `--container` | `1200px` | `1440px` |
+| `--gutter` | `16px` mobile / `24px` desktop, per component | `clamp(16px, 2.5vw, 40px)` |
+
+The 1440px cap is derived from the reference rather than chosen by eye: at the
+capture's apparent CSS width (~1320px) it does not bind, so the page fills ~94%
+there, matching the reference. Above it the cap binds deliberately, which is what
+keeps the 4-column product grid from inflating cards.
+
+### Results
+
+| Viewport | Content after | Fill after | Margin after |
+| --- | --- | --- | --- |
+| 1440px | 1368px | 95% | 36px |
+| 1920px | 1360px | 71% | 280px |
+
+Mobile is deliberately unchanged: 16px gutters and identical card widths at 320px
+and 375px. The container never binds below 1440px, so the layout is fluid there.
+
+### Two defects the measurement exposed
+
+1. **The header search field overlapped the navigation.** It held its intrinsic
+   ~284px width inside a `1fr` track with `justify-self: end`, so once the track
+   fell below that width it spilled leftwards (measured **-47px at 1024px**). It
+   now stretches to the track and is capped at 720px, which also removed a
+   348-500px dead gap between the navigation and the field at wide widths.
+2. **The desktop header wrapped to two rows between 880px and 1023px.** At 880px
+   the full header needs ~1003px but only had 858px, so the action group wrapped
+   and the header grew to 104px. The inline navigation and the drawer trigger now
+   swap at **1024px**, on a single 64px row, verified in both locales.
+
+### Rejected approach
+
+Bounding card width with `repeat(auto-fill, minmax(220px, 1fr))` was implemented,
+measured and reverted. It kept cards ~224px, but the homepage selections are
+curated at 4 and 8 items, so a 5- or 6-column track left 1-4 trailing holes (at
+1920px the 8-item row filled only 4 of 6 columns). Explicit column counts were
+restored and the container cap now does the work: cards stay 136px on a phone and
+322px at 1920px, with no empty cells.
+
+### Verification gates executed
+
+| Gate | Command | Result |
+| --- | --- | --- |
+| Production build | `npm run build` | Pass |
+| Type checking | `npm run typecheck` | Pass - 0 errors |
+| Linting | `npm run lint` | Pass - 0 errors, 0 warnings |
+| Content integrity | `npm run check:catalog` | Pass - 22 products |
+| Translation completeness | `npm run check:i18n` | Pass - 129 keys |
+| Browser journeys | `npm run verify:browser` | Pass - **64/64** |
+
+New browser coverage: at all seven viewports the header, main content box and
+footer resolve to the same left and right edge; desktop fill is at least 92% below
+the cap; mobile gutters stay exactly 16px; product grids keep complete rows with
+cards between 200px and 340px; and the inline navigation and drawer trigger swap
+at one breakpoint without overlapping or wrapping. The suite's viewport lists were
+extended to include 1280px and 1920px.
+
+### Explicitly not done in Phase 5
+
+No new sections or decorative content to fill space, no backend integration, no
+change to the brand, typography, colour, logo, catalog or component styling, and
+no per-component width overrides.
+
+## Phase 6 - authorised backend capability audit (next, not started)
 
 Prerequisites (owner-supplied, none available today): explicit written authorisation, a defined test scope, a staging or test tenant, API documentation or access, and permitted read/write actions.
 
@@ -111,11 +198,11 @@ Exclusions: no production writes, no real orders, no live customer data, no secu
 
 Deliverables: capability matrix, integration architecture decision record, revised security checklist, realistic integration plan with acceptance criteria.
 
-## Phase 6 - integration and hardening (blocked)
+## Phase 7 - integration and hardening (blocked)
 
-Depends entirely on Phase 4. Likely shape: a trusted server boundary owning price, discount, shipping, stock and order authority; server-validated cart; supported authentication with correct CSRF/CORS posture; verified payment notification handling with idempotency; reconciliation for uncertain outcomes. The demo's cart and checkout components must be replaced rather than extended.
+Depends entirely on Phase 6. Likely shape: a trusted server boundary owning price, discount, shipping, stock and order authority; server-validated cart; supported authentication with correct CSRF/CORS posture; verified payment notification handling with idempotency; reconciliation for uncertain outcomes. The demo's cart and checkout components must be replaced rather than extended.
 
-## Phase 7 - production release (blocked)
+## Phase 8 - production release (blocked)
 
 Requires every unchecked item in `docs/security.md`, approved delivery/return/payment policies, confirmed imagery rights, reviewed Bangla product copy, real-device and screen-reader testing, and an operational owner with alerts and a tested rollback.
 
