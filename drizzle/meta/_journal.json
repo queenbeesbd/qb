@@ -15,6 +15,13 @@
       "when": 1791751944563,
       "tag": "0001_guards_and_privileges",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1791755189377,
+      "tag": "0002_staff_recovery_token",
+      "breakpoints": true
     }
   ]
 }

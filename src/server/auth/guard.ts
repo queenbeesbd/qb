@@ -1,0 +1,172 @@
+/**
+ * Server-side access control for the admin surface.
+ *
+ * Every protected page and every mutation goes through this module. The rules it exists to make
+ * unmissable:
+ *
+ * - **Deny by default.** No principal, or a principal without the permission, is refused. There is no
+ *   default-allow branch and no "authenticated is enough" path.
+ * - **The actor is derived from the session cookie only.** A role code, a staff id, an `x-staff-id`
+ *   header or a hidden form field is never consulted - none of them is even read.
+ * - **Authorization is re-derived per request.** Nothing is cached between requests, so a revoked
+ *   session or a withdrawn role takes effect on the next request.
+ * - **The boundary is here, not in the UI.** The navigation is built from the same permission set, so
+ *   hiding a link and refusing a request cannot disagree - but the refusal is what protects.
+ */
+
+import { redirect } from 'next/navigation';
+import { sql } from 'drizzle-orm';
+
+import { withTransaction } from '@/db/client';
+import { permission, role, rolePermission, staffRole, staffUser } from '@/db/schema';
+
+import { ADMIN_ROOT, LOGIN_PATH } from './constants';
+import { csrfTokenMatches, isSameOrigin } from './request-guards';
+import { deriveCsrfToken } from './tokens';
+import { readSessionCookie, readSessionCookieFromRequest, resolveStaffSession } from './session';
+import { hasPermission, type StaffPrincipal } from '../authz/principal';
+
+/** Resolves the principal for a Server Component / Server Action. `null` when unauthenticated. */
+export async function currentStaffPrincipal(): Promise<StaffPrincipal | null> {
+  const rawToken = await readSessionCookie();
+  if (rawToken === undefined) return null;
+  const resolved = await withTransaction((tx) => resolveStaffSession(tx, rawToken));
+  return resolved?.principal ?? null;
+}
+
+/**
+ * Resolves the principal for a route handler.
+ *
+ * Reads the cookie from the request rather than from the framework's cookie jar, so a route handler
+ * cannot accidentally accept a principal that came from somewhere else.
+ */
+export async function principalFromRequest(request: Request): Promise<StaffPrincipal | null> {
+  const rawToken = readSessionCookieFromRequest(request);
+  if (rawToken === undefined) return null;
+  const resolved = await withTransaction((tx) => resolveStaffSession(tx, rawToken));
+  return resolved?.principal ?? null;
+}
+
+/**
+ * Page guard: redirects an unauthenticated or unauthorized visitor.
+ *
+ * A visitor with no session is sent to sign-in; a visitor with a session but without the permission
+ * gets the "not found" surface, not a 403 that confirms the route exists - the design's rule for
+ * another principal's resource (`security.md` 13.1 rule 2).
+ */
+export async function requireAdminPage(permission: string): Promise<StaffPrincipal> {
+  const principal = await currentStaffPrincipal();
+  if (principal === null) redirect(LOGIN_PATH);
+  if (!hasPermission(principal, permission)) redirect(`${ADMIN_ROOT}/forbidden`);
+  return principal;
+}
+
+export type DenialReason = 'unauthenticated' | 'forbidden' | 'csrf';
+
+export type GuardedMutation =
+  | { ok: true; principal: StaffPrincipal; csrfToken: string; form: FormData }
+  | { ok: false; reason: DenialReason; status: number };
+
+/**
+ * Route-handler guard for a state-changing request that needs a session but **no specific
+ * permission**.
+ *
+ * Used by sign-out, which every authenticated staff member may perform. It still requires the CSRF
+ * token: a forced cross-site sign-out is a denial of service, not a harmless no-op.
+ */
+export async function guardSessionMutation(request: Request): Promise<GuardedMutation> {
+  const rawToken = readSessionCookieFromRequest(request);
+  if (rawToken === undefined) return { ok: false, reason: 'unauthenticated', status: 401 };
+
+  const principal = await principalFromRequest(request);
+  if (principal === null) return { ok: false, reason: 'unauthenticated', status: 401 };
+
+  if (!isSameOrigin(request)) return { ok: false, reason: 'csrf', status: 403 };
+
+  let form: FormData;
+  try {
+    form = await request.formData();
+  } catch {
+    return { ok: false, reason: 'csrf', status: 400 };
+  }
+
+  const expected = deriveCsrfToken(rawToken);
+  if (!csrfTokenMatches(expected, form.get('csrf'))) return { ok: false, reason: 'csrf', status: 403 };
+
+  return { ok: true, principal, csrfToken: expected, form };
+}
+
+/**
+ * Route-handler guard for a **state-changing** request.
+ *
+ * Three independent checks, in order: an authenticated principal, the permission, and the CSRF token
+ * bound to that session. The body is parsed exactly once, here, so a handler cannot act on form data
+ * that was never checked.
+ *
+ * A failure returns a status and a machine-readable reason, never a message that distinguishes "no
+ * such account" from "wrong password" from "not your role".
+ */
+export async function guardMutation(request: Request, requiredPermission: string): Promise<GuardedMutation> {
+  const guarded = await guardSessionMutation(request);
+  if (!guarded.ok) return guarded;
+
+  if (!hasPermission(guarded.principal, requiredPermission)) {
+    return { ok: false, reason: 'forbidden', status: 403 };
+  }
+
+  return guarded;
+}
+
+export type GuardedRead =
+  | { ok: true; principal: StaffPrincipal; csrfToken: string }
+  | { ok: false; reason: DenialReason; status: number };
+
+/**
+ * Route-handler guard for a **read** that still requires a permission.
+ *
+ * A read needs no CSRF token: it changes nothing, and requiring one would push a token into a URL. It
+ * still requires an authenticated principal and the permission, because "is authenticated" is not
+ * "is allowed" (`security.md` 13.1 rule 8).
+ */
+export async function guardRead(request: Request, requiredPermission: string): Promise<GuardedRead> {
+  const rawToken = readSessionCookieFromRequest(request);
+  if (rawToken === undefined) return { ok: false, reason: 'unauthenticated', status: 401 };
+
+  const principal = await principalFromRequest(request);
+  if (principal === null) return { ok: false, reason: 'unauthenticated', status: 401 };
+  if (!hasPermission(principal, requiredPermission)) return { ok: false, reason: 'forbidden', status: 403 };
+
+  return { ok: true, principal, csrfToken: deriveCsrfToken(rawToken) };
+}
+
+/** Real, countable facts for the overview. Nothing here is inferred, estimated or invented. */
+export async function systemCounts(): Promise<{
+  staffTotal: number;
+  staffActive: number;
+  roles: number;
+  permissions: number;
+  rolePermissions: number;
+  staffRoles: number;
+}> {
+  return withTransaction(async (tx) => {
+    const staff = await tx
+      .select({
+        total: sql<number>`count(*)::int`,
+        active: sql<number>`count(*) filter (where ${staffUser.status} = 'active')::int`,
+      })
+      .from(staffUser);
+    const roleRows = await tx.select({ total: sql<number>`count(*)::int` }).from(role);
+    const permissionRows = await tx.select({ total: sql<number>`count(*)::int` }).from(permission);
+    const grantRows = await tx.select({ total: sql<number>`count(*)::int` }).from(rolePermission);
+    const staffRoleRows = await tx.select({ total: sql<number>`count(*)::int` }).from(staffRole);
+
+    return {
+      staffTotal: staff[0]?.total ?? 0,
+      staffActive: staff[0]?.active ?? 0,
+      roles: roleRows[0]?.total ?? 0,
+      permissions: permissionRows[0]?.total ?? 0,
+      rolePermissions: grantRows[0]?.total ?? 0,
+      staffRoles: staffRoleRows[0]?.total ?? 0,
+    };
+  });
+}

@@ -2,7 +2,6 @@ import type { Metadata, Viewport } from 'next';
 import { Inter, Noto_Sans_Bengali } from 'next/font/google';
 import './globals.css';
 import { Providers } from './providers';
-import { Shell } from './Shell';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -40,16 +39,22 @@ export const viewport: Viewport = {
 };
 
 /**
- * Bangla is the approved default locale, so the server-rendered document is
- * marked `bn` and the client provider may switch to a stored preference.
+ * The document shell.
+ *
+ * It carries only what both surfaces need: the fonts, the stylesheet, the language attribute and the
+ * locale provider. Page chrome belongs to a surface, so the storefront's header, footer and cart
+ * provider live in `(storefront)/layout.tsx` and the admin shell in `(admin)/admin/(app)/layout.tsx`.
+ * Rendering storefront chrome here would put a cart on every admin page - and, as the build caught,
+ * render the header above the provider it depends on.
+ *
+ * Bangla is the approved default locale, so the server-rendered document is marked `bn` and the
+ * client provider may switch to a stored preference.
  */
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="bn" className={`${inter.variable} ${notoBengali.variable}`}>
       <body>
-        <Providers>
-          <Shell>{children}</Shell>
-        </Providers>
+        <Providers>{children}</Providers>
       </body>
     </html>
   );

@@ -41,6 +41,19 @@ const ALLOWED_PLACEHOLDERS = [
   'postgres://user:password@host',
 ];
 
+/**
+ * Credential-bearing URLs that are **not secrets**.
+ *
+ * A GitHub Actions service container is created for a single job and destroyed with it, and its
+ * credentials are the documented throwaway defaults. The URL has to appear literally in the workflow
+ * for the job to connect to it, so it is exempted by an **exact** match rather than by loosening the
+ * pattern - a real credential cannot contain this string, and nothing else is exempted.
+ */
+const ALLOWED_SERVICE_URLS = ['postgresql://postgres:postgres@127.0.0.1:5432/queenbees_ci'];
+
+/** Everything that may legitimately contain a credential-shaped literal. */
+const ALLOWED = [...ALLOWED_PLACEHOLDERS, ...ALLOWED_SERVICE_URLS];
+
 function trackedFiles(): string[] {
   const output = execFileSync('git', ['ls-files'], { encoding: 'utf8' });
   return output.split('\n').filter((line) => line.trim() !== '');
@@ -60,7 +73,7 @@ function scan(file: string, text: string, rule: string, pattern: RegExp): void {
   const lines = text.split('\n');
   lines.forEach((content, index) => {
     if (!pattern.test(content)) return;
-    if (ALLOWED_PLACEHOLDERS.some((placeholder) => content.includes(placeholder))) return;
+    if (ALLOWED.some((placeholder) => content.includes(placeholder))) return;
     findings.push({ file, line: index + 1, rule });
   });
 }

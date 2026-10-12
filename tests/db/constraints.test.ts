@@ -50,7 +50,7 @@ describe('schema constraints against real PostgreSQL', { skip: toolingAvailable 
     const report = await validateSchema(fixture.cluster.url);
     const failures = report.checks.filter((check) => !check.ok);
     assert.deepEqual(failures, [], `schema validation failed: ${JSON.stringify(failures)}`);
-    assert.equal(report.counts.tables, 39);
+    assert.equal(report.counts.tables, 40);
   });
 
   it('seeds a complete order graph', async () => {

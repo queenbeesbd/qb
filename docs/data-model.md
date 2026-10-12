@@ -410,6 +410,45 @@ and re-checked in the server layer.
 **Note.** Until D10 is answered, the seeded role set must be **owner-only**: the safe default is that
 exactly one named account can verify payments, and every other role is created deliberately.
 
+### 4.9 `staff_recovery_token`
+
+**Why it exists.** Phase 12 needed an owner-issued credential path for staff accounts, and 4.4 could
+not serve it: `account_recovery_token.customer_id` is `NOT NULL`, so a customer-scoped row cannot
+represent a staff credential without weakening the separation 4.7 relies on. The same argument that
+keeps the session tables apart applies here - a customer-scoped query must not be able to reach a staff
+credential path, and a missing `WHERE` must not become a privilege escalation.
+
+It exists because **no mail provider is authorized**: a reset link cannot be delivered, and the
+alternative - the owner choosing a colleague's password - would make every staff password known to the
+owner. The credential is therefore issued by the owner as a one-time token and set by the person it
+belongs to.
+
+| Column | Type | Null | Notes |
+| --- | --- | --- | --- |
+| `id` | uuid | PK | |
+| `staff_user_id` | bigint | NOT NULL | FK `staff_user(id)` `ON DELETE CASCADE` |
+| `purpose` | text | NOT NULL | `initial_credential` \| `password_reset` |
+| `token_hash` | text | NOT NULL | SHA-256 of a random token; the raw value is never stored |
+| `issued_by_staff_id` | bigint | NOT NULL | FK `staff_user(id)` `ON DELETE RESTRICT` |
+| `created_at` / `expires_at` | timestamptz | NOT NULL | Short lifetime (adopted: 30 minutes) |
+| `used_at` | timestamptz | NULL | Single use |
+
+**Constraints.** `UNIQUE (token_hash)`; partial `UNIQUE (staff_user_id, purpose)` where
+`used_at IS NULL`, so re-issuing cannot leave a second usable secret behind;
+`CHECK (purpose IN (...))`; `CHECK (expires_at > created_at)`.
+
+**Authorization.** Written only by the owner-facing staff screen and the host-shell bootstrap, both
+requiring `staff.manage`; consumed only by the redemption endpoint. `issued_by_staff_id` is
+`NOT NULL`, so **an anonymous issuance is impossible by construction** - unlike the customer flow,
+there is always an identified owner-level actor. A successful redemption revokes every existing session
+on the account. The raw token is shown to the owner exactly once, never placed in a URL, and stored
+only as a digest.
+
+**Recorded deviation.** This table was **not** in the Phase 10 design; it was added during Phase 12.
+It is recorded here because this document is the authority for the schema, and an implemented table
+that the design does not mention would be exactly the "documented versus exists" divergence the
+project's rules forbid.
+
 ---
 
 ## 5. Catalog, imagery and curation
@@ -2224,14 +2263,14 @@ forbid.
 
 | Group | Tables |
 | --- | --- |
-| Identity and access | `customer`, `customer_credential`, `customer_session`, `account_recovery_token`, `auth_throttle`, `staff_user`, `staff_credential`, `staff_session`, `role`, `permission`, `role_permission`, `staff_role` |
+| Identity and access | `customer`, `customer_credential`, `customer_session`, `account_recovery_token`, `auth_throttle`, `staff_user`, `staff_credential`, `staff_session`, `staff_recovery_token`, `role`, `permission`, `role_permission`, `staff_role` |
 | Catalog | `brand`, `category`, `product`, `product_variant`, `product_image`, `product_image_derivative`, `collection`, `collection_item`, `import_record` |
 | Inventory | `inventory_balance`, `inventory_movement`, `stock_reservation` |
 | Orders | `order`, `order_contact`, `order_item`, `order_event`, `cancellation_request`, `customer_return` |
 | Money | `payment_recipient`, `payment_claim`, `refund` |
 | Operations | `customer_notification`, `operational_exception`, `audit_event`, `idempotency_key`, `store_setting`, `customer_flag` |
 
-**39 tables.** Three are append-only **by database grant**: `inventory_movement`, `order_event` and
+**40 tables.** Three are append-only **by database grant**: `inventory_movement`, `order_event` and
 `audit_event`. `order_item` is frozen by a guard trigger rather than by a revoked grant, because an
 order line is a snapshot rather than a ledger. Every other table is written only through a
 state-guarded statement or a guarded update.
@@ -2241,6 +2280,11 @@ tables as append-only by grant. Both were counting errors in the summary prose, 
 the authoritative list in this section contains **39** tables, and section 16.4 already named the
 three grant-revoked tables correctly. Phase 11 implemented 39 tables and the three grants. No
 business rule changed.
+
+**Addition (Phase 12).** `staff_recovery_token` (4.9) is the **40th** table, added by migration
+`0002` for the owner-issued staff credential path. The Phase 11 figure of 39 remains accurate for what
+Phase 11 delivered; the schema as it now stands is **40 tables**. This is a narrow extension of the
+identity design, not a change of model: no state machine, invariant or business rule moved.
 
 ---
 

@@ -12,7 +12,9 @@
 import { Pool } from 'pg';
 
 import { clusterToolingAvailable, startLocalCluster, type LocalCluster } from '../../scripts/local-pg';
+import { closeDb, getDb, type Database } from '../../src/db/client';
 import { applyMigrations } from '../../src/db/migrate';
+import { assertDisposableDatabase, resetServerEnvCache } from '../../src/server/env';
 
 export const toolingAvailable = clusterToolingAvailable();
 
@@ -22,19 +24,33 @@ export const SKIP_REASON =
 export type DbFixture = {
   cluster: LocalCluster;
   pool: Pool;
+  /** The application's own Drizzle handle, pointed at the disposable cluster. */
+  db: Database;
   close(): Promise<void>;
 };
 
-/** Starts a cluster, applies every migration, and hands back a pool. */
+/** Starts a cluster, applies every migration, and hands back a pool and a Drizzle handle. */
 export async function startMigratedDatabase(): Promise<DbFixture> {
   const cluster = await startLocalCluster();
   await applyMigrations(cluster.url);
   const pool = new Pool({ connectionString: cluster.url, max: 8 });
 
+  // The application's connection layer reads `DATABASE_URL` and validates it, which is exactly what
+  // production does. Pointing it at the disposable cluster here - rather than adding a setter to the
+  // production module - means the code under test is the code that runs, and `assertDisposableDatabase`
+  // proves the target is loopback.
+  process.env.DATABASE_URL = cluster.url;
+  process.env.QUEENBEES_ENV = 'test';
+  process.env.DATABASE_DRIVER = 'pg';
+  resetServerEnvCache();
+  assertDisposableDatabase();
+
   return {
     cluster,
     pool,
+    db: getDb(),
     async close() {
+      await closeDb();
       await pool.end();
       await cluster.stop();
     },

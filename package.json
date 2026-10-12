@@ -19,6 +19,10 @@
     "db:validate": "tsx scripts/db.ts validate",
     "db:grants": "tsx scripts/db.ts grants",
     "db:rehearsal": "tsx scripts/db-rehearsal.ts",
+    "db:seed": "tsx scripts/staff.ts seed",
+    "staff:bootstrap": "tsx scripts/staff.ts bootstrap",
+    "staff:list": "tsx scripts/staff.ts list",
+    "verify:admin": "tsx scripts/verify-admin.ts",
     "test": "node --import tsx --test tests/unit/*.test.ts",
     "test:db": "node --import tsx --test tests/db/*.test.ts",
     "test:all": "npm run test && npm run test:db"

@@ -20,9 +20,9 @@ function schemaTableNames(): string[] {
 }
 
 describe('schema and migration integrity', () => {
-  it('declares exactly the 39 approved tables', () => {
+  it('declares exactly the 40 approved tables', () => {
     const names = schemaTableNames();
-    assert.equal(names.length, 39, `expected 39 tables, found ${names.length}: ${names.join(', ')}`);
+    assert.equal(names.length, 40, `expected 40 tables, found ${names.length}: ${names.join(', ')}`);
   });
 
   it('generated SQL matches the TypeScript schema exactly (no unregenerated drift)', () => {
@@ -83,6 +83,9 @@ describe('schema and migration integrity', () => {
       ['claim transition guard', /CREATE TRIGGER payment_claim_transition_guard/],
       // D10 is undecided, so the privilege rule is enforced by the database instead of a code list.
       ['privileged permission guard', /CREATE TRIGGER role_permission_privileged_guard/],
+      // Phase 12: staff credential setup is owner-issued, so an anonymous issuance must be impossible.
+      ['staff recovery issuance needs an issuer', /"issued_by_staff_id" bigint NOT NULL/],
+      ['one live staff recovery token per purpose', /CREATE UNIQUE INDEX "staff_recovery_token_live_unique"[^;]*WHERE[^;]*"used_at" is null/],
     ];
 
     for (const [label, pattern] of required) {

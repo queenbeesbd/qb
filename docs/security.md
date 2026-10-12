@@ -267,6 +267,25 @@ an assumed workforce - and `Owner` is the person who owns **this one store**, no
 overseeing other people's stores. The exact permission assignments are **D10, an open owner decision**,
 so the support and admin columns are **proposals** and the safe launch default is **owner-only**.
 
+### Admin authorization - implementation constraints (Phase 12)
+
+Two properties the implementation must keep, because each of them silently weakens a refusal:
+
+1. **A page's permission check must run before the response is committed.** The admin shell layout
+   renders before each page, and a **route-level `loading.tsx` would flush that shell early**. Once
+   the headers are sent, a page guard that calls `redirect()` can no longer produce a redirect
+   status: the refusal becomes a `200` carrying a client-side redirect, which a client without
+   JavaScript never follows. The check still runs server-side and the protected data is still never
+   queried - so this is not a data leak - but the refusal stops being a refusal that a non-browser
+   client can observe. The admin subtree therefore has **no route-level loading boundary**, and
+   `npm run verify:admin` asserts that a principal lacking `audit.read` receives a **server-side
+   redirect** from `/admin/audit`, not a `200`.
+2. **A refused mutation is refused before the service is called.** Each route handler runs the guard
+   first and returns without invoking the service, so a denial is never a partial action. Because a
+   denial is presented as a redirect back to the page with a `denied` notice - the same `303` a
+   success uses - `npm run verify:admin` asserts the **database effect** (no account created, no role
+   granted, no account disabled) rather than the status code alone.
+
 | Capability | Guest | Customer | Support | Admin | Owner |
 | --- | --- | --- | --- | --- | --- |
 | Browse catalog and published products | yes | yes | yes | yes | yes |

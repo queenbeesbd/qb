@@ -1,0 +1,155 @@
+/**
+ * Authorization catalogue.
+ *
+ * **D10 is an owner ruling, not a code constant.** The owner approved **owner-only at launch**: the
+ * seeded role set contains exactly one role, `owner`, holding every permission below. `admin` and
+ * `support` are deliberately *not* seeded, so no second principal can verify a payment, approve COD,
+ * complete a refund or manage staff until the owner creates that role deliberately.
+ *
+ * The codes and the privileged flags are still data in the database (`role`, `permission`,
+ * `role_permission`, `staff_role`), not a hard-coded role list: `docs/data-model.md` 4.8 requires
+ * that, because D10 was open when the schema was designed and a role change must stay a row change
+ * rather than a code change. This module is the **catalogue** the seed writes and the server checks
+ * against; it is not the authority. The authority is the row set, re-read per request.
+ */
+
+/** Every permission code the application knows how to check. */
+export const PERMISSIONS = {
+  paymentVerify: 'payment.verify',
+  paymentReject: 'payment.reject',
+  paymentFlagFalse: 'payment.flag_false',
+  codApprove: 'cod.approve',
+  codConfirmCollection: 'cod.confirm_collection',
+  financeReconcile: 'finance.reconcile',
+  orderRead: 'order.read',
+  orderCancel: 'order.cancel',
+  refundRequest: 'refund.request',
+  refundConfirm: 'refund.confirm',
+  returnInspect: 'return.inspect',
+  customerRead: 'customer.read',
+  customerSuspend: 'customer.suspend',
+  customerRevokeSession: 'customer.revoke_session',
+  customerFlag: 'customer.flag',
+  catalogWrite: 'catalog.write',
+  inventoryAdjust: 'inventory.adjust',
+  staffRead: 'staff.read',
+  staffManage: 'staff.manage',
+  auditRead: 'audit.read',
+  settingsWrite: 'settings.write',
+} as const;
+
+export type PermissionCode = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];
+
+export type PermissionDefinition = {
+  readonly code: PermissionCode;
+  readonly description: string;
+  /**
+   * A permission that asserts a fact about money, changes who may act, or changes published policy.
+   * The database trigger `role_permission_privileged_guard` permits a privileged permission only on
+   * a role with `is_owner_level`, so this flag is enforced at both layers rather than by convention.
+   */
+  readonly isPrivileged: boolean;
+};
+
+/**
+ * The catalogue. `is_privileged` follows the owner's ruling that money facts, cash reconciliation,
+ * settings and staff management are owner-level: every one of them is unreachable from an
+ * authenticated session alone.
+ */
+export const PERMISSION_CATALOGUE: readonly PermissionDefinition[] = [
+  { code: PERMISSIONS.paymentVerify, description: 'Confirm a submitted payment claim against the merchant account', isPrivileged: true },
+  { code: PERMISSIONS.paymentReject, description: 'Reject a payment claim whose receipt is not confirmed', isPrivileged: true },
+  { code: PERMISSIONS.paymentFlagFalse, description: 'Record an independently confirmed false claim', isPrivileged: true },
+  { code: PERMISSIONS.codApprove, description: 'Approve a COD order before dispatch', isPrivileged: true },
+  { code: PERMISSIONS.codConfirmCollection, description: 'Confirm COD cash was collected', isPrivileged: true },
+  { code: PERMISSIONS.financeReconcile, description: 'Reconcile collected COD cash', isPrivileged: true },
+  { code: PERMISSIONS.refundConfirm, description: 'Advance a refund to completed or failed', isPrivileged: true },
+  { code: PERMISSIONS.staffManage, description: 'Create, disable or re-role a staff user', isPrivileged: true },
+  { code: PERMISSIONS.settingsWrite, description: 'Write store settings', isPrivileged: true },
+
+  { code: PERMISSIONS.orderRead, description: 'Read any order', isPrivileged: false },
+  { code: PERMISSIONS.orderCancel, description: 'Record or decide a cancellation request', isPrivileged: false },
+  { code: PERMISSIONS.refundRequest, description: 'Record a refund request', isPrivileged: false },
+  { code: PERMISSIONS.returnInspect, description: 'Receive and inspect a returned parcel', isPrivileged: false },
+  { code: PERMISSIONS.customerRead, description: 'Read a customer profile', isPrivileged: false },
+  { code: PERMISSIONS.customerSuspend, description: 'Suspend a customer account', isPrivileged: false },
+  { code: PERMISSIONS.customerRevokeSession, description: 'Revoke a customer session', isPrivileged: false },
+  { code: PERMISSIONS.customerFlag, description: 'Raise or clear a customer review flag', isPrivileged: false },
+  { code: PERMISSIONS.catalogWrite, description: 'Create or edit catalog content', isPrivileged: false },
+  { code: PERMISSIONS.inventoryAdjust, description: 'Adjust stock through the movement ledger', isPrivileged: false },
+  { code: PERMISSIONS.staffRead, description: 'List staff users', isPrivileged: false },
+  { code: PERMISSIONS.auditRead, description: 'Read the audit trail', isPrivileged: false },
+];
+
+/** The owner role. `is_owner_level` is what the database trigger checks before allowing a privileged grant. */
+export const OWNER_ROLE = {
+  code: 'owner',
+  name: 'Owner',
+  nameBn: 'মালিক',
+  description: 'Full administrative authority, including role management and every money fact.',
+  isOwnerLevel: true,
+} as const;
+
+/** A human label for a permission code, used by the staff screen. Falls back to the code itself. */
+export const PERMISSION_LABELS: Record<string, string> = {
+  [PERMISSIONS.paymentVerify]: 'Verify payments',
+  [PERMISSIONS.paymentReject]: 'Reject payments',
+  [PERMISSIONS.paymentFlagFalse]: 'Record false claims',
+  [PERMISSIONS.codApprove]: 'Approve COD',
+  [PERMISSIONS.codConfirmCollection]: 'Confirm COD collection',
+  [PERMISSIONS.financeReconcile]: 'Reconcile COD cash',
+  [PERMISSIONS.orderRead]: 'Read orders',
+  [PERMISSIONS.orderCancel]: 'Handle cancellations',
+  [PERMISSIONS.refundRequest]: 'Request refunds',
+  [PERMISSIONS.refundConfirm]: 'Complete refunds',
+  [PERMISSIONS.returnInspect]: 'Inspect returns',
+  [PERMISSIONS.customerRead]: 'Read customers',
+  [PERMISSIONS.customerSuspend]: 'Suspend customers',
+  [PERMISSIONS.customerRevokeSession]: 'Revoke customer sessions',
+  [PERMISSIONS.customerFlag]: 'Customer review flags',
+  [PERMISSIONS.catalogWrite]: 'Edit catalog',
+  [PERMISSIONS.inventoryAdjust]: 'Adjust stock',
+  [PERMISSIONS.staffRead]: 'Read staff',
+  [PERMISSIONS.staffManage]: 'Manage staff and roles',
+  [PERMISSIONS.auditRead]: 'Read the audit trail',
+  [PERMISSIONS.settingsWrite]: 'Write store settings',
+};
+
+export const PERMISSION_LABELS_BN: Record<string, string> = {
+  [PERMISSIONS.paymentVerify]: 'পেমেন্ট যাচাই',
+  [PERMISSIONS.paymentReject]: 'পেমেন্ট প্রত্যাখ্যান',
+  [PERMISSIONS.paymentFlagFalse]: 'মিথ্যা দাবি নথিভুক্ত',
+  [PERMISSIONS.codApprove]: 'সিওডি অনুমোদন',
+  [PERMISSIONS.codConfirmCollection]: 'সিওডি আদায় নিশ্চিত',
+  [PERMISSIONS.financeReconcile]: 'সিওডি নগদ মিলকরণ',
+  [PERMISSIONS.orderRead]: 'অর্ডার দেখা',
+  [PERMISSIONS.orderCancel]: 'বাতিলকরণ পরিচালনা',
+  [PERMISSIONS.refundRequest]: 'রিফান্ড অনুরোধ',
+  [PERMISSIONS.refundConfirm]: 'রিফান্ড সম্পন্ন',
+  [PERMISSIONS.returnInspect]: 'ফেরত পরীক্ষা',
+  [PERMISSIONS.customerRead]: 'গ্রাহক দেখা',
+  [PERMISSIONS.customerSuspend]: 'গ্রাহক স্থগিত',
+  [PERMISSIONS.customerRevokeSession]: 'গ্রাহক সেশন বাতিল',
+  [PERMISSIONS.customerFlag]: 'গ্রাহক পর্যালোচনা ফ্ল্যাগ',
+  [PERMISSIONS.catalogWrite]: 'ক্যাটালগ সম্পাদনা',
+  [PERMISSIONS.inventoryAdjust]: 'স্টক সমন্বয়',
+  [PERMISSIONS.staffRead]: 'স্টাফ দেখা',
+  [PERMISSIONS.staffManage]: 'স্টাফ ও ভূমিকা ব্যবস্থাপনা',
+  [PERMISSIONS.auditRead]: 'অডিট ট্রেইল দেখা',
+  [PERMISSIONS.settingsWrite]: 'স্টোর সেটিংস লেখা',
+};
+
+/**
+ * Permissions that are **not** grantable by any code path in this phase, whatever the role rows say.
+ *
+ * Phase 12 implements authentication and the shell only. `catalog.write`, `inventory.adjust`,
+ * `order.*`, `payment.*`, `cod.*`, `refund.*`, `return.inspect`, `customer.*`, `settings.write` and
+ * `finance.reconcile` are catalogued so the owner's matrix is recorded and the seed is complete, but
+ * no route in this phase requires them - the workflows behind them belong to Phases 13-17. Nothing
+ * grants a capability by accident just because a code exists.
+ */
+export const PERMISSIONS_IMPLEMENTED_IN_PHASE_12: readonly PermissionCode[] = [
+  PERMISSIONS.staffRead,
+  PERMISSIONS.staffManage,
+  PERMISSIONS.auditRead,
+];

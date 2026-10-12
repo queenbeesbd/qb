@@ -13,7 +13,7 @@ import {
   uuid,
 } from 'drizzle-orm/pg-core';
 
-import { colIn, lenAtMost, CREDENTIAL_KIND, CUSTOMER_STATUS, RECOVERY_PURPOSE, SESSION_REVOKED_REASON, STAFF_STATUS, THROTTLE_SCOPE } from './values';
+import { colIn, lenAtMost, CREDENTIAL_KIND, CUSTOMER_STATUS, RECOVERY_PURPOSE, SESSION_REVOKED_REASON, STAFF_RECOVERY_PURPOSE, STAFF_STATUS, THROTTLE_SCOPE } from './values';
 
 /**
  * Identity, sessions and authorization - data-model section 4.
@@ -199,6 +199,43 @@ export const staffSession = pgTable(
     index('staff_session_staff_idx').on(t.staffUserId, t.absoluteExpiresAt.desc()),
     check('staff_session_absolute_after_created', sql`${t.absoluteExpiresAt} > ${t.createdAt}`),
     check('staff_session_idle_within_absolute', sql`${t.idleExpiresAt} <= ${t.absoluteExpiresAt}`),
+  ],
+);
+
+/**
+ * `staff_recovery_token` - the staff half of `account_recovery_token` (data-model 4.4).
+ *
+ * A separate table for the same reason the session tables are separate: a customer-scoped query must
+ * not be able to reach a staff credential path, and a missing `WHERE` must not become a privilege
+ * escalation. Unlike the customer flow, issuance is always by an identified owner-level actor -
+ * `issued_by_staff_id` is `NOT NULL`, so an anonymous issuance is impossible by construction.
+ */
+export const staffRecoveryToken = pgTable(
+  'staff_recovery_token',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    staffUserId: bigint('staff_user_id', { mode: 'number' })
+      .notNull()
+      .references(() => staffUser.id, { onDelete: 'cascade' }),
+    purpose: text('purpose').notNull(),
+    /** SHA-256 of a 256-bit random token. The raw value is never stored. */
+    tokenHash: text('token_hash').notNull(),
+    issuedByStaffId: bigint('issued_by_staff_id', { mode: 'number' })
+      .notNull()
+      .references(() => staffUser.id, { onDelete: 'restrict' }),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+    expiresAt: timestamp('expires_at', { withTimezone: true, mode: 'date' }).notNull(),
+    usedAt: timestamp('used_at', { withTimezone: true, mode: 'date' }),
+  },
+  (t) => [
+    uniqueIndex('staff_recovery_token_hash_unique').on(t.tokenHash),
+    // Only one live token per purpose, so a re-issue cannot leave a second usable secret behind.
+    uniqueIndex('staff_recovery_token_live_unique')
+      .on(t.staffUserId, t.purpose)
+      .where(sql`${t.usedAt} is null`),
+    index('staff_recovery_token_staff_idx').on(t.staffUserId, t.createdAt.desc()),
+    check('staff_recovery_token_purpose_valid', colIn('purpose', STAFF_RECOVERY_PURPOSE)),
+    check('staff_recovery_token_expires_after_created', sql`${t.expiresAt} > ${t.createdAt}`),
   ],
 );
 

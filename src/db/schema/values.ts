@@ -82,6 +82,16 @@ export const CUSTOMER_STATUS = ['active', 'suspended', 'deleted'] as const;
 export const STAFF_STATUS = ['active', 'disabled'] as const;
 export const CREDENTIAL_KIND = ['password', 'passkey', 'oauth'] as const;
 export const RECOVERY_PURPOSE = ['password_reset', 'email_verify'] as const;
+
+/**
+ * `staff_recovery_token.purpose`.
+ *
+ * Staff credential setup is **owner-issued**, never self-service: no mail provider is authorized, so
+ * a reset link cannot be delivered, and the alternative - the owner choosing a colleague's password -
+ * would make every staff password known to the owner. `initial_credential` is a new staff member's
+ * first credential; `password_reset` is a replacement.
+ */
+export const STAFF_RECOVERY_PURPOSE = ['initial_credential', 'password_reset'] as const;
 export const SESSION_REVOKED_REASON = ['logout', 'password_change', 'admin_revoke', 'reuse_detected'] as const;
 export const THROTTLE_SCOPE = ['login', 'register', 'recovery', 'claim_submit'] as const;
 
