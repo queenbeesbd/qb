@@ -460,7 +460,7 @@ category with products is refused by the FK, never cascaded.
 
 **Authorization.** Public read of published, non-deleted rows only. Write: `catalog.write`.
 
-**A single category, not many-to-many - deliberate.** The fixture and the merchant's category shape
+**A single category, not many-to-many - deliberate.** The fixture and the reference platform's category shape
 are one category per product. A join table would add a table and a uniqueness question ("can a product
 be primary in one category and secondary in another?") with no approved requirement. If multi-category
 placement is later approved, the migration is additive.
@@ -587,7 +587,7 @@ CHECK (reserved <= on_hand)
 ```
 
 This is the database-level expression of D11 invariants 1, 2 and 5. Even if application logic is wrong,
-a transaction that would reserve more than is held **fails**, rather than recording a sale the merchant
+a transaction that would reserve more than is held **fails**, rather than recording a sale the store
 cannot honour. The guarded update in section 12 is the normal path; this constraint is the backstop.
 
 **Authorization.** Read: staff, and the storefront through a derived availability query that exposes
@@ -1205,7 +1205,7 @@ Restraint matters as much as coverage: a table nobody has approved is a policy i
 | Search index table | At this catalog size, indexed `ILIKE`/`tsvector` queries on `product` are sufficient; a separate index is complexity without a measured need. |
 | Notification queue for email/SMS | No provider is approved. The in-app notification is the baseline, and `state`/`channel` columns are ready for a provider without pretending one exists. |
 | Multi-tenancy tables | Explicitly deferred by the architecture. |
-| Row-level security policies | Documented as a future hardening step (section 14.7), not a launch control, because the launch surface is a single tenant with one application role. |
+| Row-level security policies | Documented as a future hardening step, not a launch control, because the launch surface is a **single store** with one application role (ADR 0008). There is no tenant boundary for RLS to enforce; the boundary is server-side authorization. |
 | A separate `payment` table for the money fact | Considered and rejected: the amount actually received is `payment_claim.verified_amount_minor`, the charged amount is `order.total_minor`, and the collected amount is a COD event. A fourth copy would be redundant state (C11). |
 
 ---
@@ -1477,7 +1477,7 @@ and the order being placed is **the server's value**, and the customer sees the 
 before confirming. Nothing the client sends about money is trusted, stored, or compared.
 
 **All-or-nothing, per order.** A multi-unit order reserves every line or none. A partial reservation
-would leave the customer holding a unit they did not ask for and the merchant holding stock against an
+would leave the customer holding a unit they did not ask for and the store holding stock against an
 order that cannot be fulfilled. **This is a deliberate engineering choice, and it is recorded as an open
 question in section 15.1** because it interacts with the D11 priority rule in a way the owner has not
 explicitly ruled on.
@@ -2137,7 +2137,11 @@ genuine late payment is never silently discarded.
 3. **Manual verification remains the model.** No automated gateway is authorized (D7), so no webhook,
    signature-verification or idempotent-callback design is included.
 4. **One currency (BDT)** and **integer poisha** everywhere; no multi-currency or rounding logic.
-5. **A single merchant tenant.** No multi-tenancy columns, because multi-tenancy is explicitly deferred.
+5. **A single store.** QueenBee's serves one store for one owner
+   (`docs/decisions/0008-single-store-product-model.md`), so there are **no**
+   `store_id`, `tenant_id` or `merchant_id` columns, no store registry, and no tenant-scoped queries -
+   there is nothing to isolate. Multi-store operation is not a deferred requirement to be pre-built;
+   it would be a new product decision requiring its own ADR and a schema review.
 6. **The staff population is small and named**, which is why roles are rows and why owner-only is the safe
    launch default.
 7. **Neon's S3-compatible API surface** for presigning, listing and deletion is as ADR 0006 records it.

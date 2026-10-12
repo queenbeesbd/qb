@@ -56,10 +56,10 @@ Untrusted: browser, URL, localStorage, product copy, future API payloads
 This demo: local fixtures -> pure functions -> rendered output
     |  (no outbound requests; no order/payment path exists)
     v
-Trusted, NOT YET BUILT: merchant server -> inventory/orders -> payment provider
+Trusted, NOT YET BUILT: our server -> inventory/orders -> payment provider
 ```
 
-The demo contains no code path that contacts the merchant backend or a payment provider. The checkout route renders zero forms, zero inputs and zero submit buttons, so there is nothing to tamper with and no field to collect personal data. This is a structural guarantee, not a disabled control.
+The demo contains no code path that contacts our backend or a payment provider. The checkout route renders zero forms, zero inputs and zero submit buttons, so there is nothing to tamper with and no field to collect personal data. This is a structural guarantee, not a disabled control.
 
 Every value the client holds - price, discount, stock, total - is a **display projection of local fixtures**. It is explicitly not authoritative. A production checkout must recompute all of it on a trusted server; see `docs/security.md`.
 

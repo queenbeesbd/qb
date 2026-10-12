@@ -1,4 +1,10 @@
-# Merchant admin dashboard - scope and design direction
+# Admin dashboard - scope and design direction
+
+> **Scope (ADR 0008).** This dashboard administers **one store** for that store's **owner** (and, only
+> where justified and approved, named staff). It is not a merchant or vendor console: there is no
+> seller onboarding, no multi-store switcher, no commission or payout surface, and no per-tenant
+> configuration. "Merchant" appears in this document only where it refers to the **payment
+> counterparty** - the store's own bKash/Nagad account that an administrator reconciles against.
 
 Status: proposal, 2026-10-11. Direction approved in `docs/decisions/0004-independent-platform-direction.md`; architecture in `docs/platform-architecture.md`. Nothing here is built.
 

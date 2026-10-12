@@ -2,7 +2,9 @@
 
 A bilingual (Bangla/English) cosmetics storefront for QueenBee's, a Bangladeshi cosmetics retailer. Built as a **client-ready frontend demonstration**: the shopping experience is complete and interactive, with authentic product photography, but no order, payment or delivery is real.
 
-> **Direction (approved 2026-10-11).** QueenBee's is being built as an **independent e-commerce platform** - its own backend, database, merchant dashboard, analytics and commerce workflows. The Zatiq Easy dashboard is a UX and feature reference only, not a target backend or a dependency. See [the decision](docs/decisions/0004-independent-platform-direction.md), [platform architecture](docs/platform-architecture.md), [admin dashboard scope](docs/admin-dashboard.md) and [migration plan](docs/migration-plan.md). None of it is built yet.
+> **Product model (approved 2026-10-11, [ADR 0008](docs/decisions/0008-single-store-product-model.md)).** QueenBee's is a **single-store, owner-operated shop**: one owner sells this store's own goods to this store's own customers. It is **not** a marketplace, multi-vendor platform or SaaS store builder - there are no third-party merchants, vendor onboarding, seller dashboards, commissions, payouts or tenant isolation. The private **admin dashboard** serves this store's owner (and, only where justified and approved, named staff).
+>
+> **Direction (approved 2026-10-11).** QueenBee's is being built as an **independent e-commerce platform** - its own backend, database, admin dashboard, analytics and commerce workflows. The Zatiq Easy dashboard is a UX and feature reference only, not a target backend or a dependency. See [the decision](docs/decisions/0004-independent-platform-direction.md), [platform architecture](docs/platform-architecture.md), [admin dashboard scope](docs/admin-dashboard.md) and [migration plan](docs/migration-plan.md). None of it is built yet.
 
 - Public catalog source: https://queenbees.sellbd.shop/
 - Functional reference (patterns only, no assets copied): https://ghorerbazar.com/

@@ -5,7 +5,7 @@ Status: Phase 1 frontend demonstration complete; **Phase 10 architecture designe
 ## What the demo actually does
 
 - Serves a prerendered/static storefront from local fixtures.
-- Performs no outbound network requests at runtime: no merchant API, no payment provider, no analytics, no third-party scripts, and no remote fonts (Inter and Noto Sans Bengali are self-hosted at build time).
+- Performs no outbound network requests at runtime: no vendor API, no payment provider, no analytics, no third-party scripts, and no remote fonts (Inter and Noto Sans Bengali are self-hosted at build time).
 - Persists only `queenbees.cart.v1` (product-id and quantity pairs) and `queenbees.locale.v1` (`bn` or `en`). No customer, payment or session data.
 - Renders the checkout route with zero forms, zero inputs, zero submit buttons and zero external hosts, verified in the browser suite.
 
@@ -38,7 +38,7 @@ THIS DEMO (no authority)
         |
         v
 TRUSTED - NOT BUILT YET
-  merchant server -> inventory and orders -> payment provider
+  trusted server -> inventory and orders -> payment provider
 ```
 
 The frontend is never authoritative for price, discount, stock, permissions, totals, payment status or orders. Every value shown is a display projection of local fixtures.
@@ -52,7 +52,7 @@ The frontend is never authoritative for price, discount, stock, permissions, tot
 | Inventory races and oversell | Atomic supported reservation or stock check with expiry; bundle components validated individually |
 | Authentication and session compromise | Supported server auth, secure session lifecycle, cookie flags, no sensitive tokens in persistent storage |
 | Authorization and account data leakage | Server enforces role and object ownership on every private request; guest order access scoped securely |
-| Public/private API confusion | Explicit read-only public contract; merchant credentials stay server-side; least-privilege scopes |
+| Public/private API confusion | Explicit read-only public contract; administrative credentials stay server-side; least-privilege scopes |
 | CSRF | If ambient cookies authenticate mutations, use supported CSRF tokens plus origin checks; no state-changing GET |
 | Injection | Parameterized queries and validated input at the trusted boundary |
 | Abuse and resource exhaustion | Rate limits on login, search, order and payment operations; quotas, timeouts and input-size limits |
@@ -152,9 +152,19 @@ Direction approved in `docs/decisions/0004-independent-platform-direction.md`; a
 - TLS is enforced with appropriate security headers.
 - No customer PII, payment data or session token appears in fixtures, browser storage, logs, documentation or analytics.
 
-### Multi-tenancy
+### Single store, not multi-tenancy
 
-Multi-tenancy is **not** a current requirement. If it is ever introduced, tenant isolation must be enforced at the data-access layer with tests that attempt cross-tenant access - not by convention.
+**QueenBee's serves one store for one owner (ADR 0008).** There are no third-party merchants and no
+other businesses creating stores, so multi-tenancy, tenant isolation and per-tenant scoping are **not
+requirements and must not be pre-built** - there is nothing to isolate.
+
+Consequently: no `store_id`, `tenant_id` or `merchant_id` column exists, no store registry exists, and
+no query is tenant-scoped. Adding such an abstraction "for future flexibility" would create a permanent
+tax on every query and schema change to satisfy a requirement nobody has.
+
+If selling across multiple independent stores is ever wanted, it is a **new product decision**
+requiring its own ADR and a schema review. Tenant isolation would then have to be enforced at the
+data-access layer with tests that attempt cross-tenant access - not by convention.
 
 ## Manual payment verification - threat model and required controls
 
@@ -248,9 +258,14 @@ requirement to implement and verify. The table-level ownership boundaries that b
 `docs/data-model.md` sections 4-9, and the enforcement rules are in section 13 of that document.
 
 **Principals.** **Guest** (no session) · **Customer** (authenticated account, required before ordering
-per D12) · **Support** · **Admin** · **Owner**. Support/Admin/Owner are staff roles; the exact
-permission assignments are **D10, an open owner decision**, so the support and admin columns are
-**proposals** and the safe launch default is **owner-only**.
+per D12) · **Support** · **Admin** · **Owner**.
+
+**These are four distinct identity concepts, and there is no merchant principal (ADR 0008):** owner
+authority, optional staff permissions, customer identity, and anonymous public access. `Support` and
+`Admin` are **optional staff roles** - conditional on a documented requirement and owner approval, not
+an assumed workforce - and `Owner` is the person who owns **this one store**, not a platform operator
+overseeing other people's stores. The exact permission assignments are **D10, an open owner decision**,
+so the support and admin columns are **proposals** and the safe launch default is **owner-only**.
 
 | Capability | Guest | Customer | Support | Admin | Owner |
 | --- | --- | --- | --- | --- | --- |

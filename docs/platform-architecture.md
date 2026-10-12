@@ -1,6 +1,14 @@
 # Independent platform architecture
 
+**Product model: a single store, owner-operated (ADR 0008).** QueenBee's serves one store for one owner. It is not a marketplace, a multi-vendor platform or a hosted store platform, so there is no merchant onboarding, seller dashboard, commission, payout or tenant isolation anywhere in this architecture.
+
 Status: 2026-10-11. Direction approved in `docs/decisions/0004-independent-platform-direction.md`; **D1, D2, D3, D7, D8, D9, D11 and D12 are owner-approved** (ADRs 0005 and 0006, and section 11), and **D14 and D18 (the ORM/query layer and the database driver) are approved in ADR 0007**. The remaining entries (D4, D5, D6, D10, D13, D15, D16, D17) are deferred with stated reasons. **Phase 10 designed the full relational schema, state machines and security architecture in `docs/data-model.md`**; none of the deferred entries blocks that design, and **D17 is the only one that blocks implementation of checkout**. This supersedes the "backend integration boundary" section previously in `docs/architecture.md`.
+
+> **Product model (ADR 0008).** This architecture serves **one store** for **one owner**. It is not a
+> multi-vendor marketplace or a hosted store platform: there is no merchant onboarding, no seller
+> dashboard, no commission or payout model, and no tenant isolation, because there are no tenants.
+> "Merchant" below refers only to the **payment counterparty** (the store's own bKash/Nagad account)
+> or to **Zatiq Easy**, the third-party multi-tenant platform audited in Phase 7.
 
 Companion documents: `docs/architecture.md` (implemented storefront boundaries), `docs/admin-dashboard.md` (dashboard scope and analytics), `docs/security.md` (controls), `docs/migration-plan.md` (data migration), `docs/implementation-plan.md` (roadmap).
 
@@ -11,7 +19,7 @@ The platform has three deployable concerns. They may share one codebase or be sp
 | Concern | Responsibility | Trust level |
 | --- | --- | --- |
 | **Storefront** | Public shopping UI. Displays catalog, cart, checkout. | Untrusted input |
-| **Admin dashboard** | Merchant operations: products, orders, customers, settings, analytics. | Authenticated staff only |
+| **Admin dashboard** | Store operations for this store's owner: products, orders, customers, settings, analytics. | Authenticated owner (and approved staff) only |
 | **Backend/API + database** | System of record. Owns price, discount, stock, orders, payments. | **Trusted** |
 
 The storefront and admin may live in one Next.js application with route groups, or as separate deployments. A single application is the lower-cost default; splitting is justified later if admin and storefront need different release cadences or exposure.
@@ -159,7 +167,7 @@ Options for staff auth:
 
 **Customer accounts (D12, approved).** Because ordering requires an account, customer authentication is now a launch requirement rather than an optional later addition. It must be designed before implementation and must cover: credential storage with a current adaptive hash; server-side sessions in httpOnly, `Secure`, `SameSite` cookies; secure account recovery with single-use, expiring tokens; object-level authorization so one customer cannot reach another's orders or profile; and rate limiting on login and recovery. Session and cart interplay matters: a guest's cart must survive the authentication redirect, and the customer must land back at checkout rather than on a generic home page.
 
-Regardless of choice: **merchant credentials never reach the browser bundle**, and admin routes are protected by server-side authorization checks, not by hiding UI.
+Regardless of choice: **administrative credentials never reach the browser bundle**, and admin routes are protected by server-side authorization checks, not by hiding UI.
 
 ## 5. Pricing, inventory and order integrity
 
@@ -264,7 +272,7 @@ Explicitly **not** implemented, provisioned or onboarded at launch: SSLCommerz, 
 
 | Concern | Approach |
 | --- | --- |
-| Delivery areas and charges | Configurable zones and rates owned by the merchant, not hardcoded |
+| Delivery areas and charges | Configurable zones and rates owned by the store owner, not hardcoded |
 | Courier integration | Pathao, Steadfast, RedX, Paperfly and similar are candidates; each needs credentials, a sandbox if available, and a documented contract |
 | Tracking | Store courier consignment id and status; surface delivery status to the customer |
 | COD | Modelled as a payment method with its own reconciliation and remittance tracking |
@@ -302,7 +310,7 @@ Product photography must not live in the application filesystem on a serverless 
 | **Neon Object Storage** (first-party, with our Neon Postgres) | S3-compatible; **branches with the database**; one vendor and one credential system; free tier covers our scale | **No CDN in front of public objects**; nearest region is Singapore; egress is metered; public URL embeds the branch id |
 | **Cloudflare R2** | Free egress; Dhaka and Chittagong PoPs | A second vendor, second credential system, and no branch-alignment with the database |
 | **AWS S3 / Backblaze B2** | Durable, portable, standard | Second vendor; S3 charges egress; neither aligns with database branching |
-| **Committed static assets** (current demo approach) | No dependency; works for 22 images | Does not scale to merchant uploads; every image becomes a deploy |
+| **Committed static assets** (current demo approach) | No dependency; works for 22 images | Does not scale to catalog uploads; every image becomes a deploy |
 
 **Recommendation: Neon Object Storage**, with derivatives (thumbnail/medium/large, WebP + fallback) generated **on upload** rather than at request time.
 

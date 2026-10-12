@@ -323,15 +323,16 @@ These fix the **schema and transaction shape** and the **order state machine**, 
 - **Risks:** environment drift between local and deployed (unverified - no deployment exists); the driver's pooler semantics differ from local TCP; provisioning cost remains unmeasured.
 - **Owner decisions:** **D17 (customer authentication provider) still blocks implementation of checkout.** D10, D13, D15 and D16 remain open and do not block this phase. **Out of scope, and not performed:** provisioning, deployment, DNS, credential creation, any storefront or admin UI, any provider integration, and any commerce feature.
 
-### Phase 12 - merchant authentication and admin shell (blocked on Phase 11)
+### Phase 12 - Owner/Admin Authentication & Dashboard Foundation (unblocked; not started)
 
-- **Objective:** let QueenBee's staff log in safely to an empty but real dashboard.
-- **Deliverables:** staff authentication with hashed credentials, server-side sessions in httpOnly cookies and account recovery; role model; server-side authorization enforced per request; admin shell with navigation, loading/empty/error states and bilingual labels; audit-log foundation.
-- **Dependencies:** Phase 11.
-- **Acceptance:** unauthenticated access to every admin route is refused server-side; a role without permission cannot perform the action even by direct request; no admin credential or session token reaches the client bundle; audit entries are written for a test change; **a customer cannot read another customer's account or orders**, and a guest's cart survives login with the customer landing back at checkout.
+- **Objective:** protect the **private administrative interface for this store's owner**, so the owner can sign in safely to a real, authenticated shell. This is **not merchant onboarding**: QueenBee's is a single-store shop (ADR 0008), so there is no merchant registration, no seller dashboard and no multi-store switcher to build.
+- **Deliverables:** owner login with hashed credentials; server-side sessions in httpOnly cookies with creation, expiry, revocation and logout; owner-issued credential recovery (no mail provider is authorized, so recovery cannot depend on email delivery); server-side authorization enforced on every administrative route and mutation; an auditable administrative activity trail; a minimal admin shell consistent with the existing design system and bilingual labels.
+- **Optional, and conditional:** staff accounts and permission grants, **only** where a documented requirement justifies them and the owner explicitly approves. A large multi-role workforce is not assumed.
+- **Dependencies:** Phase 11 (complete).
+- **Acceptance:** unauthenticated access to every admin route is refused server-side; an actor without the permission cannot perform the action even by direct request; no administrative credential or session token reaches the client bundle; sessions expire, revoke and log out correctly; audit entries are written for a test change.
 - **Verification gate:** authorization tests per role, plus a session and cookie inspection.
-- **Risks:** treating UI hiding as authorization; weak recovery flow.
-- **Owner decisions:** role list and staffing. **Out of scope:** product, order or analytics features.
+- **Risks:** treating UI hiding as authorization; a weak recovery flow; over-building a role model for staff that the requirements do not justify.
+- **Owner decisions:** **D13** (staff authentication approach) and **D10** (which roles may perform sensitive operations). Both are reconciled against the single-store model in `docs/decisions/0008-single-store-product-model.md`; until D10 is answered the seeded role set stays **owner-only**. **Out of scope:** product, order or analytics features, and **all customer authentication** - that is D17 and belongs to the checkout phase.
 
 ### Phase 13 - product and category management with catalog API (blocked on Phase 12)
 
@@ -357,7 +358,7 @@ These fix the **schema and transaction shape** and the **order state machine**, 
 
 - **Objective:** create real orders with server-side authority and no duplicate risk.
 - **Deliverables:** server-validated cart (ids and quantities only, prices recomputed); checkout form with address and contact capture; order creation in a single transaction with an idempotency key; stock decrement through the movement ledger; order confirmation; the existing inert demo checkout replaced.
-- **Dependencies:** Phase 14; Phase 10 state machine; Phase 12 customer authentication (D12 requires an account before ordering).
+- **Dependencies:** Phase 14; Phase 10 state machine; and the **customer-authentication decision (D17)**, which must be approved before checkout can be built. (Customer authentication is **not** part of Phase 12: that phase protects the **owner/admin** interface. D12 requires an account before ordering, and D17 governs how customer accounts work.)
 - **Acceptance:** a client-submitted price is ignored; concurrent checkout of the last unit cannot oversell; a repeated submission returns the original order; a failed transaction leaves no partial order.
 - **Verification gate:** concurrency and idempotency tests, plus negative tests for tampered prices and quantities.
 - **Risks:** oversell under concurrency; duplicate orders from retries.
@@ -442,7 +443,7 @@ The two must not be conflated in reporting. A passing storefront check says noth
 
 ## Critical path and risks
 
-`Phases 0-8 complete → Phase 9 complete (D1, D2, D3, D7, D8, D9, D11, D12 approved) → Phase 10 schema and security architecture → Phase 11 backend foundation → Phase 12 authentication and shells → Phase 13 catalog management and API → Phase 14 storefront integration → Phase 15 cart validation and order creation → Phase 16 manual payment, shipping and lifecycle → Phase 17 analytics → Phase 18 migration → Phase 19 readiness → Phase 20 release.`
+`Phases 0-8 complete → Phase 9 complete (D1, D2, D3, D7, D8, D9, D11, D12 approved) → Phase 10 schema and security architecture → Phase 11 backend foundation → Phase 12 owner/admin authentication and dashboard foundation → Phase 13 catalog management and API → Phase 14 storefront integration → Phase 15 cart validation, customer authentication and order creation → Phase 16 manual payment, shipping and lifecycle → Phase 17 analytics → Phase 18 migration → Phase 19 readiness → Phase 20 release.`
 
 Phase 9 and Phase 10 are complete, so the critical path now runs through **Phase 11**, which is unblocked but requires explicit owner authorization to begin. All eight blocking decisions are settled, and the schema, state machines and security model are designed. **No resource has been provisioned and no implementation has started.**
 

@@ -20,7 +20,13 @@ The owner has now confirmed a different direction.
 
 **QueenBee's is built as an independent e-commerce platform.**
 
-1. QueenBee's owns its **backend, database, merchant/admin dashboard, analytics and commerce workflows**.
+> **Scope note (added 2026-10-11).** This ADR settles *who owns the platform* - QueenBee's, rather than
+a third-party vendor. It does **not** say the platform serves multiple businesses. **ADR 0008** settles
+that separately: QueenBee's is a **single-store, owner-operated shop**, not a marketplace or a hosted
+store platform. Read the two together; where this document says "the merchant", it means the operator
+of the Zatiq platform that was audited, or this store's own owner.
+
+1. QueenBee's owns its **backend, database, admin dashboard, analytics and commerce workflows**.
 2. QueenBee's owns the authoritative product catalog, pricing, inventory, orders, customers, shipping, promotions and analytics data.
 3. **Server-side authority is explicit** for prices, discounts, inventory and order creation. The browser is never authoritative.
 4. Infrastructure and architecture are chosen for **this project's needs**, not to mirror Zatiq's implementation.

@@ -54,7 +54,9 @@ Audit snapshot: 2026-10-11, updated after the Phase 11 backend foundation. Sourc
 
 ## Strategic direction (approved 2026-10-11)
 
-The owner has approved an **independent e-commerce platform**: QueenBee's builds and owns its own backend, database, merchant dashboard, analytics and commerce workflows. Full decision: `docs/decisions/0004-independent-platform-direction.md`.
+The owner has approved an **independent e-commerce platform**: QueenBee's builds and owns its own backend, database, admin dashboard, analytics and commerce workflows. Full decision: `docs/decisions/0004-independent-platform-direction.md`.
+
+**Product model (ADR 0008, 2026-10-11).** QueenBee's is a **single-store, owner-operated shop** - one owner selling this store's own goods to this store's own customers. It is **not** a marketplace, multi-vendor platform, SaaS store builder or hosted store platform. No third-party merchants, vendor onboarding, seller dashboards, commissions, payouts or tenant isolation exist or are planned. "Merchant" survives only where accurate: **Zatiq Easy** (a genuine third-party multi-tenant SaaS), the **payment counterparty** (this store's own bKash/Nagad account), and catalog **provenance tags**. Full reasoning: `docs/decisions/0008-single-store-product-model.md`.
 
 The Zatiq Easy dashboard is now a **UX and feature reference only** - not a target backend and not a platform dependency. The previous plan to integrate with it is withdrawn. The Phase 7 audit findings remain as reference material.
 
@@ -72,7 +74,7 @@ Supporting documents produced in Phase 8: `docs/platform-architecture.md` (archi
 
 **Phase 10 was complete as a design.** The schema, the eight state machines, the transaction and concurrency design, the authorization matrix and the threat model are documented in `docs/data-model.md` and `docs/security.md`, and are internally consistent with the approved D9 and D11 rules. **Nothing is implemented:** no database, migration, dependency, configuration change, credential, bucket or deployment exists.
 
-**Phase 12 (merchant authentication and admin shell) is next, and requires explicit owner authorization.** It is the first phase that would need a real deployment and real credentials, so provisioning authorization is part of that decision. **D17 (customer authentication provider) must be decided before any customer-facing authentication or checkout work.**
+**Phase 12 (Owner/Admin Authentication & Dashboard Foundation) is next, and requires explicit owner authorization.** It concerns the **private administrative interface for this store's owner**, not merchant onboarding. It is the first phase that would need a real deployment and real credentials, so provisioning authorization is part of that decision. **D17 (customer authentication provider) must be decided before any customer-facing authentication or checkout work.**
 
 **One acceptance criterion is deliberately unmet.** A14 in `docs/data-model.md` section 17.5 records that the concurrency guarantees are reasoned and structurally constrained but **have not been executed**, because no database exists. They must be proven by test during implementation.
 

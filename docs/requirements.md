@@ -2,6 +2,8 @@
 
 Status: Phases 0-7 are complete as verified in `docs/project-status.md`. The Phase 7 merchant-backend audit (`docs/backend-capability-audit.md`) found no supported integration surface and an empty tenant catalog. The owner has since **approved an independent-platform direction** (`docs/decisions/0004-independent-platform-direction.md`), so the merchant platform is now a UX and feature reference only, not a dependency.
 
+**Product model (ADR 0008).** QueenBee's is a **single-store, owner-operated e-commerce platform**: one store owner sells that store's own goods directly to that store's own customers. It is **not** a marketplace, a multi-vendor platform, a SaaS store builder or a hosted platform on which other businesses create stores. There are no third-party merchants, no vendor onboarding, no seller dashboards, no commissions, no marketplace payouts and no tenant isolation - because there is nothing to isolate. See `docs/decisions/0008-single-store-product-model.md`.
+
 ## Approved strategic direction
 
 Owner-approved 2026-10-11. Full reasoning in `docs/decisions/0004-independent-platform-direction.md`; architecture in `docs/platform-architecture.md`.
@@ -11,7 +13,7 @@ Owner-approved 2026-10-11. Full reasoning in `docs/decisions/0004-independent-pl
 | ID | Requirement | Status |
 | --- | --- | --- |
 | S1 | QueenBee's owns its own backend and database | Approved; not built |
-| S2 | QueenBee's owns its own merchant/admin dashboard | Approved; not built |
+| S2 | QueenBee's owns its own admin dashboard | Approved; not built |
 | S3 | QueenBee's owns the product catalog, pricing, inventory, orders, customers, shipping, promotions and analytics data | Approved; not built |
 | S4 | Explicit server-side authority for prices, discounts, inventory and order creation | Approved; **not yet implemented anywhere** - the current storefront is a client-side demo |
 | S5 | Infrastructure and architecture chosen for this project's needs, not Zatiq's implementation | Approved; stack selection pending owner decision |
@@ -27,6 +29,17 @@ Owner-approved 2026-10-11. Full reasoning in `docs/decisions/0004-independent-pl
 - Everything in the production requirements table below is now QueenBee's own work rather than a vendor capability to discover.
 
 ## Product context
+
+**One store, one owner.** QueenBee's is the storefront and administration of a single Bangladeshi cosmetics retailer. The **owner** is the store operator; the term does not mean a platform operator overseeing other people's stores. There are no third-party sellers, so no requirement exists for merchant registration, seller onboarding, seller dashboards, commissions, payouts or per-tenant isolation (ADR 0008).
+
+**Identity concepts, kept distinct:**
+
+| Concept | Meaning |
+| --- | --- |
+| **Owner** | The person who owns this store. Holds the administrative authority. |
+| **Staff member** | Optional, conditional on a documented requirement and owner approval. Not a large multi-role workforce. |
+| **Customer** | A shopper with an account, required before ordering (D12). Separate from owner and staff identity. |
+| **Anonymous visitor** | Public storefront access with no session. |
 
 Bangladeshi cosmetics retailer. The audience is customers comparing brand, pack size, price and availability, frequently on mobile. No primary user research has been conducted - that is an open gap, not an assumption to build on.
 
