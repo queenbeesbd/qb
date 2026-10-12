@@ -140,15 +140,23 @@ export const PERMISSION_LABELS_BN: Record<string, string> = {
 };
 
 /**
- * Permissions that are **not** grantable by any code path in this phase, whatever the role rows say.
+ * Permissions that have a **reachable server-side workflow**, so the list is a statement about the
+ * product rather than about the catalogue.
  *
- * Phase 12 implements authentication and the shell only. `catalog.write`, `inventory.adjust`,
- * `order.*`, `payment.*`, `cod.*`, `refund.*`, `return.inspect`, `customer.*`, `settings.write` and
- * `finance.reconcile` are catalogued so the owner's matrix is recorded and the seed is complete, but
- * no route in this phase requires them - the workflows behind them belong to Phases 13-17. Nothing
- * grants a capability by accident just because a code exists.
+ * Phase 12 shipped authentication and the shell. **Phase 13 added `catalog.write`** - product, category,
+ * brand and image mutations, plus the availability toggle - and kept `staff.read`/`staff.manage` for
+ * owner-account management and `audit.read` for the trail.
+ *
+ * Everything else is still catalogued but unreachable: `payment.*`, `cod.*`, `refund.*`,
+ * `return.inspect`, `customer.*`, `order.*`, `settings.write`, `finance.reconcile` and
+ * `inventory.adjust` belong to Phases 15-17. `inventory.adjust` deserves a note: Phase 13 deliberately
+ * writes **no** inventory movement, so the permission has no workflow and the ledger stays unused.
+ *
+ * Nothing here grants a capability by accident just because a code exists - a permission with no route
+ * behind it is a name, not an ability.
  */
-export const PERMISSIONS_IMPLEMENTED_IN_PHASE_12: readonly PermissionCode[] = [
+export const PERMISSIONS_IMPLEMENTED: readonly PermissionCode[] = [
+  PERMISSIONS.catalogWrite,
   PERMISSIONS.staffRead,
   PERMISSIONS.staffManage,
   PERMISSIONS.auditRead,

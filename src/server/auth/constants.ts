@@ -62,7 +62,15 @@ export { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH } from '@/lib/password-policy'
 export const ADMIN_ROOT = '/admin';
 export const LOGIN_PATH = '/admin/login';
 export const REDEEM_PATH = '/admin/redeem';
-export const STAFF_PATH = '/admin/staff';
+
+/**
+ * Owner-account management. Was `/admin/staff` in Phase 12; Phase 13 replaced the staff and role screen
+ * with this one, because the launch surface has owner accounts only (D10, ADR 0009). The old path is not
+ * kept as an alias: a route that no longer exists should 404, not quietly render something else.
+ */
+export const OWNERS_PATH = '/admin/owners';
+export const CATALOG_PATH = '/admin/catalog';
+export const CATEGORIES_PATH = '/admin/categories';
 
 /**
  * Where an authenticated page may send a browser after a successful sign-in. Anything else resolves

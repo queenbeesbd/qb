@@ -17,6 +17,7 @@ specified in `docs/data-model.md`; this file covers the mechanics around it.
 | Baseline migration | `drizzle/0000_baseline_schema.sql` | Generated SQL creating the whole schema |
 | Guards migration | `drizzle/0001_guards_and_privileges.sql` | Hand-written: triggers, append-only enforcement, transition guards |
 | Staff recovery migration | `drizzle/0002_staff_recovery_token.sql` | Generated: `staff_recovery_token`, the owner-issued staff credential path (Phase 12, `docs/data-model.md` 4.9). Takes the schema to **40 tables** |
+| Availability migration | `drizzle/0003_product_availability.sql` | Generated (Phase 13): adds `product.availability` with its `CHECK` constraint, the partial index the orderability gate reads, and nothing else. **Purely additive** - no column dropped, no table rewritten, and the inventory tables are untouched. Table count is unchanged at **40** |
 | Connection layer | `src/db/client.ts` | Server-only. The only place a connection is created |
 | Environment validation | `src/server/env.ts` | Server-only. Validates and fails safely |
 | Migration runtime | `src/db/migrate.ts` | Applies migrations and reports status |

@@ -7,7 +7,7 @@ import {
   PERMISSIONS,
   PERMISSION_LABELS,
   PERMISSION_LABELS_BN,
-  PERMISSIONS_IMPLEMENTED_IN_PHASE_12,
+  PERMISSIONS_IMPLEMENTED,
 } from '../../src/server/authz/permissions';
 import { hasPermission, holdsOwnerRole, roleCodes, type StaffPrincipal } from '../../src/server/authz/principal';
 import { PERMISSION_CATALOGUE as DB_SEED_SOURCE } from '../../src/server/authz/permissions';
@@ -93,10 +93,15 @@ describe('permission catalogue', () => {
     assert.equal(OWNER_ROLE.isOwnerLevel, true);
   });
 
-  it('implements only the shell permissions in this phase, and says so', () => {
+  it('implements a reachable workflow for exactly these permissions, and says so', () => {
     assert.deepEqual(
-      [...PERMISSIONS_IMPLEMENTED_IN_PHASE_12].sort(),
-      [PERMISSIONS.auditRead, PERMISSIONS.staffManage, PERMISSIONS.staffRead].sort(),
+      [...PERMISSIONS_IMPLEMENTED].sort(),
+      [
+        PERMISSIONS.auditRead,
+        PERMISSIONS.catalogWrite,
+        PERMISSIONS.staffManage,
+        PERMISSIONS.staffRead,
+      ].sort(),
     );
   });
 });

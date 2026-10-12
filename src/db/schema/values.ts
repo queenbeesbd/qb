@@ -115,6 +115,17 @@ export const RETURN_REASON = [
   'wrong_item',
 ] as const;
 
+/**
+ * `product.availability` - the owner-controlled In Stock / Out of Stock state (D19, ADR 0009 and
+ * ADR 0010).
+ *
+ * Deliberately only two values. It is **not** a quantity, a countdown or a restock signal: it is the
+ * owner's statement about whether the product can be ordered, and it is the gate the authoritative
+ * server-side orderability check reads. `unknown` existed only in the Phase 1 demo fixture and is not
+ * a state the owner can set, because "unknown" cannot be stored as an owner decision.
+ */
+export const PRODUCT_AVAILABILITY = ['in_stock', 'out_of_stock'] as const;
+
 export const IMAGE_RIGHTS_STATUS = ['unknown', 'pending_confirmation', 'cleared', 'restricted'] as const;
 export const IMAGE_FORMAT = ['webp', 'jpeg'] as const;
 export const IMPORT_ENTITY_TYPE = ['product', 'brand', 'category', 'product_image'] as const;

@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 
-import { ADMIN_ROOT, LOGIN_PATH } from '@/server/auth/constants';
+import { ADMIN_ROOT, CATALOG_PATH, CATEGORIES_PATH, LOGIN_PATH, OWNERS_PATH } from '@/server/auth/constants';
 import { currentStaffPrincipal } from '@/server/auth/guard';
 import { hasPermission } from '@/server/authz/principal';
 import { PERMISSIONS } from '@/server/authz/permissions';
@@ -33,8 +33,12 @@ export default async function AdminShellLayout({ children }: { children: React.R
   if (principal === null) redirect(LOGIN_PATH);
 
   const items: AdminNavItem[] = [{ href: ADMIN_ROOT, labelKey: 'admin.nav.overview' }];
+  if (hasPermission(principal, PERMISSIONS.catalogWrite)) {
+    items.push({ href: CATALOG_PATH, labelKey: 'admin.nav.catalog' });
+    items.push({ href: CATEGORIES_PATH, labelKey: 'admin.nav.categories' });
+  }
   if (hasPermission(principal, PERMISSIONS.staffRead)) {
-    items.push({ href: `${ADMIN_ROOT}/staff`, labelKey: 'admin.nav.staff' });
+    items.push({ href: OWNERS_PATH, labelKey: 'admin.nav.owners' });
   }
   if (hasPermission(principal, PERMISSIONS.auditRead)) {
     items.push({ href: `${ADMIN_ROOT}/audit`, labelKey: 'admin.nav.audit' });

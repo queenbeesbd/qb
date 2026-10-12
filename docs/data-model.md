@@ -504,16 +504,28 @@ category with products is refused by the FK, never cascaded.
 | `name_bn` / `name_en` | text | NOT NULL | `CHECK (char_length BETWEEN 1 AND 200)` |
 | `description_bn` / `description_en` | text | NULL | **NULL means the description is not known** and the interface states that gap (honesty rule) |
 | `pack_size` | text | NULL | e.g. `30 ml`. NULL means not known |
+| `availability` | text | NOT NULL | **Added in Phase 13 (migration `0003`).** The owner-controlled `In Stock` / `Out of Stock` state (D19). Default **`out_of_stock`**, deliberately fail-safe: a product nobody has confirmed as available cannot be ordered. **A state, not a quantity** - see ADR 0010 |
 | `is_published` | boolean | NOT NULL | Default `false`. Publication is an explicit act |
 | `published_at` | timestamptz | NULL | |
 | `created_at` / `updated_at` | timestamptz | NOT NULL | |
 | `deleted_at` | timestamptz | NULL | Soft delete only |
 
 **Constraints.** `CHECK (is_published = false OR published_at IS NOT NULL)`;
-`CHECK (deleted_at IS NULL OR is_published = false)` so a deleted product cannot remain published.
+`CHECK (deleted_at IS NULL OR is_published = false)` so a deleted product cannot remain published;
+`CHECK (availability in ('in_stock', 'out_of_stock'))` - exactly two states, and no third.
 
 **Indexes.** `UNIQUE (slug)`; `(category_id, is_published, created_at DESC)`;
-`(brand_id, is_published)`; partial `(is_published, updated_at DESC)` where `deleted_at IS NULL`.
+`(brand_id, is_published)`; partial `(is_published, updated_at DESC)` where `deleted_at IS NULL`;
+partial `(availability)` where `deleted_at IS NULL AND is_published` - the orderability gate's index.
+
+**Phase 13 implementation note.** `product`, `brand` and `category` now have an owner-facing CRUD surface
+(`src/server/catalog/service.ts`), reachable only through `catalog.write`. Prices are written to
+`product_variant.price_minor` on the product's single default variant. `archiveProduct` sets `deleted_at`
+and `is_published = false` and **leaves `availability` untouched**, because the availability state is the
+owner's last statement about the product and archiving is not a statement about stock.
+`archiveCategory` **refuses** while a live product or a live subcategory references it, rather than
+cascading. `inventory_balance`, `inventory_movement` and `stock_reservation` remain implemented and
+**unused** by this phase (ADR 0010).
 
 **Authorization.** Public read of published, non-deleted rows only. Write: `catalog.write`.
 

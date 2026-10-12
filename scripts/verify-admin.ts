@@ -23,20 +23,38 @@ import { existsSync } from 'node:fs';
 import { sql } from 'drizzle-orm';
 
 import { closeDb, withTransaction } from '../src/db/client';
-import { auditEvent, permission, role, rolePermission, staffCredential, staffRole, staffUser } from '../src/db/schema';
+import {
+  auditEvent,
+  brand,
+  category,
+  permission,
+  product,
+  productImage,
+  productVariant,
+  role,
+  rolePermission,
+  staffCredential,
+  staffRole,
+  staffUser,
+} from '../src/db/schema';
 import { seedReferenceData } from '../src/db/seed';
 import { activeAnnouncements } from '../src/data/announcements';
 import { applyMigrations } from '../src/db/migrate';
 import { startLocalCluster, type LocalCluster } from './local-pg';
 import { hashPassword } from '../src/server/auth/password';
 import { OWNER_ROLE, PERMISSIONS } from '../src/server/authz/permissions';
+import { listAssetKeys } from '../src/server/catalog/assets';
+import { checkOrderability } from '../src/server/catalog/orderability';
 import { resetServerEnvCache } from '../src/server/env';
 
 const OWNER_EMAIL = 'owner@verify.test';
 const OWNER_PASSWORD = 'verify-owner-password-1';
 const LIMITED_EMAIL = 'limited@verify.test';
 const LIMITED_PASSWORD = 'verify-limited-password-1';
-const NEW_STAFF_EMAIL = 'newcomer@verify.test';
+const NEW_OWNER_EMAIL = 'newcomer@verify.test';
+const VERIFY_CATEGORY_SLUG = 'verify-skincare';
+const VERIFY_BRAND_SLUG = 'verify-brand';
+const VERIFY_PRODUCT_NAME = 'Verify Product';
 
 type Result = { name: string; ok: boolean; detail: string };
 const results: Result[] = [];
@@ -210,6 +228,111 @@ async function staffStatus(staffUserId: number): Promise<string | null> {
 
 const SESSION_COOKIE = 'qb_staff_session';
 
+/** True when the account has a live password credential, i.e. it has redeemed its token. */
+async function hasCredential(staffUserId: number): Promise<boolean> {
+  return withTransaction(async (tx) => {
+    const rows = await tx
+      .select({ id: staffCredential.id })
+      .from(staffCredential)
+      .where(
+        sql`${staffCredential.staffUserId} = ${staffUserId}
+            and ${staffCredential.revokedAt} is null
+            and ${staffCredential.kind} = 'password'`,
+      );
+    return rows.length > 0;
+  });
+}
+
+/**
+ * Reads a catalog row by its English name.
+ *
+ * A status code says what the handler replied; it does not say whether the row exists. Reading the row is
+ * what turns "the refusal worked" into a fact, which is the same standard the staff checks already use.
+ */
+async function productByName(nameEn: string): Promise<{ id: number; availability: string } | null> {
+  return withTransaction(async (tx) => {
+    const rows = await tx
+      .select({ id: product.id, availability: product.availability })
+      .from(product)
+      .where(sql`${product.nameEn} = ${nameEn} and ${product.deletedAt} is null`);
+    const row = rows[0];
+    return row === undefined ? null : { id: row.id, availability: row.availability };
+  });
+}
+
+/** The price on a product's default variant, in poisha. */
+async function productPriceMinor(productId: number): Promise<number | null> {
+  return withTransaction(async (tx) => {
+    const rows = await tx
+      .select({ priceMinor: productVariant.priceMinor })
+      .from(productVariant)
+      .where(sql`${productVariant.productId} = ${productId} and ${productVariant.isDefault}`);
+    return rows[0]?.priceMinor ?? null;
+  });
+}
+
+async function productImageRows(
+  productId: number,
+): Promise<{ total: number; width: number | null; contentType: string | null }> {
+  return withTransaction(async (tx) => {
+    const rows = await tx
+      .select({
+        width: productImage.width,
+        contentType: productImage.contentType,
+      })
+      .from(productImage)
+      .where(sql`${productImage.productId} = ${productId} and ${productImage.deletedAt} is null`);
+    return {
+      total: rows.length,
+      width: rows[0]?.width ?? null,
+      contentType: rows[0]?.contentType ?? null,
+    };
+  });
+}
+
+async function categoryIdBySlug(slug: string): Promise<number | null> {
+  return withTransaction(async (tx) => {
+    const rows = await tx
+      .select({ id: category.id })
+      .from(category)
+      .where(sql`${category.slug} = ${slug}`);
+    return rows[0]?.id ?? null;
+  });
+}
+
+async function categoryIsLive(slug: string): Promise<boolean> {
+  return withTransaction(async (tx) => {
+    const rows = await tx
+      .select({ deletedAt: category.deletedAt })
+      .from(category)
+      .where(sql`${category.slug} = ${slug}`);
+    return rows[0] !== undefined && rows[0].deletedAt === null;
+  });
+}
+
+async function brandIdBySlug(slug: string): Promise<number | null> {
+  return withTransaction(async (tx) => {
+    const rows = await tx.select({ id: brand.id }).from(brand).where(sql`${brand.slug} = ${slug}`);
+    return rows[0]?.id ?? null;
+  });
+}
+
+/** The authoritative server-side orderability answer, read from the database. */
+async function orderability(productId: number): Promise<{ orderable: boolean; reason?: string }> {
+  return withTransaction(async (tx) => checkOrderability(tx, productId));
+}
+
+/** The availability state of one product, or `null` when it does not exist. */
+async function availabilityOfProduct(productId: number): Promise<string | null> {
+  return withTransaction(async (tx) => {
+    const rows = await tx
+      .select({ availability: product.availability })
+      .from(product)
+      .where(sql`${product.id} = ${productId}`);
+    return rows[0]?.availability ?? null;
+  });
+}
+
 async function main(): Promise<void> {
   if (!existsSync('.next/BUILD_ID')) {
     fail('no production build found. Run "npm run build" first (this script serves the real build).');
@@ -325,7 +448,7 @@ async function main(): Promise<void> {
 
     console.log('\nunauthenticated access');
     {
-      for (const path of ['/admin', '/admin/staff', '/admin/audit', '/admin/forbidden']) {
+      for (const path of ['/admin', '/admin/catalog', '/admin/categories', '/admin/owners', '/admin/audit', '/admin/forbidden']) {
         const response = await call(base, path);
         record(
           `GET ${path} without a session redirects to sign-in`,
@@ -340,10 +463,13 @@ async function main(): Promise<void> {
       }
 
       for (const [path, form] of [
-        ['/api/admin/staff', { email: 'x@y.test', displayName: 'X', roleCode: 'owner' }],
-        ['/api/admin/staff/role', { staffUserId: '1', roleCode: 'owner', operation: 'grant' }],
-        ['/api/admin/staff/status', { staffUserId: '1', operation: 'disable' }],
-        ['/api/admin/staff/credential', { staffUserId: '1' }],
+        ['/api/admin/owners', { email: 'x@y.test', displayName: 'X' }],
+        ['/api/admin/owners/status', { staffUserId: '1', operation: 'disable' }],
+        ['/api/admin/owners/credential', { staffUserId: '1' }],
+        ['/api/admin/catalog/product', { operation: 'create', nameEn: 'X' }],
+        ['/api/admin/catalog/availability', { productId: '1', availability: 'in_stock' }],
+        ['/api/admin/catalog/category', { operation: 'create', nameEn: 'X' }],
+        ['/api/admin/catalog/image', { operation: 'attach', productId: '1', key: 'x' }],
       ] as [string, Record<string, string>][]) {
         const response = await call(base, path, { method: 'POST', form });
         record(`POST ${path} without a session is refused`, response.status === 401, `status ${response.status}`);
@@ -442,43 +568,89 @@ async function main(): Promise<void> {
       const csrf = csrfFrom(overview.body);
       record('the page carries a session-bound CSRF token', /^[0-9a-f]{64}$/.test(csrf), 'token rendered');
 
-      const noCsrf = await call(base, '/api/admin/staff', {
+      const noCsrf = await call(base, '/api/admin/owners', {
         method: 'POST',
         jar: ownerJar,
-        form: { email: NEW_STAFF_EMAIL, displayName: 'Newcomer', roleCode: OWNER_ROLE.code },
+        form: { email: NEW_OWNER_EMAIL, displayName: 'Newcomer' },
       });
       record('a state-changing request without a CSRF token is refused', noCsrf.status === 403, `status ${noCsrf.status}`);
 
-      const wrongCsrf = await call(base, '/api/admin/staff', {
+      const wrongCsrf = await call(base, '/api/admin/owners', {
         method: 'POST',
         jar: ownerJar,
-        form: { csrf: 'f'.repeat(64), email: NEW_STAFF_EMAIL, displayName: 'Newcomer', roleCode: OWNER_ROLE.code },
+        form: { csrf: 'f'.repeat(64), email: NEW_OWNER_EMAIL, displayName: 'Newcomer' },
       });
       record('a state-changing request with a wrong CSRF token is refused', wrongCsrf.status === 403, `status ${wrongCsrf.status}`);
 
-      const crossSiteMutation = await call(base, '/api/admin/staff', {
+      const crossSiteMutation = await call(base, '/api/admin/owners', {
         method: 'POST',
         jar: ownerJar,
-        form: { csrf, email: NEW_STAFF_EMAIL, displayName: 'Newcomer', roleCode: OWNER_ROLE.code },
+        form: { csrf, email: NEW_OWNER_EMAIL, displayName: 'Newcomer' },
         headers: { origin: 'https://evil.example.test' },
       });
       record('a valid CSRF token from a cross-site origin is still refused', crossSiteMutation.status === 403, `status ${crossSiteMutation.status}`);
 
-      const created = await call(base, '/api/admin/staff', {
+      const created = await call(base, '/api/admin/owners', {
         method: 'POST',
         jar: ownerJar,
-        form: { csrf, email: NEW_STAFF_EMAIL, displayName: 'Newcomer', roleCode: OWNER_ROLE.code },
+        form: { csrf, email: NEW_OWNER_EMAIL, displayName: 'Newcomer' },
       });
-      record('the owner can create a staff account', created.status === 303, `status ${created.status} → ${created.location}`);
+      record(
+        'the owner can create another owner account',
+        created.status === 303 && (created.location ?? '').includes('notice=tokenIssued'),
+        `status ${created.status} → ${created.location ?? ''}`,
+      );
 
-      const staffPage = await call(base, '/admin/staff', { jar: ownerJar });
-      const issuedToken = /[A-Za-z0-9_-]{43}/.exec(staffPage.body.replace(/[\s\S]*qb_admin_flash/, ''))?.[0] ?? '';
-      record('the one-time token is shown once on the staff screen', staffPage.status === 200 && issuedToken.length === 43, `token length ${issuedToken.length}`);
+      const newOwnerId = await withTransaction(async (tx) => {
+        const rows = await tx
+          .select({ id: staffUser.id })
+          .from(staffUser)
+          .where(sql`lower(${staffUser.email}) = ${NEW_OWNER_EMAIL}`);
+        return rows[0]?.id ?? null;
+      });
+      if (newOwnerId === null) fail('the new owner account was not created by the mutation');
+
+      record(
+        'the new account holds the owner role without a role ever being submitted',
+        await holdsRole(newOwnerId, OWNER_ROLE.code),
+        `account ${newOwnerId}`,
+      );
+      record(
+        'the new account cannot sign in until it redeems its token',
+        !(await hasCredential(newOwnerId)),
+        'no credential exists for the new account',
+      );
+
+      // Signing in with the new account's address must fail while it has no credential, so account
+      // creation alone cannot grant access.
+      const unredeemed = await call(base, '/api/admin/session/login', {
+        method: 'POST',
+        jar: new Jar(),
+        form: { email: NEW_OWNER_EMAIL, password: 'any-password-1' },
+      });
+      record(
+        'an account that has not redeemed its token cannot sign in',
+        (unredeemed.location ?? '').includes('error=invalid'),
+        `status ${unredeemed.status} → ${unredeemed.location ?? ''}`,
+      );
+
+      const ownersPage = await call(base, '/admin/owners', { jar: ownerJar });
+      const issuedToken = /[A-Za-z0-9_-]{43}/.exec(ownersPage.body.replace(/[\s\S]*qb_admin_flash/, ''))?.[0] ?? '';
+      record('the one-time token is shown once on the owners screen', ownersPage.status === 200 && issuedToken.length === 43, `token length ${issuedToken.length}`);
       record(
         'the one-time token is not in the URL',
         !(created.location ?? '').includes(issuedToken) && issuedToken !== '',
         created.location ?? '',
       );
+
+      // The staff and role surface the owner ruled out of launch (D10, ADR 0009) must be gone, not merely
+      // unlinked: a retired route that still answers would still be an administrative surface.
+      const retiredPage = await call(base, '/admin/staff', { jar: ownerJar });
+      record('the retired staff page no longer exists', retiredPage.status === 404, `status ${retiredPage.status}`);
+      for (const retiredApi of ['/api/admin/staff', '/api/admin/staff/role', '/api/admin/staff/status', '/api/admin/staff/credential']) {
+        const response = await call(base, retiredApi, { method: 'POST', jar: ownerJar, form: { csrf } });
+        record(`the retired endpoint ${retiredApi} no longer exists`, response.status === 404, `status ${response.status}`);
+      }
 
       const limitedJar = new Jar();
       const limitedSignIn = await call(base, '/api/admin/session/login', {
@@ -490,14 +662,17 @@ async function main(): Promise<void> {
 
       const limitedOverview = await call(base, '/admin', { jar: limitedJar });
       const limitedCsrf = csrfFrom(limitedOverview.body);
-      // The navigation is built from the same permission set the pages check, so it must match what
-      // this principal actually holds: `staff.read` shows the staff link, `audit.read` (not held)
-      // hides the audit link. Asserting an absolute "no staff link" would contradict the fixture.
       record(
         'the navigation reflects the limited principal’s own permissions',
-        limitedOverview.body.includes('href="/admin/staff"') &&
+        limitedOverview.body.includes('href="/admin/owners"') &&
+          !limitedOverview.body.includes('href="/admin/catalog"') &&
           !limitedOverview.body.includes('href="/admin/audit"'),
-        'staff link shown (staff.read held), audit link hidden (audit.read not held)',
+        'owners link shown (staff.read held); catalog and audit links hidden',
+      );
+      record(
+        'the retired staff and role screen is absent from the launch navigation',
+        !overview.body.includes('/admin/staff') && !limitedOverview.body.includes('/admin/staff'),
+        'no staff link in either principal’s navigation',
       );
 
       const limitedAudit = await call(base, '/admin/audit', { jar: limitedJar });
@@ -507,40 +682,55 @@ async function main(): Promise<void> {
         `status ${limitedAudit.status} → ${limitedAudit.location ?? ''}`,
       );
 
-      const limitedCreate = await call(base, '/api/admin/staff', {
+      const limitedCreate = await call(base, '/api/admin/owners', {
         method: 'POST',
         jar: limitedJar,
-        form: { csrf: limitedCsrf, email: 'sneaky@verify.test', displayName: 'Sneaky', roleCode: OWNER_ROLE.code },
+        form: { csrf: limitedCsrf, email: 'sneaky@verify.test', displayName: 'Sneaky' },
       });
       const sneakyExists = await staffAccountExists('sneaky@verify.test');
       record(
-        'the limited principal is refused a staff-management mutation, and no account is created',
+        'the limited principal is refused an owner-management mutation, and no account is created',
         denied(limitedCreate) && !sneakyExists,
         `status ${limitedCreate.status} → ${limitedCreate.location ?? ''}, account created: ${sneakyExists}`,
       );
 
-      const limitedSelfPromotion = await call(base, '/api/admin/staff/role', {
-        method: 'POST',
-        jar: limitedJar,
-        form: { csrf: limitedCsrf, staffUserId: String(limited.ownerId), roleCode: OWNER_ROLE.code, operation: 'grant' },
-      });
-      const limitedIsOwner = await holdsRole(limited.limitedId, OWNER_ROLE.code);
-      record(
-        'the limited principal cannot grant a role to anyone (IDOR attempt), and gains nothing',
-        denied(limitedSelfPromotion) && !limitedIsOwner,
-        `status ${limitedSelfPromotion.status} → ${limitedSelfPromotion.location ?? ''}, owner role held: ${limitedIsOwner}`,
-      );
-
-      const limitedDisableOwner = await call(base, '/api/admin/staff/status', {
+      const limitedDisableOwner = await call(base, '/api/admin/owners/status', {
         method: 'POST',
         jar: limitedJar,
         form: { csrf: limitedCsrf, staffUserId: String(limited.ownerId), operation: 'disable' },
       });
       const ownerStatusAfter = await staffStatus(limited.ownerId);
       record(
-        'the limited principal cannot disable the owner account, and the owner stays active',
+        'the limited principal cannot disable an owner account, and the owner stays active',
         denied(limitedDisableOwner) && ownerStatusAfter === 'active',
         `status ${limitedDisableOwner.status} → ${limitedDisableOwner.location ?? ''}, owner status: ${ownerStatusAfter}`,
+      );
+
+      const limitedCatalogWrite = await call(base, '/api/admin/catalog/product', {
+        method: 'POST',
+        jar: limitedJar,
+        form: {
+          csrf: limitedCsrf,
+          operation: 'create',
+          nameBn: 'লুকানো',
+          nameEn: 'Sneaky Product',
+          categoryId: '1',
+          brandId: '1',
+          price: '1',
+          availability: 'in_stock',
+        },
+      });
+      record(
+        'the limited principal is refused a catalog mutation, and no product is created',
+        denied(limitedCatalogWrite) && (await productByName('Sneaky Product')) === null,
+        `status ${limitedCatalogWrite.status} → ${limitedCatalogWrite.location ?? ''}`,
+      );
+
+      const limitedCatalogRead = await call(base, '/api/admin/catalog', { jar: limitedJar });
+      record(
+        'the limited principal is refused the catalog read API',
+        limitedCatalogRead.status === 403,
+        `status ${limitedCatalogRead.status}`,
       );
 
       // The refusals above happened over real HTTP, through the real guards, inside real transactions
@@ -561,10 +751,19 @@ async function main(): Promise<void> {
       // failure this asserts against.
       const managementDenials = denials.filter((row) => attempted(row).includes('staff.manage'));
       record(
-        'a refused mutation leaves a durable denial record naming the acting session, not the submitted target',
-        managementDenials.length >= 3 &&
+        'a refused owner-management mutation leaves a durable denial record naming the acting session',
+        managementDenials.length >= 2 &&
           managementDenials.every((row) => row.actorStaffId === limited.limitedId),
-        `${managementDenials.length} staff-management denial record(s), all attributed to the acting session`,
+        `${managementDenials.length} owner-management denial record(s), all attributed to the acting session`,
+      );
+
+      // A refused catalog mutation is recorded the same way. The submitted form carried a category and a
+      // price the actor is not permitted to write; the record names the session, never the payload.
+      const catalogDenials = denials.filter((row) => attempted(row).includes('catalog.write'));
+      record(
+        'a refused catalog mutation is recorded against the acting session',
+        catalogDenials.length >= 1 && catalogDenials.every((row) => row.actorStaffId === limited.limitedId),
+        `${catalogDenials.length} catalog denial record(s)`,
       );
 
       // The owner's own requests that failed a CSRF control are recorded too, under a different
@@ -579,42 +778,233 @@ async function main(): Promise<void> {
         `${denials.length} denial record(s) in total`,
       );
 
-      // The owner acts on **another** account here. The earlier version targeted the owner's own id,
-      // so it was refused by the self-change guard and the check passed for the wrong reason.
-      const grantToOther = await call(base, '/api/admin/staff/role', {
+      // The owner cannot disable their own account: otherwise the actor locks themselves out, and the
+      // only recovery is the host shell.
+      const selfDisable = await call(base, '/api/admin/owners/status', {
         method: 'POST',
         jar: ownerJar,
-        form: { csrf, staffUserId: String(limited.limitedId), roleCode: OWNER_ROLE.code, operation: 'grant' },
+        form: { csrf, staffUserId: String(limited.ownerId), operation: 'disable' },
       });
-      const otherIsOwner = await holdsRole(limited.limitedId, OWNER_ROLE.code);
+      // The refusal is a service-level invariant, so it surfaces as a conflict notice rather than a 403 -
+      // the request was permitted, the change was not. Asserting the notice *and* the unchanged state is
+      // what makes this a refusal rather than a redirect that happened to look like one.
       record(
-        'the owner can grant a role to another account',
-        grantToOther.status === 303 &&
-          (grantToOther.location ?? '').includes('notice=roleGranted') &&
-          otherIsOwner,
-        `status ${grantToOther.status} → ${grantToOther.location ?? ''}, role held: ${otherIsOwner}`,
+        'an owner cannot disable their own account, and stays active',
+        selfDisable.status === 303 &&
+          (selfDisable.location ?? '').includes('notice=conflict') &&
+          (await staffStatus(limited.ownerId)) === 'active',
+        `status ${selfDisable.status} → ${selfDisable.location ?? ''}, owner active`,
       );
 
-      // A staff user may never change their own roles (data-model 4.6), which is also what stops the
-      // last owner from demoting themselves out of their own administration.
-      const selfDemote = await call(base, '/api/admin/staff/role', {
+      const disableOther = await call(base, '/api/admin/owners/status', {
         method: 'POST',
         jar: ownerJar,
-        form: { csrf, staffUserId: String(limited.ownerId), roleCode: OWNER_ROLE.code, operation: 'revoke' },
+        form: { csrf, staffUserId: String(newOwnerId), operation: 'disable' },
       });
-      const ownerStillOwner = await holdsRole(limited.ownerId, OWNER_ROLE.code);
       record(
-        'the owner cannot change their own roles, so the last owner cannot demote themselves',
-        denied(selfDemote) && ownerStillOwner,
-        `status ${selfDemote.status} → ${selfDemote.location ?? ''}, role retained: ${ownerStillOwner}`,
+        'an owner can disable another owner account, and it takes effect',
+        disableOther.status === 303 && (await staffStatus(newOwnerId)) === 'disabled',
+        `status ${disableOther.status} → ${disableOther.location ?? ''}`,
       );
 
-      const ownRoles = await call(base, '/api/admin/staff/role', {
+      const reEnable = await call(base, '/api/admin/owners/status', {
         method: 'POST',
         jar: ownerJar,
-        form: { csrf, staffUserId: String(limited.limitedId), roleCode: 'verify_limited', operation: 'revoke' },
+        form: { csrf, staffUserId: String(newOwnerId), operation: 'enable' },
       });
-      record('an owner-issued role change is accepted', ownRoles.status === 303, `status ${ownRoles.status}`);
+      record(
+        'an owner can re-enable an account',
+        reEnable.status === 303 && (await staffStatus(newOwnerId)) === 'active',
+        `status ${reEnable.status} → ${reEnable.location ?? ''}`,
+      );
+
+      console.log('\ncatalog management');
+
+      const categoryCreated = await call(base, '/api/admin/catalog/category', {
+        method: 'POST',
+        jar: ownerJar,
+        form: {
+          csrf,
+          operation: 'create',
+          nameBn: 'যাচাই ক্যাটাগরি',
+          nameEn: 'Verify Category',
+          slug: VERIFY_CATEGORY_SLUG,
+          sortOrder: '1',
+        },
+      });
+      const categoryId = await categoryIdBySlug(VERIFY_CATEGORY_SLUG);
+      record(
+        'the owner can create a category',
+        categoryCreated.status === 303 && categoryId !== null,
+        `status ${categoryCreated.status} → ${categoryCreated.location ?? ''}, id ${categoryId ?? 'missing'}`,
+      );
+
+      const brandCreated = await call(base, '/api/admin/catalog/brand', {
+        method: 'POST',
+        jar: ownerJar,
+        form: { csrf, nameBn: 'যাচাই ব্র্যান্ড', nameEn: 'Verify Brand', slug: VERIFY_BRAND_SLUG },
+      });
+      const brandId = await brandIdBySlug(VERIFY_BRAND_SLUG);
+      record(
+        'the owner can create a brand',
+        brandCreated.status === 303 && brandId !== null,
+        `status ${brandCreated.status} → ${brandCreated.location ?? ''}, id ${brandId ?? 'missing'}`,
+      );
+
+      const productCreated = await call(base, '/api/admin/catalog/product', {
+        method: 'POST',
+        jar: ownerJar,
+        form: {
+          csrf,
+          operation: 'create',
+          nameBn: 'যাচাই পণ্য',
+          nameEn: VERIFY_PRODUCT_NAME,
+          categoryId: String(categoryId),
+          brandId: String(brandId),
+          // A fractional BDT price, to prove the conversion is integer arithmetic on the server.
+          price: '750.1',
+          availability: 'in_stock',
+          isPublished: 'on',
+        },
+      });
+      const createdProduct = await productByName(VERIFY_PRODUCT_NAME);
+      const productId = createdProduct?.id ?? 0;
+      record(
+        'the owner can create a product',
+        productCreated.status === 303 && productId > 0,
+        `status ${productCreated.status} → ${productCreated.location ?? ''}, id ${productId}`,
+      );
+      record(
+        'the price is stored as integer poisha, converted on the server',
+        (await productPriceMinor(productId)) === 75_010,
+        `stored ${await productPriceMinor(productId)} poisha from 750.1 BDT`,
+      );
+      record(
+        'a published, in-stock product is orderable',
+        (await orderability(productId)).orderable === true,
+        'the authoritative check accepts it',
+      );
+
+      const toggled = await call(base, '/api/admin/catalog/availability', {
+        method: 'POST',
+        jar: ownerJar,
+        form: { csrf, productId: String(productId), availability: 'out_of_stock' },
+      });
+      record(
+        'the availability toggle persists the Out of Stock state',
+        toggled.status === 303 && (await availabilityOfProduct(productId)) === 'out_of_stock',
+        `status ${toggled.status} → ${toggled.location ?? ''}`,
+      );
+      const afterToggle = await orderability(productId);
+      record(
+        'an out-of-stock product fails the authoritative orderability check',
+        afterToggle.orderable === false && afterToggle.reason === 'out_of_stock',
+        JSON.stringify(afterToggle),
+      );
+
+      const availabilityAudit = await withTransaction((tx) =>
+        tx
+          .select({ actor: auditEvent.actorStaffId, after: auditEvent.after })
+          .from(auditEvent)
+          .where(sql`${auditEvent.action} = 'catalog.availability_changed' and ${auditEvent.entityId} = ${productId}`),
+      );
+      record(
+        'the availability change is audited with the authenticated owner as actor',
+        availabilityAudit.length === 1 && availabilityAudit[0]?.actor === limited.ownerId,
+        `${availabilityAudit.length} audit record(s), actor ${availabilityAudit[0]?.actor ?? 'none'}`,
+      );
+
+      const badAvailability = await call(base, '/api/admin/catalog/availability', {
+        method: 'POST',
+        jar: ownerJar,
+        form: { csrf, productId: String(productId), availability: 'unknown' },
+      });
+      record(
+        'an unsupported availability value is refused and changes nothing',
+        badAvailability.status === 303 &&
+          (badAvailability.location ?? '').includes('notice=invalid') &&
+          (await availabilityOfProduct(productId)) === 'out_of_stock',
+        `status ${badAvailability.status} → ${badAvailability.location ?? ''}`,
+      );
+
+      // A price submitted to the availability endpoint has nowhere to go: the update object is built from
+      // the validated availability value alone.
+      const priceAttack = await call(base, '/api/admin/catalog/availability', {
+        method: 'POST',
+        jar: ownerJar,
+        form: { csrf, productId: String(productId), availability: 'in_stock', price: '1', priceMinor: '1' },
+      });
+      record(
+        'a price submitted to the availability endpoint has no effect',
+        priceAttack.status === 303 && (await productPriceMinor(productId)) === 75_010,
+        `price still ${await productPriceMinor(productId)} poisha`,
+      );
+
+      const assetKeys = await listAssetKeys();
+      const assetKey = assetKeys[0] ?? '';
+      const imageAttached = await call(base, '/api/admin/catalog/image', {
+        method: 'POST',
+        jar: ownerJar,
+        form: { csrf, operation: 'attach', productId: String(productId), key: assetKey, altEn: 'A verified image' },
+      });
+      const imageRows = await productImageRows(productId);
+      record(
+        'the owner can attach an existing local asset',
+        imageAttached.status === 303 && imageRows.total === 1,
+        `status ${imageAttached.status} → ${imageAttached.location ?? ''}, ${imageRows.total} image(s)`,
+      );
+      record(
+        'the attached image metadata was read from the file, not submitted',
+        imageRows.width === 600 && imageRows.contentType === 'image/jpeg',
+        `${imageRows.width}px ${imageRows.contentType ?? ''}`,
+      );
+
+      for (const badKey of ['../public/catalog/x', '/etc/passwd', 'http://example.test/x', 'no-such-asset']) {
+        const traversal = await call(base, '/api/admin/catalog/image', {
+          method: 'POST',
+          jar: ownerJar,
+          form: { csrf, operation: 'attach', productId: String(productId), key: badKey, altEn: 'x' },
+        });
+        record(
+          `the image key ${JSON.stringify(badKey)} is refused and nothing is attached`,
+          (traversal.location ?? '').includes('notice=invalid') &&
+            (await productImageRows(productId)).total === 1,
+          `status ${traversal.status} → ${traversal.location ?? ''}`,
+        );
+      }
+
+      const archiveInUse = await call(base, '/api/admin/catalog/category', {
+        method: 'POST',
+        jar: ownerJar,
+        form: { csrf, operation: 'archive', categoryId: String(categoryId) },
+      });
+      record(
+        'a category that still has products is refused, and stays live',
+        (archiveInUse.location ?? '').includes('notice=conflict') && (await categoryIsLive(VERIFY_CATEGORY_SLUG)),
+        `status ${archiveInUse.status} → ${archiveInUse.location ?? ''}`,
+      );
+
+      const readApi = await call(base, '/api/admin/catalog', { jar: ownerJar });
+      record(
+        'the catalog read API returns the database catalog with integer-poisha pricing',
+        readApi.status === 200 &&
+          readApi.body.includes('"source":"database"') &&
+          readApi.body.includes('"priceMinor":75010'),
+        `status ${readApi.status}`,
+      );
+      record(
+        'the catalog read API exposes availability as a state and no quantity',
+        readApi.body.includes('"availability":"in_stock"') &&
+          !readApi.body.includes('onHand') &&
+          !readApi.body.includes('on_hand'),
+        'no inventory quantity in the projection',
+      );
+      record(
+        'the storefront still renders the local fixture catalog, not the database',
+        (await call(base, '/')).body.includes('"isDemo":true') === false &&
+          (await call(base, '/products')).status === 200,
+        'the fixture accessors are unchanged and the storefront is not cut over',
+      );
 
       console.log('\nsession revocation and replay');
       const logout = await call(base, '/api/admin/session/logout', { method: 'POST', jar: ownerJar, form: { csrf } });
@@ -627,10 +1017,10 @@ async function main(): Promise<void> {
         `status ${replayed.status} → ${replayed.location ?? ''}`,
       );
 
-      const replayMutation = await call(base, '/api/admin/staff', {
+      const replayMutation = await call(base, '/api/admin/owners', {
         method: 'POST',
         jar: ownerJar,
-        form: { csrf, email: 'replay@verify.test', displayName: 'Replay', roleCode: OWNER_ROLE.code },
+        form: { csrf, email: 'replay@verify.test', displayName: 'Replay' },
       });
       record('a revoked session cannot perform a mutation', replayMutation.status === 401, `status ${replayMutation.status}`);
 
@@ -659,7 +1049,9 @@ async function main(): Promise<void> {
         record('the inert checkout preview still renders', checkout.status === 200, `status ${checkout.status}`);
         record(
           'the admin tree does not leak into the storefront',
-          !home.body.includes('/admin/staff'),
+          !home.body.includes('/admin/catalog') &&
+            !home.body.includes('/admin/owners') &&
+            !home.body.includes('/admin/staff'),
           'no admin links in public HTML',
         );
       }

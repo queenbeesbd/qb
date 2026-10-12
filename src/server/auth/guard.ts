@@ -15,10 +15,8 @@
  */
 
 import { redirect } from 'next/navigation';
-import { sql } from 'drizzle-orm';
 
 import { withTransaction } from '@/db/client';
-import { permission, role, rolePermission, staffRole, staffUser } from '@/db/schema';
 
 import { ADMIN_ROOT, LOGIN_PATH } from './constants';
 import { recordDeniedAction } from './denial-log';
@@ -220,36 +218,4 @@ export async function guardRead(request: Request, requiredPermission: string): P
   }
 
   return { ok: true, principal, csrfToken: deriveCsrfToken(rawToken) };
-}
-
-/** Real, countable facts for the overview. Nothing here is inferred, estimated or invented. */
-export async function systemCounts(): Promise<{
-  staffTotal: number;
-  staffActive: number;
-  roles: number;
-  permissions: number;
-  rolePermissions: number;
-  staffRoles: number;
-}> {
-  return withTransaction(async (tx) => {
-    const staff = await tx
-      .select({
-        total: sql<number>`count(*)::int`,
-        active: sql<number>`count(*) filter (where ${staffUser.status} = 'active')::int`,
-      })
-      .from(staffUser);
-    const roleRows = await tx.select({ total: sql<number>`count(*)::int` }).from(role);
-    const permissionRows = await tx.select({ total: sql<number>`count(*)::int` }).from(permission);
-    const grantRows = await tx.select({ total: sql<number>`count(*)::int` }).from(rolePermission);
-    const staffRoleRows = await tx.select({ total: sql<number>`count(*)::int` }).from(staffRole);
-
-    return {
-      staffTotal: staff[0]?.total ?? 0,
-      staffActive: staff[0]?.active ?? 0,
-      roles: roleRows[0]?.total ?? 0,
-      permissions: permissionRows[0]?.total ?? 0,
-      rolePermissions: grantRows[0]?.total ?? 0,
-      staffRoles: staffRoleRows[0]?.total ?? 0,
-    };
-  });
 }

@@ -166,6 +166,47 @@ If selling across multiple independent stores is ever wanted, it is a **new prod
 requiring its own ADR and a schema review. Tenant isolation would then have to be enforced at the
 data-access layer with tests that attempt cross-tenant access - not by convention.
 
+### The administrative surface as implemented (Phase 13)
+
+**Owner-only, with no role-management surface.** Every administrative route and mutation is protected server-side
+by `requireAdminPage`, `guardMutation` or `guardRead`, and every service function **re-checks the permission**
+before acting - so a caller that forgets the route check fails closed. The Phase 12 staff and role screen, its
+navigation entry and its four API routes were **removed** in Phase 13 (D10, ADR 0009); the retired paths return
+**404**, which `npm run verify:admin` asserts rather than assumes. No replacement role UI was introduced.
+
+**Owner accounts are managed by a minimal surface, and the role is never an input.** `createOwnerAccount` hard-codes
+the owner role, so "create an account" cannot be turned into "create a privileged account". A new account has **no
+credential** until an owner hands over a single-use token, so account creation alone grants nobody access. An owner
+cannot disable their own account, and the **last active owner cannot be disabled** - checked under `FOR UPDATE` on the
+owner rows, so two concurrent attempts cannot both pass the check (regression-tested).
+
+**Catalog mutations require `catalog.write`, and the refusal is durable.** A denied mutation leaves protected state
+unchanged and is recorded through the separate denial transaction, attributed to the **acting session** rather than to
+any id the request carried. Asserted end to end, including the database effect of the refusal.
+
+**Availability is a state the server owns.** Only `in_stock` and `out_of_stock` are accepted; anything else is refused
+rather than coerced, so a client cannot invent a third state or pass a quantity where a state belongs. The orderability
+decision reads the database only.
+
+**Imagery cannot reach the filesystem from a request.** A key must match a strict format **and** appear in the
+inventory derived by listing `public/catalog`; metadata is read from the file bytes. There is no upload path, so there
+is no upload attack surface.
+
+### Open findings (not fixed)
+
+**F9 - the same-origin check prefers `x-forwarded-host` over `host`.** `src/server/auth/request-guards.ts` reads
+`x-forwarded-host` first. A **non-browser** client can set both `Origin` and `X-Forwarded-Host` to a matching forged
+value and pass the same-origin check. It is **not browser-exploitable** - a browser cannot set that header - and
+`SameSite=Lax` plus the session-bound CSRF token are independent controls. On the unauthenticated sign-in route,
+however, the origin check is the only CSRF control. **Residual risk: medium for non-browser clients, low for browsers.**
+Not fixed in Phase 13 because a correct fix needs a trusted-proxy configuration decision, not a code tweak.
+
+**F10 - password-hash robustness on a corrupt credential row.** A stored derived key that decodes to zero bytes passes
+`keylen 0` to `scrypt` (which throws, yielding a 500 rather than `false`), and the hash parser accepts an arbitrarily
+large power-of-two `N`, scaling memory allocation with the stored value. Both require a **corrupt or hostile
+credential row**, which the schema does not produce. **Residual risk: low.** Not fixed in Phase 13 because it is
+unrelated to catalog work and was not demonstrated to be reachable.
+
 ## Manual payment verification - threat model and required controls
 
 Approved launch model (D7): **manual bKash**, **manual Nagad** and **Cash on Delivery**, with human verification for the two prepaid methods (`docs/payment-workflow.md`). **No automated gateway is authorized.** Ordering requires an account (D12).

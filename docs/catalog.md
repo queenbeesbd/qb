@@ -2,6 +2,29 @@
 
 Status: 22 products, 5 categories. Last expanded 2026-10-11.
 
+## Product imagery in the admin (Phase 13)
+
+**Association only, from assets already in the repository.** Phase 13 added an image surface that attaches an existing
+`public/catalog/<key>-<width>.<ext>` set to a product:
+
+- the key is validated against a **server-controlled inventory** derived by listing `public/catalog` itself, so a key
+  that is not a real, complete asset is refused, and a path-shaped or URL-shaped value cannot even be expressed
+  (format check first, allowlist second);
+- `content_type`, `width`, `height` and `byte_size` are read from the **file bytes** - the magic number and the JPEG
+  SOF / WebP VP8 header - never from the request and never from the extension. A file named `.jpg` whose bytes are
+  WebP is recorded as WebP;
+- bilingual alt text is required in at least one language, matching the rule `npm run check:catalog` already applies
+  to this catalog;
+- `rights_status` is written as `pending_confirmation`, because the photography is the Phase 1 demo set and its rights
+  remain unresolved. Recording it as `cleared` would be a claim we cannot support, and the schema requires a note for
+  that value anyway;
+- `product_image.base_key` is globally unique, so **one asset belongs to at most one product**. Attaching a key that
+  another product holds is refused with an explanation rather than sharing the asset.
+
+**Deferred, and not implemented:** upload, object storage (D3), derivative generation from an uploaded file, image
+replacement or deletion of the underlying bytes, and the optional category image mark. The `product_image_derivative`
+rows written here describe the variants that already exist on disk; nothing generates them.
+
 ## Why the catalog is local
 
 The storefront reads a typed local fixture (`src/data/catalog.ts`). Nothing is fetched at runtime. This keeps the demo deterministic, keeps every claim traceable to a captured source, and means a backend adapter can replace the data layer later without rewriting components. That adapter is now planned rather than hypothetical - see `docs/platform-architecture.md` and `docs/migration-plan.md`.

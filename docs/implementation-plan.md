@@ -336,27 +336,38 @@ These fix the **schema and transaction shape** and the **order state machine**, 
 - **Risks:** treating UI hiding as authorization; a weak recovery flow; over-building a role model for staff that the requirements do not justify.
 - **Owner decisions:** **settled in ADR 0009.** **D13:** first-party email and password, with Resend email verification and Google sign-in deferred. **D10:** owner role only, multiple owners permitted with full access each, and **no staff or support roles or permission-management system in the launch surface**. That last point creates a **recorded follow-up**: this phase's staff screen and role grant/revoke endpoints are outside the approved launch surface and must be removed or made unreachable before launch. **Out of scope:** product, order or analytics features, and **all customer authentication** - that is D17 and belongs to the checkout phase.
 
-### Phase 13 - product and category management with catalog API (unblocked; not started)
+### Phase 13 - product and category management with catalog API (complete - local only)
 
-- **Objective:** the **owner** can maintain the real catalog, and the storefront can read it.
-- **Deliverables:** product and variant CRUD with bilingual name/description, brand, images, price, comparison price, stock and publication status; category CRUD with bilingual names, ordering and visibility; curation (featured and collection) as ordered id lists; image upload with derivative generation; search, filtering and pagination; a read API for the storefront.
-- **Dependencies:** Phase 12 (implemented locally); image storage decision from Phase 9.
-- **Prerequisites, each an owner decision:** (a) **ADR 0009 section 1** - whether availability is a bare owner toggle or sits over the approved quantity ledger, because Phase 13 is where availability is first edited; (b) the **role-management follow-up** - the Phase 12 staff/role screen is outside the approved launch surface (D10) and must be removed or made unreachable before launch; (c) image storage and rights.
-- **Acceptance:** a product created in the dashboard is retrievable through the storefront read API with correct bilingual fields and integer-poisha prices; unpublished products do not appear publicly; stock edits are recorded as inventory movements; curation caps are enforced.
-- **Verification gate:** create/edit/unpublish round trip, plus bilingual and money assertions.
-- **Risks:** image pipeline complexity; bilingual fields treated as an afterthought.
-- **Owner decisions:** image storage and rights; the availability model. **Out of scope:** orders, payments, analytics.
-- **Note:** the availability control this phase adds is the **owner-operated In Stock / Out of Stock state (D19, ADR 0009)**, presented as a state and never as a countdown, a restock date or an arrival promise.
+- **Objective:** the **owner** can maintain the real catalog, and a database-backed read layer exists for the storefront to consume.
+- **Status:** **complete, locally.** Implemented and verified against a disposable local PostgreSQL cluster and the real production build. `npm run verify:admin` passes **97/97**; `tests/db/catalog.test.ts` and `tests/db/owners.test.ts` add 37 database tests. Migration `0003` adds `product.availability`. **Nothing is deployed and no cloud resource exists.**
+- **Deliverables produced:**
+  - **Product CRUD** with bilingual name and description, brand, category, pack size, integer-poisha price and comparison price, SKU, publication status and the **availability state**. Prices live on the product's single default variant, which is where the schema puts them.
+  - **Category CRUD** with bilingual names and descriptions, display order and visibility.
+  - **Brand creation**, because `product.brand_id` is `NOT NULL` - a prerequisite rather than a module.
+  - **Product imagery from existing local assets only.** The key is validated against a server-controlled inventory derived from `public/catalog`, and `content_type`, `width`, `height` and `byte_size` are read from the **file bytes** (JPEG/WebP header parsers, no new dependency). Nothing about an image comes from the request except the key and the alt text.
+  - **Owner-account management**, replacing the staff and role screen: create an owner (the role is forced, never chosen), issue a single-use credential token, enable or disable an account, with the last-active-owner guard enforced under a row lock.
+  - **The authoritative orderability check** (`src/server/catalog/orderability.ts`), which refuses an unpublished, archived or out-of-stock product from database state alone.
+  - **A database-backed read layer** (`src/server/catalog/read.ts`) and an authenticated read API (`GET /api/admin/catalog`).
+  - **Documentation:** ADR 0010, plus updates to `docs/data-model.md` 5.2, `docs/database.md`, `docs/security.md`, `docs/admin-dashboard.md`, `docs/catalog.md` and `docs/requirements.md`.
+- **Migration `0003`** (`drizzle/0003_product_availability.sql`) is **purely additive**: the column, its `CHECK` constraint and one partial index. No table was dropped or rewritten and the inventory tables are untouched.
+- **Dependencies:** Phase 12 (complete locally).
+- **Prerequisites, each resolved before implementation:** (a) **ADR 0009 section 1** - the availability model - **closed in ADR 0010** as a bare owner toggle, with the oversell risk recorded; (b) the **role-management follow-up** - the Phase 12 staff and role screen, its navigation entry and its four API routes were **removed**, and the retired paths now 404; (c) **image storage** - upload and object storage remain deferred, so imagery is association-only.
+- **Acceptance:** a product created in the dashboard is retrievable through the read layer with correct bilingual fields and integer-poisha prices; unpublished products do not appear publicly; **availability changes persist and are audited with the authenticated owner**; an out-of-stock product fails the server-side orderability check; a denied mutation leaves the database unchanged and produces a durable denial record. **Met.** One acceptance line is **deliberately not met and was corrected rather than faked**: the original wording said *"stock edits are recorded as inventory movements"*, which contradicts the owner's ruling that this phase is a simple availability toggle and not quantity management. **No inventory movement is written** (ADR 0010), and `inventory_balance`, `inventory_movement` and `stock_reservation` remain implemented and unused.
+- **Verification gate:** create/edit/archive round trip, bilingual and money assertions, availability persistence with its audit record, the orderability refusal, image metadata derived from real files, and the refusals over real HTTP with their database effects - all executed. `npm run verify:admin` (97/97), `tests/db/catalog.test.ts`, `tests/db/owners.test.ts`, plus the unchanged storefront suite (`verify:browser`, 64/64).
+- **Explicitly not done, and not claimed:** the **storefront was not cut over** - `src/data/catalog.ts` and its synchronous accessors are unchanged and the storefront still renders the local fixture catalog; there is **no public catalog endpoint**; there is **no image upload**, no object storage, no derivative generation from an upload, and no curation editor; **no inventory movement, deduction or reservation** is written; there is **no customer account, checkout or order**; and `product_variant` remains a single default variant per product, so variant combinations are still deferred.
+- **Risks:** the acknowledged **oversell risk** recorded in ADR 0010, because availability is a state and nothing counts units; a catalog whose imagery cannot yet be uploaded; and `product_image.base_key` being globally unique, so one asset belongs to at most one product.
+- **Owner decisions:** none outstanding for what was built. **Deferred and needing an owner decision later:** image storage and rights, and whether the quantity ledger becomes the allocation backstop in Phase 15. **Out of scope:** orders, payments, analytics, customer authentication.
 
-### Phase 14 - storefront integration with authoritative catalog (blocked on Phase 13)
+### Phase 14 - storefront integration with authoritative catalog (unblocked; not started)
 
 - **Objective:** replace the fixture catalog with real data behind the existing accessor seam.
-- **Deliverables:** a backend adapter implementing the existing `src/data/` accessor contract; server-side fetching with defined revalidation; explicit handling of unavailable or empty catalog data; demo fixtures retained as a fallback for local development.
-- **Dependencies:** Phase 13.
-- **Acceptance:** no view component changes are required; price, pack size, brand, category and imagery come from the database; the storefront's existing checks still pass; a backend outage degrades to a stated gap rather than stale or invented data.
+- **Deliverables:** a backend adapter implementing the existing `src/data/` accessor contract; server-side fetching with defined revalidation; explicit handling of unavailable or empty catalog data; demo fixtures retained as a fallback for local development; and a **public** catalog read endpoint with a stated revalidation policy.
+- **Dependencies:** Phase 13 (complete locally).
+- **Known work this phase must do, established during Phase 13:** the fixture accessors are **synchronous** and six `'use client'` components import them at module scope, so a database-backed storefront requires **async accessors** and catalog data reaching those components as **props or context** rather than module imports - a client component cannot import `src/server/` or `src/db/`. `(storefront)/products/[slug]/page.tsx` also calls the accessor synchronously in `generateMetadata` and `generateStaticParams`, so prerendering must be reconsidered. The **typed shape** of the contract survives; the synchronous module-import delivery does not. Three checks currently need no database and will start to need a **seeded** one: `npm run build`, `npm run verify:browser` and `npm run check:catalog`. That work was deliberately **not** done in Phase 13, which is why the storefront still renders the fixture.
+- **Acceptance:** the storefront renders database products; no view component changes are required beyond receiving data as props; price, pack size, brand, category and imagery come from the database; the storefront's existing checks still pass; a backend outage degrades to a stated gap rather than stale or invented data; **demo fixture records are never presented as database records**.
 - **Verification gate:** parity check between dashboard records and storefront rendering, plus the full existing storefront suite.
-- **Risks:** revalidation staleness; accidental client-side fetching of authoritative data.
-- **Owner decisions:** none. **Out of scope:** checkout, orders, payments.
+- **Risks:** revalidation staleness; accidental client-side fetching of authoritative data; making three currently database-free checks depend on a seeded database.
+- **Owner decisions:** whether to expose a public catalog endpoint at all, and its caching policy. **Out of scope:** checkout, orders, payments.
 
 ### Phase 15 - cart validation and order creation (blocked on Phase 14)
 
@@ -449,7 +460,7 @@ The two must not be conflated in reporting. A passing storefront check says noth
 
 `Phases 0-8 complete → Phase 9 complete (D1, D2, D3, D7, D8, D9, D11, D12 approved) → Phase 10 schema and security architecture → Phase 11 backend foundation → Phase 12 owner/admin authentication and dashboard foundation → Phase 13 catalog management and API → Phase 14 storefront integration → Phase 15 cart validation, customer authentication and order creation → Phase 16 manual payment, shipping and lifecycle → Phase 17 analytics → Phase 18 migration → Phase 19 readiness → Phase 20 release.`
 
-Phase 9 and Phase 10 are complete, so the critical path now runs through **Phase 11**, which is unblocked but requires explicit owner authorization to begin. All eight blocking decisions are settled, and the schema, state machines and security model are designed. **No resource has been provisioned and no implementation has started.**
+Phase 9 and Phase 10 are complete, and **Phases 11, 12 and 13 are implemented locally**. The critical path now runs through **Phase 14**, which is unblocked but requires explicit owner authorization to begin. **No resource has been provisioned and no deployment exists.**
 
 The answers shape the plan directly: the **24-hour expiry** and the **one-claim-per-unit bound** fix the schema and transaction shape, while **post-dispatch cancellation** and the **COD lifecycle** fix the order state machine. Owner business rules and asset rights can still block branches earlier.
 
@@ -457,21 +468,26 @@ The answers shape the plan directly: the **24-hour expiry** and the **one-claim-
 
 ## Current single best next step
 
-**Owner: authorize Phase 11 - independent backend foundation.**
+**Owner: authorize Phase 14 - storefront integration with the authoritative catalog.**
 
-**Why this is next:** Phase 10 is complete. The schema, the eight state machines, the transaction and concurrency design, the authorization matrix and the threat model are all documented in `docs/data-model.md` and `docs/security.md`, so the foundation can now be built against a fixed design instead of an evolving one. Building the skeleton before any commerce behaviour is what makes the later phases verifiable rather than speculative.
+**Why this is next:** Phase 13 is complete locally, so the owner can maintain a real catalog and a database-backed read layer exists (`src/server/catalog/read.ts`) with an authenticated read API. What is still missing is the connection: the storefront continues to render the Phase 1 fixture. Until that link exists, catalog work is invisible to customers, and every later phase - orders, payments, analytics - would be built against a catalog nobody sees. Phase 14 is therefore the shortest path from "the owner can edit products" to "a customer sees them".
 
-**Prerequisites:** explicit owner authorization to begin Phase 11; **D14 (ORM/query layer) decided**, because it selects the migration tooling; and confirmation that provisioning is authorized, since Phase 11 is the first phase that creates real resources. No customer or payment credential is needed.
+**Prerequisites:**
 
-**Acceptance criteria - Phase 11 complete when:**
+1. **Explicit owner authorization to begin Phase 14.**
+2. **An owner decision this phase cannot make for itself:** whether to expose a **public** catalog read endpoint, and its caching/revalidation policy. Phase 13 deliberately added no public endpoint, because a public surface with no consumer is an exposure added without a requirement.
+3. **Owner awareness of the cost, established during Phase 13:** the fixture accessors are synchronous and six client components import them at module scope, so the cutover requires **async accessors and passing catalog data as props/context** - i.e. edits to those components, contrary to the older "no view component changes" wording. It also makes `npm run build`, `npm run verify:browser` and `npm run check:catalog` depend on a **seeded** database. Phase 14's deliverables now record this explicitly.
+4. **Provisioning is still not implied.** A seeded database for the build and the browser suite needs an environment; if that environment is hosted, it needs its own authorization. A local cluster, as the tests already use, avoids that entirely and is the smaller step.
 
-1. A clean environment can be provisioned from the repository alone, with no manual step that is not documented.
-2. Migrations apply from scratch and a rollback is rehearsed successfully against a scratch branch.
-3. No secret is committed, and the built client bundle contains no secret material.
-4. Typecheck, lint and tests run in CI and are green.
-5. The typed data-access layer exists and is the only path to the database, so no view reaches SQL directly.
-6. The environment separation rules in `docs/data-model.md` section 16.7 are configured and verified: development, preview and production each have their own endpoint and credential.
+**Acceptance criteria - Phase 14 complete when:**
 
-**Still required from the owner before implementation of commerce features:** **D17 (customer authentication provider)**, which blocks checkout because D12 requires accounts before ordering; **the availability-versus-quantity question** (ADR 0009 section 1), which gates order creation; and the operational items - recipient accounts, courier and COD settlement terms, notification channels, retention periods, and image rights. *(D10, verifying roles, is settled: owner-only, ADR 0009.)*
+1. The storefront renders products, categories, prices and imagery from the **database**, through the existing typed accessor contract, with no view component reading SQL or a server-only module.
+2. No fixture record is ever presented as a database record, and no database record as a fixture: the two sources stay distinguishable in the rendered output.
+3. Price, pack size, brand, category and availability all match what the owner set in the dashboard, asserted by a parity check rather than by inspection.
+4. An empty or unavailable catalog renders as a **stated gap**, never as stale or invented data, and never as a zero-filled product grid.
+5. `typecheck`, `lint`, `check:catalog`, `check:i18n`, `check:secrets`, `build`, `verify:admin` and `verify:browser` all pass against the cut-over storefront, with any newly database-dependent check documented as such.
+6. The `noindex` safeguard and the locked demo announcement are unchanged, and no demo wording is added to the shopping presentation.
 
-**Explicitly not authorized by this recommendation:** provisioning, deployment, DNS changes, credential creation, or any implementation work. Each requires its own authorization.
+**Still required from the owner before implementation of commerce features:** **D17 (customer authentication provider)**, which blocks checkout because D12 requires accounts before ordering; **whether the quantity ledger becomes the allocation backstop** (ADR 0010 section "Consequences"), which gates order creation and the oversell guarantee; and the operational items - recipient accounts, courier and COD settlement terms, notification channels, retention periods, and image rights. *(D10 and D13 are settled in ADR 0009, and D19's scope in ADR 0010.)*
+
+**Explicitly not authorized by this recommendation:** provisioning, deployment, DNS changes, credential creation, object storage, image upload, or any implementation work. Each requires its own authorization.

@@ -16,7 +16,14 @@ import {
 } from 'drizzle-orm/pg-core';
 
 import { staffUser } from './identity';
-import { colIn, lenAtMost, IMAGE_FORMAT, IMAGE_RIGHTS_STATUS, IMPORT_ENTITY_TYPE } from './values';
+import {
+  colIn,
+  lenAtMost,
+  IMAGE_FORMAT,
+  IMAGE_RIGHTS_STATUS,
+  IMPORT_ENTITY_TYPE,
+  PRODUCT_AVAILABILITY,
+} from './values';
 
 /**
  * Catalog, imagery and curation - data-model section 5.
@@ -92,6 +99,15 @@ export const product = pgTable(
     descriptionBn: text('description_bn'),
     descriptionEn: text('description_en'),
     packSize: text('pack_size'),
+    /**
+     * Owner-controlled availability (D19). **Defaults to `out_of_stock` on purpose**: the fail-safe
+     * direction is that a product nobody has confirmed as available cannot be ordered, so a new row
+     * is never silently orderable. The owner sets `in_stock` deliberately.
+     *
+     * This is a state, not a quantity. `docs/decisions/0010-availability-toggle-scope.md` records why
+     * no ledger, reservation or deduction participates in it, and what that leaves unguaranteed.
+     */
+    availability: text('availability').notNull().default('out_of_stock'),
     isPublished: boolean('is_published').notNull().default(false),
     publishedAt: timestamp('published_at', { withTimezone: true, mode: 'date' }),
     createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
@@ -105,11 +121,16 @@ export const product = pgTable(
     index('product_live_idx')
       .on(t.isPublished, t.updatedAt.desc())
       .where(sql`${t.deletedAt} is null`),
+    // The storefront's orderability gate reads availability for published, non-deleted rows.
+    index('product_orderable_idx')
+      .on(t.availability)
+      .where(sql`${t.deletedAt} is null and ${t.isPublished}`),
     check('product_slug_format', sql`${t.slug} ~ '^[a-z0-9]+(-[a-z0-9]+)*$'`),
     check('product_name_bn_len', sql`char_length(${t.nameBn}) between 1 and 200`),
     check('product_name_en_len', sql`char_length(${t.nameEn}) between 1 and 200`),
     check('product_published_needs_timestamp', sql`${t.isPublished} = false or ${t.publishedAt} is not null`),
     check('product_deleted_not_published', sql`${t.deletedAt} is null or ${t.isPublished} = false`),
+    check('product_availability_valid', colIn('availability', PRODUCT_AVAILABILITY)),
   ],
 );
 

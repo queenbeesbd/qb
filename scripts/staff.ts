@@ -123,7 +123,7 @@ async function bootstrap(): Promise<void> {
   if ('conflict' in result) {
     fail(
       'a staff account already exists. Bootstrap runs exactly once; issue a credential token from\n' +
-        '  /admin/staff instead. If every owner account is lost, that is a restore decision, not a\n' +
+        '  /admin/owners instead. If every owner account is lost, that is a restore decision, not a\n' +
         '  second bootstrap.',
     );
   }

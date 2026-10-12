@@ -1,0 +1,3 @@
+ALTER TABLE "product" ADD COLUMN "availability" text DEFAULT 'out_of_stock' NOT NULL;--> statement-breakpoint
+CREATE INDEX "product_orderable_idx" ON "product" USING btree ("availability") WHERE "product"."deleted_at" is null and "product"."is_published";--> statement-breakpoint
+ALTER TABLE "product" ADD CONSTRAINT "product_availability_valid" CHECK ("availability" in ('in_stock', 'out_of_stock'));

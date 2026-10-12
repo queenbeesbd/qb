@@ -20,7 +20,14 @@ import { sql } from 'drizzle-orm';
 import type { Transaction } from '@/db/client';
 import { auditEvent } from '@/db/schema';
 
-/** Actions this phase writes. Kept as a closed union so an unplanned action cannot be invented inline. */
+/**
+ * Actions the audit trail knows how to write. A closed union, so an unplanned action cannot be invented
+ * inline at a call site.
+ *
+ * `catalog.*` was added in Phase 13. The entity type stays `product`/`category`/`brand` rather than
+ * gaining a module prefix, because `docs/security.md` requires the trail to answer "what happened to this
+ * product", not "what happened in this module".
+ */
 export type AuditAction =
   | 'staff.login_succeeded'
   | 'staff.login_failed'
@@ -34,6 +41,17 @@ export type AuditAction =
   | 'staff.created'
   | 'staff.disabled'
   | 'staff.enabled'
+  | 'catalog.brand_created'
+  | 'catalog.category_created'
+  | 'catalog.category_updated'
+  | 'catalog.category_archived'
+  | 'catalog.product_created'
+  | 'catalog.product_updated'
+  | 'catalog.product_archived'
+  | 'catalog.availability_changed'
+  | 'catalog.image_attached'
+  | 'catalog.image_updated'
+  | 'catalog.image_removed'
   | 'admin.action_denied';
 
 export type AuditEntry = {
