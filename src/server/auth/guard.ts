@@ -21,10 +21,40 @@ import { withTransaction } from '@/db/client';
 import { permission, role, rolePermission, staffRole, staffUser } from '@/db/schema';
 
 import { ADMIN_ROOT, LOGIN_PATH } from './constants';
-import { csrfTokenMatches, isSameOrigin } from './request-guards';
+import { recordDeniedAction } from './denial-log';
+import { csrfTokenMatches, isSameOrigin, requestCorrelationId } from './request-guards';
 import { deriveCsrfToken } from './tokens';
-import { readSessionCookie, readSessionCookieFromRequest, resolveStaffSession } from './session';
-import { hasPermission, type StaffPrincipal } from '../authz/principal';
+import { readSessionCookie, readSessionCookieFromRequest, resolveStaffSession, sessionContextFrom } from './session';
+import { hasPermission, roleCodes, type StaffPrincipal } from '../authz/principal';
+
+/**
+ * Correlation and source facts for a denial record.
+ *
+ * Both are read from the request, so neither is an authority: the correlation id is only a handle for
+ * a log search, and the address is already a digest. The **actor** in a denial record never comes from
+ * here - it comes from the resolved session.
+ */
+function denialContext(request: Request): { requestId: string | null; ipHash: string | null } {
+  return { requestId: requestCorrelationId(request), ipHash: sessionContextFrom(request.headers).ipHash };
+}
+
+/** Records a refused action. Deliberately fire-and-forget: the refusal does not depend on it. */
+async function logDenial(
+  principal: StaffPrincipal,
+  input: { action: string; entityType: string; entityId: number; category: 'forbidden' | 'csrf'; reason: string; requestId: string | null; ipHash: string | null },
+): Promise<void> {
+  await recordDeniedAction({
+    actorStaffId: principal.staffUserId,
+    actorRoleCodes: roleCodes(principal),
+    action: input.action,
+    entityType: input.entityType,
+    entityId: input.entityId,
+    category: input.category,
+    reason: input.reason,
+    requestId: input.requestId,
+    ipHash: input.ipHash,
+  });
+}
 
 /** Resolves the principal for a Server Component / Server Action. `null` when unauthenticated. */
 export async function currentStaffPrincipal(): Promise<StaffPrincipal | null> {
@@ -57,7 +87,20 @@ export async function principalFromRequest(request: Request): Promise<StaffPrinc
 export async function requireAdminPage(permission: string): Promise<StaffPrincipal> {
   const principal = await currentStaffPrincipal();
   if (principal === null) redirect(LOGIN_PATH);
-  if (!hasPermission(principal, permission)) redirect(`${ADMIN_ROOT}/forbidden`);
+  if (!hasPermission(principal, permission)) {
+    // A page guard has no `Request`, so there is no correlation id to read; the actor and the
+    // attempted capability are the facts that matter, and both are present.
+    await logDenial(principal, {
+      action: `page.${permission}`,
+      entityType: 'admin_route',
+      entityId: 0,
+      category: 'forbidden',
+      reason: `missing permission ${permission}`,
+      requestId: null,
+      ipHash: null,
+    });
+    redirect(`${ADMIN_ROOT}/forbidden`);
+  }
   return principal;
 }
 
@@ -81,7 +124,19 @@ export async function guardSessionMutation(request: Request): Promise<GuardedMut
   const principal = await principalFromRequest(request);
   if (principal === null) return { ok: false, reason: 'unauthenticated', status: 401 };
 
-  if (!isSameOrigin(request)) return { ok: false, reason: 'csrf', status: 403 };
+  // A CSRF refusal is recorded, because the session is known at this point: this is an authenticated
+  // actor whose request failed a control, which is exactly the shape of a cross-site forgery attempt.
+  if (!isSameOrigin(request)) {
+    await logDenial(principal, {
+      action: 'mutation.cross_origin',
+      entityType: 'admin_route',
+      entityId: 0,
+      category: 'csrf',
+      reason: 'request origin did not match the host',
+      ...denialContext(request),
+    });
+    return { ok: false, reason: 'csrf', status: 403 };
+  }
 
   let form: FormData;
   try {
@@ -91,7 +146,17 @@ export async function guardSessionMutation(request: Request): Promise<GuardedMut
   }
 
   const expected = deriveCsrfToken(rawToken);
-  if (!csrfTokenMatches(expected, form.get('csrf'))) return { ok: false, reason: 'csrf', status: 403 };
+  if (!csrfTokenMatches(expected, form.get('csrf'))) {
+    await logDenial(principal, {
+      action: 'mutation.csrf_token',
+      entityType: 'admin_route',
+      entityId: 0,
+      category: 'csrf',
+      reason: 'session-bound CSRF token missing or wrong',
+      ...denialContext(request),
+    });
+    return { ok: false, reason: 'csrf', status: 403 };
+  }
 
   return { ok: true, principal, csrfToken: expected, form };
 }
@@ -111,6 +176,14 @@ export async function guardMutation(request: Request, requiredPermission: string
   if (!guarded.ok) return guarded;
 
   if (!hasPermission(guarded.principal, requiredPermission)) {
+    await logDenial(guarded.principal, {
+      action: `mutation.${requiredPermission}`,
+      entityType: 'admin_route',
+      entityId: 0,
+      category: 'forbidden',
+      reason: `missing permission ${requiredPermission}`,
+      ...denialContext(request),
+    });
     return { ok: false, reason: 'forbidden', status: 403 };
   }
 
@@ -134,7 +207,17 @@ export async function guardRead(request: Request, requiredPermission: string): P
 
   const principal = await principalFromRequest(request);
   if (principal === null) return { ok: false, reason: 'unauthenticated', status: 401 };
-  if (!hasPermission(principal, requiredPermission)) return { ok: false, reason: 'forbidden', status: 403 };
+  if (!hasPermission(principal, requiredPermission)) {
+    await logDenial(principal, {
+      action: `read.${requiredPermission}`,
+      entityType: 'admin_route',
+      entityId: 0,
+      category: 'forbidden',
+      reason: `missing permission ${requiredPermission}`,
+      ...denialContext(request),
+    });
+    return { ok: false, reason: 'forbidden', status: 403 };
+  }
 
   return { ok: true, principal, csrfToken: deriveCsrfToken(rawToken) };
 }

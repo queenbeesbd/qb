@@ -113,8 +113,10 @@ These are now QueenBee's own build obligations, not vendor capabilities to disco
 | Delivery | Service areas, costs, COD eligibility, courier integration - no policy is published today |
 | Payments | Manual bKash/Nagad verification (approved), COD with owner approval before dispatch (approved), exceptions queue for unverified genuine payments, **24-hour unpaid-order expiry** that never touches an order with a submitted claim, and no automated gateway |
 | Refunds | Manual through support, with `refund_status` separate from `payment_status` and distinct requested / processing / completed / failed states. **Approved (D9):** a refund is recorded as completed only when the real-world action is confirmed; stock returns to sellable before dispatch, or after delivery only once goods are physically received and inspected |
+| Availability | **Owner-controlled `In Stock` / `Out of Stock` (D19, approved in ADR 0009).** An out-of-stock product **cannot be ordered**. Presented as a state - never a countdown, a restock date or an arrival promise, because no restock data is verified. How the toggle relates to the quantity model below is an **open owner question** (ADR 0009 section 1) and must be answered before orders are created |
 | Inventory | SKU/option mapping, live stock, reservation policy, stale-cart recovery |
-| Admin | **QueenBee's own admin dashboard is the system of record.** Scope and launch-critical split in `docs/admin-dashboard.md` |
+| Customers | Profile with order history and minimal personal data. **The owner may ban an account after a confirmed fake order (D20, approved in ADR 0009)**, enforced server-side by revoking sessions and refusing new orders and checkout. A ban is **not** the review flag, and does **not** cancel, refund or delete anything |
+| Admin | **QueenBee's own admin dashboard is the system of record.** Scope and launch-critical split in `docs/admin-dashboard.md`. **Owner role only at launch (D10, approved in ADR 0009):** multiple owners are permitted and each has full access, but there are no staff or support roles and no general permission-management system in the launch surface |
 | Imagery | Written confirmation of photography rights, or replacement assets |
 | Support | Verified contact channels, order notifications, failure handling |
 | Operations | Redacted logs, monitoring, backups with a tested restore, rollback |
@@ -130,6 +132,8 @@ The backend-audit question is now closed: the direction is an independent platfo
 
 **Approved (2026-10-11):** D1 Neon PostgreSQL, D2 Vercel, D3 Neon Object Storage, D7 manual bKash + manual Nagad + COD, D8 required sender number and transaction reference with no screenshot, D9 payment and order policy, D11 inventory reservation and release, D12 account-required checkout.
 
+**Approved (2026-10-12) in ADR 0009:** D19 owner-controlled In Stock / Out of Stock availability, D20 customer ban after a confirmed fake order with a defined enforcement boundary, D21 owner role only with multiple owners and no staff/support roles or permission-management system at launch, D22 owner authentication by email and password with Resend verification and Google sign-in deferred, and D23 separation of customer/business activity records from internal administrative and security records.
+
 **D9 is approved.** Binding: the **24-hour verification maximum** (internal, explicitly not a customer-facing promise); the exceptions queue for genuine payments that cannot be verified in time; **fake-order findings** with an audited reason and actor and a separate customer review flag; **cancellation through support**; **manual refunds** with separate requested/processing/completed/failed states; **COD owner approval before dispatch**; the five-way separation of payment status, order status, refund status, reservation state and customer flag; a **24-hour unpaid-order expiry** that applies only to orders with no submitted claim and never revives a reservation silently; **cancellation after the window** as a pre-dispatch support decision or a post-dispatch return; and the **full COD lifecycle** with return-to-store and separate delivery, cash-collection and reconciliation states.
 
 **D11 is approved.** The **first submitted payment claim gets the product**, and **at most one active submitted claim exists per unit**. Atomic allocation, no oversell, idempotent release and inspection-before-restoration are binding.
@@ -139,7 +143,7 @@ The backend-audit question is now closed: the direction is an independent platfo
 **Open but not blocking Phase 10:**
 
 5. **Payment recipient accounts** - which merchant numbers, under what account name (stored as settings).
-6. **Staff authentication approach** and the roles permitted to verify payments and record refunds (D10, D13).
+6. **Availability and the quantity model (ADR 0009 section 1)** - whether the owner's In Stock / Out of Stock toggle is the **only** gate, or sits **over** the approved quantity ledger as its allocation backstop. Must be answered before orders are created (Phase 15), because the two answers differ in schema and in what the database guarantees. **D10 and D13 are settled:** owner role only, multiple owners permitted, first-party email and password.
 7. **Courier providers** - which couriers are used today, and COD cash settlement terms.
 8. **Notifications** - whether email or SMS is wanted, or the account order page is sufficient.
 9. **Reconciliation cadence** and what counts as sufficient evidence of receipt.

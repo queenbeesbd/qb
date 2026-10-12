@@ -83,35 +83,14 @@ export async function recordAudit(tx: Transaction, entry: AuditEntry): Promise<v
 }
 
 /**
- * Appends a record for an action that was refused.
+ * Refused actions are **not** recorded here.
  *
- * Denials are worth recording: a burst of them is how an attempted privilege escalation becomes
- * visible, and the actor is known even though the action was not permitted.
+ * They were, and it was a defect: a denial written inside the caller's transaction is rolled back by
+ * the very throw that refuses the action, so an attempted privilege escalation left no trace. Denials
+ * are now written by `./denial-log.ts` in their own transaction, which is what makes the record
+ * survive the refusal it describes. `admin.action_denied` stays in `AuditAction` above because it is
+ * still the action code those records carry.
  */
-export async function recordDeniedAction(
-  tx: Transaction,
-  input: {
-    actorStaffId: number | null;
-    actorRoleCodes: readonly string[];
-    action: string;
-    entityType: string;
-    entityId: number;
-    reason: string;
-    ipHash?: string | null;
-  },
-): Promise<void> {
-  await recordAudit(tx, {
-    actorType: input.actorStaffId === null ? 'system' : 'staff',
-    actorStaffId: input.actorStaffId,
-    actorRoleCodes: input.actorRoleCodes,
-    action: 'admin.action_denied',
-    entityType: input.entityType,
-    entityId: input.entityId,
-    reason: input.reason,
-    after: { denied: input.action },
-    ipHash: input.ipHash ?? null,
-  });
-}
 
 /** The most recent audit entries, for the read-only admin view. Newest first. */
 export async function listRecentAudit(

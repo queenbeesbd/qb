@@ -298,6 +298,7 @@ A possible legitimate payment is **never silently discarded**:
 - Where the owner **confirms** that the claim was false, the owner may mark the order as a **fake order** and **flag the associated customer account for review**, preserving an auditable **reason and actor**.
 - **A delayed transaction or a mistyped reference is not evidence of fraud.** `falsely_claimed` and the customer review flag are **admin-set only** and are never derived automatically by the system.
 - The customer flag is **independent of the order's payment status**: it records a concern for review, and does not by itself block or close the account.
+- **The flag and a ban are different actions and must not be collapsed (D20, approved in ADR 0009).** The flag marks a concern and blocks nothing. A **ban** is a separate owner action, available only after a **confirmed** fake order, which withdraws the account's ability to transact: sessions are revoked, new orders are refused inside the order transaction, and checkout is refused. A ban does **not** cancel, refund or delete an existing order, and it changes no payment, refund or reservation state. Enforcement boundary: `docs/security.md`; account transitions: `docs/data-model.md` 4.1.
 
 ### 13.4 Approved - ordinary unpaid orders versus confirmed false claims
 
@@ -395,7 +396,7 @@ This is a **payment-priority rule**. It is explicitly **not** permission to over
 
 | Concept | Meaning |
 | --- | --- |
-| `on_hand` | Physical units the merchant holds |
+| `on_hand` | Physical units the store holds |
 | `reserved` | Units held by orders that are neither fulfilled nor released |
 | `available` | `on_hand - reserved` - the only figure a new order may consume |
 | reservation state | Per order: `held` -> `consumed` (fulfilled) or `released` (given up) |

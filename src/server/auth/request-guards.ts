@@ -7,6 +7,29 @@
 import { ADMIN_PATH_PATTERN, ADMIN_ROOT } from './constants';
 import { safeEqual } from './tokens';
 
+/**
+ * Request correlation identifiers, in preference order.
+ *
+ * These are **correlation only**. They are read from request headers, so they are client-controlled
+ * and are never used to identify an actor, to make an authorization decision, or to look anything up.
+ * They exist so a denial record can be tied back to a request in the platform's own logs.
+ *
+ * `x-vercel-id` is set by the hosting platform; `x-request-id` is the conventional proxy header.
+ */
+const CORRELATION_HEADERS = ['x-vercel-id', 'x-request-id'] as const;
+
+/** Conservative: an identifier we store must look like one, and must not be a place to hide data. */
+const CORRELATION_PATTERN = /^[A-Za-z0-9._:-]{1,100}$/;
+
+/** The request's correlation identifier, or `null` when the request carries none we would store. */
+export function requestCorrelationId(request: Request): string | null {
+  for (const header of CORRELATION_HEADERS) {
+    const value = request.headers.get(header)?.trim();
+    if (value !== undefined && CORRELATION_PATTERN.test(value)) return value;
+  }
+  return null;
+}
+
 /** Methods that must never change state, and therefore need no CSRF token. */
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 

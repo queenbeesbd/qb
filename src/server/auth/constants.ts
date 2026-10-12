@@ -30,6 +30,22 @@ export const SESSION_TOUCH_INTERVAL_MS = 60 * 1000;
 /** Owner-issued credential token lifetime. Short, single-use, and never shown twice. */
 export const RECOVERY_TOKEN_MS = 30 * 60 * 1000;
 
+/**
+ * Denial-log bounds.
+ *
+ * A refusal is worth recording, but a burst of refusals must not become a cheap way to write rows.
+ * Writing already requires an authenticated session (an anonymous denial is not stored at all), so
+ * this bound caps what a malicious *authenticated* client can produce. Fixed window with a monotonic
+ * counter, matching the login throttle's shape.
+ */
+export const DENIAL_LOG = {
+  windowMs: 60 * 1000,
+  /** Denial records per actor per window. Beyond this the refusal happens and is not recorded. */
+  maxAttemptsPerWindow: 10,
+  /** Bounded in-process map, so the limiter itself cannot be used to grow memory. */
+  maxTrackedActors: 500,
+} as const;
+
 /** Login throttle: attempts per window, then a block of the same length. */
 export const LOGIN_THROTTLE = {
   /** `auth_throttle.scope` value. `login` covers customer and staff sign-in alike. */

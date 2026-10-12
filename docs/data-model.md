@@ -236,9 +236,20 @@ from a request parameter. Staff read with `customer.read`; only an owner-level r
 email replaced with a non-routable tombstone, credentials and sessions destroyed. Orders survive
 with their financial facts (section 14.6).
 
-**Transitions.** `active -> suspended` (staff, `customer.suspend`, reason required);
-`suspended -> active` (staff, reversible); `* -> deleted` (customer request through support, or
-staff). A suspension never deletes orders, and never silently cancels one.
+**Transitions.** `active -> suspended` (owner-level role, `customer.suspend`, reason required);
+`suspended -> active` (owner-level role, reversible); `* -> deleted` (customer request through
+support, or an owner-level role). A suspension never deletes orders, and never silently cancels one.
+
+**Ban (D20, approved in ADR 0009).** A **ban** is the `active -> suspended` transition taken after a
+**confirmed** fake order, and it reuses this status rather than adding a table, so the question "may
+this account transact?" has exactly one answer. What a ban must actually prevent is enforced
+server-side, not by hiding controls: **no new session is issued and existing sessions are revoked**
+at the moment of the ban, **order creation refuses a banned account inside the order transaction**,
+and **checkout refuses**. What a ban deliberately does **not** do: it does not cancel, refund or
+delete an order, and it touches no payment, refund or reservation state. The `customer_flag` row
+records the **finding**; the status records the **enforcement**. They stay separate on purpose - the
+flag alone blocks nothing (`docs/payment-workflow.md` 13.3) - and the fate of an in-flight order for
+a banned customer remains an open owner decision.
 
 ### 4.2 `customer_credential`
 
@@ -381,9 +392,12 @@ bug.
 
 ### 4.8 `role`, `permission`, `role_permission`, `staff_role`
 
-**Why roles are data, not code.** D10 - which roles may verify payments - is an **open owner
-decision**. Hard-coding a role list would bake an unapproved policy into the schema and require a
-migration to change it. Roles and permissions are therefore rows.
+**Why roles are data, not code.** D10 - which roles may verify payments - is now **settled: owner
+role only, with multiple owners permitted (ADR 0009)**. Roles and permissions remain rows rather than
+a code constant regardless, because a hard-coded role list bakes a policy into the schema and makes
+changing it a migration. Keeping the model as data costs nothing and keeps a future role change a
+one-row change; what the owner decided is what the **launch surface exposes**, not how the tables are
+shaped.
 
 | Table | Columns | Keys and constraints |
 | --- | --- | --- |
@@ -399,16 +413,20 @@ migration to change it. Roles and permissions are therefore rows.
 `customer.revoke_session`, `customer.flag`, `catalog.write`, `inventory.adjust`,
 `staff.manage`, `audit.read`, `settings.write`.
 
-**Proposed role shapes** (all pending D10 approval): `owner` (all permissions, `is_owner_level`),
+**Illustrative role shapes** (not a launch surface): `owner` (all permissions, `is_owner_level`),
 `admin` (operations without `staff.manage`), `support` (read, cancellation, refund request,
 customer read, no verification), `packer` (order read, dispatch, COD collection confirmation).
+**D10 is settled (ADR 0009): launch is `owner` only, and no other role is seeded or exposed.** The
+others describe what the tables *can* express if a future owner decision adds staff; none of them is
+created, and creating one is a new decision, not a configuration step.
 
 **Authorization.** Only `staff.manage` writes these tables. `is_privileged` marks permissions that
 require an owner-level grant; a non-owner role cannot hold one, enforced by a `CHECK`-backed trigger
 and re-checked in the server layer.
 
-**Note.** Until D10 is answered, the seeded role set must be **owner-only**: the safe default is that
-exactly one named account can verify payments, and every other role is created deliberately.
+**Note.** The seeded role set is **owner-only**, and that is now the owner's decision rather than a
+safe default (D10, ADR 0009). Multiple owner accounts are permitted and each has full access. Every
+other role would be created deliberately under a new decision.
 
 ### 4.9 `staff_recovery_token`
 
@@ -1746,8 +1764,10 @@ check is performed **server-side on the request**, and the UI's choice to hide a
 boundary. Threat-level analysis of each row is in `docs/security.md`.
 
 **Principals.** **Guest** (no session) · **Customer** (authenticated) · **Support** · **Admin** ·
-**Owner**. Support/Admin/Owner are staff roles; their exact permission sets are **D10, still an owner
-decision**, so the shapes below are proposals, and the safe launch default is **owner-only**.
+**Owner**. Support/Admin/Owner are staff roles; their exact permission sets were **D10**, now
+**settled in ADR 0009: launch is owner-only**, with multiple owners permitted and each holding full
+access. The Support and Admin columns below are therefore **not part of the launch surface** - they
+record what the tables can express, not what is built.
 
 | Capability | Guest | Customer | Support | Admin | Owner |
 | --- | --- | --- | --- | --- | --- |
@@ -1812,8 +1832,9 @@ approve cancellations, request refunds, read exception queues - and **not** the 
 about money. Verifying a payment means independently confirming receipt through the merchant account;
 approving COD means accepting delivery risk. Those are accountability decisions, and the proposed
 split keeps the number of people who can create a money fact small and named. **If the owner wants
-support to verify, that is D10 and it is a one-row role change, not a code change** - which is why
-roles are data (4.8).
+support to verify, that was D10, and D10 is now **settled the other way: launch is owner-only
+(ADR 0009)**. If the owner later wants a narrower role, it is a one-row role change, not a code
+change** - which is why roles are data (4.8).
 
 ---
 
@@ -1998,8 +2019,10 @@ handling are ours to build and to get right.
 that decision exists, **no dependency is added, no provider is configured, and no credential is
 created**.
 
-**Related open decisions.** D13 (staff auth) and D10 (which roles may verify payments) remain open.
-Email verification and password-reset delivery need a mail provider, which is a separate cost decision.
+**Related decisions.** D13 (staff auth) and D10 (which roles may verify payments) are **settled in
+ADR 0009**: first-party email and password, owner role only, multiple owners permitted. Email
+verification and password-reset delivery still need a mail provider, which remains a separate cost
+decision - **Resend email verification is deferred** and is not authorized.
 
 ---
 
@@ -2144,7 +2167,8 @@ genuine late payment is never silently discarded.
   soft-delete-with-retention rules.
 - The three-column split of order state (`status`, `payment_state`, `cod_state`).
 - The transaction designs in section 12, including `FOR UPDATE` lock ordering and `SKIP LOCKED` sweeps.
-- The permission codes and proposed role shapes in 4.8 and section 13 (role **assignments** are D10).
+- The permission codes in 4.8 and section 13. Role **assignments** were D10 and are now **settled
+  (ADR 0009): owner only at launch**; the illustrative role shapes are not a launch surface.
 - The upload pipeline in section 14 and the authentication recommendation in section 15.
 - All proposed numeric limits: session lifetimes, token lifetimes, reason length minimums, the 10 MB
   upload bound, 7-day idempotency retention, 24-month audit retention, minimum image dimensions.
@@ -2193,8 +2217,8 @@ genuine late payment is never silently discarded.
 
 | ID | Question | Effect if unanswered |
 | --- | --- | --- |
-| D10 | Which roles may verify payments, approve COD and complete refunds | Seeded roles stay **owner-only**; the safe default is workable but not scalable |
-| D13 | Staff authentication approach | First-party sessions proposed; the staff schema (4.7) is already provider-neutral |
+| ~~D10~~ | Which roles may verify payments, approve COD and complete refunds | **Settled (ADR 0009):** owner role only, multiple owners permitted, no staff or support roles and no permission-management system in the launch surface |
+| ~~D13~~ | Staff authentication approach | **Settled (ADR 0009):** first-party email and password; Resend verification and Google sign-in deferred |
 | D14 | ORM / query layer (Prisma vs Drizzle) | Determines the migration tool, not the schema. Deferred to Phase 11 |
 | D15 | Single Next.js app vs split storefront/admin | The boundary diagram (PA section 2) is logical either way |
 | D16 | Background job mechanism | The expiry sweep (12.3) is written to be scheduler-agnostic |

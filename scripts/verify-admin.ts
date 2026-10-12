@@ -23,7 +23,7 @@ import { existsSync } from 'node:fs';
 import { sql } from 'drizzle-orm';
 
 import { closeDb, withTransaction } from '../src/db/client';
-import { permission, role, rolePermission, staffCredential, staffRole, staffUser } from '../src/db/schema';
+import { auditEvent, permission, role, rolePermission, staffCredential, staffRole, staffUser } from '../src/db/schema';
 import { seedReferenceData } from '../src/db/seed';
 import { activeAnnouncements } from '../src/data/announcements';
 import { applyMigrations } from '../src/db/migrate';
@@ -541,6 +541,42 @@ async function main(): Promise<void> {
         'the limited principal cannot disable the owner account, and the owner stays active',
         denied(limitedDisableOwner) && ownerStatusAfter === 'active',
         `status ${limitedDisableOwner.status} → ${limitedDisableOwner.location ?? ''}, owner status: ${ownerStatusAfter}`,
+      );
+
+      // The refusals above happened over real HTTP, through the real guards, inside real transactions
+      // that threw. This is the end-to-end regression assertion for the defect where a denial written
+      // in the failing transaction was rolled back by the refusal itself.
+      const denials = await withTransaction((tx) =>
+        tx
+          .select({ actorStaffId: auditEvent.actorStaffId, after: auditEvent.after })
+          .from(auditEvent)
+          .where(sql`${auditEvent.action} = 'admin.action_denied'`),
+      );
+      const attempted = (row: { after: unknown }): string =>
+        (row.after as { denied?: string } | null)?.denied ?? '';
+
+      // Every staff-management refusal must name the principal that actually made the request. The
+      // submitted form carried the OWNER's id as the target, so an implementation that trusted a
+      // request-supplied actor would attribute these to the owner instead - which is the specific
+      // failure this asserts against.
+      const managementDenials = denials.filter((row) => attempted(row).includes('staff.manage'));
+      record(
+        'a refused mutation leaves a durable denial record naming the acting session, not the submitted target',
+        managementDenials.length >= 3 &&
+          managementDenials.every((row) => row.actorStaffId === limited.limitedId),
+        `${managementDenials.length} staff-management denial record(s), all attributed to the acting session`,
+      );
+
+      // The owner's own requests that failed a CSRF control are recorded too, under a different
+      // category - which is what keeps a forgery attempt distinguishable from a missing permission.
+      record(
+        'a request that fails a CSRF control is recorded under the csrf category',
+        denials.some(
+          (row) =>
+            row.actorStaffId === limited.ownerId &&
+            (row.after as { category?: string } | null)?.category === 'csrf',
+        ),
+        `${denials.length} denial record(s) in total`,
       );
 
       // The owner acts on **another** account here. The earlier version targeted the owner's own id,

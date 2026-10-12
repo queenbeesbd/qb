@@ -257,7 +257,7 @@ These fix the **schema and transaction shape** and the **order state machine**, 
 
 **Approved and closed:** D1 (Neon PostgreSQL), D2 (Vercel), D3 (Neon Object Storage), D7 (manual bKash + manual Nagad + COD), D8 (sender number and transaction reference required, no screenshot), **D9** (payment and order policy, including expiry, cancellation and the COD lifecycle), **D11** (inventory reservation and release), and D12 (account-required checkout).
 
-**Not blocking Phase 10** (needed later, no rework cost): payment recipient accounts; staff authentication approach and verifying roles (D10, D13); courier providers and COD cash settlement; notification channels; reconciliation cadence; sufficient-evidence definition.
+**Not blocking Phase 10** (needed later, no rework cost): payment recipient accounts; courier providers and COD cash settlement; notification channels; reconciliation cadence; sufficient-evidence definition. *(The staff authentication approach and verifying roles - D10 and D13 - were on this list; both were settled on 2026-10-12 in ADR 0009.)*
 
 **Standing prohibitions** unless separately authorized in writing: real orders, real payments or refunds, customer-data collection, customer communications, and security testing outside an agreed scope. The Phase 7 authorization for the merchant dashboard is spent; do not log in there again.
 
@@ -276,7 +276,7 @@ These fix the **schema and transaction shape** and the **order state machine**, 
   - **D12 Checkout:** **account required.** Guests may browse and build a cart; login or registration is required to place an order, with the cart preserved and the customer returned to checkout. Guest checkout must not be silently reintroduced.
 - **D9 - approved.** Binding: the **24-hour verification maximum** (internal, explicitly **not** a customer-facing promise); the **exceptions queue** so a genuine payment is never silently discarded and its reservation is never auto-released; **fake-order findings** with an audited reason and actor plus a **separate** customer review flag; the rule that **`rejected` is not an accusation**; **cancellation through support**; **manual refunds** with separate `requested`/`processing`/`completed`/`failed` states; **COD owner approval before dispatch**; the **five-way state separation**; a **24-hour unpaid-order expiry** that never touches an order with a submitted claim; **cancellation after the window** as a pre-dispatch support decision or a post-dispatch return; and the **full COD lifecycle**. Text: `docs/payment-workflow.md` sections 13.1-13.9.
 - **D11 - approved.** The owner's rule: the **first submitted payment claim gets the product**, so a later claim **preempts** an earlier order that has **not** submitted a claim. An order that has submitted a claim is **never** preempted and **never** released by a timer. The bound is **at most one active submitted claim per unit**. Atomic allocation, no oversell, idempotent release and inspection-before-restoration are binding. Full analysis: `docs/payment-workflow.md` section 13.10.
-- **No unresolved decision remains.** D9 and D11 are fully approved; the deferred entries (D5, D6, D10, D13-D16) are named in the register and do not block Phase 10.
+- **No unresolved decision remains.** D9 and D11 are fully approved; the deferred entries (D5, D6, D15, D16) are named in the register and do not block Phase 10. (D10 and D13 were deferred at this point and were later settled in ADR 0009.)
 - **Approved (owner, 2026-10-11)** - recorded in `docs/decisions/0005-neon-postgresql-and-vercel-hosting.md`:
   - **D1 Database:** **Neon PostgreSQL**, initial plan **Free**, upgrade to a paid plan (~$15/mo) when justified by measured usage or operational need.
   - **D2 Hosting:** **Vercel**, initial plan **Hobby (free)**, upgrade to **Pro** (~$20/mo) when required.
@@ -301,7 +301,7 @@ These fix the **schema and transaction shape** and the **order state machine**, 
 - **Acceptance:** every entity and transition is specified; server authority is explicit per field; no client-authoritative value remains; the schema and state machines are consistent with the approved D9 rules and the decided D11 model. **Met** - acceptance criteria A1-A13 in `docs/data-model.md` section 17.5 are satisfied.
 - **Verification gate:** cross-checked against D9 and D11; the one-active-claim-per-unit bound, the no-auto-expiry-of-a-submitted-claim rule, the refund/stock separation, and the COD state separation are each reflected in both the schema and the state machines. **A14 is deliberately unmet:** the concurrency guarantees are reasoned and structurally constrained but **not executed**, because no database exists. Claiming otherwise would be unverified.
 - **Risks:** modelling variants too late (mitigated: the inventory ledger points at the stock-keeping unit from the start); money and bilingual conventions drifting from the storefront's existing rules (mitigated: integer poisha and paired `bn`/`en` columns are schema-level constraints); the customer-auth design being deferred and forced in later (mitigated: designed in section 15).
-- **Owner decisions:** **D17 (customer authentication provider) is newly raised and blocks implementation of checkout.** D10, D13-D16 remain open and do not block the design. **Out of scope, and not performed:** application code, migrations, dependency installation, environment or configuration changes, credential creation, provisioning, deployment, DNS, and any expiry job or automatic stock-release logic.
+- **Owner decisions:** **D17 (customer authentication provider) is newly raised and blocks implementation of checkout.** D10, D13-D16 remain open and do not block the design. *(Recorded as at the time of this phase: D10 and D13 were settled on 2026-10-12 in ADR 0009.)* **Out of scope, and not performed:** application code, migrations, dependency installation, environment or configuration changes, credential creation, provisioning, deployment, DNS, and any expiry job or automatic stock-release logic.
 
 ### Phase 11 - independent backend foundation (complete - local only)
 
@@ -321,7 +321,7 @@ These fix the **schema and transaction shape** and the **order state machine**, 
 - **Acceptance:** a clean environment is reproducible from the repository alone; migrations apply from empty and re-apply idempotently; no secret is committed and the client bundle contains no server-only marker; the typed data-access layer is the only path to the database. **Met** - with one deliberate exception: **a rollback is not exercised**, because the chosen tooling generates no down-migrations and the documented strategy is forward-fix plus rehearsed restore. That is a documented limitation, not a passing check.
 - **Verification gate:** migrations applied from empty, schema validated against the migration files, every constraint and guard exercised, and the Phase 10 concurrency invariants - the oversell backstop, the one-active-claim bound, idempotent release and expiry exclusion - **executed against real PostgreSQL**, which is what converts Phase 10's unexecuted acceptance criterion A14 into evidence.
 - **Risks:** environment drift between local and deployed (unverified - no deployment exists); the driver's pooler semantics differ from local TCP; provisioning cost remains unmeasured.
-- **Owner decisions:** **D17 (customer authentication provider) still blocks implementation of checkout.** D10, D13, D15 and D16 remain open and do not block this phase. **Out of scope, and not performed:** provisioning, deployment, DNS, credential creation, any storefront or admin UI, any provider integration, and any commerce feature.
+- **Owner decisions:** **D17 (customer authentication provider) still blocks implementation of checkout.** D10, D13, D15 and D16 remain open and do not block this phase. *(Recorded as at the time of this phase: D10 and D13 were settled on 2026-10-12 in ADR 0009.)* **Out of scope, and not performed:** provisioning, deployment, DNS, credential creation, any storefront or admin UI, any provider integration, and any commerce feature.
 
 ### Phase 12 - Owner/Admin Authentication & Dashboard Foundation (implemented locally; not deployed)
 
@@ -334,17 +334,19 @@ These fix the **schema and transaction shape** and the **order state machine**, 
 - **Acceptance:** unauthenticated access to every admin route is refused server-side; an actor without the permission cannot perform the action even by direct request; no administrative credential or session token reaches the client bundle; sessions expire, revoke and log out correctly; audit entries are written for a test change.
 - **Verification gate:** authorization tests per role, plus a session and cookie inspection.
 - **Risks:** treating UI hiding as authorization; a weak recovery flow; over-building a role model for staff that the requirements do not justify.
-- **Owner decisions:** **D13** (staff authentication approach) and **D10** (which roles may perform sensitive operations). Both are reconciled against the single-store model in `docs/decisions/0008-single-store-product-model.md`; until D10 is answered the seeded role set stays **owner-only**. **Out of scope:** product, order or analytics features, and **all customer authentication** - that is D17 and belongs to the checkout phase.
+- **Owner decisions:** **settled in ADR 0009.** **D13:** first-party email and password, with Resend email verification and Google sign-in deferred. **D10:** owner role only, multiple owners permitted with full access each, and **no staff or support roles or permission-management system in the launch surface**. That last point creates a **recorded follow-up**: this phase's staff screen and role grant/revoke endpoints are outside the approved launch surface and must be removed or made unreachable before launch. **Out of scope:** product, order or analytics features, and **all customer authentication** - that is D17 and belongs to the checkout phase.
 
-### Phase 13 - product and category management with catalog API (blocked on Phase 12)
+### Phase 13 - product and category management with catalog API (unblocked; not started)
 
-- **Objective:** the merchant can maintain the real catalog, and the storefront can read it.
+- **Objective:** the **owner** can maintain the real catalog, and the storefront can read it.
 - **Deliverables:** product and variant CRUD with bilingual name/description, brand, images, price, comparison price, stock and publication status; category CRUD with bilingual names, ordering and visibility; curation (featured and collection) as ordered id lists; image upload with derivative generation; search, filtering and pagination; a read API for the storefront.
-- **Dependencies:** Phase 12; image storage decision from Phase 9.
+- **Dependencies:** Phase 12 (implemented locally); image storage decision from Phase 9.
+- **Prerequisites, each an owner decision:** (a) **ADR 0009 section 1** - whether availability is a bare owner toggle or sits over the approved quantity ledger, because Phase 13 is where availability is first edited; (b) the **role-management follow-up** - the Phase 12 staff/role screen is outside the approved launch surface (D10) and must be removed or made unreachable before launch; (c) image storage and rights.
 - **Acceptance:** a product created in the dashboard is retrievable through the storefront read API with correct bilingual fields and integer-poisha prices; unpublished products do not appear publicly; stock edits are recorded as inventory movements; curation caps are enforced.
 - **Verification gate:** create/edit/unpublish round trip, plus bilingual and money assertions.
 - **Risks:** image pipeline complexity; bilingual fields treated as an afterthought.
-- **Owner decisions:** image storage and rights. **Out of scope:** orders, payments, analytics.
+- **Owner decisions:** image storage and rights; the availability model. **Out of scope:** orders, payments, analytics.
+- **Note:** the availability control this phase adds is the **owner-operated In Stock / Out of Stock state (D19, ADR 0009)**, presented as a state and never as a countdown, a restock date or an arrival promise.
 
 ### Phase 14 - storefront integration with authoritative catalog (blocked on Phase 13)
 
@@ -375,7 +377,7 @@ These fix the **schema and transaction shape** and the **order state machine**, 
 - **Verification gate:** negative tests attempting to set payment status from the storefront; idempotency tests for repeated decisions; duplicate-reference and amount-mismatch drills; a reconciliation rehearsal against a merchant statement extract.
 - **Risks:** verification staffed too slowly, causing customer wait and duplicate payments; a transaction reference reused across orders being counted twice; reconciliation gaps.
 - **Approved inputs:** D7 (manual bKash, manual Nagad, COD), D8 (sender number and transaction reference required, no screenshot), the approved D9 rules (24-hour verification maximum, exceptions queue, fake-order findings, cancellation via support, manual refund states, COD approval before dispatch, state separation), and the D11 model decided in Phase 9.
-- **Still needed before this phase:** recipient accounts, verifying roles (D10), notification channels, reconciliation cadence, and sufficient-evidence definition.
+- **Still needed before this phase:** recipient accounts, notification channels, reconciliation cadence, and sufficient-evidence definition. (Verifying roles was D10 and is settled: owner-only, ADR 0009.)
 - **Out of scope:** automated gateways, webhooks, automatic confirmation and automated refunds - **none is authorized**.
 
 ### Phase 16b - automated payment gateway (deferred, not scheduled)
@@ -384,7 +386,7 @@ Not part of launch. When a gateway is approved, the addition is a signature-veri
 
 ### Phase 17 - analytics on verified data (blocked on Phase 16, design can start earlier)
 
-- **Objective:** give the merchant decision-useful figures derived from real orders.
+- **Objective:** give the **owner** decision-useful figures derived from real orders.
 - **Deliverables:** the charts in `docs/admin-dashboard.md`, each answering a named question; date-range selection with period comparison; BDT formatting in both locales; loading, empty, error and partial-data states; server-side aggregation with caching.
 - **Dependencies:** Phase 16 for real data; chart design may begin earlier and is a candidate for parallel work.
 - **Acceptance:** every figure reconciles against the order tables; no fabricated or interpolated metric; empty periods render as empty rather than as zero-filled lines; charts remain readable on mobile.
@@ -470,6 +472,6 @@ The answers shape the plan directly: the **24-hour expiry** and the **one-claim-
 5. The typed data-access layer exists and is the only path to the database, so no view reaches SQL directly.
 6. The environment separation rules in `docs/data-model.md` section 16.7 are configured and verified: development, preview and production each have their own endpoint and credential.
 
-**Still required from the owner before implementation of commerce features:** **D17 (customer authentication provider)**, which blocks checkout because D12 requires accounts before ordering; **D10** (verifying roles); and the operational items - recipient accounts, courier and COD settlement terms, notification channels, retention periods, and image rights.
+**Still required from the owner before implementation of commerce features:** **D17 (customer authentication provider)**, which blocks checkout because D12 requires accounts before ordering; **the availability-versus-quantity question** (ADR 0009 section 1), which gates order creation; and the operational items - recipient accounts, courier and COD settlement terms, notification channels, retention periods, and image rights. *(D10, verifying roles, is settled: owner-only, ADR 0009.)*
 
 **Explicitly not authorized by this recommendation:** provisioning, deployment, DNS changes, credential creation, or any implementation work. Each requires its own authorization.

@@ -31,14 +31,14 @@ These are required for the store to trade. Without them, orders cannot be fulfil
 
 | Module | Launch-critical content |
 | --- | --- |
-| **Products** | Create, edit, unpublish; brand, category, bilingual name and description; images; price and comparison price; stock quantity; SKU |
+| **Products** | Create, edit, unpublish; brand, category, bilingual name and description; images; price and comparison price; SKU; and the **availability state - In Stock / Out of Stock (D19, approved in ADR 0009)**, which is what the owner operates and what the storefront shows. An out-of-stock product cannot be ordered. The availability control is presented as a state, never as a quantity countdown, a restock date or an arrival promise |
 | **Categories** | Create and edit; bilingual names; display order; visibility; optional image or SVG mark |
 | **Orders** | List with filters; itemized detail with frozen line prices; status transitions with history; payment status; shipping details; cancellation |
 | **Payments** | Manual MFS verification queue; verify/reject actions; duplicate-reference flags; audit trail (see below) |
-| **Customers** | Profile with order history; minimal personal data |
+| **Customers** | Profile with order history; minimal personal data; **ban after a confirmed fake order (D20, approved in ADR 0009)**, which revokes the account's sessions and refuses new orders and checkout. The review flag is a separate, non-blocking finding and is never presented as a ban |
 | **Shipping** | Delivery areas and charges; consignment reference and delivery status |
 | **Store settings** | Store identity and contact; supported languages; announcement bar content; delivery and payment policy text |
-| **Access and audit** | Staff login; role-based permissions; audit log for sensitive changes; secure session handling |
+| **Access and audit** | **Owner login by email and password (D22, approved in ADR 0009).** **Owner role only at launch (D10):** multiple owners are permitted and each has full access, but there are no staff or support roles and **no permission-management system in the launch surface**. Audit log for sensitive changes **including refused actions**, kept distinguishable from customer/business activity records (D23). Secure session handling |
 
 ### Launch-adjacent
 
@@ -136,9 +136,9 @@ Policy: `docs/payment-workflow.md` section 13. Approved rules:
 
 ### Owner decisions
 
-**Answered by the owner:** payment methods, required customer fields, the verification maximum, the fake-order rule, cancellation through support, manual refunds, COD approval before dispatch, the **24-hour unpaid-order expiry**, **cancellation after the window**, the **COD lifecycle**, and the **D11 allocation rule and bound**.
+**Answered by the owner:** payment methods, required customer fields, the verification maximum, the fake-order rule, cancellation through support, manual refunds, COD approval before dispatch, the **24-hour unpaid-order expiry**, **cancellation after the window**, the **COD lifecycle**, the **D11 allocation rule and bound**, and - added 2026-10-12 in ADR 0009 - **availability as an owner-controlled In Stock / Out of Stock state (D19)**, the **customer ban after a confirmed fake order (D20)**, **owner-only administration with no staff roles or permission-management system at launch (D10)**, **owner authentication by email and password (D22)**, and **separation of customer/business activity records from internal security records (D23)**.
 
-**Still needed, none of it blocking Phase 10:** recipient accounts, which roles may verify and record refunds (D10), courier providers and COD cash-settlement terms, notification channels, and the reconciliation cadence - see `docs/payment-workflow.md` section 13.9.3.
+**Still needed:** recipient accounts, courier providers and COD cash-settlement terms, notification channels, and the reconciliation cadence - see `docs/payment-workflow.md` section 13.9.3. **Plus one question that gates order creation:** whether availability is a bare owner toggle or sits over the approved quantity ledger (ADR 0009 section 1). *(Which roles may verify and record refunds was D10 and is settled: owner-only, ADR 0009.)*
 
 ## Analytics design direction
 
@@ -151,7 +151,7 @@ Analytics exists to answer business questions. A chart that answers no question 
 | How are sales changing over time? | Revenue over time, line or bar | Selectable range; comparison against the previous equal-length period |
 | How many orders are pending, fulfilled or cancelled? | Order status distribution | Single stacked or grouped bar. Statuses come from the order state machine, so counts always reconcile with the order list |
 | Which products and categories generate the most revenue? | Ranked bar, top N | Revenue, not unit count, is the default sort. Show the time window used |
-| Which products are running low on stock? | Low-stock table with threshold | A table, not a chart. Charts hide the specific product names the merchant needs to act on |
+| Which products are running low on stock? | Low-stock table with threshold | A table, not a chart. Charts hide the specific product names the owner needs to act on |
 | How much revenue is associated with discounts? | Discounted vs undiscounted revenue | Must be labelled as "revenue on discounted orders", never as "revenue lost" - the latter is an unsupported claim |
 | How do order volume and average order value change? | Dual series, two axes or two small multiples | AOV is derived (revenue ÷ orders) and both parts are shown so the derivation is visible |
 

@@ -24,6 +24,7 @@ import { permission, role, rolePermission, staffRecoveryToken, staffRole, staffS
 
 import { recordAudit } from '../auth/audit';
 import { RECOVERY_TOKEN_MS } from '../auth/constants';
+import { recordDeniedAction } from '../auth/denial-log';
 import type { StaffRoleSummary } from './principal';
 import { createOpaqueToken, sha256Hex } from '../auth/tokens';
 
@@ -127,21 +128,30 @@ export async function countStaff(tx: Transaction): Promise<{ total: number; acti
   return rows[0] ?? { total: 0, active: 0, disabled: 0 };
 }
 
+/**
+ * The second, service-level authorization check.
+ *
+ * It records the refusal **durably** - through the denial log, in its own transaction - because a
+ * record written inside this transaction would be rolled back by the throw below. That was a real
+ * defect: the refusal happened, and no evidence of it survived. The throw is unchanged; the record is
+ * evidence of the attempt, never a substitute for the refusal.
+ *
+ * It no longer takes the caller's transaction, because it no longer writes in it.
+ */
 async function requirePermission(
-  tx: Transaction,
   actor: ActorContext,
   code: string,
   entityId: number,
 ): Promise<void> {
   if (actor.permissions.has(code)) return;
 
-  await recordAudit(tx, {
-    actorType: 'staff',
+  await recordDeniedAction({
     actorStaffId: actor.staffUserId,
     actorRoleCodes: actor.roleCodes,
-    action: 'admin.action_denied',
+    action: `service.${code}`,
     entityType: 'staff_user',
     entityId,
+    category: 'forbidden',
     reason: `missing permission ${code}`,
   });
   throw new AuthorizationError(`missing permission ${code}`);
@@ -173,7 +183,7 @@ export async function createStaffUser(
   actor: ActorContext,
   input: { email: string; displayName: string; roleCode: string },
 ): Promise<{ staffUserId: number; recoveryToken: string; expiresAt: Date }> {
-  await requirePermission(tx, actor, 'staff.manage', 0);
+  await requirePermission(actor, 'staff.manage', 0);
 
   const existing = await tx
     .select({ id: staffUser.id })
@@ -230,7 +240,7 @@ export async function issueCredentialToken(
   targetStaffUserId: number,
   purpose: 'initial_credential' | 'password_reset',
 ): Promise<{ token: string; expiresAt: Date }> {
-  await requirePermission(tx, actor, 'staff.manage', targetStaffUserId);
+  await requirePermission(actor, 'staff.manage', targetStaffUserId);
 
   const token = createOpaqueToken();
   const expiresAt = new Date(Date.now() + RECOVERY_TOKEN_MS);
@@ -269,7 +279,7 @@ export async function grantRole(
   actor: ActorContext,
   input: { targetStaffUserId: number; roleCode: string },
 ): Promise<void> {
-  await requirePermission(tx, actor, 'staff.manage', input.targetStaffUserId);
+  await requirePermission(actor, 'staff.manage', input.targetStaffUserId);
 
   if (input.targetStaffUserId === actor.staffUserId) {
     throw new AuthorizationError('a staff user may not change their own roles');
@@ -317,7 +327,7 @@ export async function revokeRole(
   actor: ActorContext,
   input: { targetStaffUserId: number; roleCode: string },
 ): Promise<void> {
-  await requirePermission(tx, actor, 'staff.manage', input.targetStaffUserId);
+  await requirePermission(actor, 'staff.manage', input.targetStaffUserId);
 
   if (input.targetStaffUserId === actor.staffUserId) {
     throw new AuthorizationError('a staff user may not change their own roles');
@@ -357,7 +367,7 @@ export async function setStaffDisabled(
   actor: ActorContext,
   input: { targetStaffUserId: number; disabled: boolean },
 ): Promise<void> {
-  await requirePermission(tx, actor, 'staff.manage', input.targetStaffUserId);
+  await requirePermission(actor, 'staff.manage', input.targetStaffUserId);
 
   if (input.targetStaffUserId === actor.staffUserId) {
     throw new AuthorizationError('a staff user may not disable their own account');

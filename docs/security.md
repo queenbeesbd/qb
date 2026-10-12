@@ -261,11 +261,16 @@ requirement to implement and verify. The table-level ownership boundaries that b
 per D12) · **Support** · **Admin** · **Owner**.
 
 **These are four distinct identity concepts, and there is no merchant principal (ADR 0008):** owner
-authority, optional staff permissions, customer identity, and anonymous public access. `Support` and
-`Admin` are **optional staff roles** - conditional on a documented requirement and owner approval, not
-an assumed workforce - and `Owner` is the person who owns **this one store**, not a platform operator
-overseeing other people's stores. The exact permission assignments are **D10, an open owner decision**,
-so the support and admin columns are **proposals** and the safe launch default is **owner-only**.
+authority, optional staff permissions, customer identity, and anonymous public access. `Owner` is the
+person who owns **this one store**, not a platform operator overseeing other people's stores.
+
+**D10 is settled (ADR 0009): the launch surface is owner-only.** Multiple owner accounts may exist and
+each has full access, but there are **no staff or support roles** and **no general permission-management
+system** at launch. The `Support` and `Admin` columns below are therefore **not part of the launch
+surface**; they are retained as the model the permission tables can express, and a future staff role is
+a new owner decision rather than an implementation convenience. **Phase 12's role-management screen and
+its grant/revoke endpoints are outside the approved launch surface** and are recorded as a follow-up
+change in ADR 0009 section 3.
 
 ### Admin authorization - implementation constraints (Phase 12)
 
@@ -285,6 +290,58 @@ Two properties the implementation must keep, because each of them silently weake
    denial is presented as a redirect back to the page with a `denied` notice - the same `303` a
    success uses - `npm run verify:admin` asserts the **database effect** (no account created, no role
    granted, no account disabled) rather than the status code alone.
+
+### Denied-action auditing (implemented, Phase 12)
+
+A refused administrative action is a security event, and it must outlive the refusal that produced it.
+
+**The defect this replaced.** The denial record was written inside the caller's transaction,
+immediately before the throw that refused the action - so the refusal rolled back its own evidence. A
+privilege-escalation attempt was refused correctly and left no trace. Confirmed by test, not inferred.
+
+**The rule.** A denial is written in **its own transaction**, committed independently of the business
+transaction it describes, so a rollback cannot take the evidence with it.
+
+| Property | How it is held |
+| --- | --- |
+| Durable | Separate transaction; a rollback of the refused action cannot remove the record |
+| Cannot upgrade a refusal | The writer returns a boolean, **never throws**, and no caller branches on the result. A logging failure changes observability only - authorization is already decided |
+| Actor is not client-supplied | Taken from the resolved session, never from a request field, header or path parameter. A record whose actor came from the request body would be worse than no record |
+| Distinguishable | Always the action code `admin.action_denied` with a `category` (`forbidden` / `csrf`), so a denial can never be mistaken for a business event |
+| Bounded | **An anonymous denial is not stored at all** - there is no actor to attribute and it would be a cheap way for any client to write rows. An authenticated actor is additionally capped per window, so a burst cannot become a storage cost |
+| Recorded facts | Actor, actor roles at the time, attempted capability, target, category, reason, timestamp, correlation id, address digest. Never a password, a raw session or CSRF token, or payment data |
+
+**Failure behaviour, stated honestly.** If the record cannot be written, the refusal still happens and
+the failure is reported on stderr without payloads; it is not retried, because a retry loop inside a
+refusal path is itself a denial-of-service surface. The residual limitations are real and recorded:
+the per-actor bound is held in **process memory**, so a multi-instance deployment multiplies the
+effective ceiling by the instance count; and a failed write leaves **no record at all**, so a database
+outage is an observability gap even though it is not an authorization gap.
+
+### Log separation (D23, approved in ADR 0009)
+
+**Customer and business activity records are kept separate from internal administrative and security
+records, wherever practical.** They share the append-only `audit_event` store, because one append-only
+table with one actor model and one retention rule is safer than two stores that can disagree - and they
+are **distinguishable by construction**, not by convention: a denial carries `admin.action_denied` and a
+category, and a **customer is never an audit actor type**, so a customer action can never be confused
+with an administrative one. Both properties are asserted by test.
+
+### Customer ban enforcement (D20, approved in ADR 0009)
+
+A ban that only changes a label is not a ban. After a **confirmed** fake order, an owner may ban the
+account, and the enforcement boundary is what makes the ban real - all of it server-side, none of it by
+hiding a control:
+
+1. **No new session is issued**, and every existing session is **revoked** at the moment of the ban, so
+   access ends on the next request rather than at the next expiry.
+2. **Order creation refuses a banned account inside the order transaction**, not merely in the interface.
+3. **Checkout refuses**, rather than collecting details it will not use.
+
+A ban does **not** cancel, refund or delete an order, and touches no payment, refund or reservation
+state. The finding and the enforcement stay separate: the customer flag records the finding and blocks
+nothing; the account status carries the enforcement. The fate of an in-flight order for a banned
+customer remains an open owner decision and is not implied by the ban.
 
 | Capability | Guest | Customer | Support | Admin | Owner |
 | --- | --- | --- | --- | --- | --- |

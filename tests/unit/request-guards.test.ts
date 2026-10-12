@@ -6,6 +6,7 @@ import {
   csrfTokenMatches,
   isSameOrigin,
   isStateChanging,
+  requestCorrelationId,
   safeReturnPath,
 } from '../../src/server/auth/request-guards';
 
@@ -88,6 +89,35 @@ describe('CSRF token comparison', () => {
     assert.equal(csrfTokenMatches('abc123', null), false);
     assert.equal(csrfTokenMatches('abc123', ''), false);
     assert.equal(csrfTokenMatches('abc123', new File(['abc123'], 'csrf.txt')), false);
+  });
+});
+
+describe('request correlation id', () => {
+  it('prefers the platform header, and accepts the conventional proxy header', () => {
+    assert.equal(requestCorrelationId(request({ 'x-vercel-id': 'iad1::abc123' })), 'iad1::abc123');
+    assert.equal(requestCorrelationId(request({ 'x-request-id': 'req-42' })), 'req-42');
+    assert.equal(
+      requestCorrelationId(request({ 'x-vercel-id': 'platform-id', 'x-request-id': 'proxy-id' })),
+      'platform-id',
+    );
+  });
+
+  it('returns null when the request carries neither header', () => {
+    assert.equal(requestCorrelationId(request({})), null);
+    assert.equal(requestCorrelationId(request({ 'x-request-id': '   ' })), null);
+  });
+
+  it('refuses a value that is not identifier-shaped, so the column cannot be used to store data', () => {
+    // The header is client-controlled. Anything that is not an identifier is dropped rather than
+    // stored, so the audit column cannot become a place to write arbitrary content.
+    assert.equal(requestCorrelationId(request({ 'x-request-id': 'a'.repeat(101) })), null);
+    // Header-legal characters that are simply not identifier-shaped. (A newline or a tab cannot be
+    // tested here: the runtime refuses to construct such a request at all.)
+    assert.equal(requestCorrelationId(request({ 'x-request-id': 'has space' })), null);
+    assert.equal(requestCorrelationId(request({ 'x-request-id': 'has/slash' })), null);
+    assert.equal(requestCorrelationId(request({ 'x-request-id': 'has@at' })), null);
+    assert.equal(requestCorrelationId(request({ 'x-request-id': 'has,comma' })), null);
+    assert.equal(requestCorrelationId(request({ 'x-request-id': 'semi;colon' })), null);
   });
 });
 
