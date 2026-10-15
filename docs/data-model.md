@@ -202,6 +202,14 @@ erDiagram
 Tables that exist but carry no relationship worth drawing: `AUTH_THROTTLE`,
 `IDEMPOTENCY_KEY`, `OPERATIONAL_EXCEPTION`, `STORE_SETTING`, `IMPORT_RECORD`.
 
+> **Reconciliation note (2026-10-16, ADR 0013 / ADR 0014).** Two relations drawn above are
+> **implemented but unused at launch**: the product-variant and order-item links to
+> `STOCK_RESERVATION`, with their `INVENTORY_MOVEMENT` postings. Order creation writes **no**
+> reservation, allocation, deduction or movement, so no row is ever written through them. The
+> order-item link to `PAYMENT_CLAIM` (drawn as "covered_by") is **not implemented** in the schema:
+> `payment_claim` carries `order_id` and **no** `order_item_id`. The claim's per-unit bound therefore
+> has no unit to attach to, which is consistent with a model that reserves no unit.
+
 ---
 
 ## 4. Identity, sessions and authorization
@@ -661,7 +669,7 @@ the number a transaction enforces cannot disagree.
 | `reserved` | integer | NOT NULL | Units held by orders that are neither fulfilled nor released. `CHECK (reserved >= 0)` |
 | `updated_at` | timestamptz | NOT NULL | |
 
-**The constraint that makes overselling impossible.**
+**The constraint that makes overselling impossible - when the reservation path is used.**
 
 ```sql
 CHECK (reserved <= on_hand)
@@ -670,6 +678,13 @@ CHECK (reserved <= on_hand)
 This is the database-level expression of D11 invariants 1, 2 and 5. Even if application logic is wrong,
 a transaction that would reserve more than is held **fails**, rather than recording a sale the store
 cannot honour. The guarded update in section 12 is the normal path; this constraint is the backstop.
+**It is inert at launch (ADR 0013):** nothing writes a reservation, so it cannot prevent the overselling
+that ADR 0013 accepts.
+
+> **Delivery charge relation (ADR 0014 decision 10).** `order.shipping_minor` is the per-order
+> snapshot, so a settings change never rewrites a historical order. The settings side is a **flat
+> `store_setting` value only**; per-area charges need a new table and a matching policy (see 9.5), and
+> neither is created here.
 
 **Authorization.** Read: staff, and the storefront through a derived availability query that exposes
 only `available` for published variants - never `on_hand`. Write: never by direct update from a
@@ -677,6 +692,10 @@ request. Every change goes through `inventory_movement` plus the guarded update,
 adjustments require `inventory.adjust` with a reason.
 
 ### 6.2 `inventory_movement` (append-only)
+
+> **Unused at launch (ADR 0013).** No order-path code writes a movement row; the table and its
+> append-only enforcement remain in place. The design below applies only if the owner later reverses
+> ADR 0013.
 
 **Why it exists.** D11 invariant 6 requires every allocation, release, adjustment and restoration to be
 auditable. A bare counter cannot explain itself; a ledger can, and it is what makes reconciliation
@@ -713,6 +732,12 @@ that performs the corresponding balance change. Never written from a request han
 **Retention.** Permanent. This is the stock audit trail.
 
 ### 6.3 `stock_reservation`
+
+> **Unused at launch (ADR 0013).** Order creation writes **no** reservation, so this table is
+> **implemented and empty**. The `expires_at`, `release_reason` and expiry-sweep index below are part
+> of the deferred design; **no scheduler or expiry job is added now (ADR 0014)**, and a submitted
+> payment claim is never released by a timer. The table stays implemented; removing it is a migration
+> and a separate owner decision.
 
 **Why it exists.** The reservation is the **allocation of stock to an order**. It is deliberately
 separate from payment: it exists before any money fact does, and it can outlive a payment attempt.
@@ -776,14 +801,14 @@ Both are guarded by `WHERE state = 'held'` and are therefore idempotent (13.10.6
 | `payment_state` | text | NOT NULL | Money: `awaiting_payment` \| `awaiting_verification` \| `verified` \| `rejected` \| `falsely_claimed` \| `expired` \| `not_applicable` (COD only) |
 | `cod_state` | text | NOT NULL | `not_applicable` \| `cod_pending_approval` \| `cod_approved` \| `cod_collected` \| `cod_failed` \| `cod_reconciled`. **The four approved D9 COD state names are used verbatim.** `cod_reconciled` is the one addition, required by D9's rule that cash reconciliation is a separate state from collection (11.6); it renames nothing |
 | `items_subtotal_minor` | integer | NOT NULL | Sum of frozen line totals. `CHECK (>= 0)` |
-| `shipping_minor` | integer | NOT NULL | Default `0`. `CHECK (>= 0)` |
+| `shipping_minor` | integer | NOT NULL | Default `0`. `CHECK (>= 0)`. **The historical delivery-charge snapshot** required by **ADR 0014 decision 10**: once written it is never recomputed, so a later settings change cannot alter an old order. Phase 15 writes `0` because no delivery charge is configured yet |
 | `total_minor` | integer | NOT NULL | `CHECK (total_minor = items_subtotal_minor + shipping_minor)` - the authoritative charged amount |
-| `placed_at` | timestamptz | NOT NULL | `now()`. **The expiry clock starts here** |
-| `expires_at` | timestamptz | NULL | `placed_at + 24 hours`; NULL once a claim exists or the order is resolved |
+| `placed_at` | timestamptz | NOT NULL | `now()`. **The expiry clock would start here if expiry were scheduled** |
+| `expires_at` | timestamptz | NULL | `placed_at + 24 hours`; NULL once a claim exists or the order is resolved. **Unused at launch (ADR 0014): the expiry timer is deferred and no scheduler is added.** Phase 15 still sets it; nothing reads it, and **no writer may target an order that has a submitted claim** |
 | `confirmed_at` / `shipped_at` / `delivered_at` / `completed_at` | timestamptz | NULL | Fulfilment timestamps |
 | `cancelled_at` | timestamptz | NULL | |
 | `cancelled_reason` | text | NULL | Required whenever `cancelled_at` is set |
-| `expired_at` | timestamptz | NULL | When the unpaid expiry fired |
+| `expired_at` | timestamptz | NULL | When the unpaid expiry fired. **Deferred: nothing writes this at launch (ADR 0014)** |
 | `updated_at` | timestamptz | NOT NULL | |
 
 **Constraints.**
@@ -798,6 +823,12 @@ Both are guarded by `WHERE state = 'held'` and are therefore idempotent (13.10.6
   is encoded, so a policy drift is a schema change and cannot happen silently.
 - `CHECK (payment_state <> 'expired' OR expired_at IS NOT NULL)`.
 
+> **Reconciled 2026-10-16 (ADR 0014).** The `expired` value and the `expires_at` / `expired_at`
+> timestamps are **part of the deferred expiry design**, not a launch behaviour: no scheduler is added
+> and no expiry writer exists. The binding rule is that **an order with a submitted payment claim is
+> never expired or released by a timer**, and the Phase 16 claim submission must move the order to
+> `awaiting_verification` in the same transaction that writes the claim.
+
 **Why three state columns and not one.** The task forbids one generic status for several processes, and
 the documented design already separated fulfilment from money. It is split one step further: COD
 approval is an **authorization to dispatch**, not a money state, and collection and reconciliation are
@@ -807,7 +838,7 @@ different events from either. **The approved COD state names are preserved verba
 partial `(payment_state, placed_at) WHERE payment_state = 'awaiting_verification'` (the verification
 queue); partial `(cod_state, placed_at) WHERE cod_state = 'cod_pending_approval'` (the COD approval
 queue); `(status, placed_at DESC)`; partial `(expires_at) WHERE expires_at IS NOT NULL`
-(the expiry sweep).
+(the expiry sweep - **no sweep exists; the index is inert until expiry is scheduled**).
 
 **Authorization.** Read: the owning customer, scoped by `customer_id = session.customer_id` in the
 server layer on every request - never by trusting the URL. Staff read with `order.read`. Write:
@@ -832,7 +863,7 @@ statement and the order's financial facts survive it intact.
 | `recipient_name` | text | NOT NULL | `CHECK (char_length BETWEEN 2 AND 120)` |
 | `recipient_phone` | text | NOT NULL | `CHECK (recipient_phone ~ '^01[3-9][0-9]{8}$')` |
 | `address_line` | text | NOT NULL | `CHECK (char_length BETWEEN 5 AND 300)` |
-| `area` | text | NOT NULL | `CHECK (char_length <= 80)` |
+| `area` | text | NOT NULL | `CHECK (char_length <= 80)`. Free text supplied by the customer. **No configured delivery area matches it yet:** area-specific charges need a new table and a matching policy, and **the matching/fallback rule is an open owner decision** (ADR 0014 Part 5). Nothing may assume `area` matches a configured zone |
 | `city` | text | NOT NULL | `CHECK (char_length <= 80)` |
 | `postcode` | text | NULL | NULL means not supplied |
 | `delivery_note` | text | NULL | `CHECK (char_length <= 300)` |
@@ -1254,6 +1285,16 @@ window and shorter than the order's life.
 contact details, and operational thresholds. A single small typed key-value table avoids inventing a
 table per setting.
 
+> **Delivery charges - requirement confirmed, representation insufficient (ADR 0014 decision 10).**
+> This table can hold a **single site-wide default** charge as one `money_minor` row. It **cannot**
+> represent **per-area charges**, because it has one value per key and no area dimension, and
+> `order_contact.area` is customer-entered free text with no matching rule. Supporting area-specific
+> charges therefore needs a **minimum migration**: a new table with one row per configured area
+> (area identifier/label plus its charge) and a settings-controlled site-wide default, plus a defined
+> matching/fallback rule - and that rule is an **open owner decision**, not an engineering default.
+> **The migration is not created in this change.** When it is, `order.shipping_minor` remains the
+> historical snapshot and is never recomputed.
+
 | Column | Type | Null | Notes |
 | --- | --- | --- | --- |
 | `key` | text | PK | `CHECK (key ~ '^[a-z][a-z0-9_.]*$')` |
@@ -1279,7 +1320,7 @@ Restraint matters as much as coverage: a table nobody has approved is a policy i
 | Not created | Why |
 | --- | --- |
 | `promotion` / `coupon` | No approved promotion requirement exists. Discounts today are derived from a comparison price on the variant. A promotion engine would invent eligibility, stacking and usage-limit policy that the owner has not decided. |
-| `shipping_zone` / `shipping_rate` | Shipping charges are **explicitly unapproved** ("still unapproved, none of it blocking Phase 10"). The schema provides a single flat `store_setting` for a delivery charge; the amount, and any zone structure, remain owner decisions. Creating zone tables now would imply a pricing model nobody approved. |
+| `shipping_zone` / `shipping_rate` | **Confirmed requirement, representation still missing (ADR 0014 decision 10).** The schema provides a single flat `store_setting` for one site-wide delivery charge; it **cannot** hold per-area charges. Supporting areas is a **minimum migration** - a new area/charge table plus a settings-controlled default and a matching/fallback policy - and the amounts and the matching policy are **owner inputs that do not exist yet**. Creating the table now, with no values and no rule, would imply a pricing model nobody approved; the requirement and the migration are recorded instead. |
 | Saved address book | No approved requirement; a second copy of personal data is a second place to leak it. `order_contact` is a snapshot by design. |
 | Product options / option values | No option exists in the catalog. `product_variant.option_values` is a reserved nullable column, not a feature. |
 | Analytics or event-tracking tables | Analytics are not a launch requirement, and shipping pageview-level data into the transactional database would mix two trust domains. |
@@ -1309,22 +1350,20 @@ Fulfilment position only.
 | From | To | Actor | Guard | Audit |
 | --- | --- | --- | --- | --- |
 | - | `pending` | System | Order created in the creation transaction | `order_placed` |
-| `pending` | `confirmed` | Staff (`order.read`) or System on payment verification | Prepaid: `payment_state='verified'`. COD: `cod_state='approved'` | `order_confirmed` |
-| `confirmed` | `processing` | Staff | Order confirmed | `order_processing` |
-| `processing` | `shipped` | Staff | Prepaid: `payment_state='verified'`. COD: `cod_state='approved'`. **This transition sets each `stock_reservation` to `consumed`** | `order_shipped`, `reservation_consumed` |
-| `shipped` | `delivered` | Staff | Order shipped. **Does not touch money** | `order_delivered` |
-| `delivered` | `completed` | Staff | Delivered. For COD, `cod_state` must be `cod_collected` or `cod_failed` | `order_completed` |
-| `pending` / `confirmed` / `processing` | `cancelled` | Staff (`order.cancel`) | Approved cancellation; **releases reservations** | `order_cancelled`, `reservation_released` |
-| `shipped` / `delivered` | `returned` | Staff | A `customer_return` reached `received` | `return_received` |
+| `pending` | `confirmed` | Owner (`order.read`) or System on payment verification | Prepaid: `payment_state='verified'`. COD: `cod_state='cod_approved'` | `order_confirmed` |
+| `confirmed` | `processing` | Owner | Order confirmed | `order_processing` |
+| `processing` | `shipped` | Owner | Prepaid: `payment_state='verified'`. COD: `cod_state='cod_approved'`. **No reservation is consumed - none is written (ADR 0013)** | `order_shipped` |
+| `shipped` | `delivered` | Owner | Order shipped. **Does not touch money** | `order_delivered` |
+| `delivered` | `completed` | Owner | Delivered. For COD, `cod_state` must be `cod_collected` or `cod_failed` | `order_completed` |
+| `pending` / `confirmed` / `processing` | `cancelled` | Owner (`order.cancel`) | Approved cancellation, reason required. **No reservation is released - none is written (ADR 0013)** | `order_cancelled` |
+| `shipped` / `delivered` | `returned` | Owner | A `customer_return` reached `received` | `return_received` |
 
 **Forbidden.** `pending -> shipped` (dispatch without payment or COD approval);
 `shipped -> cancelled` (after dispatch it is a return, per 13.9.2);
 any transition **into** `completed` from `shipped`; any transition on a `cancelled` or `returned`
 order; and any transition **caused by a customer request**. Fulfilment is staff-driven throughout.
 
-**Consequences.** Inventory moves only at `processing -> shipped` (reserve to consumed) and at
-`-> cancelled` (reserve to released). Order status never changes `payment_state`, `cod_state` or
-`refund_status`.
+**Consequences.** **No inventory movement occurs anywhere in the order path at launch (ADR 0013).** The design's movements at `processing -> shipped` (reserve to consumed) and `-> cancelled` (reserve to released) are unexercised. Order status never changes `payment_state`, `cod_state` or `refund.state`.
 
 ### 11.2 Payment lifecycle, prepaid (`order.payment_state`)
 
@@ -1333,22 +1372,24 @@ Money position for manual bKash/Nagad.
 | From | To | Actor | Guard | Audit |
 | --- | --- | --- | --- | --- |
 | - | `awaiting_payment` | System | Order created, `payment_method <> 'cod'` | `order_placed` |
-| `awaiting_payment` | `awaiting_verification` | **Customer** | A claim is created and a unit is allocated in the same transaction (section 12.2) | `claim_submitted` |
-| `awaiting_payment` | `expired` | **System** | `expires_at <= now()` **and no claim has ever been submitted** | `order_expired`, `reservation_released` |
-| `awaiting_verification` | `verified` | **Staff only** (`payment.verify`) | `payment_claim.state = 'submitted'`; clears the reservation expiry | `payment_verified` |
-| `awaiting_verification` | `rejected` | **Staff only** (`payment.reject`) | Reason required; reservation **stays held** | `payment_rejected` |
-| `awaiting_verification` | `falsely_claimed` | **Staff only** (`payment.flag_false`) | Reason required; **releases the reservation at once** (13.10.5) | `payment_falsely_claimed`, `reservation_released` |
-| `awaiting_verification` | `awaiting_payment` | **Customer** | Only via an explicit withdrawal of a mistyped claim, which releases the claim and **re-checks stock before re-holding** | `claim_withdrawn` |
+| `awaiting_payment` | `awaiting_verification` | **Customer** | A claim is written **in the same transaction as** the order's state change and its `expires_at` is cleared. **No unit is allocated (ADR 0013; section 12.2 is superseded)** | `claim_submitted` |
+| `awaiting_payment` | `expired` | **System** | `expires_at <= now()` **and no claim has ever been submitted**. **Deferred: no system performs this at launch (ADR 0014)** | `order_expired` |
+| `awaiting_verification` | `verified` | **Owner only** (`payment.verify`) | `payment_claim.state = 'submitted'`; receipt independently confirmed; amount recorded | `payment_verified` |
+| `awaiting_verification` | held | **Owner only** (`payment.hold`, proposed) | Amount mismatch or unclear evidence; reason recorded. **No `held` state exists yet** - the representation is an open choice (ADR 0014 Part 3.2) | a hold event |
+| `awaiting_verification` | `rejected` | **Owner only** (`payment.reject`) | Reason required; the claim stays recorded and the order is not an accusation | `payment_rejected` |
+| `awaiting_verification` | `falsely_claimed` | **Owner only** (`payment.flag_false`) | Reason required; a **confirmed** false claim. **No reservation is released - none is written (ADR 0013)** (13.10.5) | `payment_falsely_claimed` |
+| `awaiting_verification` | `awaiting_payment` | **Customer** | Only via an explicit withdrawal of a mistyped claim. **No stock re-check applies** (ADR 0013) | `claim_withdrawn` |
 
 **Forbidden.** Any transition to `verified` from a request the customer controls; `expired` for any
-order that has **ever** had a submitted claim (13.9.2, invariant 4); `verified` without a staff actor
-and a confirmed amount (schema `CHECK`, 8.2); `falsely_claimed` without a reason.
+order that has **ever** had a submitted claim (13.9.2, invariant 4); `verified` without an owner actor
+and a confirmed amount (schema `CHECK`, 8.2); `falsely_claimed` without a reason; **any automatic
+approval or rejection based solely on a claimed-amount mismatch** (ADR 0014 decision 6).
 
 **Retry and failure.** Each transition is idempotent through its guard: a second `verify` finds the
 claim no longer `submitted` and returns the existing state. A `rejected` order is **not terminal** - the
 customer may submit a corrected claim, which is a **new `payment_claim` row** and a new
-`awaiting_verification` period. The order keeps its reservation throughout, because a rejection is not
-an accusation (13.3).
+`awaiting_verification` period. A rejection is not an accusation (13.3), and under ADR 0013 there is no
+reservation to keep.
 
 ### 11.3 Payment-claim verification (`payment_claim.state`)
 
@@ -1357,15 +1398,17 @@ when, and by whom it was resolved is preserved even when the order's state chang
 
 | From | To | Actor | Precondition | Postcondition |
 | --- | --- | --- | --- | --- |
-| - | `submitted` | Customer (own order) or Staff recording a phone claim | Order in `awaiting_payment` **or** a previous claim resolved; a unit is available; **no other active submitted claim exists for the allocated unit** | Unit allocated; order -> `awaiting_verification`; reservation expiry cleared |
-| `submitted` | `verified` | Staff (`payment.verify`) | Receipt independently confirmed through the merchant account; `verified_amount_minor` recorded; a mismatch requires explicit acknowledgement | Order -> `verified`; claim terminal |
-| `submitted` | `rejected` | Staff (`payment.reject`) | Reason >= 10 characters | Order -> `rejected`; **reservation held**; customer may resubmit |
-| `submitted` | `falsely_claimed` | Staff (`payment.flag_false`) | Reason >= 10 characters; admin **confirmed** the claim was false | Order -> `falsely_claimed`; reservation released; order cancelled; customer flag may be raised (11.8) |
-| `submitted` | `withdrawn` | Customer (own claim) or Staff | Claim is still `submitted` | Order returns to `awaiting_payment`; reservation re-checked |
+| - | `submitted` | Customer (own order) or Owner recording a phone claim | Order in `awaiting_payment` **or** a previous claim resolved; **no other active submitted claim exists for this order** (the partial unique index). **No unit allocation occurs (ADR 0013)** | Order -> `awaiting_verification`; claim written in the same transaction; `order.expires_at` cleared |
+| `submitted` | `verified` | Owner (`payment.verify`) | Receipt independently confirmed through the payment account; `verified_amount_minor` recorded; a mismatch requires explicit acknowledgement | Order -> `verified`; claim terminal |
+| `submitted` | *held* | Owner (`payment.hold`, proposed) | Amount mismatch or unclear evidence; reason recorded | Claim **stays `submitted`**; an open `payment_mismatch` exception may represent the hold (ADR 0014 Part 3.2) |
+| `submitted` | `rejected` | Owner (`payment.reject`) | Reason >= 10 characters | Order -> `rejected`; customer may resubmit; **not an accusation** (13.3) |
+| `submitted` | `falsely_claimed` | Owner (`payment.flag_false`) | Reason >= 10 characters; owner **confirmed** the claim was false | Order cancelled; customer flag may be raised (11.8); **no reservation to release (ADR 0013)** |
+| `submitted` | `withdrawn` | Customer (own claim) or Owner | Claim is still `submitted` | Order returns to `awaiting_payment`; no stock re-check (ADR 0013) |
 
 **Forbidden.** A customer resolving a claim; `rejected` or `falsely_claimed` without an actor and a
 reason; a second `submitted` claim for an order while one is active; resolving a claim whose order has
-already expired.
+already expired; **an automatic decision based only on a claimed-amount mismatch** (ADR 0014 decision
+6); **expiring or releasing a claim by a timer** (ADR 0014 decision 11).
 
 **Why `rejected` is not an accusation (13.3).** The distinction is enforced structurally: only
 `falsely_claimed` may be referenced by a `customer_flag`, and the flag requires its own staff actor and
@@ -1373,15 +1416,18 @@ reason. A delay or a mistyped reference produces `rejected`, which no code path 
 
 ### 11.4 Inventory reservation lifecycle (`stock_reservation.state`)
 
+> **Unused at launch (ADR 0013).** No transition below is performed by the order path; the table is
+> implemented and empty. Retained as the deferred design. **No expiry job is written (ADR 0014).**
+
 | From | To | Actor | Guard | Consequence |
 | --- | --- | --- | --- | --- |
-| - | `held` | System | Guarded increment succeeds (`available >= quantity`); reservation created in the order transaction | `reserved` increases; `order_reserved` movement |
-| `held` | `released` | System (expiry) | `expires_at <= now()` **and the order has no submitted claim** | `reserved` decreases; `reservation_released` movement; reason `expired_unpaid` |
-| `held` | `released` | Staff (`order.cancel`) | Approved cancellation before dispatch | Reason `cancelled_by_support` |
-| `held` | `released` | System | A later order submitted a claim first and this order has **no** submitted claim | Reason `preempted_by_claim`; the preempted order is cancelled with an explicit reason |
-| `held` | `released` | Staff (`payment.flag_false`) | `payment_claim.state = 'falsely_claimed'` | Reason `confirmed_false_claim` |
-| `held` | `consumed` | Staff (dispatch) | Order `processing -> shipped` | `reserved` decreases, `on_hand` decreases; `order_consumed` movement |
-| `held` | `released` | System | Order abandoned before payment with no claim (explicit customer action) | Reason `order_abandoned` |
+| - | `held` | System | Guarded increment succeeds (`available >= quantity`) - **not performed at launch** | `reserved` increases; `order_reserved` movement - **not written** |
+| `held` | `released` | System (expiry) | `expires_at <= now()` **and the order has no submitted claim** - **deferred, no scheduler** | Reason `expired_unpaid` |
+| `held` | `released` | Owner (`order.cancel`) | Approved cancellation before dispatch | Reason `cancelled_by_support` |
+| `held` | `released` | System | A later order submitted a claim first and this order has **no** submitted claim - **needs a held unit; not performed** | Reason `preempted_by_claim` |
+| `held` | `released` | Owner (`payment.flag_false`) | `payment_claim.state = 'falsely_claimed'` | Reason `confirmed_false_claim` |
+| `held` | `consumed` | Owner (dispatch) | Order `processing -> shipped` - **not performed** | `order_consumed` movement - **not written** |
+| `held` | `released` | System | Order abandoned before payment with no claim | Reason `order_abandoned` |
 
 **Every release is one statement:** `UPDATE stock_reservation SET state='released', resolved_at=now(),
 release_reason=$1, expires_at=NULL WHERE id=$2 AND state='held' RETURNING id`. A row count of `0`
@@ -1395,9 +1441,10 @@ an explicit admin reactivation creates a **new** reservation after re-checking s
 any release by a customer; any release caused solely by a verification deadline passing
 (invariant 4).
 
-**Pending inspection is not a reservation state.** A failed COD delivery or a refusal leaves the
-reservation `consumed` - the goods left the store and are not sellable. The "may come back" fact lives
-on `customer_return` (11.7), which is what can post a restock movement after inspection.
+**Pending inspection is not a reservation state.** A failed COD delivery or a refusal left the
+reservation `consumed` in the design - the goods left the store and are not sellable. **At launch there
+is no reservation to leave in any state (ADR 0013).** The "may come back" fact still lives on
+`customer_return` (11.7), which is what can post a restock movement after inspection.
 
 ### 11.5 Refund lifecycle (`refund.state`)
 
@@ -1425,18 +1472,19 @@ It has no sender number, no transaction reference and no verification step.
 
 | From | To | Actor | Guard | Consequence |
 | --- | --- | --- | --- | --- |
-| - | `cod_pending_approval` | System | Order created with `payment_method='cod'` | Reservation held; `payment_state='not_applicable'`; **not** in the verification queue |
-| `cod_pending_approval` | `cod_approved` | **Staff (`cod.approve`)** | Approval recorded | Reservation expiry cleared; order may be dispatched |
-| `cod_pending_approval` | `not_applicable` | Staff (`order.cancel`) | Cancellation before approval | Reservation released, reason `cancelled_by_support` |
-| `cod_approved` | `cod_collected` | Staff (`cod.confirm_collection`) | **Cash physically collected.** Courier or delivery evidence recorded | Money fact: cash received |
-| `cod_approved` | `cod_failed` | Staff | Delivery failed or the parcel was refused | Reservation **stays `consumed`**; a `customer_return` is created (reason `refused_on_delivery` or `failed_delivery`) |
-| `cod_collected` | `cod_reconciled` | Staff (`finance.reconcile`) | The courier statement has been matched | Reconciliation is a separate event from collection |
-| `cod_failed` | `cod_reconciled` | Staff (`finance.reconcile`) | The failed or returned parcel is closed out | |
+| - | `cod_pending_approval` | System | Order created with `payment_method='cod'` | `payment_state='not_applicable'`; **not** in the verification queue; **no reservation is held (ADR 0013)** |
+| `cod_pending_approval` | `cod_approved` | **Owner (`cod.approve`)** | **The owner has called the customer and accepted the order** (ADR 0014 decision 2), with the reason/decision recorded | Order may be dispatched; no reservation expiry to clear |
+| `cod_pending_approval` | `not_applicable` | Owner (`order.cancel`) | Cancellation or rejection before approval, reason recorded | `order.status -> cancelled`; no reservation to release |
+| `cod_approved` | `cod_collected` | Owner (`cod.confirm_collection`) | **Cash physically collected.** Courier or delivery evidence recorded | Money fact: cash received |
+| `cod_approved` | `cod_failed` | Owner | Delivery failed or the parcel was refused | A `customer_return` is created (reason `refused_on_delivery` or `failed_delivery`); **no reservation state changes** |
+| `cod_collected` | `cod_reconciled` | Owner (`finance.reconcile`) | The courier statement has been matched | Reconciliation is a separate event from collection |
+| `cod_failed` | `cod_reconciled` | Owner (`finance.reconcile`) | The failed or returned parcel is closed out | |
 
 **Forbidden.** Any transition to `cod_collected` before actual collection - **not on approval, not
-on dispatch, and not on a delivery attempt**; `cod_approved` without a staff actor; any COD transition by a
+on dispatch, and not on a delivery attempt**; `cod_approved` without an owner actor; any COD transition by a
 customer; dispatch (`order.status -> shipped`) while `cod_state = 'cod_pending_approval'` (13.7: an
-unapproved COD order is never dispatched).
+unapproved COD order is never dispatched); **any automatic COD approval** (ADR 0014 decision 2);
+**routing a COD order through the prepaid verification queue**.
 
 **Three separate events, three separate timestamps.** Delivery completion lives on `order.status`
 (`delivered`), cash collection on `cod_state`, and reconciliation on `cod_state` plus
@@ -1466,7 +1514,7 @@ inspected_accepted | inspected_rejected -> closed`.
 | Transition | Actor | Guard and consequence |
 | --- | --- | --- |
 | `received` | Staff | **Physical receipt.** No stock effect |
-| `inspected_accepted` | Staff (`return.inspect`) | Writes a `return_restocked` movement, increases `on_hand` **and decreases `reserved`** (the unit leaves reservation and becomes sellable), links `restock_movement_id` |
+| `inspected_accepted` | Owner (`return.inspect`) | Writes a `return_restocked` movement, increases `on_hand` **and decreases `reserved`** (the unit leaves reservation and becomes sellable), links `restock_movement_id`. **Unused at launch (ADR 0013): no reservation exists, so this movement is not written; the goods are physically received and inspected, and availability is the owner's separate decision** |
 | `inspected_rejected` | Staff (`return.inspect`) | `inspection_note` required; writes a `return_written_off` movement; **no sellable stock** |
 | `closed` | Staff | Terminal |
 
@@ -1670,11 +1718,18 @@ answer. A retry after the claim was resolved is a **new claim row** (11.3), not 
 transaction has explicitly locked, so no decision depends on a snapshot that could be stale. A stricter
 level would add serialization failures without adding a guarantee this design needs.
 
-### 12.3 Order expiry (24 hours, no submitted claim)
+### 12.3 Order expiry (24 hours, no submitted claim) - **DEFERRED (ADR 0014)**
+
+> **Not built, and not a launch priority (owner, 2026-10-16).** **No scheduler, cron, job runner or
+expiry sweep is added.** The design below is retained so that if the owner later schedules expiry, the
+sweep is already specified - and so the one rule that binds now is unambiguous: **an order with a
+submitted payment claim is never expired or released by a timer.** Until expiry is scheduled, no code
+writes `payment_state='expired'` and nothing runs this query.
 
 **Timestamp semantics.** `order.placed_at` is set once by `now()` at creation and is **never** changed.
 `order.expires_at = placed_at + interval '24 hours'`, encoded as a `CHECK` (7.1), and set to `NULL` the
-moment a claim is submitted. `stock_reservation.expires_at` mirrors it and is cleared with it.
+moment a claim is submitted. `stock_reservation.expires_at` mirrors it and is cleared with it, **though
+no reservation exists at launch (ADR 0013)**.
 
 **Why an absolute timestamp and not a duration.** Storing `expires_at` means a policy change cannot
 retroactively expire or revive existing orders, and the customer-facing page can state the actual time
@@ -1705,7 +1760,9 @@ COMMIT;
 - **A submitted claim can never be expired.** The `NOT EXISTS` predicate is evaluated under the same
   lock as the release, and `expires_at` is `NULL` for any order with a claim, so such a row cannot even
   match the `WHERE`. This is the schema-level expression of D9 and invariant 4: **no automatic release
-  because a verification deadline passed.**
+  because a verification deadline passed.** **This predicate is mandatory for any future expiry writer**
+  (ADR 0014 Part 3.3), because Phase 15 sets `expires_at` on every prepaid order and a claim-less
+  `awaiting_payment` order would otherwise be the first thing a naive sweep expired.
 - **`FOR UPDATE SKIP LOCKED`** lets a second sweep run concurrently without blocking or double-processing.
 - **`LIMIT`** bounds the transaction, so one sweep cannot hold locks for an unbounded time.
 - **Idempotent.** A repeat finds `payment_state = 'expired'` (not `awaiting_payment`) and the guarded
@@ -1713,12 +1770,16 @@ COMMIT;
 - **No revival.** Nothing in this path sets a reservation back to `held`. Reviving an expired order is
   an explicit act that **re-checks stock** and, if stock is gone, tells the customer plainly (13.9.4).
 
-**Scheduling.** The sweep is a scheduled job. D16 (background jobs) is an open owner decision, so the
-**job mechanism is not chosen here**; the design only requires that the sweep is a bounded, repeatable,
-lock-safe statement. Until a scheduler exists, the same query is safe to run on demand from an admin
-action or a cron-triggered route - it is idempotent either way.
+**Scheduling - deferred (ADR 0014).** The sweep would be a scheduled job, and **D16 (background jobs)
+remains an open owner decision**. The owner has now decided expiry is **not a launch priority**, so the
+job mechanism is **not chosen and nothing is scheduled**. If expiry is ever scheduled, the sweep must
+remain a bounded, repeatable, lock-safe statement with the `NOT EXISTS` claim predicate above.
 
-### 12.4 Release, double release and preemption
+### 12.4 Release, double release and preemption - **unused at launch (ADR 0013)**
+
+> Every release below moves a `stock_reservation`. **No reservation is written at launch**, so this
+> section describes the deferred allocation-backstop design. The state-guard and uniqueness *patterns*
+> it demonstrates still apply to the claim and order transitions (ADR 0014 Part 3.2).
 
 **One release path.** Every release - expiry, support cancellation, preemption, confirmed false claim -
 uses the single guarded statement in 11.4. There is no second implementation, and no code path that
@@ -1746,8 +1807,9 @@ transferred, the refund path applies.
 | Operation | Protection |
 | --- | --- |
 | Create order | `idempotency_key` (scope `order_create`) + fingerprint comparison |
-| Submit claim | `idempotency_key` (scope `claim_submit`) + partial unique index per order + unit-level lock |
+| Submit claim | `idempotency_key` (scope `claim_submit`) + partial unique index `payment_claim_active_unique` per order + order-row lock. **No unit-level lock - no unit is allocated (ADR 0013)** |
 | Verify / reject / false-claim | State guard on `payment_claim.state = 'submitted'` + `order_event.event_key` uniqueness |
+| Hold for mismatch investigation | `operational_exception` partial unique `(type, subject_key) WHERE state IN ('open','acknowledged') - **no duplicate hold**; the claim state is unchanged |
 | Approve COD | State guard on `cod_state = 'cod_pending_approval'` |
 | Confirm COD collection | State guard on `cod_state = 'cod_approved'` |
 | Release reservation | State guard on `state = 'held'` + unique `movement_key` |
@@ -1766,8 +1828,8 @@ application code. Every one is a single conditional statement, so the database d
 
 ### 12.6 Deadlock and lock-ordering rules
 
-1. Multi-row locks are taken in ascending `variant_id` order (order creation, claim submission).
-2. An order row is locked before its reservations.
+1. Multi-row locks are taken in ascending `variant_id` order (a design rule for the reservation path; **not exercised at launch**, ADR 0013).
+2. An order row is locked before its reservations (design; **no reservations exist at launch**).
 3. No transaction waits on an external service while holding a lock. This is why no object-storage call
    happens inside a database transaction (section 14.3).
 4. The expiry sweep uses `SKIP LOCKED` so it never waits behind an interactive request.
@@ -1803,7 +1865,8 @@ record what the tables can express, not what is built.
 | --- | --- | --- | --- | --- | --- |
 | Browse catalog, categories, published products | yes | yes | yes | yes | yes |
 | Build and keep a cart | yes (local) | yes (local) | - | - | - |
-| Register, log in, recover account | yes | yes | - | - | - |
+| Register, log in | yes | yes | - | - | - |
+| Recover account (self-service) | **no** - not implemented (ADR 0012, ADR 0014 decision 9) | **no** - no delivery channel authorized | - | - | - |
 | Place an order | **no** (D12) | yes | no | no | no |
 | Read own order, timeline, notifications | - | yes | - | - | - |
 | Read **any** order | no | **no** | yes | yes | yes |
@@ -2226,9 +2289,9 @@ genuine late payment is never silently discarded.
 
 | # | Risk | Impact | Mitigation in this design | Residual |
 | --- | --- | --- | --- | --- |
-| R1 | A losing customer transfers before submitting and the unit is gone | The customer paid for nothing | Claim allocation happens **before** payment instructions are shown (12.2), narrowing the window to the manual-transfer gap that cannot be closed; the manual refund path (13.6) exists for it | **Accepted cost of the owner's priority rule**, recorded in 13.10.7. Not eliminable without abandoning payment priority |
+| R1 | A customer transfers for a product another claim secured first | The customer paid for nothing | Under ADR 0013 **no unit is allocated**, so no claim can be refused for lack of a unit and nothing is shown before a transfer on that basis; the manual refund path (13.6) is the resolution, and a duplicate reference is caught by the transaction-reference index | **Deferred with the per-unit allocation mechanics (ADR 0013/0014).** Payment priority orders the verification queue; overselling is accepted and managed operationally |
 | R2 | Over-selling under concurrency | Orders that cannot be fulfilled | `CHECK (reserved <= on_hand)`, guarded atomic update, row locks in fixed order, unit-level claim bound | **Accepted by the owner (ADR 0013):** availability is the only ordering gate and no reservation is written, so this backstop is **inert at launch** and overselling is managed operationally |
-| R3 | Double stock release under retry or a concurrent admin action | Stock inflated above physical reality | Single guarded release statement plus unique `movement_key` | None identified |
+| R3 | Double stock release under retry or a concurrent admin action | Stock inflated above physical reality | Single guarded release statement plus unique `movement_key` | **Unused at launch (ADR 0013): no reservation is released.** The pattern remains the model for the claim/order guards |
 | R4 | A delayed genuine payment silently lost | A paying customer is refused and refunded | Submitted claims never expire; exceptions queue; explicit admin resolution only | Requires the owner to actually work the queue - an **operational** risk, not a technical one |
 | R5 | A customer wrongly treated as fraudulent | Reputational and legal harm | `rejected` and `falsely_claimed` are separate states; the flag requires a staff actor and a reason, is reversible with an audit record, and **cannot be set automatically** | Depends on the operator's judgement, which no schema can replace |
 | R6 | Refund marked complete when no money moved | Financial misstatement | `CHECK` requires an actor and an evidence note for `completed`; refund state is separate from order, payment and stock | Evidence quality is a human judgement |
@@ -2270,11 +2333,12 @@ genuine late payment is never silently discarded.
 | ~~D13~~ | Staff authentication approach | **Settled (ADR 0009):** first-party email and password; Resend verification and Google sign-in deferred |
 | D14 | ORM / query layer (Prisma vs Drizzle) | Determines the migration tool, not the schema. Deferred to Phase 11 |
 | D15 | Single Next.js app vs split storefront/admin | The boundary diagram (PA section 2) is logical either way |
-| D16 | Background job mechanism | The expiry sweep (12.3) is written to be scheduler-agnostic |
+| D16 | Background job mechanism | The expiry sweep (12.3) is written to be scheduler-agnostic. **Expiry is deferred and not a launch priority (ADR 0014), so D16 does not block Phase 16** |
 | ~~D17~~ | **Customer authentication provider** (section 15.4) | **Settled (ADR 0012, 2026-10-15):** first-party customer sessions - email and password, scrypt, opaque hashed session tokens, httpOnly cookies with idle and absolute expiry, throttling, customer-scoped CSRF, **no self-service recovery**. **No longer blocks checkout** |
-| - | Shipping charges and zone structure | A single flat `store_setting` exists; the amount is unapproved |
-| - | Notification channels beyond the in-app order page (email/SMS provider) | The in-app baseline works; email verification and password reset need a provider |
-| - | Retention periods for payment claims and audit events | Proposed values are placeholders |
+| - | Shipping charges and zone structure | **Confirmed requirement (ADR 0014 decision 10).** A flat `store_setting` exists; **per-area charges need a new table (migration)**, and the amounts, the areas and the matching/fallback policy are unapproved owner inputs |
+| - | Notification channels beyond the in-app order page (email/SMS provider) | **Not required now (ADR 0014 decision 12).** The in-app baseline works; email verification and password reset need a provider that is not authorized |
+| - | Whether a mismatch hold is an open `payment_mismatch` exception (no migration) or a new `held` state (migration) | **Open owner choice (ADR 0014 Part 3.2)** |
+| - | Retention periods for payment claims and audit events | Proposed values are placeholders. **Do not invent a period (ADR 0014 decision 15)** |
 | - | Courier providers and COD cash-settlement terms | Affects reconciliation workflow, not the schema |
 | - | Image rights for the 22 existing photographs | **Blocks public launch of that imagery** |
 | - | Whether a custom image domain is wanted | Affects delivery config only |
@@ -2314,10 +2378,10 @@ verifiable, not about a running system.
 | A2 | All money is integer poisha, with no floating point and no stored derived discount | Met (C3, 5.3, 7.3) |
 | A3 | Eight separate state machines exist, with no single generic status field | Met (section 11) |
 | A4 | Payment submitted is distinguishable from payment verified, and rejected from falsely claimed | Met (11.2, 11.3, 8.2) |
-| A5 | Cancellation, refund completion, COD collection and stock release are independent transitions | Met (11.1-11.7) |
-| A6 | A concurrent claim cannot allocate the same unit twice | Met by design (12.2); **must be proven by test at implementation** |
+| A5 | Cancellation, refund completion, COD collection and stock release are independent transitions | Met (11.1-11.7); **stock release is unused at launch (ADR 0013)** |
+| A6 | A concurrent claim cannot allocate the same unit twice | **Superseded by ADR 0013.** No unit is allocated; the binding criterion is that **at most one active `submitted` claim exists per order**, enforced by `payment_claim_active_unique` and to be proven by test at implementation |
 | A7 | Refund status cannot trigger stock restoration | Met structurally (8.3: no inventory reference exists) |
-| A8 | A verification delay cannot cause expiry or release | Met (12.3 `NOT EXISTS` predicate under lock; `expires_at` is NULL once a claim exists) |
+| A8 | A verification delay cannot cause expiry or release | Binding (ADR 0014 decision 11). The mechanism at launch is structural: **no expiry writer exists**, and any future one must carry the 12.3 `NOT EXISTS` claim predicate |
 | A9 | Customer authorization is enforced server-side, never by hidden UI | Met (13.1) |
 | A10 | Preview environments cannot write to production storage **through documented configuration** | Met by documented configuration and a deployment check; the lineage-bound credential caveat is recorded, not hidden (14.5) |
 | A11 | No credential, bucket or database resource was created | Met - nothing was provisioned |

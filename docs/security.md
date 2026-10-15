@@ -275,11 +275,11 @@ Approved launch model (D7): **manual bKash**, **manual Nagad** and **Cash on Del
 | P13 | Unauthorized refund, or a refund displayed as complete when it is not | Refunds require an explicit permission, are possible only against a `verified` payment, and are recorded append-only with actor, timestamp, amount and reason. `refund_status` is a **separate field** with `requested` / `processing` / `completed` / `failed` - **a refund is never shown as completed because it was requested or approved** |
 | P19 | A customer wrongly labelled fraudulent | `rejected` (receipt not confirmed) and `falsely_claimed` (an admin **confirmed** a false claim) are **different states**. The customer review flag is **admin-set only**, never system-derived, never triggered by a delayed transaction or a mistyped reference, and always carries an audited reason and actor. An ordinary unpaid order never sets it |
 | P20 | COD dispatched without approval, or cash treated as collected when it was not | COD requires an explicit owner approval before dispatch; `cod_collected` and `cod_failed` are distinct states; cash is reconciled against courier settlement, not assumed |
-| P14 | Expiry releasing stock for an order the customer already paid for | Automatic release applies **only** to `awaiting_payment`. Orders in `awaiting_verification` are held until an administrative decision. Release is state-guarded so it cannot happen twice |
+| P14 | Expiry releasing stock for an order the customer already paid for | **The guarantee holds, but the mechanism is deferred.** No expiry job exists (**ADR 0014**), and under **ADR 0013** no reservation is written, so nothing can be released. Any future expiry writer must apply **only** to `awaiting_payment` with **no submitted claim** and be state-guarded so it cannot happen twice |
 
 ### Separation of concerns
 
-Order status and payment status are **distinct enums**. Conflating them causes orders to appear paid when they are not, or fulfilled when payment was rejected. The storefront may reach `awaiting_verification`; only an administrative action reaches `verified`, `rejected` or `falsely_claimed`. **Refund state is not part of the payment enum at all** - it is a separate `refund_status` field (`none` / `requested` / `processing` / `completed` / `failed`), and a payment is never described as refunded because a refund was requested. See `docs/data-model.md` section 11.5.
+Order status, prepaid payment state and COD state are **distinct columns** (`order.status`, `order.payment_state`, `order.cod_state`). Conflating them causes orders to appear paid when they are not, or fulfilled when payment was rejected. The storefront may reach `awaiting_verification` by **submitting a claim**; only an owner action reaches `verified`, `rejected`, `falsely_claimed` or a COD approval state. **Refund state is not part of the payment enum at all** - it is a separate `refund` table with `refund.state` (`requested` / `processing` / `completed` / `failed`), and a payment is never described as refunded because a refund was requested. See `docs/data-model.md` section 11.5.
 
 ### Storage and lookup controls
 
@@ -707,27 +707,28 @@ below is implemented**, and none has been tested. Residual risks are stated rath
 - **Scenario.** A real payment cannot be verified within the 24-hour maximum, or a customer disputes a
   decision.
 - **Impact.** A paying customer loses their order or their money.
-- **Control.** A submitted claim **never expires automatically** and **never releases its reservation by
-  timer**. Past the maximum it enters the `verification_overdue` exceptions queue with the hold intact,
-  and only an explicit administrative decision resolves it. Refunds are recorded as `completed` only when
-  the real-world action is confirmed.
+- **Control.** A submitted claim **never expires automatically** and is **never touched by a timer**.
+  Past the maximum it enters the `verification_overdue` exceptions queue and only an explicit
+  administrative decision resolves it. **No reservation exists to hold or release (ADR 0013), and no
+  expiry worker is built (ADR 0014 decision 11).** Refunds are recorded as `completed` only when the
+  real-world action is confirmed.
 - **Detection.** The exceptions queue itself; `verification_overdue` and `refund_stalled` alerts.
-- **Verification.** A test that an order with a submitted claim is untouched by the expiry sweep after
-  24 hours; a test that the sweep expires only orders with no claim.
+- **Verification.** A test that an order with a submitted claim is untouched by any expiry writer; and,
+  if expiry is ever scheduled, a test that the sweep expires only orders with no claim.
 - **Residual.** Requires a person to work the queue. This is an **operational** risk that no schema can
   remove.
 
 
 
 - [ ] Owner-approved infrastructure and stack decisions (`docs/platform-architecture.md` section 11). D1, D2, D3, D7, D8, **D9**, **D11** and D12 are approved; **no decision blocks Phase 10**.
-- [ ] **D9 rules implemented:** 24-hour unpaid-order expiry that never releases stock held by a submitted claim; cancellation after the window as a pre-dispatch support decision or a post-dispatch return; and the COD lifecycle with return-to-store and separate delivery, cash-collection and reconciliation states. (The 24-hour verification maximum, exceptions handling, fake-order rule, manual refund states, COD approval and state separation are approved.)
-- [ ] **D11 approved and implemented:** the **first submitted payment claim wins**, a later claim preempts an earlier **unsubmitted** hold, and **at most one active submitted claim exists per unit**. Reservation expiry, release and stock restoration must be consistent with D9.
-- [ ] **Approved D9 rules implemented:** exceptions queue, `falsely_claimed` with an audited reason and a separate customer flag, separate `refund_status`, the COD approval queue, and no automatic release of stock for any order whose customer submitted a payment claim.
+- [ ] **D9 rules implemented:** cancellation after the window as a pre-dispatch support decision or a post-dispatch return; and the COD lifecycle with return-to-store and separate delivery, cash-collection and reconciliation states. **The 24-hour unpaid-order expiry is deferred (ADR 0014) and is not a launch priority**; the binding part is that **a submitted claim never expires and is never released by a timer**.
+- [ ] **D11 approved; superseded in effect for launch by ADR 0013.** The **first submitted payment claim** orders the verification queue, and **at most one active submitted claim exists per order** (the implemented `payment_claim_active_unique`). The per-unit preemption and reservation-expiry clauses have **no launch implementation** because no unit is reserved and overselling is accepted.
+- [ ] **Approved D9 rules implemented:** exceptions queue, `falsely_claimed` with an audited reason and a separate customer flag, separate `refund.state`, the COD approval queue, and no automatic release of anything for an order whose customer submitted a payment claim.
 - [x] Customer authentication implemented and verified against **ADR 0012** (Phase 15): **scrypt** hashing at rest, opaque session tokens stored only as a SHA-256 digest, httpOnly/`SameSite=Lax`/site-scoped cookie flags, a fresh session minted at sign-in, account- and source-keyed throttling, customer-scoped CSRF (no-CSRF order submission refused), object-level authorization (another customer's order returns **404**), and cart preservation across the sign-in step (D12). **No self-service recovery endpoint exists** - asserted by the absence of any route, not by a policy statement.
 - [ ] **Gap, recorded:** there is no owner-facing control that bans a customer. `suspendCustomer` (status `suspended`, every live session revoked, audited staff record) and its enforcement in `createOrder` and `resolveCustomerSession` are implemented and tested, but the administrative screen that would call it is not built.
 - [ ] Customer authentication **decision** settled (2026-10-15): **D17 first-party customer sessions**, recorded in **ADR 0012**, with **no external provider and no self-service recovery**.
-- [ ] Manual payment verification controls P1-P18 implemented and verified, including duplicate-reference detection, reconciliation and COD cash reconciliation.
-- [ ] Owner-confirmed courier arrangement and delivery charges, including COD cash settlement.
+- [ ] Manual payment verification controls P1-P18 implemented and verified, including duplicate-reference detection, reconciliation and COD cash reconciliation. **Decision record: ADR 0014.**
+- [ ] Owner-confirmed courier arrangement and delivery charges, including COD cash settlement. **Delivery charges are a confirmed requirement with no area representation yet (ADR 0014 decision 10):** the amounts, areas and matching policy are outstanding owner inputs, and per-area charges need a migration. **No courier API is authorized** (D6 open).
 - [ ] API route inventory and explicit authentication/authorization decisions.
 - [ ] Trusted price, discount, shipping, stock and order validation proved.
 - [ ] Account access controls, secure sessions and CSRF/CORS defenses verified. (No guest checkout exists, so no anonymous order surface should remain.)

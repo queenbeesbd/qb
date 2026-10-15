@@ -33,8 +33,11 @@ specified in `docs/data-model.md`; this file covers the mechanics around it.
 **Not built in Phase 11, deliberately:** any query or repository layer for storefront features,
 authentication, checkout, order creation, payment handling, admin surfaces, background jobs, and any
 deployment. Later phases add the administrative surfaces and the storefront catalog read path
-(sections 1 and 9); the commerce loop - orders, payments, checkout, customer accounts - is still absent.
-Phase 11 is the foundation, not commerce behaviour.
+(sections 1 and 9). **Phases 12-15 have since added owner authentication, catalog management, the
+database-backed storefront catalog read path, customer authentication and atomic order creation**; the
+remaining commerce loop - prepaid payment instructions and verification, delivery charges, and the
+post-dispatch lifecycle - is still absent, and **the 24-hour expiry sweep is deferred (ADR 0014) and is
+not a launch priority.** Phase 11 is the foundation, not commerce behaviour.
 
 ---
 
@@ -52,7 +55,7 @@ Pinned exactly: `drizzle-orm` 0.45.4, `drizzle-kit` 0.31.11. No release candidat
 | Context | Driver | Why |
 | --- | --- | --- |
 | Local development, tests, migrations | `pg` (node-postgres) | Works against a local cluster and Neon's pooled TCP endpoint |
-| Deployed runtime | `@neondatabase/serverless` `Pool` over WebSockets | The D11 claim-allocation transaction is **interactive**; Neon's HTTP driver is explicitly non-interactive only |
+| Deployed runtime | `@neondatabase/serverless` `Pool` over WebSockets | The claim-submission and order-lifecycle transactions are **interactive**; Neon's HTTP driver is explicitly non-interactive only. (The originally cited D11 *allocation* transaction is unused at launch - ADR 0013 - but the requirement is unchanged.) |
 
 The driver is chosen in exactly one place (`src/db/client.ts`, via `src/server/env.ts`), so no calling
 code depends on which one is in use. `DATABASE_DRIVER` can override the inference.
@@ -291,13 +294,16 @@ records `rights_status: pending_confirmation`; and `product_image_derivative` is
 - **Nothing is deployed.** No Neon project, branch, database or bucket exists for this product. No
   credential has been created. Cloud behaviour - cold start, pooler semantics, branch isolation,
   backup/restore, latency from Singapore to Bangladesh - is **unverified**.
-- **The commerce loop does not exist.** The storefront reads the database catalog, but there is no
-  order, payment, checkout or customer account, and **no inventory movement, deduction or reservation is
-  written**, so overselling is not prevented.
+- **The commerce loop is only partly built.** Phases 12-15 added owner authentication and catalog
+  management, the database-backed storefront catalog, customer accounts and atomic order creation
+  (all **local, undeployed**). There is still **no prepaid payment instructions/verification, no
+delivery charge and no post-dispatch lifecycle**. **No inventory movement, deduction or reservation is
+  written** and **overselling is accepted** rather than prevented (ADR 0013).
 - **RLS, CSP, rate limiting and monitoring do not exist.** Phase 10 designed controls; Phase 11 built
   the schema and access foundation, not those controls.
 - **The concurrency tests exercise the schema and the guarded statements, not the full commerce
-  workflow.** Order creation, claim submission and the expiry sweep as complete operations belong to
-  later phases. What is proven here is that the constraints and guards they depend on actually work.
+  workflow.** Claim submission and the remaining lifecycle operations belong to later phases, and **the
+  expiry sweep is deferred (ADR 0014)**. What is proven here is that the constraints and guards they
+  depend on actually work. Order creation is now covered by the Phase 15 database tests.
 - **`queenbees_app` does not exist anywhere yet**, so the grant posture has never been exercised
   against a role that is not the owner.

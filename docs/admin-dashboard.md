@@ -6,7 +6,12 @@
 > configuration. "Merchant" appears in this document only where it refers to the **payment
 > counterparty** - the store's own bKash/Nagad account that an administrator reconciles against.
 
-Status: proposal, 2026-10-11. Direction approved in `docs/decisions/0004-independent-platform-direction.md`; architecture in `docs/platform-architecture.md`. Nothing here is built.
+Status: proposal, 2026-10-11; **reconciled 2026-10-16 against ADRs 0013 and 0014**. Direction approved in `docs/decisions/0004-independent-platform-direction.md`; architecture in `docs/platform-architecture.md`. The owner/admin authentication, catalog and availability screens are **implemented (Phases 12-13, local only)**; the order, payment, shipping and analytics modules below are **not built**.
+
+> **Reconciliation note (2026-10-16).** Three premises here are superseded:
+> 1. **No reservation and no stock release.** Under **ADR 0013** availability is the only ordering gate and no reservation is written, so any text below about a held reservation, releasing stock through the ledger, or low-stock alerts describes **unused design**.
+> 2. **Expiry is deferred.** Under **ADR 0014** the 24-hour expiry is **not a launch priority** and no scheduler is added; the binding rule is that **a submitted claim never expires**. The expiry list described below is deferred with it.
+> 3. **Delivery areas and charges need a migration and owner inputs.** A flat `store_setting` exists; **per-area charges do not**, and the amounts, areas and matching policy are unapproved owner inputs. The stack question in the "still needed" list is settled (D14/D18, ADR 0007).
 
 The Zatiq Easy dashboard was audited in Phase 7 (`docs/backend-capability-audit.md`) and is used here as a **reference for familiar merchant workflows and information hierarchy only**. Its branding, proprietary assets, vendor navigation and full feature set are explicitly not copied.
 
@@ -36,7 +41,7 @@ These are required for the store to trade. Without them, orders cannot be fulfil
 | **Orders** | List with filters; itemized detail with frozen line prices; status transitions with history; payment status; shipping details; cancellation |
 | **Payments** | Manual MFS verification queue; verify/reject actions; duplicate-reference flags; audit trail (see below) |
 | **Customers** | Profile with order history; minimal personal data; **ban after a confirmed fake order (D20, approved in ADR 0009)**, which revokes the account's sessions and refuses new orders and checkout. The review flag is a separate, non-blocking finding and is never presented as a ban |
-| **Shipping** | Delivery areas and charges; consignment reference and delivery status |
+| **Shipping** | Delivery areas and charges; consignment reference and delivery status. **Per-area charges are a confirmed requirement with no representation yet (ADR 0014 decision 10):** the amounts and areas are owner inputs, and a new table plus a matching/fallback policy is the minimum migration. Consignment recording stays manual (no courier API, D6 open) |
 | **Store settings** | Store identity and contact; supported languages; announcement bar content; delivery and payment policy text |
 | **Access and audit** | **Owner login by email and password (D22, approved in ADR 0009).** **Owner role only at launch (D10):** multiple owners are permitted and each has full access, but there are no staff or support roles and **no permission-management system in the launch surface**. Audit log for sensitive changes **including refused actions**, kept distinguishable from customer/business activity records (D23). Secure session handling. **Implemented in Phase 13 as a minimal owner-account screen**: create an owner (the role is **forced**, never chosen), issue a single-use credential token, enable or disable an account, with the last-active-owner guard enforced under a row lock. **The Phase 12 staff and role screen, its navigation entry and its four API routes were removed**; the retired paths return 404, which `npm run verify:admin` asserts |
 
@@ -49,7 +54,7 @@ Needed shortly after trading starts, but not on day one.
 | **Dashboard home** | Revenue and order summary, recent orders, low-stock alerts, actionable tasks |
 | **Analytics** | The charts in the next section |
 | **Promotions** | Discount codes with validity windows, eligibility and usage limits; featured and collection curation |
-| **Order expiry** | Automatic expiry of an unpaid order **24 hours after placement**, applying only to orders with no submitted claim, with stock release and customer notification (policy in `docs/payment-workflow.md` section 13.9) |
+| **Order expiry** | **Deferred - not a launch priority (ADR 0014 decision 11).** A 24-hour automatic expiry of an unpaid order, applying only to orders with no submitted claim, with customer notification. **No scheduler or expiry job is added now**, and there is no stock to release (ADR 0013); a submitted claim never expires |
 | **Refunds** | Manual refund workflow with separate `requested`/`processing`/`completed`/`failed` states, updated only when the real-world action is confirmed (policy in `docs/payment-workflow.md` section 13.6) |
 
 ### Later
@@ -80,12 +85,12 @@ This module is **launch-critical**: without it, no order can be confirmed and no
 - **Duplicate-reference flag:** if the same reference appears against more than one order, all affected rows are marked before any decision. This is the control that stops one transfer being counted twice.
 - **Amount mismatch:** a claimed amount that differs from the order total is surfaced prominently and requires explicit acknowledgement. The order total is authoritative; the claimed amount is recorded, never trusted.
 - The queue exposes no customer data beyond what the verification task requires.
-- **Exceptions queue (`verification overdue`):** an order still awaiting verification past the **approved 24-hour maximum** is flagged and sorted above newer submissions. It is **never expired automatically**, and its **stock reservation stays held**, because a genuine payment may exist. The owner must resolve it explicitly - verify, reject, mark falsely claimed, or escalate to support.
-- **Expiry is a separate, visible list:** orders in `awaiting_payment` approaching their **24-hour** expiry window are shown so staff can see what is about to lapse. Expiry applies **only** to orders where the customer never claimed payment; an order awaiting verification is never expired by a timer.
+- **Exceptions queue (`verification overdue`):** an order still awaiting verification past the **24-hour internal maximum** is flagged and sorted above newer submissions. It is **never expired automatically** - no timer touches a submitted claim (ADR 0014). No stock reservation is held (ADR 0013). The owner must resolve it explicitly - verify, hold, reject, mark falsely claimed, or escalate to support.
+- **Expiry is deferred (ADR 0014 decision 11):** the "about to lapse" list is **not built**, because no expiry writer or scheduler exists. If expiry is ever scheduled, it applies only to orders where the customer never claimed payment, and the list becomes relevant.
 
 ### Actions
 
-Three actions - **verify**, **reject**, and **mark falsely claimed** - all server-side authorized per request and all idempotent, so a double click or a retry cannot produce a second decision.
+Actions - **verify**, **hold**, **reject**, and **mark falsely claimed** - all server-side authorized per request and all idempotent, so a double click or a retry cannot produce a second decision. **Hold (ADR 0014 decision 6):** an amount mismatch or unclear evidence lets the owner hold the order for manual investigation; a mismatch never auto-approves or auto-rejects.
 
 **`rejected` and `falsely_claimed` are different facts.** `rejected` means receipt could not be confirmed, which includes a delayed transaction or a mistyped reference - it is **not an accusation**. `falsely_claimed` means an admin **confirmed** the claim was false. Only the latter may flag the customer account for review, and it is **never set automatically**.
 
@@ -94,7 +99,7 @@ Each decision records, append-only:
 | Field | Notes |
 | --- | --- |
 | Order reference | The subject |
-| Decision | `verified`, `rejected` or `falsely_claimed` |
+| Decision | `verified`, `held`, `rejected` or `falsely_claimed` |
 | Actor | Authenticated staff identity - never free text |
 | Timestamp | Server time, not client-supplied |
 | Reason | Required on rejection and on a false-claim finding |
@@ -105,7 +110,7 @@ Each decision records, append-only:
 ### Authorization and audit requirements
 
 - Verifying a payment is a **permissioned action**, checked server-side on every request. Hiding the button is not access control.
-- The storefront has **no writable path** to `verified`, `rejected`, `falsely_claimed`, any COD approval state, or `refund_status`.
+- The storefront has **no writable path** to `verified`, `rejected`, `falsely_claimed`, any COD approval state, or `refund.state`.
 - The audit log records the **decision**, not the customer's financial details. The transaction reference lives on the payment record where it is operationally needed and is not duplicated into general application logs.
 - Screenshots are **not collected** (D8: not required, not requested, not stored). If that decision is ever reversed, they are stored privately, access-controlled, validated server-side and deleted on a defined schedule.
 - Periodic reconciliation compares verified payments against the merchant statement and flags discrepancies.
@@ -128,17 +133,17 @@ Automated gateways, webhooks, automatic payment confirmation, automated refunds,
 
 Policy: `docs/payment-workflow.md` section 13. Approved rules:
 
-- **Expiry is automatic and system-driven**, and applies **only** to orders in `awaiting_payment` - orders where the customer never claimed payment. Orders awaiting verification are **never** expired by a timer. **The duration is 24 hours from placement.** An expired order may be reactivated only after re-checking stock, and an expired reservation is never silently revived.
-- **Cancellation** is requested **through support with the order ID**. Every cancellation records actor, timestamp and reason and releases stock through the ledger, and there is **no customer self-service cancellation**. **Before dispatch**, support may approve a cancellation at any time; **after dispatch** the request is handled as a **delivery cancellation / return**, following the documented delivery and return process.
-- **Refunds** are manual through support. `refund_status` is a **separate field** with `requested`, `processing`, `completed` and `failed` states, recorded append-only with actor, timestamp, amount and reason. **The dashboard must never show a refund as completed merely because it was requested or approved.**
-- **Stock and refunds are separate facts, and a refund never restores stock by itself.** Two different mechanisms apply: (a) a **pre-dispatch cancellation** releases a reservation for goods that never left the store, so the unit returns to sellable immediately; (b) a **return**, or a returned or refused COD parcel, restores stock **only after the goods are physically received and inspected** (13.10.10). A refund record has no link to inventory at all, so completing a refund cannot make stock sellable. The dashboard must never claim sellable stock that is not in hand.
+- **Expiry is deferred (ADR 0014 decision 11).** The design was automatic and system-driven, applying **only** to orders in `awaiting_payment` where the customer never claimed payment, at **24 hours from placement**. Orders awaiting verification are **never** expired by a timer - that rule binds now. **No expiry job or scheduler is added**, and under ADR 0013 there is no reservation to revive; reactivation would re-check current availability.
+- **Cancellation** is requested **through support with the order ID**. Every cancellation records actor, timestamp and reason. **No stock ledger entry is written (ADR 0013).** There is **no customer self-service cancellation**. **Before dispatch**, support may approve a cancellation at any time; **after dispatch** the request is handled as a **delivery cancellation / return**, following the documented delivery and return process.
+- **Refunds** are manual through support. Refund state lives in the separate **`refund` table** (`refund.state`) with `requested`, `processing`, `completed` and `failed` values, recorded append-only with actor, timestamp, amount and reason. **The dashboard must never show a refund as completed merely because it was requested or approved.**
+- **Stock and refunds are separate facts, and a refund never restores stock by itself.** A refund record has no link to inventory at all, so completing a refund cannot make stock sellable. A **return**, or a returned or refused COD parcel, makes goods sellable again **only after they are physically received and inspected** (13.10.10). **At launch there is no reservation to release on a pre-dispatch cancellation (ADR 0013)**, and the dashboard must never claim sellable stock that is not in hand.
 - Expiring or cancelling an order shows the customer the consequence, so a lapsed order never looks like a lost one.
 
 ### Owner decisions
 
 **Answered by the owner:** payment methods, required customer fields, the verification maximum, the fake-order rule, cancellation through support, manual refunds, COD approval before dispatch, the **24-hour unpaid-order expiry**, **cancellation after the window**, the **COD lifecycle**, the **D11 allocation rule and bound**, and - added 2026-10-12 in ADR 0009 - **availability as an owner-controlled In Stock / Out of Stock state (D19)**, the **customer ban after a confirmed fake order (D20)**, **owner-only administration with no staff roles or permission-management system at launch (D10)**, **owner authentication by email and password (D22)**, and **separation of customer/business activity records from internal security records (D23)**.
 
-**Still needed:** recipient accounts, courier providers and COD cash-settlement terms, notification channels, and the reconciliation cadence - see `docs/payment-workflow.md` section 13.9.3. **Plus one question that gates order creation:** whether availability is a bare owner toggle or sits over the approved quantity ledger (ADR 0009 section 1). *(Which roles may verify and record refunds was D10 and is settled: owner-only, ADR 0009.)*
+**Still needed (ADR 0014 Part 5):** bKash and Nagad recipient numbers and labels; real delivery prices and supported areas; the area matching/fallback policy; what counts as sufficient evidence of receipt and the reconciliation cadence; and the COD details beyond the confirmed phone-call flow. **Deferred and no longer gating:** the expiry timer and external notification channels (ADR 0014 decisions 11 and 12). The availability-versus-quantity question is **settled** (ADR 0013: availability is the only gate). *(Which roles may verify and record refunds was D10 and is settled: owner-only, ADR 0009.)*
 
 ## Analytics design direction
 

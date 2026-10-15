@@ -2,7 +2,7 @@
 
 **Product model: a single store, owner-operated (ADR 0008).** QueenBee's serves one store for one owner. It is not a marketplace, a multi-vendor platform or a hosted store platform, so there is no merchant onboarding, seller dashboard, commission, payout or tenant isolation anywhere in this architecture.
 
-Status: 2026-10-15. Direction approved in `docs/decisions/0004-independent-platform-direction.md`; **D1, D2, D3, D7, D8, D9, D11 and D12 are owner-approved** (ADRs 0005 and 0006, and section 11), **D14 and D18 (the ORM/query layer and the database driver) are approved in ADR 0007**, **D10, D13 and D19-D23 are approved in ADR 0009**, and **D17 (customer authentication) is approved in ADR 0012** with **D19's ordering gate settled in ADR 0013**. The remaining entries (D4, D5, D6, D15, D16) are deferred with stated reasons. **Phase 10 designed the full relational schema, state machines and security architecture in `docs/data-model.md`**; no deferred entry blocks that design, and **no decision now blocks implementation of checkout**. This supersedes the "backend integration boundary" section previously in `docs/architecture.md`.
+Status: 2026-10-15. Direction approved in `docs/decisions/0004-independent-platform-direction.md`; **D1, D2, D3, D7, D8, D9, D11 and D12 are owner-approved** (ADRs 0005 and 0006, and section 11), **D14 and D18 (the ORM/query layer and the database driver) are approved in ADR 0007**, **D10, D13 and D19-D23 are approved in ADR 0009**, and **D17 (customer authentication) is approved in ADR 0012** with **D19's ordering gate settled in ADR 0013**. The Phase 16 checkout, payment-verification, delivery-charge, expiry and notification decisions are recorded in **ADR 0014**. The remaining entries (D4, D5, D6, D15, D16) are deferred with stated reasons - **and the 24-hour expiry is now deferred, so D16 does not block Phase 16.** **Phase 10 designed the full relational schema, state machines and security architecture in `docs/data-model.md`**; no deferred entry blocks that design, and **no decision now blocks implementation of checkout**. This supersedes the "backend integration boundary" section previously in `docs/architecture.md`.
 
 > **Product model (ADR 0008).** This architecture serves **one store** for **one owner**. It is not a
 > multi-vendor marketplace or a hosted store platform: there is no merchant onboarding, no seller
@@ -37,7 +37,7 @@ Requirements that actually drive the choice: server-side rendering of catalog an
 
 **APPROVED (owner, 2026-10-11): Vercel.** Initial plan **Hobby (free)**; upgrade to **Pro (~$20/month)** when required. Recorded in `docs/decisions/0005-neon-postgresql-and-vercel-hosting.md`.
 
-The worker is deferred until a real job exists. The first background need (payment reconciliation, later webhooks) is a scheduled task, which a serverless cron can run without a long-lived process.
+The worker is deferred until a real job exists, and **no background job is introduced now (ADR 0014 decision 11)**. Payment reconciliation is **manual and owner-driven** at launch, not a scheduled task; if a real background need appears (later webhooks), it can run as a scheduled task without a long-lived process.
 
 **Verified pricing (2026-10-11):** Vercel Hobby is $0/mo; Pro is $20/mo and includes $20 of usage credit, 1M function invocations/month, 100 GB bandwidth/month, and 1 GB of storage with overage at $0.023/GB.
 
@@ -140,7 +140,7 @@ Presented to show shape, not to fix a schema.
 | `order_status_event` | Append-only lifecycle history for audit |
 | `customer` | Minimal personal data, order linkage |
 | `promotion` | Code, rules, validity window, eligibility, usage limits |
-| `shipping_zone` / `shipping_rate` | Delivery areas and charges |
+| `shipping_zone` / `shipping_rate` | **Not created (ADR 0014 decision 10).** Delivery areas and charges are a confirmed requirement, but the table does not exist: per-area charges are a **required future migration** (one row per area plus a settings default) and the amounts, areas and matching policy are unapproved owner inputs. The flat `store_setting` row is the only current representation |
 | `admin_user` / `role` / `audit_log` | Administrative access and change history |
 | `curation` | Featured shelf and homepage collection membership, as ordered id lists |
 
@@ -216,9 +216,9 @@ Priority is therefore decided by the **order of payment-claim submission**, not 
 
 **Accepted consequence:** an order may be accepted for a unit already held by an unsubmitted order, so a losing customer who had already transferred money must be **refunded manually through support**. The storefront should claim the unit **at submission, before showing payment instructions**, to narrow that window.
 
-**Bound decided (owner, 2026-10-11):** **at most one active submitted payment claim per unit.** Once a unit carries a submitted claim, no further claim is accepted for it, so at most one live claim exists per unit. Full analysis in `docs/payment-workflow.md` section 13.10.7.
+**Bound decided (owner, 2026-10-11):** **at most one active submitted payment claim per unit.** Once a unit carries a submitted claim, no further claim is accepted for it. **Re-scoped for launch by ADR 0013/ADR 0014:** no unit is reserved or allocated and overselling is accepted, so the implemented bound is **per order** and it governs the verification queue. Full analysis in `docs/payment-workflow.md` section 13.10.7.
 
-**D9 stock policies (approved):** a **24-hour expiry** that applies **only** to orders with no submitted claim, and COD failed-delivery/return handling that restores stock only after physical inspection. See `docs/payment-workflow.md` section 13.9.
+**D9 stock policies (approved; expiry deferred by ADR 0014):** a **24-hour expiry** that applies **only** to orders with no submitted claim - **not scheduled, and not a launch priority (ADR 0014 decision 11)** - and COD failed-delivery/return handling that makes goods sellable again only after physical inspection. See `docs/payment-workflow.md` section 13.9.
 
 ### Order creation
 
@@ -237,16 +237,16 @@ Priority is therefore decided by the **order of payment-claim submission**, not 
 
 **Approved (D9) - fake orders.** A payment is marked `verified` or `rejected`. **`rejected` is not an accusation** - a delayed transaction or a mistyped reference is not evidence of fraud. Only where an admin **confirms** the claim was false may the order be marked `falsely_claimed` and the customer account flagged for review, with an audited reason and actor. **An ordinary unpaid order is not a fraud signal.**
 
-**Approved (D9) - cancellation and refunds.** Cancellation is requested **through support with the order ID** within 24 hours of placement; the customer never cancels or refunds self-service. Refunds are **manual through support**, and `refund_status` (`requested` / `processing` / `completed` / `failed`) is **separate from `payment_status`** - a dashboard must never report a refund as completed merely because it was requested or approved.
+**Approved (D9) - cancellation and refunds.** Cancellation is requested **through support with the order ID** within 24 hours of placement; the customer never cancels or refunds self-service. Refunds are **manual through support**, and `refund.state` (`requested` / `processing` / `completed` / `failed`) in its own `refund` table is **separate from `order.payment_state`** - a dashboard must never report a refund as completed merely because it was requested or approved.
 
 **Approved (D9) - COD.** Every **COD order is manually approved by the owner before dispatch**, and COD has **no** sender-number, transaction-reference or verification requirement.
 
-**Approved (D9) - expiry, cancellation and the COD lifecycle.** An order with no submitted claim **expires 24 hours after placement**; an order awaiting verification never expires automatically. Cancellation after the window is a **pre-dispatch support decision** or, once dispatched, a **delivery cancellation / return case**. COD follows the same shape: owner approval before dispatch, support cancellation before dispatch, the return workflow after, return-to-store on failure, and **separate delivery-completion, cash-collection and reconciliation states**. Full text: `docs/payment-workflow.md` section 13.9.
+**Approved (D9) - expiry, cancellation and the COD lifecycle; expiry amended by ADR 0014.** An order with no submitted claim **expires 24 hours after placement** - **deferred, not a launch priority: no scheduler or expiry job is added now.** An order awaiting verification never expires automatically. Cancellation after the window is a **pre-dispatch support decision** or, once dispatched, a **delivery cancellation / return case**. COD follows the same shape: owner approval before dispatch, support cancellation before dispatch, the return workflow after, return-to-store on failure, and **separate delivery-completion, cash-collection and reconciliation states**. Full text: `docs/payment-workflow.md` section 13.9.
 
 The full design - status enums, customer workflow, admin verification queue, audit requirements, retention and threat model - is in **`docs/payment-workflow.md`**. Summary of the architecture here:
 
-- **Order status and payment status are separate enums.** Fulfilment position and money position are different facts and must not be conflated.
-- `payment_status` moves `awaiting_payment` → `awaiting_verification` → `verified` | `rejected` | `falsely_claimed`, with `expired` for an unpaid order that lapsed. **Refund state is not part of this enum** - it is the separate `refund_status` field (`none`/`requested`/`processing`/`completed`/`failed`), and a payment is never described as refunded because a refund was requested.
+- **Order status and payment state are separate columns.** Fulfilment position and money position are different facts and must not be conflated.
+- `order.payment_state` moves `awaiting_payment` → `awaiting_verification` → `verified` | `rejected` | `falsely_claimed`, with `expired` for an unpaid order that lapsed (**deferred, ADR 0014**). **Refund state is not part of this enum** - it is the separate `refund` table with `refund.state` (`requested`/`processing`/`completed`/`failed`), and a payment is never described as refunded because a refund was requested.
 - COD is modelled in its own `cod_state` field rather than inside the payment enum, so approval, collection, delivery and reconciliation stay distinct (see `docs/data-model.md` section 11.6). The approved COD state names are unchanged.
 - The storefront can reach `awaiting_verification` at most. **`verified`, `rejected` and `falsely_claimed` are administrative actions only**, authorized server-side per request.
 - **A customer-submitted transaction id, screenshot, sender number or confirmation message is never proof of payment.** Verification means an authorized person independently confirming receipt through the merchant account.
@@ -274,7 +274,7 @@ Explicitly **not** implemented, provisioned or onboarded at launch: SSLCommerz, 
 
 | Concern | Approach |
 | --- | --- |
-| Delivery areas and charges | Configurable zones and rates owned by the store owner, not hardcoded |
+| Delivery areas and charges | **Confirmed requirement, not yet representable (ADR 0014 decision 10).** Zones and rates are owned by the store owner and never hardcoded, but **no area/rate table exists yet**: per-area charges need a migration, and the amounts, areas and matching policy are unapproved owner values |
 | Courier integration | Pathao, Steadfast, RedX, Paperfly and similar are candidates; each needs credentials, a sandbox if available, and a documented contract |
 | Tracking | Store courier consignment id and status; surface delivery status to the customer |
 | COD | Modelled as a payment method with its own reconciliation and remittance tracking |
@@ -286,7 +286,7 @@ Explicitly **not** implemented, provisioned or onboarded at launch: SSLCommerz, 
 
 | Concern | Launch approach | Later |
 | --- | --- | --- |
-| Delivery areas and charges | Owner-configured zones and rates stored as settings, never hardcoded | Unchanged |
+| Delivery areas and charges | Owner-configured zones and rates stored as settings, never hardcoded. **Unchanged in principle, but not built:** the flat `store_setting` holds one default at most, per-area charges need a new table, and the values/matching policy are outstanding owner inputs (ADR 0014) |
 | Dispatch | Manual; admin records courier name and consignment id | Optional API booking |
 | Tracking | Consignment id stored and shown to the customer; status updated manually | Optional automatic status sync |
 | COD | Modelled as a payment method with its own reconciliation | Unchanged |
@@ -404,7 +404,7 @@ Design detail, chart inventory and the questions each chart answers are in `docs
 
 | Concern | Approach |
 | --- | --- |
-| Background jobs | Start with a database-backed job table and a worker process. Add a hosted queue only if volume justifies it. |
+| Background jobs | **Deferred (ADR 0014 decision 11).** The design was a database-backed job table plus a worker process; **no scheduler, job runner or expiry infrastructure is added now**, because the 24-hour expiry is not a launch priority. Add a hosted queue only if volume justifies it. |
 | Webhook handling | A single verified, idempotent endpoint per provider; processing recorded so retries are safe |
 | Backups | Automated provider backups plus a **tested restore**. An untested backup is not a backup. |
 | Observability | Structured logs with request ids, error tracking, and alerts on order/payment failures - not on vanity metrics |
@@ -424,16 +424,16 @@ Phase 9 has converted the proposals into owner decisions. **D1, D2, D3, D7, D8, 
 | D6 | Courier integration | **Manual dispatch at launch.** No courier API required | **Recommended, awaiting approval** | No |
 | D7 | Payment methods | **Manual bKash**, **manual Nagad**, and **Cash on Delivery**. COD is a **distinct payment method**, not a variation of prepaid MFS. No automated gateway | **APPROVED** | Settled |
 | D8 | Manual MFS payment fields | **Sender mobile number required**, **transaction ID/reference required**, **screenshot not required**. Recipient details owner-configurable, never hardcoded. Admin verification required before marking paid | **APPROVED** | Settled |
-| D9 | Payment and order policy | **APPROVED.** 24-hour verification maximum (internal, not a customer promise); exceptions handling for late genuine payments; fake-order findings with audited reason and actor; cancellation via support; manual refunds with separate requested/processing/completed/failed states; COD owner approval before dispatch; five-way state separation; **24-hour unpaid-order expiry that never touches an order with a submitted claim**; **cancellation after the window as a pre-dispatch support decision or a post-dispatch return**; **full COD lifecycle** | **APPROVED** | Settled |
+| D9 | Payment and order policy | **APPROVED; amended by ADR 0014.** 24-hour verification maximum (internal, not a customer promise); exceptions handling for late genuine payments; fake-order findings with audited reason and actor; cancellation via support; manual refunds with separate requested/processing/completed/failed states; COD owner approval before dispatch; state separation; **cancellation after the window as a pre-dispatch support decision or a post-dispatch return**; **full COD lifecycle**. **A submitted claim never expires or is released by a timer**; the **24-hour unpaid-order expiry is deferred** (no scheduler) | **APPROVED** | Settled |
 | D10 | Roles permitted to verify payments | **Owner role only, and multiple owners may exist, each with full access.** No staff or support roles at launch, and no general permission-management system in the launch surface. The permission catalogue stays data rather than a code constant | **APPROVED** (ADR 0009) | Settled |
-| D11 | Inventory reservation and release | **APPROVED.** Owner's rule: the **first submitted payment claim** gets the product, so a later claim preempts an earlier **unsubmitted** hold. Bound decided: **at most one active submitted claim per unit**. Invariants fixed: atomic allocation, no oversell, idempotent release, no preemption or release once a claim is submitted, returns restored only after inspection | **APPROVED** | Settled |
+| D11 | Inventory reservation and release | **APPROVED; superseded in effect for launch by ADR 0013.** Owner's rule: the **first submitted payment claim** orders the verification queue. Implemented bound: **at most one active submitted claim per order**. With no unit reserved there is no allocation, preemption or release, and **overselling is accepted rather than prevented**; the invariant that still binds is that a **submitted claim is never expired or released by a timer** (ADR 0014) | **APPROVED** | Settled |
 | D12 | Checkout model | **Account required.** Guests may browse and build a cart; login or registration is required before placing an order, with the cart preserved and the customer returned to checkout | **APPROVED** | Settled |
 | D13 | Staff authentication | **Email and password, first-party** - hashed credentials, server-side sessions in httpOnly cookies, owner-issued credential recovery because no mail provider is authorized. **Resend email verification and Google sign-in are deferred** until the client confirms them | **APPROVED in shape** (ADR 0009) | Settled |
 | D14 | ORM / query layer | **Drizzle ORM + drizzle-kit**, pinned to stable `0.45.x`; owned SQL migrations because the schema's safety is its partial unique indexes, CHECK constraints, triggers and grants. Prisma's larger ecosystem is a recorded trade-off | **APPROVED** (ADR 0007) | Settled |
 | D15 | Single app vs split storefront/admin | **Single Next.js app** with route groups initially | **Recommended, awaiting approval** | No |
-| D16 | Background jobs | Database-backed job table plus a scheduled task; no hosted queue until volume justifies it. The approved 24-hour expiry sweep is written to be scheduler-agnostic | **Recommended, awaiting approval** | No |
+| D16 | Background jobs | **Deferred, and not blocking Phase 16.** The design was a database-backed job table plus a scheduled task; **no scheduler or expiry job is added now (ADR 0014 decision 11)**, because the 24-hour unpaid-order expiry is not a launch priority | **Recommended, awaiting approval** | No |
 | D17 | Customer authentication provider | **APPROVED (ADR 0012).** First-party database sessions: email and password (**scrypt**, never plaintext), opaque 256-bit session tokens stored only as a **SHA-256 hash**, httpOnly `SameSite=Lax` cookies with idle and absolute expiry, account- and source-keyed throttling, customer-scoped CSRF, and strict separation from owner/admin credentials, sessions and permissions. **Email is the sole registration and sign-in identifier**; phone stays optional contact. Email verification deferred; **no external provider, mail service, OAuth or SMS authorized**. **No self-service password recovery at launch** - an owner-operated reset with one-time credentials, audit logging and session revocation. Schema in `docs/data-model.md` sections 4 and 15 | **APPROVED** (ADR 0012) | Settled |
-| D18 | Database driver | **`@neondatabase/serverless` `Pool` over WebSockets** for the deployed runtime, because the D11 claim-allocation transaction is interactive and Neon's HTTP driver is documented as non-interactive only. `pg` (node-postgres) locally and in tests. Selected behind one server-only module | **APPROVED** (ADR 0007) | Settled |
+| D18 | Database driver | **`@neondatabase/serverless` `Pool` over WebSockets** for the deployed runtime, because the intended claim-allocation transaction is interactive and Neon's HTTP driver is documented as non-interactive only. (**At launch the order path allocates nothing - ADR 0013 - but the interactive transaction remains the design for claim submission and the order lifecycle.**) `pg` (node-postgres) locally and in tests. Selected behind one server-only module | **APPROVED** (ADR 0007) | Settled |
 | D19 | Product availability | **Owner-controlled `In Stock` / `Out of Stock`, and the only ordering gate.** An out-of-stock product cannot be ordered. Not a quantity countdown, not derived, and no restock or arrival promise. **ADR 0010:** a **bare owner toggle** in Phase 13, not connected to the quantity ledger. **ADR 0013 closes the ordering question: option (a)** - order creation writes no reservation, allocation, deduction or automatic availability change; separate valid submissions may create separate orders; idempotency prevents duplicate processing of a submission, not reservation; **overselling is not prevented and is accepted**; the D11 inventory tables remain implemented and unused | **APPROVED** (ADR 0009; scope ADR 0010, ordering gate ADR 0013) | Settled |
 | D20 | Customer ban after a confirmed fake order | **APPROVED** (ADR 0009). A ban requires a **confirmed** finding with an audited reason and actor, and is enforced server-side: sessions revoked, new orders and checkout refused. **Distinct from the review flag**, which does not block. A ban does not cancel, refund or delete anything | **APPROVED** | No |
 | D21 | Administrative roles at launch | **Owner role only, multiple owners permitted, every owner has full access.** No staff or support roles, and no general permission-management system, in the launch surface | **APPROVED** (ADR 0009) | Settled |
@@ -462,17 +462,17 @@ Phase 9 has converted the proposals into owner decisions. **D1, D2, D3, D7, D8, 
 | D3 | Neon Object Storage for product images | ADR 0006 |
 | D7 | Manual bKash, manual Nagad, and COD | this register |
 | D8 | Sender number and transaction reference required; no screenshot | this register |
-| D9 | Verification maximum, exceptions handling, fake-order findings, cancellation via support, manual refund states, COD approval, five-way state separation, 24-hour unpaid-order expiry, cancellation after the window, COD lifecycle | this register; `docs/payment-workflow.md` 13.1-13.9 |
+| D9 | Verification maximum, exceptions handling, fake-order findings, cancellation via support, manual refund states, COD approval, state separation, cancellation after the window, COD lifecycle; **the 24-hour unpaid-order expiry is deferred (ADR 0014)** | this register; `docs/payment-workflow.md` 13.1-13.9; ADR 0014 |
 | D12 | Account-required checkout | this register |
 
 **No decision blocks Phase 10.** Every blocking question from Phase 9 is answered:
 
-1. **D9 - unpaid-order expiry: 24 hours from placement**, applying only to orders with **no** submitted payment claim. An order awaiting verification never expires automatically, and an expired order is revived only after re-checking stock.
+1. **D9 - unpaid-order expiry: 24 hours from placement** in the design, applying only to orders with **no** submitted payment claim. An order awaiting verification never expires automatically. **Deferred by ADR 0014:** no heartbeat job is scheduled, nothing writes `expired` at launch, and under ADR 0013 there is no stock reservation to revive - revival would re-check current availability.
 2. **D9 - cancellation after the window: support decides before dispatch**, and after dispatch the case becomes a **delivery cancellation / return**.
 3. **D9 - COD lifecycle: owner approval before dispatch**, support cancellation before dispatch, the return workflow after, return-to-store on failure, and separate delivery-completion, cash-collection and reconciliation states.
-4. **D11 - allocation bound: at most one active submitted claim per unit**, so no further claim is accepted once a unit carries one. Full text: `docs/payment-workflow.md` sections 13.9 and 13.10.7.
+4. **D11 - allocation bound: at most one active submitted claim per order** (the implemented `payment_claim_active_unique`). **Amended by ADR 0013/ADR 0014:** no unit is reserved or allocated and overselling is accepted, so the bound and payment priority govern the **verification queue**, not the allocation of a contested physical unit. Full text: `docs/payment-workflow.md` sections 13.9 and 13.10.7.
 
-These fix the **schema and transaction shape** (expiry duration and allocation bound) and the **order state machine** (post-dispatch cancellation and COD), so Phase 10 can proceed.
+These fixed the **schema and transaction shape** (expiry duration and allocation bound) and the **order state machine** (post-dispatch cancellation and COD), so Phase 10 could proceed. **Since then, ADR 0013 removed the allocation/deduction from the order path and ADR 0014 deferred the expiry timer**, leaving the schema unchanged but those two features unused.
 
 **Resolved in Phase 11:** **D14** (Drizzle ORM + drizzle-kit) and **D18** (the WebSocket driver) are approved in **ADR 0007**, together with the decision that migration `0001` establishes the full approved schema.
 
@@ -488,13 +488,13 @@ These fix the **schema and transaction shape** (expiry duration and allocation b
 
 **D12 - Checkout.** **Account required.** Guests may browse the storefront and add products to their cart, but must **create an account or log in before placing an order**. When a guest proceeds to checkout, the login/registration flow is presented; the **cart is preserved** and the customer is **returned to checkout** after successful authentication. Authentication, session handling, authorization and account recovery must be designed before implementation. Guest checkout must not be silently reintroduced.
 
-**D9 - Payment and order policy (approved).** Approved and binding: the **24-hour verification maximum** (internal, explicitly **not** a customer-facing promise); the **exceptions queue** for genuine payments that cannot be verified in time - never silently discarded, reservation held; **fake-order findings** with an audited reason and actor and a **separate** customer review flag; the rule that a **rejected payment is not an accusation**; **cancellation through support**; **manual refunds** with separate `requested`/`processing`/`completed`/`failed` states; **COD owner approval before dispatch**; the **five-way separation** of payment status, order status, refund status, reservation state and customer flag; a **24-hour unpaid-order expiry** that never touches an order with a submitted claim; **cancellation after the window** as a pre-dispatch support decision or a post-dispatch return; and the **full COD lifecycle**. Full text: `docs/payment-workflow.md` sections 13.1-13.9.
+**D9 - Payment and order policy (approved, amended by ADR 0014).** Approved and binding: the **24-hour verification maximum** (internal, explicitly **not** a customer-facing promise); the **exceptions queue** for genuine payments that cannot be verified in time - never silently discarded, and **never released by a timer** (no reservation is held at launch, ADR 0013); **fake-order findings** with an audited reason and actor and a **separate** customer review flag; the rule that a **rejected payment is not an accusation**; **cancellation through support**; **manual refunds** with separate `requested`/`processing`/`completed`/`failed` states; **COD owner approval before dispatch**; the **separation** of payment state, fulfilment status, COD state, refund state, reservation state and customer flag; a **24-hour unpaid-order expiry** that never touches an order with a submitted claim and is **deferred, not scheduled (ADR 0014)**; **cancellation after the window** as a pre-dispatch support decision or a post-dispatch return; and the **full COD lifecycle**. Full text: `docs/payment-workflow.md` sections 13.1-13.9.
 
 ### D11 detail (approved)
 
 Full policy wording is in `docs/payment-workflow.md` section 13.10; the queue and expiry implications are in `docs/admin-dashboard.md`.
 
-**D11 - Inventory reservation and release.** **Approved.** The owner's payment-priority rule is recorded: the **first submitted payment claim gets the product**, which preempts an earlier order that has **not** submitted a claim. The bound is decided: **at most one active submitted claim per unit**, so no further claim is accepted once a unit carries one. The binding invariants are fixed - atomic checks, no oversell, idempotent state-guarded release, no automatic release of a submitted claim, and stock restored only after physical inspection.
+**D11 - Inventory reservation and release.** **Approved; superseded in effect for launch by ADR 0013.** The owner's payment-priority rule is recorded: the **first submitted payment claim** orders the verification queue. The implemented bound is **at most one active submitted claim per order**. With no unit reserved there is no allocation, no preemption and no release to perform, and **overselling is accepted rather than prevented**; the reservation tables remain implemented and unused. The invariant that still binds is that a **submitted claim is never released by a timer**.
 
 ### Where the owner's commercial input remains
 
