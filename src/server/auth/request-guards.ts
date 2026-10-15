@@ -2,6 +2,8 @@
  * CSRF, origin and redirect validation - the request-boundary checks.
  *
  * Pure functions over a `Request`, so every rule is unit-testable without a browser or a database.
+ * The one exception is the forwarded-header opt-in (`proxyHeadersTrusted`), which reads the process
+ * environment: it is off by default, so the untrusted path stays the default path.
  */
 
 import { ADMIN_PATH_PATTERN, ADMIN_ROOT } from './constants';
@@ -37,17 +39,49 @@ export function isStateChanging(method: string): boolean {
   return !SAFE_METHODS.has(method.toUpperCase());
 }
 
+/** The environment flag that switches the forwarded-header trust boundary on. */
+export const PROXY_HEADER_TRUST_ENV = 'TRUST_PROXY_HEADERS';
+
+/**
+ * Whether `X-Forwarded-Host` and `X-Forwarded-Proto` may be trusted.
+ *
+ * **Off by default, in every environment.** Trusting those headers means trusting whoever sent them,
+ * and a client that is not a browser can set them to anything. They are safe to read only when the
+ * deployment sits behind a reverse proxy that **overwrites** both headers and is the **only**
+ * network path to the application - a deployment fact that has to be verified before trust is
+ * switched on, so it is never enabled automatically here. Read from the process environment directly
+ * (no `DATABASE_URL` required), like the storefront's fixture opt-in.
+ */
+export function proxyHeadersTrusted(source: Readonly<Record<string, string | undefined>> = process.env): boolean {
+  return source[PROXY_HEADER_TRUST_ENV] === '1';
+}
+
+export type OriginCheckOptions = {
+  /** Trust forwarded headers for the expected origin. Defaults to `proxyHeadersTrusted()`. */
+  readonly trustProxyHeaders?: boolean;
+};
+
 /**
  * The origin a request must have come from.
  *
- * Built from the request's own URL scheme plus the host the platform's router resolved, rather than
- * from a configured constant, so local development and a preview deployment both work without a
- * per-environment setting while a forged `Origin` from another site still cannot match.
+ * By default it is built from the request's own authority - the `Host` header the browser sent and
+ * the runtime routed on, falling back to the request URL's host - and the scheme from the request
+ * URL. The forwarded headers are **not read at all** in that mode, which is what makes a forged
+ * `X-Forwarded-Host` harmless: it cannot move the expected origin, because nothing looks at it.
  *
- * The scheme comes from `x-forwarded-proto` when a proxy set it, otherwise from the request URL, so a
- * plain-HTTP development server is compared as `http://` rather than being wrongly treated as HTTPS.
+ * The `Host` header is used ahead of the URL host deliberately. It is the authority the request was
+ * actually addressed to, and it is the one the framework guarantees: Next.js resolves the request
+ * URL from its own routing information rather than from the response-side value, so the URL host is
+ * not always the public authority (`next start` can present a placeholder host). A browser sets
+ * `Host` itself and a cross-site request cannot change it, which is why it is the untrusted-mode
+ * input; a non-browser client that controls every header can satisfy any header-based check, which is
+ * recorded in `docs/security.md` rather than hidden.
+ *
+ * With proxy trust enabled the forwarded values take precedence, which is what a verified reverse
+ * proxy deployment needs. A plain-HTTP development server is compared as `http://` in both modes,
+ * rather than being wrongly treated as HTTPS.
  */
-function requestOrigin(request: Request): string {
+function requestOrigin(request: Request, trustProxyHeaders: boolean): string {
   let scheme: string;
   let urlHost: string;
   try {
@@ -56,6 +90,12 @@ function requestOrigin(request: Request): string {
     urlHost = url.host;
   } catch {
     return '';
+  }
+
+  if (!trustProxyHeaders) {
+    const host = request.headers.get('host') ?? urlHost;
+    if (host === '') return '';
+    return `${scheme}://${host.toLowerCase()}`;
   }
 
   const forwardedProto = request.headers.get('x-forwarded-proto')?.split(',')[0]?.trim();
@@ -72,9 +112,14 @@ function requestOrigin(request: Request): string {
  * A cross-site form post cannot set a matching `Origin`, and `SameSite=Lax` on the session cookie
  * already keeps the cookie off a cross-site POST - this is the second, independent control that
  * `docs/data-model.md` 15.3 requires ("SameSite=Lax is a mitigation, not the whole control").
+ *
+ * `X-Forwarded-Host` and `X-Forwarded-Proto` are ignored unless proxy trust is explicitly enabled
+ * (see `proxyHeadersTrusted`), so adding a forwarded header cannot make a cross-origin request look
+ * same-origin. Enable it only for a deployment whose reverse proxy is verified to overwrite those
+ * headers and to be the only network path to the application.
  */
-export function isSameOrigin(request: Request): boolean {
-  const expected = requestOrigin(request);
+export function isSameOrigin(request: Request, options: OriginCheckOptions = {}): boolean {
+  const expected = requestOrigin(request, options.trustProxyHeaders ?? proxyHeadersTrusted());
   if (expected === '') return false;
 
   const origin = request.headers.get('origin');

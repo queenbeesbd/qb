@@ -205,20 +205,42 @@ decision reads the database only.
 inventory derived by listing `public/catalog`; metadata is read from the file bytes. There is no upload path, so there
 is no upload attack surface.
 
-### Open findings (not fixed)
+### Findings fixed in the security-hardening change (F9, F10)
 
-**F9 - the same-origin check prefers `x-forwarded-host` over `host`.** `src/server/auth/request-guards.ts` reads
-`x-forwarded-host` first. A **non-browser** client can set both `Origin` and `X-Forwarded-Host` to a matching forged
-value and pass the same-origin check. It is **not browser-exploitable** - a browser cannot set that header - and
-`SameSite=Lax` plus the session-bound CSRF token are independent controls. On the unauthenticated sign-in route,
-however, the origin check is the only CSRF control. **Residual risk: medium for non-browser clients, low for browsers.**
-Not fixed in Phase 13 because a correct fix needs a trusted-proxy configuration decision, not a code tweak.
+**F9 - the origin check preferred a client-supplied forwarded header over the request's own authority. Fixed.**
+`src/server/auth/request-guards.ts` no longer reads `X-Forwarded-Host` or `X-Forwarded-Proto` unless trust is
+explicitly enabled, so adding a forwarded header can no longer move the expected origin. By default the expected
+origin is the request's own `Host` header - the authority the browser addressed and the runtime routed on, which a
+cross-site request cannot change - with the request URL's host as a fallback and the scheme from the request URL.
+`Host` is used ahead of the URL host deliberately: Next.js does not always reflect the public authority in the request
+URL (`next start` can present a placeholder host), and a check built on the URL host alone refused every legitimate
+state-changing request in that runtime, which the HTTP verification suites caught. Trust in forwarded headers exists
+only as the explicit `TRUST_PROXY_HEADERS=1` opt-in, **off by default in every environment** and never enabled
+automatically, because those headers are safe to read only when the deployment's reverse proxy is verified to
+**overwrite** them and to be the **only** network path to the application. That deployment fact is not established
+(nothing is deployed), so the opt-in stays off. Regression tests: `tests/unit/request-guards.test.ts` proves a forged
+`X-Forwarded-Host` and a forged `X-Forwarded-Proto` no longer pass, that a genuine same-origin request carrying junk
+forwarded headers still does, that the request's own `Host` decides when the URL host is a placeholder, and that
+trusted mode applies only when explicitly enabled.
 
-**F10 - password-hash robustness on a corrupt credential row.** A stored derived key that decodes to zero bytes passes
-`keylen 0` to `scrypt` (which throws, yielding a 500 rather than `false`), and the hash parser accepts an arbitrarily
-large power-of-two `N`, scaling memory allocation with the stored value. Both require a **corrupt or hostile
-credential row**, which the schema does not produce. **Residual risk: low.** Not fixed in Phase 13 because it is
-unrelated to catalog work and was not demonstrated to be reachable.
+**Residual, recorded rather than claimed eliminated.** (a) Any header-based origin check can be satisfied by a
+**non-browser** client that controls every header; its value is against browsers, whose `Origin` and `Host` are set by
+the browser, and `SameSite=Lax` plus the session-bound CSRF token remain the independent controls. (b) Next.js itself
+derives the request URL's protocol from `x-forwarded-proto` while normalising incoming headers (read in the installed
+Next.js 16.4.0 source, `dist/server/base-server.js` and `dist/server/next-server.js`), so the scheme keeps a
+framework-level dependence on that header which this module cannot override. (c) A deployment whose public origin
+differs from the authority the application sees must enable the opt-in after verifying the proxy facts above; with
+trust off it refuses state-changing requests rather than accepting them - fail-closed, not fail-open.
+
+**F10 - password-hash robustness on a corrupt credential row. Fixed.** `parseHash` now bounds `N` (at most 2^18), `r`
+(at most 32), `p` (at most 16) and the resulting working set (`128 * N * r`, at most 128 MiB), refuses a stored value
+longer than 512 characters before decoding, and requires the salt and derived key to be canonical base64url of exactly
+16 and 32 bytes. `verifyPassword` validates both fields before hashing and treats any runtime rejection as a failed
+verification, so a corrupt or hostile row returns `false` - the ordinary invalid-credentials response - instead of
+reaching `scrypt` with `keylen 0` and producing a 500. The stored format and the current cost parameters are unchanged,
+with headroom to raise the cost (a 128 MiB working set is 8x today's 16 MiB) without a parser change. Regression
+tests: `tests/unit/password.test.ts` covers an empty derived key, an oversized `N`, out-of-range `r`/`p`, an
+over-ceiling working set, wrong field lengths, non-canonical encodings and an oversized stored value.
 
 ## Manual payment verification - threat model and required controls
 

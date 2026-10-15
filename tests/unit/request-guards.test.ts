@@ -6,6 +6,7 @@ import {
   csrfTokenMatches,
   isSameOrigin,
   isStateChanging,
+  proxyHeadersTrusted,
   requestCorrelationId,
   safeReturnPath,
 } from '../../src/server/auth/request-guards';
@@ -150,5 +151,112 @@ describe('post-sign-in return path', () => {
     assert.equal(safeReturnPath(''), ADMIN_ROOT);
     assert.equal(safeReturnPath(null), ADMIN_ROOT);
     assert.equal(safeReturnPath(undefined), ADMIN_ROOT);
+  });
+});
+
+describe('forwarded-header trust boundary (F9)', () => {
+  const proxied = (headers: Record<string, string>, url: string) =>
+    request(headers, url);
+
+  it('refuses a forged X-Forwarded-Host when proxy trust is off (the default)', () => {
+    // Before the fix the expected origin was taken from the attacker-supplied header, so this
+    // cross-origin request passed the guard. It is not read now, so it cannot move the expectation.
+    assert.equal(
+      isSameOrigin(
+        request({
+          host: 'admin.example.test',
+          origin: 'https://evil.example.test',
+          'x-forwarded-host': 'evil.example.test',
+        }),
+      ),
+      false,
+    );
+  });
+
+  it('refuses a forged X-Forwarded-Proto that would claim an http request is https', () => {
+    // Before the fix the forwarded scheme replaced the real one, so this passed; the scheme now comes
+    // from the request URL, and the protocol downgrade is refused as it is without the header.
+    assert.equal(
+      isSameOrigin(
+        proxied(
+          { host: '127.0.0.1:4311', origin: 'https://127.0.0.1:4311', 'x-forwarded-proto': 'https' },
+          'http://127.0.0.1:4311/api/account/login',
+        ),
+      ),
+      false,
+    );
+  });
+
+  it('still accepts a genuine same-origin request that carries forged forwarded headers', () => {
+    assert.equal(
+      isSameOrigin(
+        request({
+          host: 'admin.example.test',
+          origin: 'https://admin.example.test',
+          'x-forwarded-host': 'evil.example.test',
+          'x-forwarded-proto': 'http',
+        }),
+      ),
+      true,
+    );
+  });
+
+  it('follows the request own Host when the runtime resolves a placeholder URL host', () => {
+    // `next start` can present a placeholder host in the request URL while `Host` carries the
+    // authority the browser used. The check must follow the request own host, not the placeholder - a
+    // check that used the URL host alone refused every legitimate request in that runtime.
+    assert.equal(
+      isSameOrigin(
+        request({ host: '127.0.0.1:4311', origin: 'http://127.0.0.1:4311' }, 'http://n/api/account/login'),
+      ),
+      true,
+    );
+  });
+
+  it('honours forwarded headers only when trust is explicitly enabled', () => {
+    // A reverse proxy that terminates TLS and fronts the app: the app sees its own address, and the
+    // public origin arrives in the forwarded headers. Refused by default, accepted on the opt-in.
+    const behindProxy = proxied(
+      {
+        host: '10.0.0.5:3000',
+        origin: 'https://shop.example.test',
+        'x-forwarded-host': 'shop.example.test',
+        'x-forwarded-proto': 'https',
+      },
+      'http://10.0.0.5:3000/api/admin/session/login',
+    );
+    assert.equal(isSameOrigin(behindProxy), false);
+    assert.equal(isSameOrigin(behindProxy, { trustProxyHeaders: true }), true);
+  });
+
+  it('reads the opt-in from the environment, and is off unless it is exactly 1', () => {
+    assert.equal(proxyHeadersTrusted({}), false);
+    assert.equal(proxyHeadersTrusted({ TRUST_PROXY_HEADERS: '' }), false);
+    assert.equal(proxyHeadersTrusted({ TRUST_PROXY_HEADERS: 'true' }), false);
+    assert.equal(proxyHeadersTrusted({ TRUST_PROXY_HEADERS: 'yes' }), false);
+    assert.equal(proxyHeadersTrusted({ TRUST_PROXY_HEADERS: '0' }), false);
+    assert.equal(proxyHeadersTrusted({ TRUST_PROXY_HEADERS: '1' }), true);
+  });
+
+  it('applies the environment opt-in to the check itself, and reverts when it is removed', () => {
+    const behindProxy = proxied(
+      {
+        host: '10.0.0.5:3000',
+        origin: 'https://shop.example.test',
+        'x-forwarded-host': 'shop.example.test',
+        'x-forwarded-proto': 'https',
+      },
+      'http://10.0.0.5:3000/api/account/login',
+    );
+    const previous = process.env.TRUST_PROXY_HEADERS;
+    try {
+      delete process.env.TRUST_PROXY_HEADERS;
+      assert.equal(isSameOrigin(behindProxy), false);
+      process.env.TRUST_PROXY_HEADERS = '1';
+      assert.equal(isSameOrigin(behindProxy), true);
+    } finally {
+      if (previous === undefined) delete process.env.TRUST_PROXY_HEADERS;
+      else process.env.TRUST_PROXY_HEADERS = previous;
+    }
   });
 });

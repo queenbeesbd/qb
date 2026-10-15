@@ -65,3 +65,66 @@ describe('staff password hashing', () => {
     assert.equal(passwordPolicyError('a'.repeat(PASSWORD_MAX_LENGTH + 1)), 'too_long');
   });
 });
+
+describe('stored-hash parser hardening (F10)', () => {
+  const SALT = Buffer.alloc(16, 1).toString('base64url');
+  const KEY = Buffer.alloc(32, 2).toString('base64url');
+  const password = 'a-long-enough-password';
+  const hashWith = (parameters: string, salt = SALT, key = KEY) => `scrypt$${parameters}$${salt}$${key}`;
+
+  /** A corrupt row must fail closed - `false`, never an exception the route would turn into a 500. */
+  const expectRefusal = async (stored: string) => {
+    assert.equal(await verifyPassword(password, stored), false, `stored: ${stored.slice(0, 90)}`);
+  };
+
+  it('refuses a derived key that decodes to zero bytes instead of reaching scrypt with keylen 0', async () => {
+    // Before the fix this threw inside scrypt: an unhandled error rather than a failed sign-in.
+    await expectRefusal(hashWith('N=16384,r=8,p=1', SALT, ''));
+  });
+
+  it('refuses an oversized N, and reports it as needing a rehash rather than accepting it', async () => {
+    await expectRefusal(hashWith('N=1073741824,r=8,p=1'));
+    await expectRefusal(hashWith(`N=${1 << 19},r=8,p=1`));
+    assert.equal(needsRehash(hashWith('N=1073741824,r=8,p=1')), true);
+  });
+
+  it('refuses a working set above the ceiling, and out-of-range r or p', async () => {
+    // Each of these is inside the individual ceilings on its own, so the product bound is what refuses
+    // it: 128 * 131072 * 32 is 512 MiB.
+    await expectRefusal(hashWith('N=131072,r=32,p=1'));
+    await expectRefusal(hashWith('N=16384,r=64,p=1'));
+    await expectRefusal(hashWith('N=16384,r=8,p=1000'));
+  });
+
+  it('refuses a cost below the minimum scrypt accepts, and non-positive parameters', async () => {
+    await expectRefusal(hashWith('N=1,r=8,p=1'));
+    await expectRefusal(hashWith('N=2,r=0,p=1'));
+    await expectRefusal(hashWith('N=16384,r=8,p=0'));
+  });
+
+  it('refuses a derived key or salt of the wrong length', async () => {
+    await expectRefusal(hashWith('N=16384,r=8,p=1', SALT, Buffer.alloc(16, 3).toString('base64url')));
+    await expectRefusal(hashWith('N=16384,r=8,p=1', Buffer.alloc(8, 4).toString('base64url'), KEY));
+    await expectRefusal(hashWith('N=16384,r=8,p=1', SALT, 'A'.repeat(21)));
+  });
+
+  it('refuses a field that is not canonical base64url, which a lenient decoder would accept', async () => {
+    await expectRefusal(hashWith('N=16384,r=8,p=1', SALT, 'a+b/c='));
+    await expectRefusal(hashWith('N=16384,r=8,p=1', `${SALT}=`, KEY));
+    await expectRefusal(hashWith('N=16384,r=8,p=1', SALT, 'not base64!'));
+  });
+
+  it('refuses an oversized stored value without decoding it', async () => {
+    await expectRefusal(`scrypt$N=16384,r=8,p=1$${'A'.repeat(600)}`);
+  });
+
+  it('still parses a cost raised above the current parameters, so a future increase needs no parser change', () => {
+    // 128 * 131072 * 8 is 128 MiB: at the ceiling, and accepted. `needsRehash` is false because it is
+    // stronger than the current cost, which is what an upgrade path depends on.
+    assert.equal(needsRehash(hashWith('N=131072,r=8,p=1')), false);
+  });
+
+  it('still verifies a real hash produced by this module', async () => {
+    assert.equal(await verifyPassword(password, await hashPassword(password)), true);
+  });
+});
