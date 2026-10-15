@@ -23,8 +23,8 @@ export const announcements: Announcement[] = [
      */
     locked: true,
     message: {
-      bn: 'এটি একটি প্রিভিউ — প্রকৃত অর্ডার বা পেমেন্ট এখনো চালু হয়নি।',
-      en: 'This is a preview — real orders and payments are not available yet.',
+      bn: 'এটি একটি প্রিভিউ স্টোর — অর্ডার সংরক্ষিত হয়, কিন্তু কোনো পেমেন্ট নেওয়া হয় না এবং কোনো ডেলিভারি হয় না।',
+      en: 'This is a preview store — orders are recorded here, but no payments are taken and nothing is dispatched.',
     },
   },
 ];

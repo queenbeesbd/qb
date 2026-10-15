@@ -39,7 +39,18 @@ export function sha256Hex(value: string): string {
  * who cannot read the cookie. The derived token is never persisted.
  */
 export function deriveCsrfToken(rawSessionToken: string): string {
-  return createHmac('sha256', rawSessionToken).update(CSRF_LABEL).digest('hex');
+  return deriveLabeledToken(CSRF_LABEL, rawSessionToken);
+}
+
+/**
+ * Derives a per-session token under an explicit label.
+ *
+ * The customer surface uses its own label (`queenbees.customer.csrf.v1`), so a token derived for one
+ * principal can never be accepted for the other even if the two ever shared a session value by
+ * accident. The label is a constant defined in code, never request data.
+ */
+export function deriveLabeledToken(label: string, rawSessionToken: string): string {
+  return createHmac('sha256', rawSessionToken).update(label).digest('hex');
 }
 
 /** Constant-time comparison for equal-length secrets. Length mismatch or empty fails closed. */

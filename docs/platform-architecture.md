@@ -2,7 +2,7 @@
 
 **Product model: a single store, owner-operated (ADR 0008).** QueenBee's serves one store for one owner. It is not a marketplace, a multi-vendor platform or a hosted store platform, so there is no merchant onboarding, seller dashboard, commission, payout or tenant isolation anywhere in this architecture.
 
-Status: 2026-10-12. Direction approved in `docs/decisions/0004-independent-platform-direction.md`; **D1, D2, D3, D7, D8, D9, D11 and D12 are owner-approved** (ADRs 0005 and 0006, and section 11), **D14 and D18 (the ORM/query layer and the database driver) are approved in ADR 0007**, and **D10, D13 and D19-D23 are approved in ADR 0009**. The remaining entries (D4, D5, D6, D15, D16, D17) are deferred with stated reasons. **Phase 10 designed the full relational schema, state machines and security architecture in `docs/data-model.md`**; none of the deferred entries blocks that design, and **D17 is the only one that blocks implementation of checkout**. This supersedes the "backend integration boundary" section previously in `docs/architecture.md`.
+Status: 2026-10-15. Direction approved in `docs/decisions/0004-independent-platform-direction.md`; **D1, D2, D3, D7, D8, D9, D11 and D12 are owner-approved** (ADRs 0005 and 0006, and section 11), **D14 and D18 (the ORM/query layer and the database driver) are approved in ADR 0007**, **D10, D13 and D19-D23 are approved in ADR 0009**, and **D17 (customer authentication) is approved in ADR 0012** with **D19's ordering gate settled in ADR 0013**. The remaining entries (D4, D5, D6, D15, D16) are deferred with stated reasons. **Phase 10 designed the full relational schema, state machines and security architecture in `docs/data-model.md`**; no deferred entry blocks that design, and **no decision now blocks implementation of checkout**. This supersedes the "backend integration boundary" section previously in `docs/architecture.md`.
 
 > **Product model (ADR 0008).** This architecture serves **one store** for **one owner**. It is not a
 > multi-vendor marketplace or a hosted store platform: there is no merchant onboarding, no seller
@@ -165,7 +165,7 @@ Options for staff auth:
 
 **Recommendation:** first-party sessions backed by the database, so staff identity and audit live in the same system as orders. A hosted provider is acceptable if the owner prefers lower build cost, but it must be recorded as a deliberate lock-in decision.
 
-**Customer accounts (D12, approved).** Because ordering requires an account, customer authentication is now a launch requirement rather than an optional later addition. It must be designed before implementation and must cover: credential storage with a current adaptive hash; server-side sessions in httpOnly, `Secure`, `SameSite` cookies; secure account recovery with single-use, expiring tokens; object-level authorization so one customer cannot reach another's orders or profile; and rate limiting on login and recovery. Session and cart interplay matters: a guest's cart must survive the authentication redirect, and the customer must land back at checkout rather than on a generic home page.
+**Customer accounts (D12, approved; D17 settled in ADR 0012).** Because ordering requires an account, customer authentication is a launch requirement rather than an optional later addition. **D17 is settled: first-party customer sessions** - email and password registration and sign-in, **scrypt** hashing (never plaintext), opaque 256-bit session tokens stored only as a **SHA-256 hash**, httpOnly `SameSite=Lax` cookies with idle and absolute expiry, account- and source-keyed throttling, customer-scoped CSRF, and **strict separation from owner/admin credentials, sessions and permissions**. **Email is the sole registration and sign-in identifier**; a phone number stays optional contact information. **Email verification is deferred** and **no external provider, mail service, OAuth client or SMS gateway is authorized**. **There is no self-service password recovery at launch** - a documented limitation, not a hidden gap; any operational reset is an **owner-operated process** with one-time credentials, audit logging and session revocation. Object-level authorization ensures one customer cannot reach another's orders or profile. Session and cart interplay matters: a guest's cart must survive the authentication redirect, and the customer must land back at checkout rather than on a generic home page.
 
 Regardless of choice: **administrative credentials never reach the browser bundle**, and admin routes are protected by server-side authorization checks, not by hiding UI.
 
@@ -181,6 +181,8 @@ These are the correctness core of the platform.
 - A promotion is validated server-side against its rules, window and eligibility at the moment of order creation, not when it was applied.
 
 ### Inventory and reservation (D11 - APPROVED)
+
+> **Amended by ADR 0013 (owner-decided, 2026-10-15): availability is the only ordering gate.** Order creation reads `product.availability` and writes **no** reservation, allocation, deduction or automatic availability change. The D11 reservation, ledger and balance design described below is **not exercised by the order path**; the tables remain implemented and unused. Overselling is **not** prevented and is accepted by the owner. The D11 rules concerning payment claims remain approved for the payment flow (Phase 16).
 
 **The owner's rule:** when only limited stock is available, the customer whose payment is **successfully completed/verified first** gets the product. This is a payment-priority rule; it is **not** permission to oversell.
 
@@ -221,7 +223,7 @@ Priority is therefore decided by the **order of payment-claim submission**, not 
 ### Order creation
 
 - Every order carries a client-supplied **idempotency key**. A repeat submission returns the original order rather than creating a second one.
-- The order, its items, the inventory decrement and the payment record are written in **one transaction**.
+- The order, its items and the payment record are written in **one transaction**. **No inventory decrement is written** - availability is the only stock gate (ADR 0013).
 - Order status transitions are validated against an explicit state machine and recorded as append-only events.
 - If a payment provider confirms after a failure or timeout, reconciliation must detect and resolve the mismatch rather than creating a duplicate order.
 
@@ -410,7 +412,7 @@ Design detail, chart inventory and the questions each chart answers are in `docs
 
 ## 11. Decision register
 
-Phase 9 has converted the proposals into owner decisions. **D1, D2, D3, D7, D8, D9, D11 and D12 are approved** (ADRs 0005 and 0006, and this register). **No decision that blocks Phase 10 remains open.** Costs marked *verified* come from the provider's own documentation on 2026-10-11.
+Phase 9 has converted the proposals into owner decisions. **D1, D2, D3, D7, D8, D9, D11 and D12 are approved** (ADRs 0005 and 0006, and this register). **No decision that blocks Phase 10 remains open.** Later approvals: **D14 and D18** (ADR 0007), **D10, D13, D19-D23** (ADR 0009), **D19's scope** (ADR 0010), **D17** (ADR 0012) and **D19's ordering gate** (ADR 0013). Costs marked *verified* come from the provider's own documentation on 2026-10-11.
 
 | # | Decision | Proposal | Status | Blocks Phase 10 |
 | --- | --- | --- | --- | --- |
@@ -430,9 +432,9 @@ Phase 9 has converted the proposals into owner decisions. **D1, D2, D3, D7, D8, 
 | D14 | ORM / query layer | **Drizzle ORM + drizzle-kit**, pinned to stable `0.45.x`; owned SQL migrations because the schema's safety is its partial unique indexes, CHECK constraints, triggers and grants. Prisma's larger ecosystem is a recorded trade-off | **APPROVED** (ADR 0007) | Settled |
 | D15 | Single app vs split storefront/admin | **Single Next.js app** with route groups initially | **Recommended, awaiting approval** | No |
 | D16 | Background jobs | Database-backed job table plus a scheduled task; no hosted queue until volume justifies it. The approved 24-hour expiry sweep is written to be scheduler-agnostic | **Recommended, awaiting approval** | No |
-| D17 | Customer authentication provider | **First-party database sessions** - adaptive password hashing, server-side sessions in httpOnly cookies, single-use recovery tokens, rate limiting. Schema designed in `docs/data-model.md` sections 4 and 15 | **Recommended, awaiting approval** | **Yes - blocks implementation of checkout, not the schema** |
+| D17 | Customer authentication provider | **APPROVED (ADR 0012).** First-party database sessions: email and password (**scrypt**, never plaintext), opaque 256-bit session tokens stored only as a **SHA-256 hash**, httpOnly `SameSite=Lax` cookies with idle and absolute expiry, account- and source-keyed throttling, customer-scoped CSRF, and strict separation from owner/admin credentials, sessions and permissions. **Email is the sole registration and sign-in identifier**; phone stays optional contact. Email verification deferred; **no external provider, mail service, OAuth or SMS authorized**. **No self-service password recovery at launch** - an owner-operated reset with one-time credentials, audit logging and session revocation. Schema in `docs/data-model.md` sections 4 and 15 | **APPROVED** (ADR 0012) | Settled |
 | D18 | Database driver | **`@neondatabase/serverless` `Pool` over WebSockets** for the deployed runtime, because the D11 claim-allocation transaction is interactive and Neon's HTTP driver is documented as non-interactive only. `pg` (node-postgres) locally and in tests. Selected behind one server-only module | **APPROVED** (ADR 0007) | Settled |
-| D19 | Product availability | **Owner-controlled `In Stock` / `Out of Stock`.** An out-of-stock product cannot be ordered. Not a quantity countdown, not derived, and no restock or arrival promise. **Sub-question closed in ADR 0010:** availability is a **bare owner toggle** in Phase 13, deliberately not connected to the quantity ledger. **Phase 15 must decide whether the ledger becomes the allocation backstop, and the oversell risk is recorded rather than hidden** | **APPROVED** (ADR 0009; scope in ADR 0010) | No - but **gates Phase 15** |
+| D19 | Product availability | **Owner-controlled `In Stock` / `Out of Stock`, and the only ordering gate.** An out-of-stock product cannot be ordered. Not a quantity countdown, not derived, and no restock or arrival promise. **ADR 0010:** a **bare owner toggle** in Phase 13, not connected to the quantity ledger. **ADR 0013 closes the ordering question: option (a)** - order creation writes no reservation, allocation, deduction or automatic availability change; separate valid submissions may create separate orders; idempotency prevents duplicate processing of a submission, not reservation; **overselling is not prevented and is accepted**; the D11 inventory tables remain implemented and unused | **APPROVED** (ADR 0009; scope ADR 0010, ordering gate ADR 0013) | Settled |
 | D20 | Customer ban after a confirmed fake order | **APPROVED** (ADR 0009). A ban requires a **confirmed** finding with an audited reason and actor, and is enforced server-side: sessions revoked, new orders and checkout refused. **Distinct from the review flag**, which does not block. A ban does not cancel, refund or delete anything | **APPROVED** | No |
 | D21 | Administrative roles at launch | **Owner role only, multiple owners permitted, every owner has full access.** No staff or support roles, and no general permission-management system, in the launch surface | **APPROVED** (ADR 0009) | Settled |
 | D22 | Owner authentication method | **Email and password**, first-party. **Resend email verification and Google sign-in deferred** until the client confirms them; neither is authorized, designed or provisioned | **APPROVED** (ADR 0009) | Settled |
@@ -474,7 +476,7 @@ These fix the **schema and transaction shape** (expiry duration and allocation b
 
 **Resolved in Phase 11:** **D14** (Drizzle ORM + drizzle-kit) and **D18** (the WebSocket driver) are approved in **ADR 0007**, together with the decision that migration `0001` establishes the full approved schema.
 
-**Still open, but not blocking:** D5, D6, D15, D16. These can be settled later without rework, because they do not change the schema or the transaction shape. **D19's open sub-question** (availability versus the quantity model, ADR 0009 section 1) does not block the schema either, but it must be answered **before Phase 15 creates orders**. **D17 (customer authentication provider) does not block the schema but does block implementation of checkout**, because D12 requires accounts before ordering and no authentication exists today.
+**Still open, but not blocking:** D5, D6, D15, D16. These can be settled later without rework, because they do not change the schema or the transaction shape. **D17 is settled (ADR 0012):** first-party customer sessions, so customer authentication no longer blocks checkout. **D19's ordering gate is settled (ADR 0013):** availability is the only ordering gate, no reservation or deduction is written, and the accepted oversell risk is recorded rather than hidden. Neither decision provisioning nor deployment follows from recording them.
 
 ### Approved decisions (owner, 2026-10-11)
 
@@ -496,7 +498,7 @@ Full policy wording is in `docs/payment-workflow.md` section 13.10; the queue an
 
 ### Where the owner's commercial input remains
 
-Every Phase 9 decision is now settled, so **nothing here blocks Phase 10**. Remaining owner input is **operational and later-phase** rather than architectural: payment recipient accounts; courier providers and COD cash-settlement terms; notification channels; reconciliation cadence; what counts as sufficient evidence of receipt; and the **availability-versus-quantity** question in ADR 0009 section 1. (D10 and D13 are settled: owner role only, first-party email and password.) None of these changes the schema or the transaction shape.
+Every Phase 9 decision is now settled, so **nothing here blocks Phase 10**. Remaining owner input is **operational and later-phase** rather than architectural: payment recipient accounts; courier providers and COD cash-settlement terms; notification channels; reconciliation cadence; what counts as sufficient evidence of receipt; and whether a mail provider is ever authorized (which would enable email verification and self-service recovery). The **availability-versus-quantity** question is no longer open: **ADR 0013** makes availability the only ordering gate. (D10 and D13 are settled: owner role only, first-party email and password. D17 is settled in ADR 0012.) None of these changes the schema or the transaction shape.
 
 ## 12. Explicitly deferred
 

@@ -102,6 +102,9 @@ export function Header({ categories }: { categories: readonly CatalogCategory[] 
                 <Link href={`/categories/${category.slug}`}>{pick(category.name)}</Link>
               </li>
             ))}
+            <li>
+              <Link href="/account">{t('nav.account')}</Link>
+            </li>
           </ul>
         </nav>
 
@@ -168,6 +171,9 @@ export function Header({ categories }: { categories: readonly CatalogCategory[] 
               ))}
               <li>
                 <Link href="/checkout" onClick={closeMenu}>{t('cart.checkout')}</Link>
+              </li>
+              <li>
+                <Link href="/account" onClick={closeMenu}>{t('nav.account')}</Link>
               </li>
             </ul>
           </div>

@@ -1,0 +1,99 @@
+'use client';
+
+import Link from 'next/link';
+import { useTranslation } from '@/i18n/useTranslation';
+import { PASSWORD_MIN_LENGTH } from '@/lib/password-policy';
+import styles from '@/app/account.module.css';
+
+/**
+ * Customer registration form.
+ *
+ * Email and password only. A phone number is not collected here: it is optional contact information and
+ * capturing it at sign-up would collect personal data the account does not need yet. Email verification
+ * is deferred and **no verification mail is sent** (ADR 0012), which the form states rather than implies
+ * otherwise.
+ */
+export function RegisterView({
+  next,
+  notice,
+}: {
+  next: string;
+  notice: string | null;
+}) {
+  const { t } = useTranslation();
+
+  const message = (): string | null => {
+    switch (notice) {
+      case 'invalid_email':
+        return t('account.errors.invalidEmail');
+      case 'weak_password':
+        return t('account.errors.weakPassword', { min: PASSWORD_MIN_LENGTH });
+      case 'mismatch':
+        return t('account.errors.passwordMismatch');
+      case 'email_taken':
+        return t('account.errors.emailTaken');
+      case 'invalid_name':
+        return t('account.errors.invalidName');
+      case 'throttled':
+        return t('account.errors.throttled');
+      case 'invalid':
+        return t('account.errors.invalid');
+      default:
+        return null;
+    }
+  };
+  const text = message();
+
+  return (
+    <div className={styles.narrow}>
+      <header className={styles.header}>
+        <h1>{t('account.registerTitle')}</h1>
+        <p className={styles.muted}>{t('account.registerBody')}</p>
+      </header>
+
+      {text !== null && (
+        <p className={styles.notice} role="alert">
+          {text}
+        </p>
+      )}
+
+      <form className={styles.form} action="/api/account/register" method="post">
+        <input type="hidden" name="next" value={next} />
+        <label className={styles.field}>
+          <span>
+            {t('account.displayName')} <em>{t('common.optional')}</em>
+          </span>
+          <input type="text" name="displayName" autoComplete="name" maxLength={80} />
+        </label>
+        <label className={styles.field}>
+          <span>{t('account.email')}</span>
+          <input type="email" name="email" autoComplete="email" required maxLength={254} />
+        </label>
+        <label className={styles.field}>
+          <span>{t('account.password')}</span>
+          <input
+            type="password"
+            name="password"
+            autoComplete="new-password"
+            required
+            minLength={PASSWORD_MIN_LENGTH}
+          />
+          <small>{t('account.passwordHelp', { min: PASSWORD_MIN_LENGTH })}</small>
+        </label>
+        <label className={styles.field}>
+          <span>{t('account.confirmPassword')}</span>
+          <input type="password" name="confirmPassword" autoComplete="new-password" required />
+        </label>
+        <button type="submit" className={styles.primaryAction}>
+          {t('account.registerSubmit')}
+        </button>
+      </form>
+
+      <p className={styles.muted}>
+        {t('account.haveAccount')}{' '}
+        <Link href={`/account/login?next=${encodeURIComponent(next)}`}>{t('account.signIn')}</Link>
+      </p>
+      <p className={styles.muted}>{t('account.noRecoveryBody')}</p>
+    </div>
+  );
+}

@@ -22,6 +22,7 @@ import type { Transaction } from '@/db/client';
 import { staffCredential, staffRecoveryToken, staffSession, staffUser } from '@/db/schema';
 
 import { recordAudit } from './audit';
+import { LOGIN_THROTTLE } from './constants';
 import { hashPassword, needsRehash, passwordPolicyError, verifyPassword } from './password';
 import {
   clearThrottle,
@@ -61,7 +62,7 @@ export async function signIn(
   const subjects = [accountSubject(email), sourceSubject(input.context.ipHash)];
 
   for (const subject of subjects) {
-    const state = await throttleState(tx, subject);
+    const state = await throttleState(tx, LOGIN_THROTTLE, subject);
     if (state.blocked) {
       await recordAudit(tx, {
         actorType: 'system',
@@ -109,7 +110,7 @@ export async function signIn(
   if (!verified || !usable || row === undefined || row.secretHash === null) {
     let blockedUntil: Date | null = null;
     for (const subject of subjects) {
-      const verdict = await recordFailedAttempt(tx, subject);
+      const verdict = await recordFailedAttempt(tx, LOGIN_THROTTLE, subject);
       if (verdict.blockedUntil !== null) blockedUntil = verdict.blockedUntil;
     }
 
@@ -132,7 +133,7 @@ export async function signIn(
   const staffUserId = row.id;
 
   // A successful sign-in clears the counters, so a user's own earlier typos do not lock them out.
-  await clearThrottle(tx, subjects);
+  await clearThrottle(tx, LOGIN_THROTTLE, subjects);
 
   // Opportunistic upgrade: a credential stored with weaker parameters is re-hashed now that the
   // plaintext is legitimately in hand. This is the only moment it can be done without asking again.

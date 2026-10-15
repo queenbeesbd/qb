@@ -30,6 +30,7 @@ import { createServer } from 'node:net';
 import { existsSync } from 'node:fs';
 
 import { seedCatalog } from '../src/db/seed-catalog';
+import { runCustomerFlowChecks } from './customer-flow';
 import { assertDisposableDatabase } from '../src/server/env';
 import { SKIP_REASON, startMigratedDatabase, toolingAvailable, type DbFixture } from '../tests/db/helpers';
 
@@ -176,7 +177,25 @@ async function main(): Promise<void> {
       throw new Error(`the browser suite exited ${browserCode}`);
     }
 
-    console.log('\n✓ storefront verification passed: the served catalog is the seeded database');
+    // The routes are the layer neither the database tests nor the browser suite can reach: an
+    // unauthenticated order, a cross-origin submission, a forged price and another customer's order
+    // are all properties of the served HTTP surface.
+    console.log('\nrunning the customer authentication and checkout flow against the served build');
+    const flowChecks = await runCustomerFlowChecks({ base, pool: fixture.pool });
+    for (const check of flowChecks) {
+      console.log(`${check.ok ? '  PASS  ' : '  FAIL  '}${check.step}`);
+    }
+    const flowFailures = flowChecks.filter((check) => !check.ok);
+    if (flowFailures.length > 0) {
+      throw new Error(
+        `${flowFailures.length} customer-flow check(s) failed: ` + JSON.stringify(flowFailures),
+      );
+    }
+
+    console.log(
+      `\n✓ storefront verification passed: the served catalog is the seeded database, and ` +
+        `${flowChecks.length} customer authentication and checkout checks passed over HTTP`,
+    );
   } finally {
     await stopServer(server);
     await fixture.close();

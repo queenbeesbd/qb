@@ -48,9 +48,11 @@ dropping tables, which is a migration and a business-rule change.
   concurrent order for the last unit still cannot oversell. No schema change; the owner sees a state,
   the database still holds the invariant.
 
-Until the owner answers, **nothing is removed and no availability behaviour is implemented**.
-Recommending (b) as the smaller change is an engineering opinion, not a decision: it is the owner's
-call, and this ADR deliberately does not make it.
+**Answered by the owner on 2026-10-15 in ADR 0013: option (a).** Availability is the **only** ordering
+gate; order creation writes no reservation, allocation, deduction or automatic availability change;
+separate valid submissions may create separate orders; and **overselling is accepted** rather than
+prevented. The D11 inventory tables remain implemented and unused. Nothing was removed, and this closes
+the question this section deliberately left open.
 
 ### 2. A customer may be banned after a confirmed fake order
 
@@ -132,8 +134,9 @@ provider selection is an owner decision (ADR 0005 pattern), not an implementatio
 
 Customer authentication and the order path remain **separate from owner authentication** and follow
 the documented roadmap. Phase 12 is the **administrative** interface only. Customer registration,
-login, recovery, checkout and payment remain governed by **D17** and D12, and are not part of, nor
-implied by, the Phase 12 work or by this ADR.
+login, recovery, checkout and payment remained governed by **D17** and D12, and are not part of, nor
+implied by, the Phase 12 work or by this ADR. **D17 was settled on 2026-10-15 in ADR 0012** (first-party
+customer sessions, no self-service recovery, no external provider).
 
 ### 6. Customer/business activity logs are kept separate from internal security logs
 

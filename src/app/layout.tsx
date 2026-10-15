@@ -22,7 +22,7 @@ export const metadata: Metadata = {
     template: "%s · QueenBee's",
   },
   description:
-    'QueenBee’s cosmetics storefront demo. Bangla and English browsing with a local sample catalog. No real orders or payments.',
+    'QueenBee’s cosmetics storefront demo. Bangla and English browsing over the store catalog. No payments are taken and nothing is dispatched.',
   icons: {
     icon: [{ url: '/brand/favicon.svg', type: 'image/svg+xml' }],
   },

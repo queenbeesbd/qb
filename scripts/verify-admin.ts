@@ -1045,8 +1045,17 @@ async function main(): Promise<void> {
         record('the catalog page still renders', products.status === 200, `status ${products.status}`);
         const cart = await call(base, '/cart');
         record('the cart page still renders', cart.status === 200, `status ${cart.status}`);
+        // Phase 15 replaced the inert preview with a real checkout that requires an account (D12), so
+        // the storefront-level assertion is now that the route refuses an anonymous visitor and sends
+        // them to sign in - not that it renders an inert page.
         const checkout = await call(base, '/checkout');
-        record('the inert checkout preview still renders', checkout.status === 200, `status ${checkout.status}`);
+        record(
+          'checkout refuses an anonymous visitor and redirects to customer sign-in',
+          checkout.status >= 300 &&
+            checkout.status < 400 &&
+            /\/account\/login/.test(checkout.headers.get('location') ?? ''),
+          `status ${checkout.status}, location ${checkout.headers.get('location') ?? 'none'}`,
+        );
         record(
           'the admin tree does not leak into the storefront',
           !home.body.includes('/admin/catalog') &&

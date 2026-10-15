@@ -273,8 +273,9 @@ statement.
 **Authorization.** Written only by the authentication service. Never selected by any list or report
 query; never returned by an API. `secret_hash` is never included in an audit payload.
 
-**Transitions.** Created at registration; replaced on password reset (old row revoked, new row
-inserted, all other sessions revoked); revoked on deletion.
+**Transitions.** Created at registration; revoked on deletion. **Replaced on a password change** (old
+row revoked, new row inserted, all other sessions revoked) - and at launch a password change follows an
+**owner-operated reset** (ADR 0012), because there is no self-service recovery.
 
 ### 4.3 `customer_session`
 
@@ -328,6 +329,10 @@ long-lived second password.
 
 **Authorization.** Created only by the recovery endpoint; consumed only by the reset endpoint.
 A successful use revokes every existing session on that account.
+
+**Not used at launch.** With **no self-service password recovery at launch (ADR 0012)**, this table has
+no active producer: the `password_reset` and `email_verify` purposes are unused. Operational resets are
+owned and operated by the store with one-time credentials, audit logging and session revocation.
 
 ### 4.5 `auth_throttle`
 
@@ -637,6 +642,13 @@ source be added without touching the catalog tables.
 ## 6. Inventory: balance, ledger and reservations
 
 ### 6.1 `inventory_balance`
+
+> **Not exercised by the order path (ADR 0013, owner-decided 2026-10-15).** Availability is the only
+> ordering gate; order creation writes **no** `inventory_balance` update, no `inventory_movement` and no
+> `stock_reservation`. This table and the two that follow are **implemented and unused**, and the
+> `CHECK (reserved <= on_hand)` backstop is **inert** while nothing writes a reservation. The design
+> below is retained for the allocation-backstop option the owner declined; overselling is accepted and
+> managed operationally.
 
 **Why it exists.** One row per stock-keeping unit holding the two physical facts. `available` is
 **not stored** - it is `on_hand - reserved` at query time (C11), so the number a customer is shown and
@@ -1502,6 +1514,12 @@ relates to.
 
 One transaction, one intent, no partial order.
 
+> **Superseded for launch by ADR 0013.** The guarded reservation in step 3 and the `stock_reservation`
+> and `inventory_movement` writes in step 4 are **not** performed: order creation reads
+> `product.availability` as its only stock gate and writes no reservation or deduction. The
+> idempotency behaviour in steps 1 and 5 is unchanged and still required. The transaction shape below
+> is retained for the allocation-backstop option the owner declined.
+
 ```
 BEGIN;
   -- 1. Idempotency: claim the key, or return the existing order
@@ -1985,12 +2003,12 @@ checkout must not be silently reintroduced.
 
 | Concern | Design |
 | --- | --- |
-| Registration | Email + password. Adaptive hash with per-row parameters (4.2). Email verification is a **proposal** - it needs a mail provider, which is an owner cost decision |
+| Registration | Email and password (**D17, settled in ADR 0012**). **scrypt** with per-row parameters (4.2); a phone number is optional contact, never a credential. **Email verification is deferred**, not designed - it needs a mail provider that is not authorized |
 | Login | Server-side session created on success; session id in an `httpOnly`, `Secure`, `SameSite=Lax` cookie |
 | Session storage | `customer_session`, storing only the **SHA-256 of a 256-bit random token** (4.3) |
 | Session lifetime | Sliding idle limit plus an absolute ceiling; both server-side. Proposal: 30 days absolute, 7 days idle for customers |
 | Rotation | Session id rotated on login and on privilege change, which defeats fixation |
-| Recovery | Single-use, short-lived, hashed token (`account_recovery_token`, 4.4); a successful reset revokes every existing session |
+| Recovery | **No self-service recovery at launch (ADR 0012).** The designed single-use, short-lived, hashed token (`account_recovery_token`, 4.4) is **not produced** at launch; an owner-operated reset issues a one-time credential with audit logging and revokes every existing session |
 | Rate limiting | `auth_throttle` (4.5) on login, registration, recovery and claim submission, keyed by hashed subject |
 | Enumeration resistance | Identical responses and comparable timing for known and unknown accounts; recovery always reports "if that account exists, a message was sent" |
 | Staff auth | The same mechanism in separate tables with **shorter** lifetimes (4.7), plus a permission model (4.8) |
@@ -2009,10 +2027,18 @@ checkout must not be silently reintroduced.
 - **Theft.** Tokens are opaque and stored hashed, so a database read does not yield a usable session;
   revocation is immediate because the session is server-side.
 
-### 15.4 Provider decision - PENDING OWNER APPROVAL
+### 15.4 Provider decision - SETTLED (ADR 0012)
 
-**No authentication provider is approved, and none is added by this document.** The current codebase has
-no authentication of any kind (1.2), so this is a greenfield choice.
+**D17 is settled (owner-decided, 2026-10-15; ADR 0012): first-party customer sessions.** The options
+below are retained as the record of what was considered. The decision is: email and password with
+**scrypt** hashing, **opaque 256-bit session tokens stored only as a SHA-256 hash**, httpOnly
+`SameSite=Lax` cookies with idle and absolute expiry, account- and source-keyed throttling,
+customer-scoped CSRF, and **strict separation from owner/admin credentials, sessions and
+permissions**. **Email is the sole registration and sign-in identifier**; a phone number stays optional
+contact. **Email verification is deferred**, and **there is no self-service password recovery at
+launch** - any reset is an owner-operated process with one-time credentials, audit logging and session
+revocation. **No external authentication provider, mail service, OAuth client or SMS gateway is
+authorized.**
 
 | Option | Cost | Operational burden | Security | Integration fit | Migration implications |
 | --- | --- | --- | --- | --- | --- |
@@ -2027,14 +2053,15 @@ suits serverless execution; and it avoids putting a third party on the login pat
 entire backend is otherwise first-party. The cost is that password reset, email verification and abuse
 handling are ours to build and to get right.
 
-**This recommendation is not an approval.** It requires an owner decision, recorded as **D17**. Until
-that decision exists, **no dependency is added, no provider is configured, and no credential is
-created**.
+**This recommendation was adopted as the decision (ADR 0012).** Recording it added **no dependency**,
+configured **no provider**, and created **no credential**.
 
 **Related decisions.** D13 (staff auth) and D10 (which roles may verify payments) are **settled in
-ADR 0009**: first-party email and password, owner role only, multiple owners permitted. Email
-verification and password-reset delivery still need a mail provider, which remains a separate cost
-decision - **Resend email verification is deferred** and is not authorized.
+ADR 0009**: first-party email and password, owner role only, multiple owners permitted. **D17 (customer
+authentication) is settled in ADR 0012** on the same first-party pattern, with **no self-service
+recovery** because no mail provider is authorized. Email verification and password-reset delivery still
+need a mail provider, which remains a separate owner cost decision - **Resend email verification is
+deferred** and is not authorized.
 
 ---
 
@@ -2176,6 +2203,8 @@ genuine late payment is never silently discarded.
 | D9 the full payment and order policy: 24-hour verification maximum (internal, not a customer promise), exceptions handling, fake-order findings with audited reason and actor, cancellation through support, manual refunds with separate states, COD owner approval before dispatch, five-way state separation, **24-hour unpaid-order expiry**, **cancellation after the window**, the **COD lifecycle** | register; `docs/payment-workflow.md` 13.1-13.9 |
 | D11 first submitted claim wins; **at most one active submitted claim per unit**; atomic allocation, no oversell, idempotent release, no automatic release of a submitted claim, stock restored only after inspection | register; `docs/payment-workflow.md` 13.10 |
 | D12 account-required checkout with cart preservation and return to checkout | register |
+| D17 first-party customer authentication: email and password (scrypt), opaque hashed session tokens, httpOnly cookies with idle and absolute expiry, throttling, customer-scoped CSRF, no self-service recovery | ADR 0012 |
+| D19 ordering gate: availability is the only gate; no reservation, allocation, deduction or automatic availability change; overselling accepted; inventory tables unused | ADR 0013 |
 | Object storage boundary: bytes in Neon Object Storage, metadata and our own key in PostgreSQL, never a provider URL as identity | ADR 0006 |
 
 **Proposed by this document and awaiting approval** (engineering recommendations, reversible):
@@ -2198,7 +2227,7 @@ genuine late payment is never silently discarded.
 | # | Risk | Impact | Mitigation in this design | Residual |
 | --- | --- | --- | --- | --- |
 | R1 | A losing customer transfers before submitting and the unit is gone | The customer paid for nothing | Claim allocation happens **before** payment instructions are shown (12.2), narrowing the window to the manual-transfer gap that cannot be closed; the manual refund path (13.6) exists for it | **Accepted cost of the owner's priority rule**, recorded in 13.10.7. Not eliminable without abandoning payment priority |
-| R2 | Over-selling under concurrency | Orders that cannot be fulfilled | `CHECK (reserved <= on_hand)`, guarded atomic update, row locks in fixed order, unit-level claim bound | None identified at the database level; the guarantee is structural |
+| R2 | Over-selling under concurrency | Orders that cannot be fulfilled | `CHECK (reserved <= on_hand)`, guarded atomic update, row locks in fixed order, unit-level claim bound | **Accepted by the owner (ADR 0013):** availability is the only ordering gate and no reservation is written, so this backstop is **inert at launch** and overselling is managed operationally |
 | R3 | Double stock release under retry or a concurrent admin action | Stock inflated above physical reality | Single guarded release statement plus unique `movement_key` | None identified |
 | R4 | A delayed genuine payment silently lost | A paying customer is refused and refunded | Submitted claims never expire; exceptions queue; explicit admin resolution only | Requires the owner to actually work the queue - an **operational** risk, not a technical one |
 | R5 | A customer wrongly treated as fraudulent | Reputational and legal harm | `rejected` and `falsely_claimed` are separate states; the flag requires a staff actor and a reason, is reversible with an audit record, and **cannot be set automatically** | Depends on the operator's judgement, which no schema can replace |
@@ -2242,7 +2271,7 @@ genuine late payment is never silently discarded.
 | D14 | ORM / query layer (Prisma vs Drizzle) | Determines the migration tool, not the schema. Deferred to Phase 11 |
 | D15 | Single Next.js app vs split storefront/admin | The boundary diagram (PA section 2) is logical either way |
 | D16 | Background job mechanism | The expiry sweep (12.3) is written to be scheduler-agnostic |
-| **D17** | **Customer authentication provider** (section 15.4) | **Blocks implementation of checkout.** Recommendation: first-party sessions |
+| ~~D17~~ | **Customer authentication provider** (section 15.4) | **Settled (ADR 0012, 2026-10-15):** first-party customer sessions - email and password, scrypt, opaque hashed session tokens, httpOnly cookies with idle and absolute expiry, throttling, customer-scoped CSRF, **no self-service recovery**. **No longer blocks checkout** |
 | - | Shipping charges and zone structure | A single flat `store_setting` exists; the amount is unapproved |
 | - | Notification channels beyond the in-app order page (email/SMS provider) | The in-app baseline works; email verification and password reset need a provider |
 | - | Retention periods for payment claims and audit events | Proposed values are placeholders |

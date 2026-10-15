@@ -174,10 +174,11 @@ failure.
 
 ## Open questions
 
-- **Does overselling matter, and does the toggle sit over the quantity ledger?** Unchanged from ADR 0010
-  and required before Phase 15 writes an order.
-- **D17 (customer authentication provider)** still blocks checkout (D12 requires an account before
-  ordering).
+- **Does overselling matter, and does the toggle sit over the quantity ledger?** **Settled (ADR 0013,
+  2026-10-15):** availability is the only ordering gate; no reservation, allocation or deduction is
+  written, and overselling is **accepted** rather than prevented.
+- ~~D17 (customer authentication provider)~~ **Settled (ADR 0012, 2026-10-15):** first-party customer
+  sessions with **no self-service recovery** and no external provider, so it no longer blocks checkout.
 - **Is a public catalog endpoint ever needed?** Only with a named consumer; the seam is ready and
   no endpoint is authorized now.
 - **When, if ever, is the platform provisioned?** No cloud resource exists and none was created; that is

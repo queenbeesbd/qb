@@ -386,6 +386,8 @@ Expiry is **automatic and system-driven**, and applies **only** to an order whos
 
 **Status: approved.** The owner's core rule is recorded, the engineering invariants are fixed, and the allocation bound is decided (13.10.7).
 
+> **Amended by ADR 0013 (owner-decided, 2026-10-15): availability is the only ordering gate.** Order creation writes **no** reservation, allocation, deduction or automatic availability change, and **overselling is accepted** rather than prevented. The reservation and allocation mechanics described in 13.10.1-13.10.6 are therefore **not exercised at launch**; the D11 inventory tables remain implemented and unused. The payment-priority intent below remains the owner's rule for the payment flow, but it has no stock-ordering implementation while no unit is reserved.
+
 #### The owner's rule
 
 > When only limited stock is available, the customer whose payment is successfully completed/verified first gets the product.

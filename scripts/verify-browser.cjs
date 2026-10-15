@@ -444,15 +444,16 @@ async function main() {
     const corrupt = await evaluate(client, `({ lang: document.documentElement.lang, lines: window.__qb.cartLines().length, recovery: !!document.querySelector('main a[href="/products"]') })`);
     record('15. corrupt cart and unsupported locale fall back safely', corrupt.lang === 'bn' && corrupt.lines === 0 && corrupt.recovery, corrupt);
 
-    // 16 - checkout preview inert. Locale is reset first because the previous
-    // check deliberately left an unsupported preference that falls back to Bangla.
+    // 16 - checkout requires an account (D12). An anonymous visitor is redirected to sign in, and the
+    // screen reached is a sign-in form: one password field, no card fields, no order fields. Locale is
+    // reset first because the previous check deliberately left an unsupported preference.
     await evaluate(client, `localStorage.setItem('queenbees.locale.v1', 'en')`);
     await nav(client, '/products/lilac-5-niacinamide-serum-30-ml');
     await evaluate(client, `window.__qb.addButton().click()`);
     await sleep(400);
     await nav(client, '/checkout');
-    const checkout = await evaluate(client, `({ mainForms: document.querySelectorAll('main form').length, mainInputs: document.querySelectorAll('main input, main textarea, main select').length, paymentFields: document.querySelectorAll('main input[type=password], main input[name*=card], main input[name*=cvv], main input[name*=payment]').length, submitButtons: document.querySelectorAll('main button[type=submit]').length, externalHosts: [...new Set([...document.querySelectorAll('a[href^="http"]')].map((a) => new URL(a.href).host))], banner: /(preview only|প্রিভিউ)/i.test(document.body.innerText), demoBadge: /(Demo preview|ডেমো প্রিভিউ)/i.test(document.body.innerText), lineItems: document.querySelectorAll('main ul > li').length })`);
-    record('16. checkout preview is inert, demo-labelled and contacts no external host', checkout.mainForms === 0 && checkout.mainInputs === 0 && checkout.paymentFields === 0 && checkout.submitButtons === 0 && checkout.externalHosts.length === 0 && checkout.banner && checkout.demoBadge && checkout.lineItems === 1, checkout);
+    const checkout = await evaluate(client, `({ path: location.pathname, forms: document.querySelectorAll('main form').length, passwordFields: document.querySelectorAll('main input[type=password]').length, cardFields: document.querySelectorAll('main input[name*=card], main input[name*=cvv], main input[name*=payment]').length, orderFields: document.querySelectorAll('main input[name*=lines], main input[name*=idempotencyKey], main input[name=csrf]').length, externalHosts: [...new Set([...document.querySelectorAll('a[href^="http"]')].map((a) => new URL(a.href).host))], signInCopy: /(Sign in|সাইন ইন)/i.test(document.body.innerText), noRecovery: /(no password recovery|পাসওয়ার্ড পুনরুদ্ধারের কোনো পথ নেই)/i.test(document.body.innerText), cartPreserved: (document.querySelector('a[href="/cart"]')?.innerText || '').trim() })`);
+    record('16. checkout requires an account: anonymous visitors reach the sign-in form, with no order or card fields and the cart preserved', checkout.path === '/account/login' && checkout.forms === 1 && checkout.passwordFields === 1 && checkout.cardFields === 0 && checkout.orderFields === 0 && checkout.externalHosts.length === 0 && checkout.signInCopy && checkout.noRecovery && /[0-9]/.test(checkout.cartPreserved), checkout);
 
     // 17 - not found
     await nav(client, '/products/does-not-exist');

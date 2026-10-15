@@ -59,6 +59,11 @@ Choosing (b) means implementing the D11 reservation path in Phase 15, which the 
 specifies. Choosing (a) means the D11 tables stay unused and the oversell risk above is accepted in
 writing.
 
+**Decided by the owner (2026-10-15) in ADR 0013: option (a).** Availability is the **only** ordering
+gate; order creation writes no reservation, allocation, deduction or automatic availability change;
+separate valid submissions may create separate orders; and overselling is **accepted**. The D11
+inventory tables remain implemented and unused.
+
 **Other consequences.**
 
 - **No inventory adjustment surface exists**, so `inventory.adjust` remains catalogued but unreachable -

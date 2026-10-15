@@ -108,9 +108,20 @@ Direction approved in `docs/decisions/0004-independent-platform-direction.md`; a
 ### Sessions and credentials
 
 - Staff sessions use httpOnly, `Secure`, `SameSite` cookies with server-side session records and a bounded lifetime.
-- Passwords are hashed with a current adaptive algorithm. Account recovery uses single-use, expiring tokens.
+- Passwords are hashed with a current adaptive algorithm. **Owner** account recovery uses single-use, expiring tokens; **customer self-service recovery does not exist at launch** (ADR 0012) and is replaced by an owner-operated reset.
 - Secrets live in server-side environment variables only. They never appear in `NEXT_PUBLIC_*`, the client bundle, logs, documentation or committed files.
 - A documented rotation procedure exists for every provider secret.
+
+### Customer authentication (D17, settled in ADR 0012; implemented in Phase 15)
+
+- **First-party only.** Registration and sign-in use **email and password**; the email is the sole registration and sign-in identifier and a phone number is optional contact, never a credential. **No external identity provider, mail service, OAuth client or SMS gateway is authorized.**
+- **Credentials.** Passwords are hashed with **scrypt** and never stored in plaintext, logged or returned. One credential row per customer, replaced on a password change with every other session revoked.
+- **Sessions.** Opaque **256-bit random tokens**, stored only as a **SHA-256 hash**; delivered in an httpOnly, `Secure`, `SameSite=Lax` cookie; a **sliding idle limit inside an absolute ceiling**, both enforced server-side; the session id is **rotated at login**, so a fixation attempt fails.
+- **Throttling.** Login and registration are limited **by account and by source**, using a shared datastore counter, because serverless functions have no shared memory.
+- **CSRF.** A per-session token verified server-side plus a same-origin check on every state-changing route; `SameSite=Lax` is a mitigation, not the whole control.
+- **Authorization.** A customer's orders and profile are reached only through the customer's own session; another customer's resource returns **404, not 403**. Customer permissions are **strictly separate** from owner/admin permissions, and the two session stores are separate so no customer-scoped query can reach an owner row.
+- **No self-service recovery.** There is **no password-reset endpoint or email workflow at launch**. A customer interface must **state the gap rather than offer a reset that does not exist**. Any operational reset is **owner-operated**: explicit authorization, a **one-time credential**, an **audit record**, and **revocation of every existing session**. Administrative reset functionality is never exposed to customers and no insecure shortcut is created.
+- **Bans (D20).** A confirmed fake order can suspend the account. The ban **revokes active sessions** and **refuses new orders inside the order transaction** and checkout. It does not cancel, refund or delete an order, and it touches no payment, refund or reservation state.
 
 ### CSRF, abuse and resource limits
 
@@ -128,9 +139,11 @@ Direction approved in `docs/decisions/0004-independent-platform-direction.md`; a
 
 ### Inventory consistency
 
+**Superseded for launch by ADR 0013 (owner-decided 2026-10-15):** availability is the **only** ordering gate. Order creation writes **no** reservation, allocation, deduction or inventory movement, and availability changes only by owner action. The bullets below describe the D11 reservation model, which is **implemented but unused** at launch; overselling is **accepted** and managed operationally.
+
 - Stock changes occur inside the same transaction as the order, using a guarded update that fails on insufficient stock. No read-then-write.
 - Every stock change is recorded in an append-only movement ledger, so the current quantity is always explainable.
-- Cancellations and refunds restore stock through the same ledger.
+- Cancellations and refunds restore stock through the same ledger. **Under ADR 0013 a refund changes no availability by itself** - any availability change is a separate owner action.
 
 ### Auditability and logging
 
@@ -234,7 +247,7 @@ Approved launch model (D7): **manual bKash**, **manual Nagad** and **Cash on Del
 | P11 | Uploaded file used as an attack vector (only if screenshots are ever enabled) | Private bucket only; server-side content-type and size validation; the file decoded as an image before acceptance; **server-generated object key, never the uploaded filename**; readable only by permitted roles; deleted on a defined schedule |
 | P12 | One customer reading another's order | Orders are reachable **only through the owning customer's authenticated session**. Authorization is enforced server-side per request; a request for another customer's order is refused, not merely hidden |
 | P15 | Account takeover or credential stuffing on customer login | Server-side sessions in httpOnly, `Secure`, `SameSite` cookies with bounded lifetime; adaptive password hashing; rate limiting on login and recovery; generic failure messages that do not reveal whether an account exists |
-| P16 | Account recovery abuse | Single-use, expiring recovery tokens delivered only to the verified contact channel; token invalidation on use; rate limited |
+| P16 | Account recovery abuse | **Not applicable at launch: there is no self-service recovery (ADR 0012)**, so there is no customer recovery endpoint to abuse. Any owner-operated reset is one-time, audited, authorized, and revokes every existing session; it is never exposed to customers |
 | P17 | Cart lost when a guest is required to authenticate | The cart is preserved across the authentication step and the customer is returned to checkout. Session and cart state are reconciled server-side after login, not left to the client |
 | P18 | COD order treated as paid, or cash not reconciled | COD is a distinct method with no verification step; cash collected is recorded against the order and reconciled against courier settlement. COD orders must never enter the prepaid verification queue |
 | P13 | Unauthorized refund, or a refund displayed as complete when it is not | Refunds require an explicit permission, are possible only against a `verified` payment, and are recorded append-only with actor, timestamp, amount and reason. `refund_status` is a **separate field** with `requested` / `processing` / `completed` / `failed` - **a refund is never shown as completed because it was requested or approved** |
@@ -688,7 +701,9 @@ below is implemented**, and none has been tested. Residual risks are stated rath
 - [ ] **D9 rules implemented:** 24-hour unpaid-order expiry that never releases stock held by a submitted claim; cancellation after the window as a pre-dispatch support decision or a post-dispatch return; and the COD lifecycle with return-to-store and separate delivery, cash-collection and reconciliation states. (The 24-hour verification maximum, exceptions handling, fake-order rule, manual refund states, COD approval and state separation are approved.)
 - [ ] **D11 approved and implemented:** the **first submitted payment claim wins**, a later claim preempts an earlier **unsubmitted** hold, and **at most one active submitted claim exists per unit**. Reservation expiry, release and stock restoration must be consistent with D9.
 - [ ] **Approved D9 rules implemented:** exceptions queue, `falsely_claimed` with an audited reason and a separate customer flag, separate `refund_status`, the COD approval queue, and no automatic release of stock for any order whose customer submitted a payment claim.
-- [ ] Customer authentication implemented and verified: hashing, sessions, recovery, object-level authorization, rate limiting, and cart preservation across the login step (D12).
+- [x] Customer authentication implemented and verified against **ADR 0012** (Phase 15): **scrypt** hashing at rest, opaque session tokens stored only as a SHA-256 digest, httpOnly/`SameSite=Lax`/site-scoped cookie flags, a fresh session minted at sign-in, account- and source-keyed throttling, customer-scoped CSRF (no-CSRF order submission refused), object-level authorization (another customer's order returns **404**), and cart preservation across the sign-in step (D12). **No self-service recovery endpoint exists** - asserted by the absence of any route, not by a policy statement.
+- [ ] **Gap, recorded:** there is no owner-facing control that bans a customer. `suspendCustomer` (status `suspended`, every live session revoked, audited staff record) and its enforcement in `createOrder` and `resolveCustomerSession` are implemented and tested, but the administrative screen that would call it is not built.
+- [ ] Customer authentication **decision** settled (2026-10-15): **D17 first-party customer sessions**, recorded in **ADR 0012**, with **no external provider and no self-service recovery**.
 - [ ] Manual payment verification controls P1-P18 implemented and verified, including duplicate-reference detection, reconciliation and COD cash reconciliation.
 - [ ] Owner-confirmed courier arrangement and delivery charges, including COD cash settlement.
 - [ ] API route inventory and explicit authentication/authorization decisions.

@@ -41,6 +41,7 @@ export type AuditAction =
   | 'staff.created'
   | 'staff.disabled'
   | 'staff.enabled'
+  | 'customer.banned'
   | 'catalog.brand_created'
   | 'catalog.category_created'
   | 'catalog.category_updated'
