@@ -6,17 +6,21 @@
  * (node:http + global WebSocket), so the project gains no test dependency.
  *
  * Usage:
- *   npm run build && npx next start -p 4311 &
- *   node scripts/verify-browser.cjs [baseUrl]
+ *   npm run build && npx next start -p 3000 &
+ *   QUEENBEES_BASE_URL=http://localhost:3000 node scripts/verify-browser.cjs
  *
  * Exits non-zero if any check fails. This is a demo-scope smoke suite: it
  * verifies the implemented frontend only and makes no claim about production
  * backend, payment or inventory behaviour.
+ *
+ * The target base URL comes from QUEENBEES_BASE_URL (or the first argument),
+ * defaulting to http://localhost:3000. This script starts no server of its own:
+ * the caller serves the build, so it can point the suite at any served target.
  */
 const http = require('node:http');
 const { spawn } = require('node:child_process');
 
-const APP = process.argv[2] || 'http://127.0.0.1:4311';
+const APP = process.env.QUEENBEES_BASE_URL || process.argv[2] || 'http://localhost:3000';
 const CDP = 9228;
 const results = [];
 const consoleErrors = [];
@@ -578,7 +582,7 @@ async function main() {
         loaded: loaded.length,
         webpSources: webp.length,
         ratios,
-        localOnly: imgs.every((i) => (i.currentSrc || i.src).startsWith('http://127.0.0.1') || (i.currentSrc || i.src).startsWith('/')),
+        localOnly: imgs.every((i) => new URL(i.currentSrc || i.src || '/', location.href).origin === location.origin),
         anyRemoteHost: imgs.some((i) => /zatiqeasy|ghorerbazar/.test(i.currentSrc || i.src)),
         decoded3x4: imgs.length > 0 && imgs.every((i) => Math.abs(i.naturalWidth / i.naturalHeight - 0.75) < 0.02),
       };
@@ -598,6 +602,32 @@ async function main() {
       };
     })()`);
     record('26b. detail photo loads eagerly with descriptive alt and no audit caption', detailImg.loaded && detailImg.eager && (detailImg.alt || '').length > 3 && detailImg.caption === null && detailImg.ratio === 0.75, detailImg);
+
+    // 26c - the served page is the database catalog, and the retired fixture
+    // wording is gone. The 22 products come from the seeded database read, and
+    // the copy removed in the cutover must not survive in any locale.
+    await nav(client, '/products');
+    const catalogSource = await evaluate(client, `(() => {
+      const cards = [...document.querySelectorAll('main article')];
+      const slugs = [...document.querySelectorAll('main a[href*="/products/"]')]
+        .map((a) => a.getAttribute('href') || '')
+        .filter((href) => /^\\/products\\/[^/?#]+$/.test(href));
+      const text = document.body.innerText;
+      const retired = [
+        'not live inventory',
+        '\\u09B2\\u09BE\\u0987\\u09AD \\u09B8\\u09CD\\u099F\\u0995 \\u09A8\\u09AF\\u09BC',
+        'Demo catalog captured',
+        '\\u09A1\\u09C7\\u09AE\\u09CB \\u0995\\u09CD\\u09AF\\u09BE\\u099F\\u09BE\\u09B2\\u0997',
+      ];
+      return {
+        cards: cards.length,
+        distinctSlugs: new Set(slugs).size,
+        retiredPresent: retired.filter((phrase) => text.includes(phrase)),
+      };
+    })()`);
+    record('26c. database cutover serves 22 products and retires the fixture catalog wording',
+      catalogSource.cards === 22 && catalogSource.distinctSlugs === 22 && catalogSource.retiredPresent.length === 0,
+      catalogSource);
 
     // 27 - featured shelf: exactly one row, bounded controls, real advancement
     await nav(client, '/');

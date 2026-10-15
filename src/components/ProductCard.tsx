@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { CARD_SIZES } from '@/lib/images';
 import { discountAmount, discountPercent } from '@/lib/money';
 import { useTranslation } from '@/i18n/useTranslation';
-import type { Product } from '@/lib/types';
+import type { CatalogItem } from '@/lib/types';
 import { ProductPhoto } from './ProductPhoto';
 import styles from './ProductCard.module.css';
 
@@ -12,7 +12,7 @@ import styles from './ProductCard.module.css';
  * Product card. Only verified facts are shown: name, brand, pack size, price
  * hierarchy and published availability. No ratings, badges or urgency claims.
  */
-export function ProductCard({ product }: { product: Product }) {
+export function ProductCard({ product }: { product: CatalogItem }) {
   const { t, pick, price } = useTranslation();
   const name = pick(product.name) ?? product.slug;
   const image = product.images[0];

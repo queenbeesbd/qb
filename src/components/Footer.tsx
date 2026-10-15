@@ -1,10 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { categories } from '@/data/categories';
-import { demoCatalogMeta } from '@/data/catalog';
-import { formatDate } from '@/lib/format';
 import { useTranslation } from '@/i18n/useTranslation';
+import type { CatalogCategory } from '@/lib/types';
 import styles from './Footer.module.css';
 
 /**
@@ -12,9 +10,12 @@ import styles from './Footer.module.css';
  * so the storefront can never be mistaken for a live ordering channel, and no
  * shipping, return or payment promise is published because no merchant policy
  * has been approved yet.
+ *
+ * Categories arrive as a server-resolved prop so the shop column always matches
+ * the catalog the storefront serves.
  */
-export function Footer() {
-  const { t, pick, locale } = useTranslation();
+export function Footer({ categories }: { categories: readonly CatalogCategory[] }) {
+  const { t, pick } = useTranslation();
   const year = new Date().getFullYear();
 
   return (
@@ -23,9 +24,6 @@ export function Footer() {
         <div className={styles.brandColumn}>
           <span className={styles.brandName}>{t('common.brand')}</span>
           <p className={styles.demoNote}>{t('footer.demoNote')}</p>
-          <p className={styles.meta}>
-            {t('footer.catalogNote', { date: formatDate(demoCatalogMeta.capturedAt, locale) })}
-          </p>
         </div>
 
         <nav className={styles.column} aria-labelledby="footer-shop">

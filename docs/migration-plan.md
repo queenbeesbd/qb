@@ -2,9 +2,11 @@
 
 Status: proposal, 2026-10-11. **No migration has been performed.** This plans a controlled workflow; it does not authorize bulk extraction, import or modification.
 
+**Superseded in part (Phase 14, 2026-10-15, ADR 0011).** The storefront was cut over to the **database** catalog server-side in Phase 14, and the database catalog was populated by the deterministic **local/test seed** (`npm run db:seed:catalog`), **not** by the audited import described here. This plan remains **unexercised and unapproved**: no extraction, import or external capture has occurred, and the fixture is now retained only as the seed and a development-only opt-in.
+
 ## Why migration is needed
 
-The storefront currently ships a **22-product fixture** (`src/data/catalog.ts`) hand-curated from the public storefront `queenbees.sellbd.shop`. It was built as a demonstration sample, not as a production catalog.
+The Phase 1 fixture ships as a **22-product** sample (`src/data/catalog.ts`) hand-curated from the public storefront `queenbees.sellbd.shop`. It was built as a demonstration sample, not as a production catalog, and since Phase 14 it is no longer what the storefront reads - it is the seed source for local/test parity.
 
 When QueenBee's owns its own catalog, real product data must be entered. Doing that by hand is slow and error-prone; the public storefront is a plausible source. But the public catalog is **not assumed to be complete, current or authoritative**, and the Phase 7 audit found the merchant dashboard's own catalog to be empty - so there is no authoritative digital source to read today.
 

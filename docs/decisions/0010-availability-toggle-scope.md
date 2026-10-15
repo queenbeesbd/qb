@@ -66,9 +66,11 @@ writing.
 - **The Phase 1 fixture keeps `availability: 'in_stock' | 'out_of_stock' | 'unknown'`.** `unknown` is a
   snapshot artefact of a captured listing and is not a state the owner can set, so the database enum has
   two values and the fixture type is left alone. The storefront still renders the fixture in Phase 13.
-- **The storefront is not cut over.** `src/data/catalog.ts` and its synchronous accessors are unchanged;
-  the database catalog is reachable through `src/server/catalog/read.ts` and the authenticated read API
-  only. The cutover, and the public read endpoint with it, belong to Phase 14.
+- **The storefront is not cut over in Phase 13.** `src/data/catalog.ts` and its synchronous accessors are
+  unchanged; the database catalog is reachable through `src/server/catalog/read.ts` and the authenticated
+  read API only. The cutover belongs to Phase 14. **Amended by ADR 0011:** the cutover was performed
+  server-side, and it did **not** include a public catalog read endpoint - the "public read endpoint"
+  named here was an expectation, not an approved requirement.
 
 ## What this does not authorize
 

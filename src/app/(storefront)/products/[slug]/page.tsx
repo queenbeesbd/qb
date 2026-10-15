@@ -1,17 +1,14 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import { getProductBySlug, products } from '@/data/catalog';
 import { ProductDetailView } from '@/features/catalog/ProductDetailView';
+import { getStorefrontCatalog } from '@/server/catalog/storefront';
 
 type Params = Promise<{ slug: string }>;
 
-export function generateStaticParams() {
-  return products.map((product) => ({ slug: product.slug }));
-}
-
 export async function generateMetadata({ params }: { params: Params }): Promise<Metadata> {
   const { slug } = await params;
-  const product = getProductBySlug(slug);
+  const { products } = await getStorefrontCatalog();
+  const product = products.find((entry) => entry.slug === slug);
   if (!product) return { title: 'পণ্য' };
   return {
     title: product.name.bn ?? product.name.en ?? slug,
@@ -21,11 +18,23 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
 
 /**
  * Product detail route. Unknown slugs return a real 404 rather than a blank
- * product page, and all product data is resolved on the server.
+ * product page, and the product, its category and its related products are all
+ * resolved on the server from one catalog snapshot.
+ *
+ * There is deliberately no `generateStaticParams`: the storefront renders the
+ * live catalog, so product routes must not be pinned to build-time slugs.
  */
 export default async function ProductPage({ params }: { params: Params }) {
   const { slug } = await params;
-  const product = getProductBySlug(slug);
+  const catalog = await getStorefrontCatalog();
+  const product = catalog.products.find((entry) => entry.slug === slug);
   if (!product) notFound();
-  return <ProductDetailView product={product} />;
+
+  const category =
+    catalog.categories.find((entry) => entry.id === product.categoryId) ?? null;
+  const related = catalog.products
+    .filter((item) => item.categoryId === product.categoryId && item.id !== product.id)
+    .slice(0, 4);
+
+  return <ProductDetailView product={product} category={category} related={related} />;
 }

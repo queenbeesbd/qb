@@ -1,6 +1,5 @@
-import { getCategory } from '@/data/categories';
 import { normaliseForSearch } from '@/lib/format';
-import type { Product } from '@/lib/types';
+import type { CatalogCategory, CatalogItem } from '@/lib/types';
 
 export const SORT_OPTIONS = ['relevance', 'price-asc', 'price-desc', 'name-asc'] as const;
 export type SortOption = (typeof SORT_OPTIONS)[number];
@@ -15,19 +14,26 @@ export type CatalogQuery = {
 /**
  * Parses untrusted search parameters. Unknown values fall back to safe
  * defaults so malformed input can never crash a listing page.
+ *
+ * The `category` value is a slug, never a database identity, and is validated
+ * against the slugs the caller actually serves: a value that names no known
+ * category is dropped here rather than selecting an empty result set.
  */
-export function parseCatalogQuery(params: Record<string, string | string[] | undefined>): CatalogQuery {
+export function parseCatalogQuery(
+  params: Record<string, string | string[] | undefined>,
+  categories: readonly CatalogCategory[],
+): CatalogQuery {
   const single = (value: string | string[] | undefined): string =>
     Array.isArray(value) ? (value[0] ?? '') : (value ?? '');
 
   const rawQ = single(params.q).slice(0, 80);
-  const rawCategory = single(params.category).slice(0, 40);
+  const rawCategory = single(params.category).trim().slice(0, 40);
   const rawBrand = single(params.brand).slice(0, 60);
   const rawSort = single(params.sort);
 
   return {
     q: rawQ.trim(),
-    category: getCategory(rawCategory) ? rawCategory : '',
+    category: categories.some((category) => category.slug === rawCategory) ? rawCategory : '',
     brand: rawBrand.trim(),
     sort: (SORT_OPTIONS as readonly string[]).includes(rawSort)
       ? (rawSort as SortOption)
@@ -35,36 +41,37 @@ export function parseCatalogQuery(params: Record<string, string | string[] | und
   };
 }
 
-function matchesQuery(product: Product, needle: string): boolean {
+/**
+ * Search haystack: both published names, the brand and the pack size. The
+ * storefront has no tags or description search, so neither is included.
+ */
+function matchesQuery(item: CatalogItem, needle: string): boolean {
   if (!needle) return true;
-  const haystack = [
-    product.name.bn,
-    product.name.en,
-    product.brand,
-    product.pack,
-    ...product.tags,
-  ]
+  const haystack = [item.name.bn, item.name.en, item.brand, item.pack]
     .filter((value): value is string => typeof value === 'string' && value.length > 0)
     .map(normaliseForSearch)
     .join(' | ');
   return haystack.includes(needle);
 }
 
-export function filterProducts(products: readonly Product[], query: CatalogQuery): Product[] {
+export function filterProducts(
+  products: readonly CatalogItem[],
+  query: CatalogQuery,
+): CatalogItem[] {
   const needle = normaliseForSearch(query.q);
-  return products.filter((product) => {
-    if (query.category && product.categoryId !== query.category) return false;
-    if (query.brand && product.brand !== query.brand) return false;
-    return matchesQuery(product, needle);
+  return products.filter((item) => {
+    if (query.category && item.categorySlug !== query.category) return false;
+    if (query.brand && item.brand !== query.brand) return false;
+    return matchesQuery(item, needle);
   });
 }
 
-function displayName(product: Product): string {
-  return product.name.en ?? product.name.bn ?? product.slug;
+function displayName(item: CatalogItem): string {
+  return item.name.en ?? item.name.bn ?? item.slug;
 }
 
 /** Deterministic, total ordering so the same query always yields the same list. */
-export function sortProducts(products: readonly Product[], sort: SortOption): Product[] {
+export function sortProducts(products: readonly CatalogItem[], sort: SortOption): CatalogItem[] {
   const sorted = [...products];
   switch (sort) {
     case 'price-asc':
@@ -80,15 +87,18 @@ export function sortProducts(products: readonly Product[], sort: SortOption): Pr
   }
 }
 
-export function selectCatalog(products: readonly Product[], query: CatalogQuery): Product[] {
+export function selectCatalog(
+  products: readonly CatalogItem[],
+  query: CatalogQuery,
+): CatalogItem[] {
   return sortProducts(filterProducts(products, query), query.sort);
 }
 
 /** Brands that actually exist in the catalog, sorted for a stable filter list. */
-export function listBrands(products: readonly Product[]): string[] {
+export function listBrands(products: readonly CatalogItem[]): string[] {
   const brands = new Set<string>();
-  for (const product of products) {
-    if (product.brand) brands.add(product.brand);
+  for (const item of products) {
+    if (item.brand) brands.add(item.brand);
   }
   return [...brands].sort((a, b) => a.localeCompare(b, 'en'));
 }

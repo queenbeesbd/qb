@@ -3,8 +3,8 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
-import { categories } from '@/data/categories';
 import { useTranslation } from '@/i18n/useTranslation';
+import type { CatalogCategory } from '@/lib/types';
 import { useCart } from '@/features/cart/useCart';
 import { CartIcon, CloseIcon, MenuIcon, SearchIcon } from './icons';
 import { LanguageToggle } from './LanguageToggle';
@@ -13,8 +13,11 @@ import styles from './Header.module.css';
 /**
  * Compact responsive header. The mobile drawer traps focus, closes on Escape and
  * returns focus to its trigger so keyboard users are never stranded.
+ *
+ * Categories arrive as a server-resolved prop, so navigation can never drift
+ * from the catalog the storefront actually serves.
  */
-export function Header() {
+export function Header({ categories }: { categories: readonly CatalogCategory[] }) {
   const { t, pick } = useTranslation();
   const { itemCount } = useCart();
   const pathname = usePathname();

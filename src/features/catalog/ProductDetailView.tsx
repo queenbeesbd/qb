@@ -2,28 +2,37 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { products } from '@/data/catalog';
-import { getCategory } from '@/data/categories';
 import { DETAIL_SIZES } from '@/lib/images';
 import { discountAmount, discountPercent } from '@/lib/money';
-import { formatDate } from '@/lib/format';
-import { demoCatalogMeta } from '@/data/catalog';
 import { useTranslation } from '@/i18n/useTranslation';
 import { useCart } from '@/features/cart/useCart';
+import type { CatalogCategory, CatalogItem } from '@/lib/types';
 import { ProductCard } from '@/components/ProductCard';
 import { ProductGrid } from '@/components/ProductGrid';
 import { QuantityStepper } from '@/components/QuantityStepper';
 import { ProductPhoto } from '@/components/ProductPhoto';
-import { CheckIcon, InfoIcon } from '@/components/icons';
+import { CheckIcon } from '@/components/icons';
 import styles from '@/app/product.module.css';
 
 /**
  * Product detail view. Only verified attributes are displayed; unpublished
  * descriptions and missing stock data are stated plainly instead of being
  * filled with invented copy.
+ *
+ * The product, its category and its related products all arrive as
+ * server-resolved props from one catalog snapshot, so the page never selects
+ * products itself.
  */
-export function ProductDetailView({ product }: { product: (typeof products)[number] }) {
-  const { t, pick, price, locale } = useTranslation();
+export function ProductDetailView({
+  product,
+  category,
+  related,
+}: {
+  product: CatalogItem;
+  category: CatalogCategory | null;
+  related: readonly CatalogItem[];
+}) {
+  const { t, pick, price } = useTranslation();
   const cart = useCart();
   const [quantity, setQuantity] = useState(1);
   const [justAdded, setJustAdded] = useState(false);
@@ -36,7 +45,6 @@ export function ProductDetailView({ product }: { product: (typeof products)[numb
 
   const name = pick(product.name) ?? product.slug;
   const description = pick(product.description);
-  const category = getCategory(product.categoryId);
   const saving = discountAmount(product.priceMinor, product.compareAtPriceMinor);
   const percent = discountPercent(product.priceMinor, product.compareAtPriceMinor);
   /**
@@ -45,10 +53,6 @@ export function ProductDetailView({ product }: { product: (typeof products)[numb
    */
   const compareAt = saving === null ? null : product.compareAtPriceMinor;
   const image = product.images[0];
-
-  const related = products
-    .filter((item) => item.categoryId === product.categoryId && item.id !== product.id)
-    .slice(0, 4);
 
   return (
     <div className={styles.page}>
@@ -116,13 +120,6 @@ export function ProductDetailView({ product }: { product: (typeof products)[numb
               <dd>{t(`product.availability.${product.availability}`)}</dd>
             </div>
           </dl>
-
-          <p className={styles.availabilityNote}>
-            <InfoIcon width={16} height={16} />
-            {t('product.availabilityNote', {
-              date: formatDate(demoCatalogMeta.capturedAt, locale),
-            })}
-          </p>
 
           <div className={styles.purchase}>
             <label className={styles.quantityLabel} htmlFor="pdp-quantity">

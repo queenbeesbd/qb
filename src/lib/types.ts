@@ -76,14 +76,89 @@ export type Product = {
   isDemo: true;
 };
 
+/**
+ * Icon key resolved by `CategoryIcon`. `other` is the neutral fallback: the
+ * database has no icon column, so an unmapped category gets a neutral glyph
+ * rather than an invented association.
+ */
+export type CategoryIcon = 'serum' | 'hair' | 'body' | 'lip' | 'tools' | 'other';
+
 export type Category = {
   id: string;
   slug: string;
   name: LocalizedText;
   /** Short, factual descriptor - no marketing claims. */
   blurb: LocalizedText;
-  /** Icon key resolved by the category icon component. */
-  icon: 'serum' | 'hair' | 'body' | 'lip' | 'tools';
+  icon: CategoryIcon;
+};
+
+/**
+ * Which source produced a catalog record.
+ *
+ * The authoritative storefront catalog is the database. The Phase 1 fixture
+ * survives only as the seed input and as an explicit local-development source.
+ * The two are never blended: `source` records which one produced a record, so a
+ * fixture record can never be presented as a database record, or the reverse.
+ */
+export type CatalogSource = 'database' | 'fixture';
+
+/**
+ * Image rights as stored on a database asset. Mirrors `IMAGE_RIGHTS_STATUS` in
+ * `src/db/schema/values.ts`; repeated here so client code never imports the
+ * schema module.
+ */
+export type ImageRightsStatus = 'unknown' | 'pending_confirmation' | 'cleared' | 'restricted';
+
+/**
+ * A storefront-renderable image.
+ *
+ * `rights` is either the fixture's provenance marker or a database rights
+ * status. Only `placeholder` changes rendering (locally generated SVG artwork);
+ * a rights status never implies the image is cleared for public use.
+ */
+export type CatalogImage = {
+  key: string;
+  alt: LocalizedText;
+  rights: ImageRights | ImageRightsStatus;
+};
+
+/**
+ * The source-agnostic storefront catalog record.
+ *
+ * Both the database read layer and the fixture adapter produce this shape, so no
+ * view component needs to know where a record came from. It deliberately carries
+ * no fixture-only provenance (`sourceProductId`, `sourceUrl`, `tags`, capture
+ * dates): a database row has none, and inventing one would be a false claim.
+ */
+export type CatalogItem = {
+  id: string;
+  slug: string;
+  name: LocalizedText;
+  description: LocalizedText;
+  brand: string | null;
+  /** Opaque identity of the record's category. */
+  categoryId: string;
+  /**
+   * Category slug. Filtering, grouping and category links key on the slug in
+   * both sources, so a listing URL never depends on a database identity value.
+   */
+  categorySlug: string;
+  pack: string | null;
+  priceMinor: Money;
+  compareAtPriceMinor: Money | null;
+  availability: Availability;
+  images: CatalogImage[];
+  source: CatalogSource;
+};
+
+/** A storefront category, with its icon already resolved from the slug. */
+export type CatalogCategory = {
+  id: string;
+  slug: string;
+  name: LocalizedText;
+  blurb: LocalizedText;
+  icon: CategoryIcon;
+  sortOrder: number;
 };
 
 export type CartLine = {

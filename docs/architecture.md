@@ -53,19 +53,19 @@ Persisted values are treated as untrusted on read: the cart filters against know
 Untrusted: browser, URL, localStorage, product copy, future API payloads
     |
     v
-This demo: local fixtures -> pure functions -> rendered output
+Storefront: server-side catalog read -> pure functions -> rendered output
     |  (no outbound requests; no order/payment path exists)
     v
 Trusted, NOT YET BUILT: our server -> inventory/orders -> payment provider
 ```
 
-The demo contains no code path that contacts our backend or a payment provider. The checkout route renders zero forms, zero inputs and zero submit buttons, so there is nothing to tamper with and no field to collect personal data. This is a structural guarantee, not a disabled control.
+The storefront contains no code path that contacts a payment provider, and no order path exists: the checkout route renders zero forms, zero inputs and zero submit buttons, so there is nothing to tamper with and no field to collect personal data. This is a structural guarantee, not a disabled control. The only server-side data read is the catalog (section "Catalog source"); a local database exists for the admin surface and the catalog since Phases 11-14, and **nothing is deployed and no cloud resource exists**.
 
-Every value the client holds - price, discount, stock, total - is a **display projection of local fixtures**. It is explicitly not authoritative. A production checkout must recompute all of it on a trusted server; see `docs/security.md`.
+Every value the client holds - price, discount, stock, total - is a **display projection of catalog data resolved on the server**. It is explicitly not authoritative. A production checkout must recompute all of it on a trusted server; see `docs/security.md`.
 
-## Replacing the fixture catalog
+## Catalog source
 
-Components depend on the `Product` type and the accessors `getProductBySlug`, `getProductById` and `products`, not on the fixture module internals. An authorised backend adapter can therefore replace `src/data/catalog.ts` without touching any view. The adapter must still keep price/stock authority server-side and preserve the same normalized shape, including explicit `null` for unknown optional fields.
+Components depend on the `Product` type and the typed accessor contract (`getProductBySlug`, `getProductById`, `products`), not on the module internals. **Since Phase 14 (ADR 0011) the storefront reads the database catalog** through the server-only accessor in `src/server/catalog/storefront.ts`; there is **no public catalog endpoint**, and catalog data reaches the `'use client'` views as props from a server component. The Phase 1 fixture in `src/data/catalog.ts` is retained only as the deterministic local/test seed and as a **development-only opt-in** (`QUEENBEES_STOREFRONT_FIXTURE=1`, refused outside development) - it is **never a fallback** on a database read failure, which surfaces through the error boundary instead. Price and availability authority stay server-side, and the normalized shape (including explicit `null` for unknown optional fields) is preserved.
 
 ## Where the backend comes from (strategic reset)
 
@@ -78,7 +78,7 @@ The Zatiq dashboard is now a **UX and feature reference only**. Nothing in this 
 This document's implemented content stands as-is. In particular, the properties below were designed in from Phase 1 and are now load-bearing rather than hypothetical:
 
 - The frontend is **never** authoritative for price, discount, stock, totals or orders.
-- Catalog data is reached only through the typed accessors in `src/data/`, so a backend adapter replaces the fixtures without touching a single view component.
+- Catalog data is reached only through the typed accessor contract, which is now backed by the database (Phase 14, ADR 0011), so the components depend on the contract and the `Product` shape rather than on a data module. The **contract held; the delivery changed** - accessors became asynchronous and catalog data now arrives in the `'use client'` views as props instead of module imports.
 - Server Components resolve data on the server, so the trust boundary is already in the right place for a real backend.
 - The cart stores ids and quantities only, never prices, so totals are always recomputed.
 - The demo's inert checkout, locked announcement and `noindex` remain until a real, authorized checkout exists.

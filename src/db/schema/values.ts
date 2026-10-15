@@ -127,6 +127,24 @@ export const RETURN_REASON = [
 export const PRODUCT_AVAILABILITY = ['in_stock', 'out_of_stock'] as const;
 
 export const IMAGE_RIGHTS_STATUS = ['unknown', 'pending_confirmation', 'cleared', 'restricted'] as const;
+
+/**
+ * The brand slug that stands in for "no brand published".
+ *
+ * `product.brand_id` is `NOT NULL` by design (`docs/data-model.md` 5.1), but the Phase 1 catalog
+ * publishes two products with no brand. Those two are attached to this single documented placeholder
+ * row so the seeded catalog reproduces the fixture exactly.
+ *
+ * It is a **storage** convention, not a brand: the catalog projection maps it back to `null`, so no
+ * customer is shown an invented brand name and the brand filter list stays the twelve brands the
+ * catalog actually has.
+ *
+ * Open finding: whether a product may genuinely have no brand - and so whether `brand_id` should be
+ * nullable - is a decision about the data model, not an implementation detail of the storefront
+ * cutover. Until that decision is taken, this placeholder is the representation and this constant is
+ * the single definition of it.
+ */
+export const UNBRANDED_BRAND_SLUG = 'unbranded';
 export const IMAGE_FORMAT = ['webp', 'jpeg'] as const;
 export const IMPORT_ENTITY_TYPE = ['product', 'brand', 'category', 'product_image'] as const;
 export const NOTIFICATION_CHANNEL = ['in_app', 'email', 'sms'] as const;

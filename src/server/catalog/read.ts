@@ -25,7 +25,17 @@
 import { sql } from 'drizzle-orm';
 
 import type { Transaction } from '@/db/client';
-import { brand, category, product, productImage, productVariant } from '@/db/schema';
+import { IMAGE_RIGHTS_STATUS, UNBRANDED_BRAND_SLUG } from '@/db/schema/values';
+import type { ImageRightsStatus } from '@/lib/types';
+import {
+  brand,
+  category,
+  collection,
+  collectionItem,
+  product,
+  productImage,
+  productVariant,
+} from '@/db/schema';
 
 /** A product as the storefront would consume it, projected from the database. */
 export type CatalogProduct = {
@@ -41,7 +51,12 @@ export type CatalogProduct = {
   readonly compareAtPriceMinor: number | null;
   /** The owner's In Stock / Out of Stock state (D19). Never a quantity. */
   readonly availability: 'in_stock' | 'out_of_stock';
-  readonly images: readonly { key: string; alt: { bn: string | null; en: string | null } }[];
+  readonly images: readonly {
+    key: string;
+    alt: { bn: string | null; en: string | null };
+    /** Database rights status; never treated as cleared unless the row says so. */
+    rights: ImageRightsStatus;
+  }[];
   /** Always `false` here: this record comes from the database, not from the captured fixture. */
   readonly isDemo: false;
   /** Where the record came from, so a consumer cannot mistake one source for the other. */
@@ -76,6 +91,7 @@ export async function listPublishedProducts(tx: Transaction): Promise<CatalogPro
       categoryId: category.id,
       categorySlug: category.slug,
       brandNameEn: brand.nameEn,
+      brandSlug: brand.slug,
       priceMinor: productVariant.priceMinor,
       compareAtPriceMinor: productVariant.compareAtPriceMinor,
     })
@@ -111,6 +127,7 @@ export async function getPublishedProductBySlug(
       categoryId: category.id,
       categorySlug: category.slug,
       brandNameEn: brand.nameEn,
+      brandSlug: brand.slug,
       priceMinor: productVariant.priceMinor,
       compareAtPriceMinor: productVariant.compareAtPriceMinor,
     })
@@ -155,12 +172,55 @@ export async function listVisibleCategories(tx: Transaction): Promise<CatalogCat
 }
 
 /**
- * The whole public catalog in one snapshot.
+ * Active curation selections, keyed by collection `code`, each an ordered list of
+ * product ids as strings.
  *
- * This is the function the roadmap's storefront read API is built on. It is **not exposed publicly in
- * this phase**: Phase 13 adds no unauthenticated endpoint, because a public catalog endpoint with no
- * consumer would be a new surface added without a requirement. Exposing it is part of the Phase 14
- * cutover, together with the revalidation policy that decides how stale it may be.
+ * Curation stays an id list rather than a flag on the product record - the Phase 1
+ * invariant - it simply lives in the database now (`collection` +
+ * `collection_item`, addressed by the item's default variant).
+ *
+ * A curated entry is filtered by the same predicates as `listPublishedProducts`, so
+ * "curated" means exactly "publishable": an unpublished or deleted product, or an
+ * inactive default variant, is not served as a selection id. The selection list never
+ * names a product the public catalog does not publish, even before a consumer drops a
+ * dangling id.
+ */
+export async function listCollectionSelections(
+  tx: Transaction,
+): Promise<Map<string, string[]>> {
+  const rows = await tx
+    .select({
+      code: collection.code,
+      productId: productVariant.productId,
+    })
+    .from(collection)
+    .innerJoin(collectionItem, sql`${collectionItem.collectionId} = ${collection.id}`)
+    .innerJoin(
+      productVariant,
+      sql`${productVariant.id} = ${collectionItem.productVariantId}
+          and ${productVariant.isDefault} and ${productVariant.isActive}`,
+    )
+    .innerJoin(product, sql`${product.id} = ${productVariant.productId}`)
+    .where(sql`${collection.isActive} and ${product.deletedAt} is null and ${product.isPublished}`)
+    .orderBy(collection.code, collectionItem.position);
+
+  const selections = new Map<string, string[]>();
+  for (const row of rows) {
+    const list = selections.get(row.code);
+    if (list === undefined) selections.set(row.code, [String(row.productId)]);
+    else list.push(String(row.productId));
+  }
+  return selections;
+}
+
+/**
+ * The whole public catalog in one snapshot: products, categories and curation.
+ *
+ * This is the function the storefront cutover reads through. It remains **server-side only**: Phase
+ * 14 deliberately adds **no public catalog endpoint**, because a view component is not a consumer
+ * that needs one, and an unauthenticated catalog surface nobody calls is a new attack surface added
+ * without a requirement. The storefront reads this in a server component and passes serializable
+ * props to the client views.
  */
 export async function readCatalogSnapshot(
   tx: Transaction,
@@ -216,6 +276,19 @@ export async function countCatalog(tx: Transaction): Promise<{
   };
 }
 
+/**
+ * Narrows a stored rights value to the known set.
+ *
+ * The column carries a CHECK constraint, so an out-of-set value should not exist - but a projection
+ * that trusts it would be one migration away from publishing an image as `cleared`. An unrecognised
+ * value degrades to `unknown`, never upward.
+ */
+function toRightsStatus(raw: string): ImageRightsStatus {
+  return (IMAGE_RIGHTS_STATUS as readonly string[]).includes(raw)
+    ? (raw as ImageRightsStatus)
+    : 'unknown';
+}
+
 async function projectProduct(
   tx: Transaction,
   row: {
@@ -230,6 +303,7 @@ async function projectProduct(
     categoryId: number;
     categorySlug: string;
     brandNameEn: string;
+    brandSlug: string;
     priceMinor: number;
     compareAtPriceMinor: number | null;
   },
@@ -239,6 +313,7 @@ async function projectProduct(
       key: productImage.baseKey,
       altBn: productImage.altBn,
       altEn: productImage.altEn,
+      rightsStatus: productImage.rightsStatus,
     })
     .from(productImage)
     .where(sql`${productImage.productId} = ${row.id} and ${productImage.deletedAt} is null`)
@@ -249,7 +324,9 @@ async function projectProduct(
     slug: row.slug,
     name: { bn: row.nameBn, en: row.nameEn },
     description: { bn: row.descriptionBn, en: row.descriptionEn },
-    brand: row.brandNameEn,
+    // A product with no published brand is stored against the documented placeholder row; the
+    // storefront must not turn that storage detail into an invented brand name for a customer.
+    brand: row.brandSlug === UNBRANDED_BRAND_SLUG ? null : row.brandNameEn,
     categoryId: String(row.categoryId),
     categorySlug: row.categorySlug,
     pack: row.packSize,
@@ -260,6 +337,7 @@ async function projectProduct(
     images: images.map((image) => ({
       key: image.key,
       alt: { bn: image.altBn, en: image.altEn },
+      rights: toRightsStatus(image.rightsStatus),
     })),
     isDemo: false,
     provenance: 'database',

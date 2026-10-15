@@ -1,10 +1,10 @@
 # Security and threat model
 
-Status: Phase 1 frontend demonstration complete; **Phase 10 architecture designed** (`docs/data-model.md`), including the authorization matrix and the threat model below. No production security control has been verified, because no production system exists. Every control in this document is a **requirement**, not an implemented control. No penetration test, backend probe, live order or payment test was performed. The owner has approved an **independent-platform direction** (`docs/decisions/0004-independent-platform-direction.md`), so QueenBee's will own the trusted server boundary; the requirements for it are in the section below.
+Status: Phase 1 frontend demonstration complete; **Phase 10 architecture designed** (`docs/data-model.md`), including the authorization matrix and the threat model below. **Phase 14** moved the storefront's catalog source from the local fixture to a **server-side read of the database** (`docs/decisions/0011-local-catalog-authority-and-storefront-cutover.md`); the storefront still makes no outbound runtime request and still holds no authority over price, stock, payment or orders. No production security control has been verified, because no production system exists. Every control in this document is a **requirement**, not an implemented control. No penetration test, backend probe, live order or payment test was performed. The owner has approved an **independent-platform direction** (`docs/decisions/0004-independent-platform-direction.md`), so QueenBee's will own the trusted server boundary; the requirements for it are in the section below.
 
 ## What the demo actually does
 
-- Serves a prerendered/static storefront from local fixtures.
+- Renders the storefront from a **server-side read of the database catalog**. Storefront routes are dynamic, so a build performs no database access and no page is prerendered from a data snapshot.
 - Performs no outbound network requests at runtime: no vendor API, no payment provider, no analytics, no third-party scripts, and no remote fonts (Inter and Noto Sans Bengali are self-hosted at build time).
 - Persists only `queenbees.cart.v1` (product-id and quantity pairs) and `queenbees.locale.v1` (`bn` or `en`). No customer, payment or session data.
 - Renders the checkout route with zero forms, zero inputs, zero submit buttons and zero external hosts, verified in the browser suite.
@@ -15,15 +15,15 @@ Status: Phase 1 frontend demonstration complete; **Phase 10 architecture designe
 | --- | --- | --- |
 | Secret exposure | No `NEXT_PUBLIC_*` variables, no credentials in source or docs, no `process.env` reference in application code; `poweredByHeader` disabled. **Corrected 2026-10-11:** an untracked, gitignored `.env` file *does* exist in the working tree (approximately 89 bytes) holding a plaintext credential for a third-party merchant account. It is not read by any code and has never been committed, but the earlier statement that no env file exists was wrong. See "Credential exposure found in the working tree" below | Source inspection; `git check-ignore`; tracked-file scan |
 | Untrusted storage | Cart JSON parsed defensively, filtered against known product ids, de-duplicated, quantities clamped to 1..20, 40-line cap; corrupt JSON discarded. Locale values validated against `bn`/`en` | Browser check 15 |
-| Untrusted URL input | `parseCatalogQuery` truncates lengths, validates the category against the taxonomy and falls back on an unknown sort value | Browser checks 4, 6, 7 |
+| Untrusted URL input | `parseCatalogQuery` truncates lengths, validates the category against the known category slugs supplied by the server and falls back on an unknown sort value | Browser checks 4, 6, 7 |
 | Untrusted quantity input | Clamped in the stepper before reaching state, and again in the store on write and read | Browser check 11 (999 to 20, -4 to 1) |
 | XSS | No `dangerouslySetInnerHTML` anywhere; all product copy is plain text rendered through JSX escaping; no untrusted SVG or HTML is injected | Source inspection |
-| Unsafe URLs | No user-controlled value builds a URL. The only external link is the fixture `sourceUrl`, opened with `rel="nofollow noopener noreferrer"` and `target="_blank"` | Source inspection |
+| Unsafe URLs | No user-controlled value builds a URL. The catalog projection carries no external source URL, so a product page emits no outbound link at all | Source inspection; browser assertion that a product page has no external link |
 | Third-party code | Zero runtime third-party scripts. Only two Google fonts, self-hosted at build time by `next/font` | Browser check 16 (external host list empty) |
 | Accidental data collection | No form inputs outside the search field; checkout has no fields; no cookies are set | Browser checks 14, 16 |
 | Demo confusion | Persistent demo notice on every route, inert checkout with an explicit banner, and `robots: noindex, nofollow` | Browser checks 14, 16, 23 |
 | Dependency hygiene | Pinned exact versions, committed lockfile, minimal dependency set | `package.json` and lockfile |
-| Console health | No console errors or uncaught exceptions across all 31 browser checks | Browser check 24 |
+| Console health | No console errors or uncaught exceptions across all 65 browser checks | Browser check 24 |
 
 ## Trust boundaries
 
@@ -33,7 +33,7 @@ UNTRUSTED
         |
         v
 THIS DEMO (no authority)
-  local fixtures -> pure functions -> rendered output
+  database catalog -> server-side projection -> props -> rendered output
   no outbound request, no order path, no payment path
         |
         v
@@ -41,7 +41,7 @@ TRUSTED - NOT BUILT YET
   trusted server -> inventory and orders -> payment provider
 ```
 
-The frontend is never authoritative for price, discount, stock, permissions, totals, payment status or orders. Every value shown is a display projection of local fixtures.
+The frontend is never authoritative for price, discount, stock, permissions, totals, payment status or orders. Every value shown is a display projection of the catalog the server reads from the database; the browser never supplies a price, a discount, an availability state or a total.
 
 ## Threats that remain open (production phase)
 

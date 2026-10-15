@@ -1,0 +1,84 @@
+import type {
+  CatalogCategory,
+  CatalogItem,
+  Category,
+  CategoryIcon,
+  Product,
+} from '@/lib/types';
+
+/**
+ * Source-agnostic catalog helpers.
+ *
+ * This module is deliberately client-safe: it imports no database module, no
+ * server-only module and no fixture data. It holds the two translations that let
+ * a single view layer serve either source without knowing which one produced a
+ * record:
+ *
+ *   - the category slug -> icon mapping the database does not store;
+ *   - the fixture -> `CatalogItem` adapter used only by the explicit
+ *     local-development fixture source.
+ */
+
+/**
+ * Deterministic slug -> icon mapping.
+ *
+ * The database has no icon column and Phase 13 added no icon-management UI, so
+ * the storefront derives the glyph from the category slug. An unmapped slug gets
+ * the neutral `other` glyph rather than an invented association.
+ */
+const CATEGORY_ICONS: Readonly<Record<string, CategoryIcon>> = {
+  skincare: 'serum',
+  haircare: 'hair',
+  bodycare: 'body',
+  lipcare: 'lip',
+  accessories: 'tools',
+};
+
+const DEFAULT_CATEGORY_ICON: CategoryIcon = 'other';
+
+export function categoryIcon(slug: string): CategoryIcon {
+  return CATEGORY_ICONS[slug] ?? DEFAULT_CATEGORY_ICON;
+}
+
+/**
+ * Translates a Phase 1 fixture record into the storefront shape.
+ *
+ * Only reachable through the explicit local-development fixture opt-in. The
+ * result carries `source: 'fixture'` so it can never be presented as a database
+ * record. Fixture-only provenance (source ids, URLs, capture dates, tags) is
+ * intentionally dropped: the view layer has no use for it and retaining it would
+ * invite a false claim.
+ */
+export function fixtureToCatalogItem(product: Product): CatalogItem {
+  return {
+    id: product.id,
+    slug: product.slug,
+    name: product.name,
+    description: product.description,
+    brand: product.brand,
+    // In the fixture the category id is already the slug, so both fields agree.
+    categoryId: product.categoryId,
+    categorySlug: product.categoryId,
+    pack: product.pack,
+    priceMinor: product.priceMinor,
+    compareAtPriceMinor: product.compareAtPriceMinor,
+    availability: product.availability,
+    images: product.images.map((image) => ({
+      key: image.key,
+      alt: image.alt,
+      rights: image.rights,
+    })),
+    source: 'fixture',
+  };
+}
+
+export function fixtureToCatalogCategory(category: Category): CatalogCategory {
+  return {
+    id: category.id,
+    slug: category.slug,
+    name: category.name,
+    blurb: category.blurb,
+    icon: categoryIcon(category.slug),
+    sortOrder: 0,
+  };
+}

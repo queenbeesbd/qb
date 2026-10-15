@@ -1,8 +1,9 @@
 # Database foundation
 
-Status: **Phase 11 implemented locally, 2026-10-11.** The schema, migration workflow, data-access
-layer, environment validation and tests exist and pass. **Nothing is deployed**, no cloud resource has
-been provisioned, and no credential has been created. See `docs/project-status.md`.
+Status: **Phase 11 implemented locally, 2026-10-11; the Phase 14 storefront catalog read path added
+2026-10-15.** The schema, migration workflow, data-access layer, environment validation and tests exist
+and pass. **Nothing is deployed**, no QueenBee's-bound cloud resource has been provisioned, and no
+credential has been created. See `docs/project-status.md`.
 
 This document explains how the database foundation works and how to operate it. The schema itself is
 specified in `docs/data-model.md`; this file covers the mechanics around it.
@@ -18,6 +19,8 @@ specified in `docs/data-model.md`; this file covers the mechanics around it.
 | Guards migration | `drizzle/0001_guards_and_privileges.sql` | Hand-written: triggers, append-only enforcement, transition guards |
 | Staff recovery migration | `drizzle/0002_staff_recovery_token.sql` | Generated: `staff_recovery_token`, the owner-issued staff credential path (Phase 12, `docs/data-model.md` 4.9). Takes the schema to **40 tables** |
 | Availability migration | `drizzle/0003_product_availability.sql` | Generated (Phase 13): adds `product.availability` with its `CHECK` constraint, the partial index the orderability gate reads, and nothing else. **Purely additive** - no column dropped, no table rewritten, and the inventory tables are untouched. Table count is unchanged at **40** |
+| Catalog read path | `src/server/catalog/read.ts`, `src/server/catalog/storefront.ts` | Server-only. The storefront's catalog read accessor and the loader that decides which source produced a record (section 9) |
+| Catalog seed (local/test) | `src/db/seed-catalog.ts`, `scripts/seed-catalog.ts` | Deterministic, idempotent reproduction of the 22-product fixture catalog for local/test verification. **Not a migration** (section 9) |
 | Connection layer | `src/db/client.ts` | Server-only. The only place a connection is created |
 | Environment validation | `src/server/env.ts` | Server-only. Validates and fails safely |
 | Migration runtime | `src/db/migrate.ts` | Applies migrations and reports status |
@@ -27,9 +30,11 @@ specified in `docs/data-model.md`; this file covers the mechanics around it.
 | Disposable cluster | `scripts/local-pg.ts` | Throwaway local PostgreSQL for tests and rehearsals |
 | Tests | `tests/unit/`, `tests/db/` | Configuration, schema integrity, constraints, concurrency |
 
-**Not built, deliberately:** any query or repository layer for storefront features, authentication,
-checkout, order creation, payment handling, admin surfaces, background jobs, and any deployment. Those
-belong to later phases. Phase 11 is the foundation, not commerce behaviour.
+**Not built in Phase 11, deliberately:** any query or repository layer for storefront features,
+authentication, checkout, order creation, payment handling, admin surfaces, background jobs, and any
+deployment. Later phases add the administrative surfaces and the storefront catalog read path
+(sections 1 and 9); the commerce loop - orders, payments, checkout, customer accounts - is still absent.
+Phase 11 is the foundation, not commerce behaviour.
 
 ---
 
@@ -78,6 +83,7 @@ value appears in this repository.
 | `DATABASE_DRIVER` | no | `pg` or `neon-serverless`. Inferred from the host when unset |
 | `QUEENBEES_ENV` | no | `development` \| `test` \| `preview` \| `production`. Defaults to `NODE_ENV` |
 | `QUEENBEES_ALLOW_REMOTE_TEST_DB` | no | Test-only escape hatch. When unset, tests refuse any non-local host |
+| `QUEENBEES_STOREFRONT_FIXTURE` | no | Storefront only. `1` opts the storefront into the Phase 1 fixture catalog **in a development environment only**; any other value, or any other environment, keeps the database source. Read directly by the loader rather than through `serverEnv()`, so it works with no database configured, and **refused outside development** (ADR 0011) |
 
 ### Fail-safe behaviour
 
@@ -240,13 +246,54 @@ A14). Exercising them against real PostgreSQL is what converts that claim into e
 
 ---
 
-## 9. Known limitations
+## 9. Storefront catalog reads and the local seed (Phase 14)
 
-- **Nothing is deployed.** No Neon project, branch, database or bucket exists. No credential has been
-  created. Cloud behaviour - cold start, pooler semantics, branch isolation, backup/restore, latency
-  from Singapore to Bangladesh - is **unverified**.
-- **No application feature uses the database yet.** The storefront still reads its fixture catalog. The
-  seam between them is a later phase.
+The storefront obtains its catalog **server-side only**, through the typed read accessor
+`src/server/catalog/read.ts`, projected into the source-agnostic view shape by
+`src/server/catalog/storefront.ts`. The rules that shape it:
+
+- **One snapshot per request.** The loader is wrapped in React `cache()`, so the layout, the page and the
+  cart read **one** catalog snapshot per request rather than one query each. The read runs inside a
+  single transaction.
+- **Server-only.** The loader transitively imports `src/db/client.ts`, which throws if it reaches a
+  browser bundle. No view component imports it; the catalog reaches the client views as serializable
+  **props**.
+- **Dynamic rendering.** The storefront routes declare `force-dynamic`, so a production build performs
+  **no** database access.
+- **Source discriminator.** Every record carries `source: 'database' | 'fixture'`, so a fixture record
+  can never be presented as a database record, or the reverse.
+- **No public endpoint.** There is **no** unauthenticated catalog HTTP route (ADR 0011). The only HTTP
+  catalog surface is the authenticated admin read API.
+- **Empty, not faked.** An empty catalog is returned as empty and stated in the interface; a read failure
+  propagates to the storefront error boundary rather than substituting the fixture.
+
+### The local/test seed
+
+`npm run db:seed:catalog` (`scripts/seed-catalog.ts`) reproduces the 22-product Phase 1 fixture as rows,
+so the cutover can be verified against the catalog the fixture described. It is **idempotent** - every
+insert is keyed on a natural key and skipped when the row exists; it never truncates and never rewrites a
+row the owner has edited - and **deterministic**, using one fixed timestamp with no `Date.now()` and no
+randomness. It runs in **one transaction**, so a failure leaves no partial catalog.
+
+**Seeding is not a migration.** It is not in `drizzle/`, it is not run by `db:migrate`, it is not part of
+the applied migration history, and `db:validate` does not see it. It is **local/test only**, and the
+seeded parity is a **verification aid**: it is not a claim that the fixture is production data.
+
+Recorded deviations from the fixture (`src/db/seed-catalog.ts`): two products that publish no brand attach
+to a single documented `unbranded` placeholder, because `product.brand_id` is `NOT NULL`; availability maps
+to `out_of_stock` for anything other than an exact `in_stock` (the fail-safe direction); every image row
+records `rights_status: pending_confirmation`; and `product_image_derivative` is not populated.
+
+---
+
+## 10. Known limitations
+
+- **Nothing is deployed.** No Neon project, branch, database or bucket exists for this product. No
+  credential has been created. Cloud behaviour - cold start, pooler semantics, branch isolation,
+  backup/restore, latency from Singapore to Bangladesh - is **unverified**.
+- **The commerce loop does not exist.** The storefront reads the database catalog, but there is no
+  order, payment, checkout or customer account, and **no inventory movement, deduction or reservation is
+  written**, so overselling is not prevented.
 - **RLS, CSP, rate limiting and monitoring do not exist.** Phase 10 designed controls; Phase 11 built
   the schema and access foundation, not those controls.
 - **The concurrency tests exercise the schema and the guarded statements, not the full commerce

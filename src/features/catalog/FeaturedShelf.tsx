@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from '@/i18n/useTranslation';
-import type { Product } from '@/lib/types';
+import type { CatalogItem } from '@/lib/types';
 import { ProductCard } from '@/components/ProductCard';
 import { ChevronIcon, InfoIcon } from '@/components/icons';
 import homeStyles from '@/app/home.module.css';
@@ -21,7 +21,7 @@ import styles from './FeaturedShelf.module.css';
  * browser's own overflow scrolling does the work, and the card count is bounded
  * by the selection cap in `src/data/curation.ts`.
  */
-export function FeaturedShelf({ products }: { products: readonly Product[] }) {
+export function FeaturedShelf({ products }: { products: readonly CatalogItem[] }) {
   const { t } = useTranslation();
   const scrollerRef = useRef<HTMLDivElement | null>(null);
   const [canScrollBack, setCanScrollBack] = useState(false);

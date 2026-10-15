@@ -8,9 +8,8 @@ import {
   useSyncExternalStore,
   type ReactNode,
 } from 'react';
-import { products } from '@/data/catalog';
 import { clampQuantity, discountAmount, sumMinor } from '@/lib/money';
-import type { CartLine, Money, Product } from '@/lib/types';
+import type { CartLine, CatalogItem, Money } from '@/lib/types';
 import { MAX_QUANTITY } from './cart-storage';
 import {
   addLine,
@@ -18,12 +17,13 @@ import {
   getServerSnapshot,
   getSnapshot,
   removeLine,
+  setKnownProductIds,
   setLineQuantity,
   subscribe,
 } from './cart-store';
 
 export type CartEntry = {
-  product: Product;
+  product: CatalogItem;
   quantity: number;
   lineTotalMinor: Money;
 };
@@ -48,18 +48,35 @@ type CartContextValue = CartSummary & {
 
 export const CartContext = createContext<CartContextValue | null>(null);
 
-const PRODUCT_BY_ID = new Map(products.map((product) => [product.id, product]));
-
 /**
  * Single source of truth for demo cart state and derived totals. All money
  * arithmetic happens here in integer poisha so no component can drift, and the
  * underlying lines live in an external store so no component re-derives them.
  *
+ * The catalog snapshot is supplied by the server layout as plain product props;
+ * this provider is the only place a product id is resolved to a record, and it
+ * seeds the external store's id registry so a restored line is always validated
+ * against the products the storefront actually sells.
+ *
  * This state is presentation-only. It is never authoritative for a real order:
  * a future production checkout must recompute prices, discounts, stock and
  * totals on a trusted server.
  */
-export function CartProvider({ children }: { children: ReactNode }) {
+export function CartProvider({
+  products,
+  children,
+}: {
+  products: readonly CatalogItem[];
+  children: ReactNode;
+}) {
+  const productById = useMemo(() => {
+    // Seeding happens during render, before `useSyncExternalStore` subscribes
+    // and the store hydrates, so restored lines are validated against the real
+    // catalog ids rather than being dropped.
+    setKnownProductIds(products.map((product) => product.id));
+    return new Map(products.map((product) => [product.id, product]));
+  }, [products]);
+
   const lines = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
   const [lastAddedId, setLastAddedId] = useState<string | null>(null);
 
@@ -83,7 +100,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     let savingsMinor = 0;
 
     for (const line of lines) {
-      const product = PRODUCT_BY_ID.get(line.productId);
+      const product = productById.get(line.productId);
       if (!product) continue;
       const quantity = clampQuantity(line.quantity, MAX_QUANTITY);
       const lineTotalMinor = product.priceMinor * quantity;
@@ -103,7 +120,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       savingsMinor,
       isEmpty: entries.length === 0,
     };
-  }, [lines]);
+  }, [lines, productById]);
 
   const value = useMemo<CartContextValue>(
     () => ({

@@ -2102,8 +2102,12 @@ precisely because a rollback then needs no data migration.
 
 ### 16.6 Seed and demo data isolation
 
-- The storefront's 22-product fixture in `src/data/` stays **read-only fixture data** until the catalog
-  is imported through the audited path in `docs/migration-plan.md`.
+- The storefront's 22-product fixture in `src/data/` was **read-only fixture data** through Phase 13.
+  **Updated by Phase 14 (ADR 0011):** the storefront now reads the **database** catalog, and the fixture is
+  retained in two roles only - the deterministic **local/test seed** (`src/db/seed-catalog.ts`) and an
+  explicit, **development-only** opt-in (`QUEENBEES_STOREFRONT_FIXTURE=1`). It is **never a fallback** on a
+  database read failure. The audited import path in `docs/migration-plan.md` was **not** used and remains
+  unexercised.
 - Imported records carry provenance in `import_record` (5.6), so a re-import **updates rather than
   duplicates**.
 - **No real customer data is ever used as seed data**, and no demo order, claim or payment is created in
@@ -2131,8 +2135,10 @@ boundary is server-side authorization plus least-privilege database grants.
 - **Destructive migrations** are forward-fixed, not reversed, unless a rehearsed down-migration exists.
 - **A code rollback must be safe against the current schema.** Because the rollout rule is
   expand-then-contract, the previous code version always runs against the expanded schema.
-- **Feature flags** are not introduced as a general mechanism; the one place a staged rollout is
-  required (catalog cutover from fixture to database) is sequenced by deployment order instead.
+- **Feature flags** are not introduced as a general mechanism; the one place a staged rollout was
+  required (catalog cutover from fixture to database, Phase 14) was sequenced by deployment order instead.
+  The single development-only fixture opt-in (`QUEENBEES_STOREFRONT_FIXTURE=1`, ADR 0011) is not a feature
+  flag: it is refused outside a development environment.
 
 ### 16.9 Operational alerts and exception queues
 
@@ -2221,7 +2227,9 @@ genuine late payment is never silently discarded.
    launch default.
 7. **Neon's S3-compatible API surface** for presigning, listing and deletion is as ADR 0006 records it.
    It has **not** been exercised, because nothing has been provisioned.
-8. **The storefront's catalog remains fixture data** until an authorized import occurs.
+8. **The storefront's catalog is the database catalog as of Phase 14 (ADR 0011)**, not fixture data. The
+   audited import path in `docs/migration-plan.md` remains unexercised; the 22-product fixture is a
+   local/test seed and a development-only opt-in only.
 
 ### 17.4 Unresolved decisions and open questions
 

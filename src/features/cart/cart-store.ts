@@ -1,4 +1,3 @@
-import { products } from '@/data/catalog';
 import { clampQuantity } from '@/lib/money';
 import type { CartLine } from '@/lib/types';
 import { MAX_LINES, MAX_QUANTITY, readStoredLines, writeStoredLines } from './cart-storage';
@@ -12,7 +11,18 @@ import { MAX_LINES, MAX_QUANTITY, readStoredLines, writeStoredLines } from './ca
  * Only product ids and integer quantities are ever persisted.
  */
 
-const KNOWN_IDS = new Set(products.map((product) => product.id));
+/**
+ * The product ids the catalog actually contains, supplied by `CartProvider` from
+ * the server-rendered catalog snapshot. A persisted line is validated against
+ * this set, so stale or tampered `localStorage` cannot restore a line for a
+ * product the storefront does not sell. It starts empty, which is safe: an
+ * unseeded store simply refuses every id rather than trusting the browser.
+ */
+let knownIds: ReadonlySet<string> = new Set<string>();
+
+export function setKnownProductIds(ids: readonly string[]): void {
+  knownIds = new Set(ids);
+}
 
 /** Stable reference returned on the server and before client hydration. */
 const EMPTY: readonly CartLine[] = Object.freeze([]);
@@ -34,7 +44,7 @@ function commit(next: readonly CartLine[]): void {
 function hydrate(): void {
   if (hydrated) return;
   hydrated = true;
-  const stored = readStoredLines(KNOWN_IDS);
+  const stored = readStoredLines(knownIds);
   if (stored.length > 0) {
     lines = stored;
     emit();
@@ -58,7 +68,7 @@ export function getServerSnapshot(): readonly CartLine[] {
 }
 
 export function addLine(productId: string, quantity: number): void {
-  if (!KNOWN_IDS.has(productId)) return;
+  if (!knownIds.has(productId)) return;
   const existing = lines.find((line) => line.productId === productId);
   if (existing) {
     commit(
@@ -93,5 +103,5 @@ export function clearLines(): void {
 }
 
 export function isKnownProduct(productId: string): boolean {
-  return KNOWN_IDS.has(productId);
+  return knownIds.has(productId);
 }

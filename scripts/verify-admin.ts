@@ -1000,10 +1000,10 @@ async function main(): Promise<void> {
         'no inventory quantity in the projection',
       );
       record(
-        'the storefront still renders the local fixture catalog, not the database',
+        'the storefront serves its own catalog source and leaks no fixture record',
         (await call(base, '/')).body.includes('"isDemo":true') === false &&
           (await call(base, '/products')).status === 200,
-        'the fixture accessors are unchanged and the storefront is not cut over',
+        'the storefront reads the database catalog server-side, so no fixture demo marker is ever served',
       );
 
       console.log('\nsession revocation and replay');

@@ -1,17 +1,9 @@
 'use client';
 
 import Link from 'next/link';
-import { categories } from '@/data/categories';
-import { products } from '@/data/catalog';
-import {
-  COLLECTION_MAX,
-  COLLECTION_PRODUCT_IDS,
-  FEATURED_MAX,
-  FEATURED_PRODUCT_IDS,
-  resolveSelection,
-} from '@/data/curation';
 import { discountAmount } from '@/lib/money';
 import { useTranslation } from '@/i18n/useTranslation';
+import type { CatalogCategory, CatalogItem } from '@/lib/types';
 import { CategoryIcon, InfoIcon } from '@/components/icons';
 import { ProductCard } from '@/components/ProductCard';
 import { ProductGrid } from '@/components/ProductGrid';
@@ -22,7 +14,8 @@ import styles from '@/app/home.module.css';
 /**
  * Products shown in the hero composition. These are real catalog records whose
  * photography is verified and whose reuse status is recorded, so the hero is
- * never padded with unrelated or decorative imagery.
+ * never padded with unrelated or decorative imagery. A slug that is absent from
+ * the catalog simply shortens the collage.
  */
 const HERO_SLUGS = [
   'lilac-5-niacinamide-serum-30-ml',
@@ -33,31 +26,52 @@ const HERO_SLUGS = [
 /**
  * Homepage composition.
  *
- * Sections are limited to those the verified data can actually support. There is
- * deliberately no "recently added" list: the storefront publishes no reliable
- * date-added field, so ordering products by arrival would be invented. The
- * collection below is presented as what it is - a curated selection - rather
- * than as a recency claim.
+ * Every product, category and curation id arrives as a server-resolved prop from
+ * one catalog snapshot; this view never selects products itself. Sections are
+ * limited to those the verified data can actually support. There is deliberately
+ * no "recently added" list: the storefront publishes no reliable date-added
+ * field, so ordering products by arrival would be invented. The collection below
+ * is presented as what it is - a curated selection - rather than as a recency
+ * claim.
+ *
+ * The two selections are id lists supplied by the server (from the catalog's own
+ * curation records); an id that no longer resolves shortens the section instead
+ * of breaking the page, and the caps are applied at the source rather than
+ * re-derived here.
  */
-export function HomeView() {
+export function HomeView({
+  products,
+  categories,
+  featuredIds,
+  collectionIds,
+}: {
+  products: readonly CatalogItem[];
+  categories: readonly CatalogCategory[];
+  featuredIds: readonly string[];
+  collectionIds: readonly string[];
+}) {
   const { t, pick } = useTranslation();
 
-  // Both selections are id lists resolved against the catalog, so a stale entry
-  // shortens the section instead of breaking the page.
-  const featured = resolveSelection(FEATURED_PRODUCT_IDS, FEATURED_MAX);
-  const collection = resolveSelection(COLLECTION_PRODUCT_IDS, COLLECTION_MAX);
+  const productById = new Map(products.map((product) => [product.id, product]));
+  const resolve = (ids: readonly string[]): CatalogItem[] =>
+    ids
+      .map((id) => productById.get(id))
+      .filter((product): product is CatalogItem => Boolean(product));
+
+  const featured = resolve(featuredIds);
+  const collection = resolve(collectionIds);
 
   /**
    * The offer row complements the shelf above instead of repeating it: products
-   * already featured are filtered out, so the same card never appears twice on
-   * the homepage. Four is deliberate - the row stays one line on desktop and the
-   * full discounted set is still reachable from the catalog.
+   * already featured or collected are filtered out, so the same card never
+   * appears twice on the homepage. Four is deliberate - the row stays one line on
+   * desktop and the full discounted set is still reachable from the catalog.
    */
-  const featuredIds = new Set(featured.map((product) => product.id));
+  const featuredSet = new Set([...featured, ...collection].map((product) => product.id));
   const deals = products
     .filter(
       (product) =>
-        !featuredIds.has(product.id) &&
+        !featuredSet.has(product.id) &&
         discountAmount(product.priceMinor, product.compareAtPriceMinor) !== null,
     )
     .sort(
@@ -66,9 +80,12 @@ export function HomeView() {
         discountAmount(a.priceMinor, a.compareAtPriceMinor)!,
     )
     .slice(0, 4);
+
   const heroProducts = HERO_SLUGS.map((slug) =>
     products.find((product) => product.slug === slug),
-  ).filter((product): product is (typeof products)[number] => Boolean(product));
+  ).filter((product): product is CatalogItem => Boolean(product));
+
+  const isEmpty = products.length === 0;
 
   return (
     <div className={styles.page}>
@@ -153,51 +170,71 @@ export function HomeView() {
       </section>
 
       {/*
-       * The shelf owns its own section header, because the previous/next controls
-       * sit in the same row as the title. There is deliberately no "View all" here:
-       * the controls are the way to see more of this selection, and a second link
-       * to the catalog would sit next to them doing the same job less precisely.
+       * When the catalog has no products at all, the selection, offer and
+       * collection rows have nothing to draw from. Rather than repeat the same
+       * "nothing to show" note three times, the gap is stated once.
        */}
-      <FeaturedShelf products={featured} />
+      {isEmpty ? (
+        <section className={styles.section} aria-labelledby="empty-catalog-title">
+          <EmptyNote
+            title={t('catalog.emptyCatalogTitle')}
+            body={t('catalog.emptyCatalogBody')}
+          />
+        </section>
+      ) : (
+        <>
+          {/*
+           * The shelf owns its own section header, because the previous/next
+           * controls sit in the same row as the title. There is deliberately no
+           * "View all" here: the controls are the way to see more of this
+           * selection, and a second link to the catalog would sit next to them
+           * doing the same job less precisely.
+           */}
+          <FeaturedShelf products={featured} />
 
-      <section className={styles.section} aria-labelledby="deals-title">
-        <header className={styles.sectionHeader}>
-          <div>
-            <h2 id="deals-title">{t('home.dealsTitle')}</h2>
-            <p className={styles.sectionBody}>{t('home.dealsBody')}</p>
-          </div>
-        </header>
-        {deals.length > 0 ? (
-          <ProductGrid>
-            {deals.slice(0, 8).map((product) => (
-              <ProductCard key={product.id} product={product} />
-            ))}
-          </ProductGrid>
-        ) : (
-          <EmptyNote title={t('home.dealsEmptyTitle')} body={t('home.dealsEmptyBody')} />
-        )}
-      </section>
+          <section className={styles.section} aria-labelledby="deals-title">
+            <header className={styles.sectionHeader}>
+              <div>
+                <h2 id="deals-title">{t('home.dealsTitle')}</h2>
+                <p className={styles.sectionBody}>{t('home.dealsBody')}</p>
+              </div>
+            </header>
+            {deals.length > 0 ? (
+              <ProductGrid>
+                {deals.map((product) => (
+                  <ProductCard key={product.id} product={product} />
+                ))}
+              </ProductGrid>
+            ) : (
+              <EmptyNote title={t('home.dealsEmptyTitle')} body={t('home.dealsEmptyBody')} />
+            )}
+          </section>
 
-      <section className={styles.section} aria-labelledby="collection-title">
-        <header className={styles.sectionHeader}>
-          <div>
-            <h2 id="collection-title">{t('home.collectionTitle')}</h2>
-            <p className={styles.sectionBody}>{t('home.collectionBody')}</p>
-          </div>
-          <Link className={styles.viewAll} href="/products">
-            {t('home.viewAll')}
-          </Link>
-        </header>
-        {collection.length > 0 ? (
-          <ProductGrid>
-            {collection.map((product) => (
-              <ProductCard key={product.id} product={product} />
-            ))}
-          </ProductGrid>
-        ) : (
-          <EmptyNote title={t('home.selectionEmptyTitle')} body={t('home.selectionEmptyBody')} />
-        )}
-      </section>
+          <section className={styles.section} aria-labelledby="collection-title">
+            <header className={styles.sectionHeader}>
+              <div>
+                <h2 id="collection-title">{t('home.collectionTitle')}</h2>
+                <p className={styles.sectionBody}>{t('home.collectionBody')}</p>
+              </div>
+              <Link className={styles.viewAll} href="/products">
+                {t('home.viewAll')}
+              </Link>
+            </header>
+            {collection.length > 0 ? (
+              <ProductGrid>
+                {collection.map((product) => (
+                  <ProductCard key={product.id} product={product} />
+                ))}
+              </ProductGrid>
+            ) : (
+              <EmptyNote
+                title={t('home.selectionEmptyTitle')}
+                body={t('home.selectionEmptyBody')}
+              />
+            )}
+          </section>
+        </>
+      )}
     </div>
   );
 }

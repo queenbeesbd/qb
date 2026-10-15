@@ -1,6 +1,6 @@
 # Catalog provenance
 
-Status: 22 products, 5 categories. Last expanded 2026-10-11.
+Status: 22 products, 5 categories. Last expanded 2026-10-11. The storefront now renders the **database** catalog (Phase 14, ADR 0011); this file records the provenance of those records and of the Phase 1 fixture they were seeded from.
 
 ## Product imagery in the admin (Phase 13)
 
@@ -25,9 +25,11 @@ Status: 22 products, 5 categories. Last expanded 2026-10-11.
 replacement or deletion of the underlying bytes, and the optional category image mark. The `product_image_derivative`
 rows written here describe the variants that already exist on disk; nothing generates them.
 
-## Why the catalog is local
+## Where the catalog comes from
 
-The storefront reads a typed local fixture (`src/data/catalog.ts`). Nothing is fetched at runtime. This keeps the demo deterministic, keeps every claim traceable to a captured source, and means a backend adapter can replace the data layer later without rewriting components. That adapter is now planned rather than hypothetical - see `docs/platform-architecture.md` and `docs/migration-plan.md`.
+**The storefront now renders the database catalog (Phase 14, ADR 0011).** `/` and the catalog routes are server components rendered dynamically, so each request performs one catalog read through the server-only typed accessor contract (`src/server/catalog/storefront.ts`, built on `src/server/catalog/read.ts`) and passes serializable props to the client views. Nothing is fetched at runtime by the browser, and no view component holds a database client.
+
+`src/data/` is retained in **two** roles only: as the **seed source** for local/test parity, and as an **explicit, development-only opt-in** (`QUEENBEES_STOREFRONT_FIXTURE=1` - off by default, refused outside a development environment, and never used after a database read failure). It is **no longer the storefront's source of truth**, and it is never a fallback: a database read failure surfaces through the error boundary rather than substituting the fixture.
 
 ## Source and capture
 
@@ -80,6 +82,8 @@ All 22 products now use authentic photography retrieved from the retailer's own 
 
 Every image is tagged `rights: 'merchant_source_pending_confirmation'`. **Explicit written confirmation of redistribution rights has not been received.** Public availability is not a licence.
 
+**Phase 14 changes nothing about this.** The seed writes `rights_status: pending_confirmation` on every image row (it never writes `cleared`), so the database catalog carries the same unresolved position as the fixture. This ADR clears no photography.
+
 This is deliberate and must not be relabelled as cleared. `npm run check:catalog` asserts the provenance fields are present but cannot assert permission.
 
 ### Honest characterisation of the photography
@@ -90,7 +94,9 @@ Placeholder fallbacks (`rights: 'placeholder'`, a locally generated SVG) remain 
 
 ## Curation
 
-The featured shelf and the "more to explore" collection are configured as **lists of product ids** in `src/data/curation.ts`, not as a flag on the product record. Both resolve through `getProductById`, so a curated entry can never drift from the price, pack size or photography of the product it points at.
+The featured shelf and the "more to explore" collection are **id lists, never a flag on the product record**. Since Phase 14 (ADR 0011) the storefront's selections come from the **database** (`collection` + `collection_item`, addressed by item **position**); `src/data/curation.ts` is retained only as the **seed input** for those rows. Both resolve against the loaded catalog, so a curated entry can never drift from the price, pack size or photography of the product it points at, and the caps and disjointness rules below are unchanged.
+
+`npm run check:catalog` still asserts the fixture lists' declared length, absence of repeats, absence of overlap and caps, because they are the seed:
 
 | Constraint | Rule | Enforced by |
 | --- | --- | --- |
@@ -115,7 +121,7 @@ The merchant dashboard was audited read-only. Two findings bear directly on this
 1. **The audited tenant reports an empty catalog** - 0 products, 0 categories - while the live storefront `queenbees.sellbd.shop` publishes **24 product links** and serves imagery from a Zatiq shop path carrying shop id **42239**. Whether the supplied credential owns that shop is **unresolved**. The 22-record fixture in this repository is a curated sample captured from the public storefront; it was never a mirror of the dashboard.
 2. **No product schema could be read.** The dashboard's Add Product form did not render in headless Chromium, so no authoritative field list (SKU, variant, stock, compare-at price, images, bilingual fields) was obtained.
 
-Consequence: the local fixture remains the only catalog source, and no mapping to an authoritative backend catalog can be specified yet. The fixture must not be presented as a verified production catalog.
+Consequence: that audit settled nothing about QueenBee's own catalog. The storefront now renders the **database** catalog the owner maintains (Phase 14, ADR 0011), and the Phase 1 fixture is retained only as the seed and a development-only opt-in. The fixture is captured vendor data and must not be presented as a verified production catalog.
 
 ## Known gaps
 

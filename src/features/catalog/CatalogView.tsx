@@ -2,21 +2,14 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useMemo, useState } from 'react';
-import { products } from '@/data/catalog';
-import { categories } from '@/data/categories';
+import { useState } from 'react';
 import { useTranslation } from '@/i18n/useTranslation';
 import type { TranslationKey } from '@/i18n/dictionaries';
+import type { CatalogCategory, CatalogItem } from '@/lib/types';
 import { ProductCard } from '@/components/ProductCard';
 import { ProductGrid } from '@/components/ProductGrid';
 import { SearchIcon } from '@/components/icons';
-import {
-  SORT_OPTIONS,
-  listBrands,
-  selectCatalog,
-  type CatalogQuery,
-  type SortOption,
-} from './query';
+import { SORT_OPTIONS, type CatalogQuery, type SortOption } from './query';
 import styles from '@/app/catalog.module.css';
 
 const SORT_LABEL_KEYS: Record<SortOption, TranslationKey> = {
@@ -30,12 +23,26 @@ const SORT_LABEL_KEYS: Record<SortOption, TranslationKey> = {
  * Catalog browser. Search, category, brand and sort all compose into a single
  * query so filters can never disagree with each other, and every change is
  * written to the URL for back/forward support.
+ *
+ * Every value it renders - the result set, the brand list and the categories -
+ * arrives as a server-resolved prop derived from one catalog snapshot, so the
+ * view never selects products itself and can never disagree with the server.
  */
-export function CatalogView({ query }: { query: CatalogQuery }) {
+export function CatalogView({
+  results,
+  brands,
+  categories,
+  query,
+  totalCount,
+}: {
+  results: readonly CatalogItem[];
+  brands: readonly string[];
+  categories: readonly CatalogCategory[];
+  query: CatalogQuery;
+  totalCount: number;
+}) {
   const { t, pick } = useTranslation();
   const router = useRouter();
-  const brands = useMemo(() => listBrands(products), []);
-  const results = useMemo(() => selectCatalog(products, query), [query]);
   const [term, setTerm] = useState(query.q);
 
   const hasFilters = Boolean(query.q || query.category || query.brand || query.sort !== 'relevance');
@@ -51,7 +58,9 @@ export function CatalogView({ query }: { query: CatalogQuery }) {
     router.push(search ? `/products?${search}` : '/products');
   }
 
-  const activeCategory = categories.find((category) => category.id === query.category);
+  // `query.category` is a slug, and so is the value every category button pushes,
+  // so a category link never depends on a database identity value.
+  const activeCategory = categories.find((category) => category.slug === query.category);
 
   return (
     <div className={styles.page}>
@@ -123,10 +132,10 @@ export function CatalogView({ query }: { query: CatalogQuery }) {
                   <button
                     type="button"
                     className={
-                      query.category === category.id ? styles.filterActive : styles.filterButton
+                      query.category === category.slug ? styles.filterActive : styles.filterButton
                     }
-                    aria-pressed={query.category === category.id}
-                    onClick={() => push({ category: category.id })}
+                    aria-pressed={query.category === category.slug}
+                    onClick={() => push({ category: category.slug })}
                   >
                     {pick(category.name)}
                   </button>
@@ -207,6 +216,32 @@ export function CatalogView({ query }: { query: CatalogQuery }) {
                 <ProductCard key={product.id} product={product} />
               ))}
             </ProductGrid>
+          ) : totalCount === 0 ? (
+            /*
+             * The whole catalog is empty. This is a real state, not a filter
+             * result, so it is stated as the gap it is rather than as a failed
+             * search or a placeholder product.
+             */
+            <div className={styles.empty}>
+              <h2>{t('catalog.emptyCatalogTitle')}</h2>
+              <p>{t('catalog.emptyCatalogBody')}</p>
+              <Link className={styles.emptyAction} href="/">
+                {t('nav.home')}
+              </Link>
+            </div>
+          ) : query.category ? (
+            /*
+             * The catalog has products, but the selected category has none. A
+             * distinct message avoids blaming a search term or a brand filter
+             * the customer never set.
+             */
+            <div className={styles.empty}>
+              <h2>{t('catalog.emptyCategoryTitle')}</h2>
+              <p>{t('catalog.emptyCategoryBody')}</p>
+              <Link className={styles.emptyAction} href="/products">
+                {t('catalog.allCategories')}
+              </Link>
+            </div>
           ) : (
             <div className={styles.empty}>
               <h2>{query.q ? t('search.noResultsTitle') : t('catalog.emptyTitle')}</h2>

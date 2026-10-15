@@ -80,6 +80,10 @@ export const dictionary = {
     'catalog.clearFilters': 'ফিল্টার মুছুন',
     'catalog.emptyTitle': 'কোনো পণ্য মেলেনি',
     'catalog.emptyBody': 'ফিল্টার বদলে দেখুন অথবা সব পণ্য ব্রাউজ করুন।',
+    'catalog.emptyCatalogTitle': 'এখনো কোনো পণ্য নেই',
+    'catalog.emptyCatalogBody': 'স্টোরফ্রন্টে এখনো কোনো পণ্য প্রকাশ করা হয়নি।',
+    'catalog.emptyCategoryTitle': 'এই ক্যাটাগরিতে কোনো পণ্য নেই',
+    'catalog.emptyCategoryBody': 'এই ক্যাটাগরিতে এখনো কোনো পণ্য প্রকাশ করা হয়নি।',
 
     'product.addToCart': 'কার্টে যোগ করুন',
     'product.added': 'কার্টে যোগ হয়েছে',
@@ -95,8 +99,6 @@ export const dictionary = {
     'product.availability.in_stock': 'স্টোরফ্রন্ট অনুযায়ী স্টকে আছে',
     'product.availability.out_of_stock': 'স্টকে নেই',
     'product.availability.unknown': 'স্টক তথ্য যাচাই করা যায়নি',
-    'product.availabilityNote':
-      'স্টকের তথ্য {date} তারিখের প্রকাশিত অবস্থা — প্রকৃত লাইভ স্টক নয়।',
     'product.notFoundTitle': 'পণ্যটি পাওয়া যায়নি',
     'product.notFoundBody': 'লিংকটি পুরোনো হতে পারে। সব পণ্য দেখুন।',
     'product.save': 'সাশ্রয় {amount}',
@@ -143,11 +145,12 @@ export const dictionary = {
     'footer.contact': 'যোগাযোগ',
     'footer.demoNote':
       'এটি একটি ফ্রন্টএন্ড ডেমো। কোনো প্রকৃত অর্ডার বা পেমেন্ট প্রক্রিয়া এখানে যুক্ত নয়।',
-    'footer.catalogNote': 'ডেমো ক্যাটালগ তথ্য সংগ্রহ: {date}',
     'footer.rights': 'এই সাইটের ডেমো কনটেন্ট শুধুমাত্র উপস্থাপনার জন্য।',
 
     'error.genericTitle': 'কিছু একটা ভুল হয়েছে',
     'error.genericBody': 'পাতাটি লোড করা যায়নি। আবার চেষ্টা করুন।',
+    'error.catalogTitle': 'ক্যাটালগ লোড করা যায়নি',
+    'error.catalogBody': 'পণ্যের তথ্য আনতে সমস্যা হয়েছে। আবার চেষ্টা করুন।',
 
     'notFound.title': 'পাতা পাওয়া যায়নি',
     'notFound.body': 'আপনি যে পাতাটি খুঁজছেন সেটি নেই।',
@@ -223,9 +226,9 @@ export const dictionary = {
       'সেশন সার্ভারে সংরক্ষিত। সময় শেষ হলে বা বাতিল হলে পরের অনুরোধেই অকার্যকর হয়ে যায়।',
     'admin.overview.scopeTitle': 'এই ধাপে কী নেই',
     'admin.overview.scopeBody':
-      'পেমেন্ট যাচাই, অর্ডার প্রক্রিয়া ও বিশ্লেষণ এখনো তৈরি হয়নি। ক্যাটালগ ব্যবস্থাপনা এই ধাপে তৈরি হয়েছে, কিন্তু স্টোরফ্রন্ট এখনো স্থানীয় ডেমো ক্যাটালগ থেকেই দেখায়।',
+      'পেমেন্ট যাচাই, অর্ডার প্রক্রিয়া ও বিশ্লেষণ এখনো তৈরি হয়নি। ক্যাটালগ ব্যবস্থাপনা তৈরি হয়েছে এবং স্টোরফ্রন্ট এখন ডেটাবেস ক্যাটালগ থেকেই দেখায়।',
     'admin.overview.roadmapNote':
-      'পরবর্তী ধাপ: স্টোরফ্রন্টকে ডেটাবেস ক্যাটালগের সাথে যুক্ত করা। কাস্টমার অ্যাকাউন্ট ও চেকআউট তার পরে।',
+      'স্টোরফ্রন্ট এখন ডেটাবেস ক্যাটালগ থেকে দেখায়। পরবর্তী ধাপ: কাস্টমার অ্যাকাউন্ট ও চেকআউট।',
 
     'admin.owners.title': 'মালিক অ্যাকাউন্ট',
     'admin.owners.body':
@@ -473,6 +476,10 @@ export const dictionary = {
     'catalog.clearFilters': 'Clear filters',
     'catalog.emptyTitle': 'No products match',
     'catalog.emptyBody': 'Adjust the filters or browse all products.',
+    'catalog.emptyCatalogTitle': 'No products yet',
+    'catalog.emptyCatalogBody': 'No products have been published on the storefront yet.',
+    'catalog.emptyCategoryTitle': 'No products in this category',
+    'catalog.emptyCategoryBody': 'No products have been published in this category yet.',
 
     'product.addToCart': 'Add to cart',
     'product.added': 'Added to cart',
@@ -489,8 +496,6 @@ export const dictionary = {
     'product.availability.in_stock': 'Published as in stock',
     'product.availability.out_of_stock': 'Out of stock',
     'product.availability.unknown': 'Stock not verified',
-    'product.availabilityNote':
-      'Stock reflects the published listing on {date} — not live inventory.',
     'product.notFoundTitle': 'Product not found',
     'product.notFoundBody': 'The link may be out of date. Browse all products.',
     'product.save': 'Save {amount}',
@@ -538,11 +543,12 @@ export const dictionary = {
     'footer.contact': 'Contact',
     'footer.demoNote':
       'This is a frontend demonstration. No real ordering or payment processing is connected.',
-    'footer.catalogNote': 'Demo catalog captured: {date}',
     'footer.rights': 'Demo content on this site is for presentation only.',
 
     'error.genericTitle': 'Something went wrong',
     'error.genericBody': 'The page could not be loaded. Please try again.',
+    'error.catalogTitle': 'The catalog could not be loaded',
+    'error.catalogBody': 'Something went wrong while loading products. Please try again.',
 
     'notFound.title': 'Page not found',
     'notFound.body': 'The page you are looking for does not exist.',
@@ -618,9 +624,9 @@ export const dictionary = {
       'The session is stored on the server. Once it expires or is revoked, the next request is refused.',
     'admin.overview.scopeTitle': 'Not in this phase',
     'admin.overview.scopeBody':
-      'Payment verification, order processing and analytics are not built yet. Catalog management is built in this phase, but the storefront still renders the local demo catalog.',
+      'Payment verification, order processing and analytics are not built yet. Catalog management is built and the storefront now renders the database catalog.',
     'admin.overview.roadmapNote':
-      'Next phase: connect the storefront to the database catalog. Customer accounts and checkout come after that.',
+      'The storefront now renders the database catalog. Next phase: customer accounts and checkout.',
 
     'admin.owners.title': 'Owner accounts',
     'admin.owners.body':

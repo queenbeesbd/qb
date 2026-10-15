@@ -1,9 +1,9 @@
 import { imageSources, isPlaceholder } from '@/lib/images';
-import type { ProductImage } from '@/lib/types';
+import type { CatalogImage } from '@/lib/types';
 import styles from './ProductPhoto.module.css';
 
 type Props = {
-  image: ProductImage | undefined;
+  image: CatalogImage | undefined;
   /** Localized alt text. Pass an empty string for decorative images. */
   alt: string;
   /** Responsive `sizes` hint matching the layout that renders this photo. */

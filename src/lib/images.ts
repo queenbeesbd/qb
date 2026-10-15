@@ -1,4 +1,4 @@
-import type { ProductImage } from './types';
+import type { CatalogImage } from './types';
 
 /**
  * Generated image widths, in ascending order. Every `ProductImage.key` must
@@ -39,7 +39,7 @@ function buildSrcSet(key: string, extension: 'webp' | 'jpg'): string {
  * Derives every rendered image path for one catalog image. Paths are computed
  * from the key rather than stored, so a record cannot drift from its assets.
  */
-export function imageSources(image: ProductImage): ImageSources {
+export function imageSources(image: CatalogImage): ImageSources {
   return {
     webpSrcSet: buildSrcSet(image.key, 'webp'),
     jpgSrcSet: buildSrcSet(image.key, 'jpg'),
@@ -53,6 +53,6 @@ export function imageSources(image: ProductImage): ImageSources {
  * True when the key points at locally generated placeholder artwork rather
  * than authentic product photography. Used to label the image honestly.
  */
-export function isPlaceholder(image: ProductImage): boolean {
+export function isPlaceholder(image: CatalogImage): boolean {
   return image.rights === 'placeholder';
 }
