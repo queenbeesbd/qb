@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useTranslation } from '@/i18n/useTranslation';
 import type { Locale } from '@/lib/types';
 import { ClearCart } from '@/features/checkout/ClearCart';
-import { methodLabel, paymentLabel, statusLabel } from './order-labels';
+import { methodLabel, paymentLabel, prepayNoteKey, statusLabel } from './order-labels';
 import styles from '@/app/account.module.css';
 
 function formatWhen(iso: string, locale: Locale): string {
@@ -88,7 +88,7 @@ export function OrderDetailView({ order, placed }: { order: OrderDetail; placed:
           </div>
         </dl>
         <p className={styles.muted}>
-          {order.paymentMethod === 'cod' ? t('orders.codNote') : t('orders.prepayNote')}
+          {order.paymentMethod === 'cod' ? t('orders.codNote') : t(prepayNoteKey(order.paymentState))}
         </p>
       </section>
 

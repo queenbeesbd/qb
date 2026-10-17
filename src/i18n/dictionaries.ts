@@ -557,7 +557,16 @@ export const dictionary = {
     'orders.codNote':
       'ক্যাশ অন ডেলিভারি: পাঠানোর আগে মালিকের অনুমোদন লাগে, আর কুরিয়ার নগদ আদায় আলাদা করে মিলিয়ে নেওয়া হয়।',
     'orders.prepayNote':
-      'প্রিপেইড: টাকা পাঠানোর নির্দেশনা এবং মালিকের হাতে যাচাই এখনো চালু হয়নি। কোনো পেমেন্ট তথ্য নেওয়া বা সংরক্ষণ করা হয়নি।',
+      'প্রিপেইড: টাকা পাঠাতে হয় মালিকের দেওয়া অ্যাকাউন্টে, আর মালিক নিজে হাতে মিলিয়ে যাচাই করেন। স্বয়ংক্রিয়ভাবে কিছু যাচাই হয় না।',
+    'orders.prepayNoteVerification':
+      'প্রিপেইড: আপনি যে পেমেন্ট তথ্য দিয়েছেন তা সংরক্ষণ করা হয়েছে। মালিক পেমেন্ট অ্যাকাউন্ট মিলিয়ে হাতে যাচাই করবেন — স্বয়ংক্রিয়ভাবে কিছু নিশ্চিত হয় না।',
+    'orders.prepayNoteVerified': 'প্রিপেইড: মালিক এই পেমেন্ট যাচাই করেছেন।',
+    'orders.prepayNoteRejected':
+      'প্রিপেইড: মালিক এই পেমেন্ট নিশ্চিত করতে পারেননি। সহায়তার জন্য দোকানে যোগাযোগ করুন।',
+    'orders.prepayNoteUnconfirmed':
+      'প্রিপেইড: এই পেমেন্ট দাবিটি পেমেন্ট অ্যাকাউন্টে নিশ্চিত হয়নি। সহায়তার জন্য দোকানে যোগাযোগ করুন।',
+    'orders.prepayNoteExpired':
+      'প্রিপেইড: এই অর্ডারের পেমেন্ট সময় শেষ হয়ে গেছে। সহায়তার জন্য দোকানে যোগাযোগ করুন।',
     'orders.placedTitle': 'অর্ডার নিশ্চিত হয়েছে',
     'orders.placedBody': 'আপনার অর্ডার সংরক্ষিত হয়েছে। কোনো পেমেন্ট এখনো নেওয়া বা যাচাই করা হয়নি।',
     'orders.status.pending': 'অপেক্ষমাণ',
@@ -1137,7 +1146,14 @@ export const dictionary = {
     'orders.codNote':
       'Cash on delivery: the owner approves the order before dispatch, and courier cash is reconciled separately.',
     'orders.prepayNote':
-      'Prepaid: payment instructions and the owner’s manual verification are not built yet. No payment details were collected or stored.',
+      'Prepaid: the transfer goes to the account the owner configured, and the owner checks it by hand. Nothing is verified automatically.',
+    'orders.prepayNoteVerification':
+      'Prepaid: the payment details you submitted are recorded. The owner checks them against the payment account by hand — nothing is confirmed automatically.',
+    'orders.prepayNoteVerified': 'Prepaid: the owner has verified this payment.',
+    'orders.prepayNoteRejected': 'Prepaid: the owner could not confirm this payment. Contact the store.',
+    'orders.prepayNoteUnconfirmed':
+      'Prepaid: this payment claim was not confirmed against the payment account. Contact the store.',
+    'orders.prepayNoteExpired': 'Prepaid: this order’s payment window has passed. Contact the store.',
     'orders.placedTitle': 'Order placed',
     'orders.placedBody': 'Your order is recorded. No payment has been taken or verified yet.',
     'orders.status.pending': 'Pending',

@@ -3,7 +3,14 @@ import { after, before, describe, it } from 'node:test';
 
 import { withTransaction } from '../../src/db/client';
 import { seedOrder, SKIP_REASON, startMigratedDatabase, toolingAvailable, type DbFixture } from './helpers';
-import { decideCod, decideVerification, listVerificationQueue } from '../../src/server/orders/manage';
+import {
+  countCodApprovalQueue,
+  decideCod,
+  decideVerification,
+  listCodApprovalQueue,
+  listVerificationQueue,
+} from '../../src/server/orders/manage';
+import { paymentsQueue } from '../../src/server/orders/admin-read';
 import { ConflictError, ValidationError } from '../../src/server/authz/authorize';
 
 /** The actor context used for every owner decision in this file: full owner permissions. */
@@ -157,20 +164,60 @@ describe('payment verification and COD confirmation (Phase 16A)', { skip: toolin
     assert.equal(released.rows[0]?.state, 'resolved');
   });
 
-  it('flags the queue for duplicate references before any decision', async () => {
-    // Two submitted claims carrying the same transaction reference: the queue returns them both and
-    // the owner sees the flag; the database refuses nothing, because a duplicate reference is an
-    // honest mistake to surface, not a validation error to reject.
+  it('flags every submitted claim sharing a transaction reference, and drops the flag once decided', async () => {
+    // Two submitted claims carrying the same transaction reference: both rows are flagged before any
+    // decision, and the database refuses nothing, because a duplicate reference is an honest mistake
+    // to surface, not a validation error to reject.
+    const firstOrderId = await claimOn({ reference: 'REFDUPLICATE1' });
     await claimOn({ reference: 'REFDUPLICATE1' });
-    await claimOn({ reference: 'REFDUPLICATE1' });
-    const queue = await withTransaction((tx) => listVerificationQueue(tx));
+
+    const queue = await withTransaction((tx) => paymentsQueue(tx));
     const duplicates = queue.filter((row) => row.transactionReference === 'REFDUPLICATE1');
     assert.equal(duplicates.length, 2);
-    // Every row is also matched by the read layer's own reference check.
-    assert.equal(
-      queue.filter((row) => row.hasOpenHold === false).length,
-      queue.length,
+    assert.equal(duplicates.every((row) => row.duplicateReference === true), true);
+    assert.equal(queue.every((row) => row.held === false), true);
+
+    // The unique reference on the first claim of this file is not flagged.
+    const unique = queue.filter((row) => row.transactionReference !== 'REFDUPLICATE1');
+    assert.equal(unique.every((row) => row.duplicateReference === false), true);
+
+    // Deciding one of them removes it from the submitted set, so the flag clears on the survivor: a
+    // duplicate is a property of the claims still awaiting a decision, not a permanent mark.
+    const claimId = queue.find((row) => row.orderId === firstOrderId)?.claimId ?? 0;
+    await withTransaction((tx) =>
+      decideVerification(tx, actorFor(), { claimId, decision: 'reject', reason: 'reference reused by mistake' }),
     );
+    const after = await withTransaction((tx) => paymentsQueue(tx));
+    const survivors = after.filter((row) => row.transactionReference === 'REFDUPLICATE1');
+    assert.equal(survivors.length, 1);
+    assert.equal(survivors[0]?.duplicateReference, false);
+  });
+
+  it('takes a rejected COD order out of the COD worklist and its count', async () => {
+    // The defect this covers: the worklist filtered on `cod_state` alone, and a rejection cancels the
+    // order without changing that state - so a cancelled order stayed in the queue for good, where the
+    // only possible answer to another action was "already decided".
+    const seeded = await seedOrder(fixture.pool, { paymentMethod: 'cod', withReservation: false });
+    const queued = await withTransaction((tx) => listCodApprovalQueue(tx));
+    assert.equal(queued.some((row) => row.orderId === seeded.orderId), true);
+
+    await withTransaction((tx) =>
+      decideCod(tx, actorFor(), { orderId: seeded.orderId, decision: 'reject', reason: 'customer never answered the call' }),
+    );
+
+    const after = await withTransaction((tx) => listCodApprovalQueue(tx));
+    assert.equal(after.some((row) => row.orderId === seeded.orderId), false);
+    const state = await fixture.pool.query<{ status: string; cod_state: string }>(
+      `select status, cod_state from "order" where id = $1`, [seeded.orderId],
+    );
+    // The order is cancelled; `cod_state` is untouched because the schema binds it to the method.
+    assert.deepEqual(state.rows[0], { status: 'cancelled', cod_state: 'cod_pending_approval' });
+
+    const count = await withTransaction((tx) => countCodApprovalQueue(tx));
+    const pending = await fixture.pool.query<{ total: number }>(
+      `select count(*)::int as total from "order" where cod_state = 'cod_pending_approval' and status = 'pending'`,
+    );
+    assert.equal(count, pending.rows[0]?.total);
   });
 
   it('never bans a customer by itself: a rejected claim leaves the account active', async () => {

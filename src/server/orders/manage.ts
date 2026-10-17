@@ -109,19 +109,9 @@ export async function listVerificationQueue(tx: Transaction): Promise<Verificati
 
   // A reference used on another submitted claim is flagged in place: a person looks before deciding,
   // and the database refuses nothing because a duplicate reference is an honest mistake to surface,
-  // not a validation error to reject.
-  const references = rows.map((row) => row.transactionReference);
-  const duplicateReferences = new Set<string>();
-  for (const value of references) {
-    if (references.lastIndexOf(value) !== references.indexOf(value)) duplicateReferences.add(value);
-  }
-
-  return rows.map((row) => ({
-    ...row,
-    transactionReference: duplicateReferences.has(row.transactionReference)
-      ? row.transactionReference
-      : row.transactionReference,
-  }));
+  // not a validation error to reject. The flag itself is computed by the caller that renders it
+  // (`paymentsQueue`, from `duplicateReferences`), so this read stays a plain projection of the rows.
+  return rows;
 }
 
 /** Transaction references shared by more than one submitted claim, for the queue's duplicate flags. */
@@ -162,7 +152,10 @@ export async function listCodApprovalQueue(tx: Transaction): Promise<CodQueueRow
     })
     .from(order)
     .innerJoin(orderContact, sql`${orderContact.orderId} = ${order.id}`)
-    .where(sql`${order.codState} = 'cod_pending_approval'`)
+    // Both halves of the same guard the decision holds: `cod_state` alone would keep an order the
+    // owner has already rejected - which a rejection cancels - in this worklist for good, where every
+    // further action could only answer "already decided".
+    .where(sql`${order.codState} = 'cod_pending_approval' and ${order.status} = 'pending'`)
     .orderBy(order.placedAt, order.id);
 }
 
@@ -178,7 +171,7 @@ export async function countCodApprovalQueue(tx: Transaction): Promise<number> {
   const rows = await tx
     .select({ total: sql<number>`count(*)::int` })
     .from(order)
-    .where(sql`${order.codState} = 'cod_pending_approval'`);
+    .where(sql`${order.codState} = 'cod_pending_approval' and ${order.status} = 'pending'`);
   return rows[0]?.total ?? 0;
 }
 

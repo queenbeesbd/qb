@@ -333,6 +333,23 @@ export async function runCustomerFlowChecks(options: { base: string; pool: Pool 
     { status: confirmation.status },
   );
 
+  // The order just placed is a prepaid one carrying a claim, so its page must say that the payment
+  // details were recorded. The retired wording claimed prepaid instructions and verification "are not
+  // built yet" and that no payment details had been collected - false on exactly this page. Both
+  // locales are accepted; neither may contain the retired sentence.
+  const saysDetailsRecorded =
+    /the payment details you submitted are recorded/i.test(confirmationHtml) ||
+    confirmationHtml.includes('আপনি যে পেমেন্ট তথ্য দিয়েছেন তা সংরক্ষণ করা হয়েছে');
+  const retiredWording =
+    /not built yet/i.test(confirmationHtml) ||
+    confirmationHtml.includes('নেওয়া বা সংরক্ষণ করা হয়নি') ||
+    confirmationHtml.includes('চালু হয়নি');
+  record(
+    'the prepaid order page states that the submitted payment details are recorded, never the retired gap wording',
+    confirmation.status === 200 && saysDetailsRecorded && !retiredWording,
+    { status: confirmation.status, saysDetailsRecorded, retiredWording },
+  );
+
   const list = await get('/account/orders');
   const listHtml = await body(list);
   record(

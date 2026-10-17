@@ -5,6 +5,12 @@ import Link from 'next/link';
 import type { TranslationKey } from '@/i18n/dictionaries';
 import { useTranslation } from '@/i18n/useTranslation';
 import { useCart } from '@/features/cart/useCart';
+import {
+  PAYMENT_METHODS,
+  defaultPaymentMethod,
+  isMethodConfigured,
+  type PaymentMethodValue,
+} from './payment-methods';
 import styles from './CheckoutForm.module.css';
 
 export type CheckoutRecipient = {
@@ -63,8 +69,11 @@ export function CheckoutForm({
   );
 
   // The selected method drives the prepaid claim fields. `cod` needs none; an unconfigured prepaid
-  // method is rendered disabled with the stated reason, never with invented instructions.
-  const [method, setMethod] = useState('bkash');
+  // method is rendered disabled with the stated reason, never with invented instructions. The initial
+  // selection is the first *available* method (COD when no prepaid method is configured), because a
+  // pre-selected disabled radio is not submitted at all - see `payment-methods.ts`.
+  const configuredMethods = recipients.map((entry) => entry.method);
+  const [method, setMethod] = useState<PaymentMethodValue>(() => defaultPaymentMethod(configuredMethods));
   const isPrepaid = method !== 'cod';
   const recipient = recipients.find((entry) => entry.method === method) ?? null;
   // The payable amount shown beside the instructions is the same figure the server computes from the
@@ -161,11 +170,8 @@ export function CheckoutForm({
               <h2 id="checkout-payment">{t('checkout.paymentTitle')}</h2>
               <fieldset className={styles.methods}>
                 <legend className="sr-only">{t('checkout.paymentTitle')}</legend>
-                {(['bkash', 'nagad', 'cod'] as const).map((value) => {
-                  const configured =
-                    value === 'cod'
-                      ? true
-                      : recipients.some((entry) => entry.method === value);
+                {PAYMENT_METHODS.map((value) => {
+                  const configured = isMethodConfigured(value, configuredMethods);
                   return (
                     <label className={styles.method} key={value}>
                       <input
@@ -190,56 +196,61 @@ export function CheckoutForm({
 
               {isPrepaid && (
                 <div className={styles.claimFields}>
-                  {recipient !== null ? (
-                    <p className={styles.instructions}>
-                      {t('checkout.instructions', {
-                        method: t(method === 'bkash' ? 'checkout.method.bkash' : 'checkout.method.nagad'),
-                        number: recipient.accountNumber,
-                        label: recipient.accountLabel,
-                        amount: price(payableMinor),
-                      })}
-                    </p>
-                  ) : (
+                  {recipient === null ? (
+                    // No recipient configured for this method: the method is not offered at all (see the
+                    // radio above). Nothing is collected here - requiring a sender number, a reference
+                    // and an amount for an account that does not exist is the dead end this states.
                     <p className={styles.muted}>{t('checkout.instructionsUnavailable')}</p>
+                  ) : (
+                    <>
+                      <p className={styles.instructions}>
+                        {t('checkout.instructions', {
+                          method: t(method === 'bkash' ? 'checkout.method.bkash' : 'checkout.method.nagad'),
+                          number: recipient.accountNumber,
+                          label: recipient.accountLabel,
+                          amount: price(payableMinor),
+                        })}
+                      </p>
+                      <label className={styles.field}>
+                        <span>{t('checkout.field.senderMsisdn')}</span>
+                        <input
+                          type="tel"
+                          name="senderMsisdn"
+                          required
+                          inputMode="numeric"
+                          pattern="01[3-9][0-9]{8}"
+                          placeholder="01XXXXXXXXX"
+                          maxLength={11}
+                        />
+                        <small>{t('checkout.field.senderMsisdnHelp')}</small>
+                      </label>
+                      <label className={styles.field}>
+                        <span>{t('checkout.field.transactionReference')}</span>
+                        <input
+                          type="text"
+                          name="transactionReference"
+                          required
+                          minLength={6}
+                          maxLength={64}
+                          pattern="[A-Za-z0-9-]+"
+                        />
+                        <small>{t('checkout.field.transactionReferenceHelp')}</small>
+                      </label>
+                      <label className={styles.field}>
+                        <span>{t('checkout.field.claimedAmount')}</span>
+                        <input
+                          type="number"
+                          name="claimedAmount"
+                          required
+                          min={1}
+                          step="1"
+                          inputMode="numeric"
+                        />
+                        <small>{t('checkout.field.claimedAmountHelp')}</small>
+                      </label>
+                      <p className={styles.muted}>{t('checkout.verificationNote')}</p>
+                    </>
                   )}
-                  <label className={styles.field}>
-                    <span>{t('checkout.field.senderMsisdn')}</span>
-                    <input
-                      type="tel"
-                      name="senderMsisdn"
-                      required
-                      inputMode="numeric"
-                      pattern="01[3-9][0-9]{8}"
-                      placeholder="01XXXXXXXXX"
-                      maxLength={11}
-                    />
-                    <small>{t('checkout.field.senderMsisdnHelp')}</small>
-                  </label>
-                  <label className={styles.field}>
-                    <span>{t('checkout.field.transactionReference')}</span>
-                    <input
-                      type="text"
-                      name="transactionReference"
-                      required
-                      minLength={6}
-                      maxLength={64}
-                      pattern="[A-Za-z0-9-]+"
-                    />
-                    <small>{t('checkout.field.transactionReferenceHelp')}</small>
-                  </label>
-                  <label className={styles.field}>
-                    <span>{t('checkout.field.claimedAmount')}</span>
-                    <input
-                      type="number"
-                      name="claimedAmount"
-                      required
-                      min={1}
-                      step="1"
-                      inputMode="numeric"
-                    />
-                    <small>{t('checkout.field.claimedAmountHelp')}</small>
-                  </label>
-                  <p className={styles.muted}>{t('checkout.verificationNote')}</p>
                 </div>
               )}
             </section>
