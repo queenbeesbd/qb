@@ -100,15 +100,18 @@ describe('idempotency key parsing', () => {
 
 describe('submission fingerprint', () => {
   it('is stable for the same body regardless of line order', () => {
-    const a = orderFingerprint([{ productId: '2', quantity: 1 }, { productId: '1', quantity: 1 }], CONTACT, 'bkash');
-    const b = orderFingerprint([{ productId: '1', quantity: 1 }, { productId: '2', quantity: 1 }], CONTACT, 'bkash');
+    const a = orderFingerprint([{ productId: '2', quantity: 1 }, { productId: '1', quantity: 1 }], CONTACT, 'bkash', null);
+    const b = orderFingerprint([{ productId: '1', quantity: 1 }, { productId: '2', quantity: 1 }], CONTACT, 'bkash', null);
     assert.equal(a, b);
   });
 
   it('changes when a quantity, an address or the method changes', () => {
-    const base = orderFingerprint([{ productId: '1', quantity: 1 }], CONTACT, 'bkash');
-    assert.notEqual(base, orderFingerprint([{ productId: '1', quantity: 2 }], CONTACT, 'bkash'));
-    assert.notEqual(base, orderFingerprint([{ productId: '1', quantity: 1 }], { ...CONTACT, city: 'Sylhet' }, 'bkash'));
-    assert.notEqual(base, orderFingerprint([{ productId: '1', quantity: 1 }], CONTACT, 'cod'));
+    const base = orderFingerprint([{ productId: '1', quantity: 1 }], CONTACT, 'bkash', null);
+    assert.notEqual(base, orderFingerprint([{ productId: '1', quantity: 2 }], CONTACT, 'bkash', null));
+    assert.notEqual(base, orderFingerprint([{ productId: '1', quantity: 1 }], { ...CONTACT, city: 'Sylhet' }, 'bkash', null));
+    assert.notEqual(base, orderFingerprint([{ productId: '1', quantity: 1 }], CONTACT, 'cod', null));
+    assert.notEqual(base, orderFingerprint([{ productId: '1', quantity: 1 }], CONTACT, 'bkash', {
+      senderMsisdn: '01712345678', transactionReference: 'ref123', claimedAmountMinor: 100,
+    }));
   });
 });

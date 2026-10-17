@@ -132,6 +132,36 @@ async function main(): Promise<void> {
         `(env=test), ${report.imagesInserted} image(s) attached`,
     );
 
+    // A test-only payment recipient, so the customer flow can exercise the prepaid claim path. The
+    // number is a placeholder in the schema's format, not a real account: it is created here, inside
+    // a disposable cluster, and never shipped in code or configuration.
+    const existingSeed = await fixture.pool.query<{ id: string }>(
+      `select id from staff_user where email = 'seed-recipient@example.test'`,
+    );
+    const seed16Id =
+      existingSeed.rows[0] !== undefined
+        ? Number(existingSeed.rows[0].id)
+        : Number(
+            (
+              await fixture.pool.query<{ id: string }>(
+                `insert into staff_user (email, display_name) values ('seed-recipient@example.test', 'Seed') returning id`,
+              )
+            ).rows[0]?.id,
+          );
+    for (const method of ['bkash', 'nagad'] as const) {
+      const already = await fixture.pool.query(
+        `select 1 from payment_recipient where method = $1 and is_active limit 1`,
+        [method],
+      );
+      if (already.rows.length === 0) {
+        await fixture.pool.query(
+          `insert into payment_recipient (method, account_number, account_label, created_by_staff_id)
+           values ($1, '01711111111', $2, $3)`,
+          [method, `Test ${method}`, seed16Id],
+        );
+      }
+    }
+
     // Both children get the same environment. The fixture opt-in is deleted, not merely unset: a
     // stray value in the caller's shell must not turn this run into a fixture run.
     const childEnv: NodeJS.ProcessEnv = {

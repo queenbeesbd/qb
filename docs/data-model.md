@@ -1400,7 +1400,7 @@ when, and by whom it was resolved is preserved even when the order's state chang
 | --- | --- | --- | --- | --- |
 | - | `submitted` | Customer (own order) or Owner recording a phone claim | Order in `awaiting_payment` **or** a previous claim resolved; **no other active submitted claim exists for this order** (the partial unique index). **No unit allocation occurs (ADR 0013)** | Order -> `awaiting_verification`; claim written in the same transaction; `order.expires_at` cleared |
 | `submitted` | `verified` | Owner (`payment.verify`) | Receipt independently confirmed through the payment account; `verified_amount_minor` recorded; a mismatch requires explicit acknowledgement | Order -> `verified`; claim terminal |
-| `submitted` | *held* | Owner (`payment.hold`, proposed) | Amount mismatch or unclear evidence; reason recorded | Claim **stays `submitted`**; an open `payment_mismatch` exception may represent the hold (ADR 0014 Part 3.2) |
+| `submitted` | *held* | Owner (`payment.reject` permission, implemented as a hold) | Amount mismatch or unclear evidence; reason >= 10 characters | Claim **stays `submitted`**; an **open `payment_mismatch` operational exception** represents the hold (ADR 0014 Part 3.2 option 1, implemented); the order's expiry stays cleared and the claim stays in the queue |
 | `submitted` | `rejected` | Owner (`payment.reject`) | Reason >= 10 characters | Order -> `rejected`; customer may resubmit; **not an accusation** (13.3) |
 | `submitted` | `falsely_claimed` | Owner (`payment.flag_false`) | Reason >= 10 characters; owner **confirmed** the claim was false | Order cancelled; customer flag may be raised (11.8); **no reservation to release (ADR 0013)** |
 | `submitted` | `withdrawn` | Customer (own claim) or Owner | Claim is still `submitted` | Order returns to `awaiting_payment`; no stock re-check (ADR 0013) |
@@ -1409,6 +1409,8 @@ when, and by whom it was resolved is preserved even when the order's state chang
 reason; a second `submitted` claim for an order while one is active; resolving a claim whose order has
 already expired; **an automatic decision based only on a claimed-amount mismatch** (ADR 0014 decision
 6); **expiring or releasing a claim by a timer** (ADR 0014 decision 11).
+
+**Implementation status (Phase 16A).** The transitions above now exist in `src/server/orders/manage.ts`: the owner queue actions are guarded on `state = 'submitted'` in the UPDATE's WHERE clause, idempotent by conflict, audited with actor/timestamp/decision/reason in the transaction, and the paired `order.payment_state` change is guarded on `awaiting_verification`. A held claim keeps its open `payment_mismatch` exception instead of changing state; releasing the hold closes that exception with a note. A duplicate transaction reference is flagged by the queue read, never blocked by a uniqueness rule and never auto-resolved.
 
 **Why `rejected` is not an accusation (13.3).** The distinction is enforced structurally: only
 `falsely_claimed` may be referenced by a `customer_flag`, and the flag requires its own staff actor and

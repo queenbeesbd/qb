@@ -1,10 +1,17 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import type { TranslationKey } from '@/i18n/dictionaries';
 import { useTranslation } from '@/i18n/useTranslation';
 import { useCart } from '@/features/cart/useCart';
 import styles from './CheckoutForm.module.css';
+
+export type CheckoutRecipient = {
+  readonly method: string;
+  readonly accountNumber: string;
+  readonly accountLabel: string;
+};
 
 const REFUSAL_KEYS: Record<string, TranslationKey> = {
   invalid: 'checkout.notice.invalid',
@@ -17,9 +24,12 @@ const REFUSAL_KEYS: Record<string, TranslationKey> = {
 /**
  * The checkout form.
  *
- * It submits **ids, quantities, delivery contact and a payment method** - nothing else. There is no
- * price field to tamper with, because the server does not read one; the totals shown here come from the
- * same catalog the server prices against, and the authoritative total is on the confirmation page.
+ * It submits **ids, quantities, delivery contact, a payment method and - for a prepaid method - the
+ * payment-claim fields (sender number, transaction reference, amount sent)**. There is still no price
+ * field the server trusts: the amount field records what the customer says they sent, and the order
+ * total is recomputed server-side from database prices. Payment instructions appear **only** when the
+ * owner has configured a recipient - the number and label come from configuration, and a method with
+ * no configured recipient renders as unavailable rather than showing an invented number (ADR 0014).
  *
  * The form element - and therefore the session-bound CSRF token and the submission key - is always
  * rendered, even with an empty cart. That is deliberate: the cart lives in the browser, so an empty
@@ -27,21 +37,22 @@ const REFUSAL_KEYS: Record<string, TranslationKey> = {
  * derived from the session the visitor already holds. An empty cart shows the empty state in place of
  * the fields and no submit button.
  *
- * Delivery charges are not approved, so shipping is stated as not yet determined rather than invented,
- * and the total shown is the items subtotal. Prepaid payment instructions and verification are Phase 16;
- * the form says so plainly instead of implying a payment step that does not exist. COD is presented as
- * its own method - approved before dispatch, not verified like a transfer.
+ * Delivery charges are not configured, so shipping stays "arranged on confirmation" rather than
+ * invented, and the items subtotal is shown as the payable amount. COD is its own method - the owner
+ * confirms it by phone before processing; it collects no claim fields.
  */
 export function CheckoutForm({
   csrfToken,
   idempotencyKey,
   notice,
   customerEmail,
+  recipients,
 }: {
   csrfToken: string;
   idempotencyKey: string;
   notice: string | null;
   customerEmail: string;
+  recipients: readonly CheckoutRecipient[];
 }) {
   const { t, pick, price } = useTranslation();
   const cart = useCart();
@@ -50,6 +61,15 @@ export function CheckoutForm({
   const lines = JSON.stringify(
     cart.entries.map((entry) => ({ productId: entry.product.id, quantity: entry.quantity })),
   );
+
+  // The selected method drives the prepaid claim fields. `cod` needs none; an unconfigured prepaid
+  // method is rendered disabled with the stated reason, never with invented instructions.
+  const [method, setMethod] = useState('bkash');
+  const isPrepaid = method !== 'cod';
+  const recipient = recipients.find((entry) => entry.method === method) ?? null;
+  // The payable amount shown beside the instructions is the same figure the server computes from the
+  // same cart contents; the authoritative total is confirmed on the server at submission.
+  const payableMinor = cart.subtotalMinor;
 
   return (
     <div className={styles.page}>
@@ -141,21 +161,87 @@ export function CheckoutForm({
               <h2 id="checkout-payment">{t('checkout.paymentTitle')}</h2>
               <fieldset className={styles.methods}>
                 <legend className="sr-only">{t('checkout.paymentTitle')}</legend>
-                <label className={styles.method}>
-                  <input type="radio" name="paymentMethod" value="bkash" required defaultChecked />
-                  <span>{t('checkout.method.bkash')}</span>
-                </label>
-                <label className={styles.method}>
-                  <input type="radio" name="paymentMethod" value="nagad" />
-                  <span>{t('checkout.method.nagad')}</span>
-                </label>
-                <label className={styles.method}>
-                  <input type="radio" name="paymentMethod" value="cod" />
-                  <span>{t('checkout.method.cod')}</span>
-                </label>
+                {(['bkash', 'nagad', 'cod'] as const).map((value) => {
+                  const configured =
+                    value === 'cod'
+                      ? true
+                      : recipients.some((entry) => entry.method === value);
+                  return (
+                    <label className={styles.method} key={value}>
+                      <input
+                        type="radio"
+                        name="paymentMethod"
+                        value={value}
+                        required
+                        checked={method === value}
+                        disabled={!configured}
+                        onChange={() => setMethod(value)}
+                      />
+                      <span>
+                        {t(value === 'bkash' ? 'checkout.method.bkash' : value === 'nagad' ? 'checkout.method.nagad' : 'checkout.method.cod')}
+                        {!configured && <em className={styles.muted}> — {t('checkout.methodUnavailable')}</em>}
+                      </span>
+                    </label>
+                  );
+                })}
               </fieldset>
-              <p className={styles.muted}>{t('checkout.methodCodNote')}</p>
-              <p className={styles.muted}>{t('checkout.pendingNote')}</p>
+
+              {method === 'cod' && <p className={styles.muted}>{t('checkout.methodCodNote')}</p>}
+
+              {isPrepaid && (
+                <div className={styles.claimFields}>
+                  {recipient !== null ? (
+                    <p className={styles.instructions}>
+                      {t('checkout.instructions', {
+                        method: t(method === 'bkash' ? 'checkout.method.bkash' : 'checkout.method.nagad'),
+                        number: recipient.accountNumber,
+                        label: recipient.accountLabel,
+                        amount: price(payableMinor),
+                      })}
+                    </p>
+                  ) : (
+                    <p className={styles.muted}>{t('checkout.instructionsUnavailable')}</p>
+                  )}
+                  <label className={styles.field}>
+                    <span>{t('checkout.field.senderMsisdn')}</span>
+                    <input
+                      type="tel"
+                      name="senderMsisdn"
+                      required
+                      inputMode="numeric"
+                      pattern="01[3-9][0-9]{8}"
+                      placeholder="01XXXXXXXXX"
+                      maxLength={11}
+                    />
+                    <small>{t('checkout.field.senderMsisdnHelp')}</small>
+                  </label>
+                  <label className={styles.field}>
+                    <span>{t('checkout.field.transactionReference')}</span>
+                    <input
+                      type="text"
+                      name="transactionReference"
+                      required
+                      minLength={6}
+                      maxLength={64}
+                      pattern="[A-Za-z0-9-]+"
+                    />
+                    <small>{t('checkout.field.transactionReferenceHelp')}</small>
+                  </label>
+                  <label className={styles.field}>
+                    <span>{t('checkout.field.claimedAmount')}</span>
+                    <input
+                      type="number"
+                      name="claimedAmount"
+                      required
+                      min={1}
+                      step="1"
+                      inputMode="numeric"
+                    />
+                    <small>{t('checkout.field.claimedAmountHelp')}</small>
+                  </label>
+                  <p className={styles.muted}>{t('checkout.verificationNote')}</p>
+                </div>
+              )}
             </section>
 
             <aside className={styles.summary} aria-labelledby="checkout-summary">

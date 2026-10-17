@@ -9,9 +9,9 @@ export type Fact = { labelKey: TranslationKey; value: number };
 /**
  * The overview.
  *
- * Every number is a count of rows that exist. There is deliberately no revenue, order, sales or
- * growth figure: no order can be created yet, and a placeholder would be an invented metric. Where a
- * figure does not exist, the panel says so instead of showing zero-with-a-label.
+ * Every number is a count of rows that exist. The order and payment figures are worklist sizes, and
+ * there is deliberately no revenue or growth figure. Where a figure does not exist, the panel says so
+ * instead of showing zero-with-a-label.
  */
 export function OverviewView({
   facts,

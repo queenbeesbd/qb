@@ -37,6 +37,8 @@ import {
   orderContact,
   orderEvent,
   orderItem,
+  paymentClaim,
+  paymentRecipient,
   product,
   productImage,
   productVariant,
@@ -46,10 +48,12 @@ import { checkOrderability } from '@/server/catalog/orderability';
 import { ORDER_LIMITS, type CartLineInput, type ContactInput, type PaymentMethodInput } from './validation';
 
 const IDEMPOTENCY_SCOPE = 'order_create';
+/** Scope for the payment-claim idempotency key; kept distinct so a replay is never an order replay. */
+const CLAIM_IDEMPOTENCY_SCOPE = 'claim_submit';
+/** The claim idempotency window matches the order window: the browser retries both the same way. */
+const CLAIM_IDEMPOTENCY_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 /** The stored key is retained for a bounded window; a replay gets the original order within it. */
 const IDEMPOTENCY_TTL_MS = 7 * 24 * 60 * 60 * 1000;
-/** The approved 24-hour unpaid-order expiry (D9). Encoded once here; the schema CHECK enforces it too. */
-const UNPAID_ORDER_EXPIRY_MS = 24 * 60 * 60 * 1000;
 
 export type OrderRefusalReason =
   /** The account is suspended (banned) or deleted, checked inside the order transaction (D20). */
@@ -58,6 +62,8 @@ export type OrderRefusalReason =
   | 'empty_cart'
   /** At least one product is not orderable from current database state (unpublished, archived, out of stock). */
   | 'unavailable'
+  /** A prepaid submission lacked its claim, or the recipient is not available. */
+  | 'invalid'
   /** The idempotency key was reused with a different body, or a first attempt is still in flight. */
   | 'idempotency_conflict';
 
@@ -82,6 +88,15 @@ export type CreatedOrder = {
   readonly placedAt: Date;
 };
 
+export type PaymentClaimInput = {
+  /** The active recipient for this method, resolved by the route from owner configuration. */
+  readonly paymentRecipientId: number;
+  readonly senderMsisdn: string;
+  readonly transactionReference: string;
+  /** The claimed amount, poisha. Recorded, never trusted (D8; the order total is authoritative). */
+  readonly claimedAmountMinor: number;
+};
+
 export type CreateOrderInput = {
   readonly customerId: number;
   readonly idempotencyKey: string;
@@ -90,6 +105,8 @@ export type CreateOrderInput = {
   readonly lines: readonly CartLineInput[];
   readonly contact: ContactInput;
   readonly paymentMethod: PaymentMethodInput;
+  /** Required when `paymentMethod` is an MFS transfer; `null` for COD (COD has no claim). */
+  readonly claim: PaymentClaimInput | null;
 };
 
 /** An opaque public order reference. Random, uppercase hex, never a sequence and never a customer id. */
@@ -239,8 +256,9 @@ export async function createOrder(tx: Transaction, input: CreateOrderInput): Pro
   // 4. Totals, in integer poisha, from the database prices only.
   let subtotalMinor = 0;
   for (const line of resolved) subtotalMinor += line.priceMinor * line.quantity;
-  // Delivery charges are not approved, so shipping is zero and the total is the subtotal. This is a
-  // stated gap, not an estimate: the storefront says delivery is arranged at confirmation.
+  // Delivery charges remain unconfigured (ADR 0014 Part 5), so shipping is zero and the total is the
+  // subtotal. This is a stated gap, not an estimate: the storefront says delivery is arranged at
+  // confirmation, and nothing puts a delivery charge into a total until the owner sets one.
   const shippingMinor = 0;
   const totalMinor = subtotalMinor + shippingMinor;
 
@@ -249,9 +267,10 @@ export async function createOrder(tx: Transaction, input: CreateOrderInput): Pro
   const isCod = paymentMethod === 'cod';
   const paymentState = isCod ? 'not_applicable' : 'awaiting_payment';
   const codState = isCod ? 'cod_pending_approval' : 'not_applicable';
-  // D9: the 24-hour expiry applies only to an order with no submitted claim, and COD has no prepaid
-  // payment to expire - so a COD order carries no expiry timestamp at all.
-  const expiresAt = isCod ? null : new Date(placedAt.getTime() + UNPAID_ORDER_EXPIRY_MS);
+  // D9/ADR 0014: the claim, not a timer, is what makes an order non-expirable. A prepaid order leaving
+  // this function carries its submitted claim and **no** expiry timestamp; the expiry rule applies only
+  // to claim-less orders, which this flow cannot produce. A COD order has no prepaid payment to expire.
+  const expiresAt = null;
 
   const orderRows = await tx
     .insert(order)
@@ -316,6 +335,48 @@ export async function createOrder(tx: Transaction, input: CreateOrderInput): Pro
     },
   });
 
+  // The prepaid claim is written **in the same transaction as the order**, and the order moves to
+  // `awaiting_verification` with its expiry cleared: the claim, not a timer, is what makes an order
+  // non-expirable (ADR 0014). A replay resolves through the claim's own idempotency key below.
+  if (input.claim !== null) {
+    const recipient = await tx
+      .select({ id: paymentRecipient.id, isActive: paymentRecipient.isActive, method: paymentRecipient.method })
+      .from(paymentRecipient)
+      .where(sql`${paymentRecipient.id} = ${input.claim.paymentRecipientId}`);
+    const recipientRow = recipient[0];
+    if (recipientRow === undefined || !recipientRow.isActive || recipientRow.method !== paymentMethod) {
+      throw new OrderRefusalError('invalid', 'the payment recipient is not available');
+    }
+
+    const claimKey = `${IDEMPOTENCY_SCOPE}:${input.idempotencyKey}`;
+    await tx.insert(idempotencyKey).values({
+      scope: CLAIM_IDEMPOTENCY_SCOPE,
+      key: claimKey,
+      principalKind: 'customer',
+      principalId: input.customerId,
+      requestFingerprint: input.fingerprint,
+      resultRef: created.orderNumber,
+      expiresAt: new Date(Date.now() + CLAIM_IDEMPOTENCY_TTL_MS),
+    });
+
+    await tx.insert(paymentClaim).values({
+      orderId: created.id,
+      paymentRecipientId: recipientRow.id,
+      senderMsisdn: input.claim.senderMsisdn,
+      transactionReference: input.claim.transactionReference,
+      claimedAmountMinor: input.claim.claimedAmountMinor,
+      state: 'submitted',
+      submittedByCustomerId: input.customerId,
+    });
+
+    const claimedOrder = await tx
+      .update(order)
+      .set({ paymentState: 'awaiting_verification', expiresAt: null, updatedAt: new Date() })
+      .where(sql`${order.id} = ${created.id} and ${order.paymentState} = 'awaiting_payment'`)
+      .returning({ id: order.id });
+    if (claimedOrder.length === 0) throw new Error('claim: the order was not in awaiting_payment');
+  }
+
   await tx
     .update(idempotencyKey)
     .set({ resultRef: created.orderNumber })
@@ -329,7 +390,7 @@ export async function createOrder(tx: Transaction, input: CreateOrderInput): Pro
     totalMinor,
     paymentMethod,
     status: 'pending',
-    paymentState,
+    paymentState: input.claim !== null ? 'awaiting_verification' : paymentState,
     codState,
     placedAt,
   };

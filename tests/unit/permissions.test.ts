@@ -101,6 +101,15 @@ describe('permission catalogue', () => {
         PERMISSIONS.catalogWrite,
         PERMISSIONS.staffManage,
         PERMISSIONS.staffRead,
+        // Phase 16A: the payment, COD and customer moderation worklists.
+        PERMISSIONS.codApprove,
+        PERMISSIONS.customerRead,
+        PERMISSIONS.customerSuspend,
+        PERMISSIONS.orderCancel,
+        PERMISSIONS.orderRead,
+        PERMISSIONS.paymentFlagFalse,
+        PERMISSIONS.paymentReject,
+        PERMISSIONS.paymentVerify,
       ].sort(),
     );
   });

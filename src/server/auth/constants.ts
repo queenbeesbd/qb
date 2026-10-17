@@ -72,6 +72,11 @@ export const OWNERS_PATH = '/admin/owners';
 export const CATALOG_PATH = '/admin/catalog';
 export const CATEGORIES_PATH = '/admin/categories';
 
+/** Phase 16 worklists: payment verification, COD confirmation and customer moderation. */
+export const PAYMENTS_PATH = '/admin/payments';
+export const COD_PATH = '/admin/orders-cod';
+export const CUSTOMERS_PATH = '/admin/customers';
+
 /**
  * Where an authenticated page may send a browser after a successful sign-in. Anything else resolves
  * to the admin root, so the login form cannot be used as an open redirect.

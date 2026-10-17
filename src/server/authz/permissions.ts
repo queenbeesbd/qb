@@ -160,4 +160,13 @@ export const PERMISSIONS_IMPLEMENTED: readonly PermissionCode[] = [
   PERMISSIONS.staffRead,
   PERMISSIONS.staffManage,
   PERMISSIONS.auditRead,
+  // Phase 16A: the payment, COD and customer moderation worklists and their mutations.
+  PERMISSIONS.orderRead,
+  PERMISSIONS.paymentVerify,
+  PERMISSIONS.paymentReject,
+  PERMISSIONS.paymentFlagFalse,
+  PERMISSIONS.codApprove,
+  PERMISSIONS.orderCancel,
+  PERMISSIONS.customerRead,
+  PERMISSIONS.customerSuspend,
 ];

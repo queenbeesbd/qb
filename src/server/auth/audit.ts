@@ -18,7 +18,7 @@
 import { sql } from 'drizzle-orm';
 
 import type { Transaction } from '@/db/client';
-import { auditEvent } from '@/db/schema';
+import { auditEvent, operationalException } from '@/db/schema';
 
 /**
  * Actions the audit trail knows how to write. A closed union, so an unplanned action cannot be invented
@@ -42,6 +42,13 @@ export type AuditAction =
   | 'staff.disabled'
   | 'staff.enabled'
   | 'customer.banned'
+  | 'payment.verified'
+  | 'payment.rejected'
+  | 'payment.falsely_claimed'
+  | 'payment.held'
+  | 'payment.hold_released'
+  | 'cod.approved'
+  | 'cod.cancelled'
   | 'catalog.brand_created'
   | 'catalog.category_created'
   | 'catalog.category_updated'
@@ -148,5 +155,21 @@ export async function listRecentAudit(
 /** A total count, so the overview can state a real number rather than an invented metric. */
 export async function countAuditEvents(tx: Transaction): Promise<number> {
   const rows = await tx.select({ total: sql<number>`count(*)::int` }).from(auditEvent);
+  return rows[0]?.total ?? 0;
+}
+
+/**
+ * The open operational exceptions - the manual-investigation worklist size.
+ *
+ * A mismatch hold lives here rather than in a new `held` claim state: the exception type is data
+ * (`payment_mismatch` exists in the schema's closed type set), and the queue read is the same partial
+ * filter the exceptions panel would use. Closing remains a person's note-bearing decision (the schema
+ * CHECK), so nothing here can auto-resolve a hold.
+ */
+export async function countOpenOperationalExceptions(tx: Transaction): Promise<number> {
+  const rows = await tx
+    .select({ total: sql<number>`count(*)::int` })
+    .from(operationalException)
+    .where(sql`${operationalException.state} in ('open', 'acknowledged')`);
   return rows[0]?.total ?? 0;
 }

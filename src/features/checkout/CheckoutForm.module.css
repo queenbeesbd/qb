@@ -92,6 +92,22 @@
   color: var(--color-ink);
 }
 
+/* Payment instructions come from owner configuration as plain text: an account number, a label and
+   the payable amount. Rooted in facts; never decorative. */
+.instructions {
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-action);
+  border-radius: var(--radius-md);
+  background: var(--color-action-soft);
+  line-height: var(--leading-snug);
+}
+
+.claimFields {
+  display: grid;
+  gap: var(--space-3);
+}
+
 .muted {
   color: var(--color-ink-muted);
 }

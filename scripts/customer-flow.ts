@@ -124,6 +124,14 @@ export async function runCustomerFlowChecks(options: { base: string; pool: Pool 
     city: 'Dhaka',
     paymentMethod: 'bkash',
   };
+  // The D8 claim fields a prepaid submission carries. The claimed amount deliberately differs from
+  // the order total in the flow's successful order: the server records it and the owner would see the
+  // mismatch flag - the amount is never trusted, and the order is not refused because of it.
+  const claim = {
+    senderMsisdn: '01798765432',
+    transactionReference: 'FLOW8HJ2K9',
+    claimedAmount: '250',
+  };
 
   // 1. Checkout is not reachable without an account (D12).
   const anonymousCheckout = await get('/checkout');
@@ -208,6 +216,7 @@ export async function runCustomerFlowChecks(options: { base: string; pool: Pool 
   const ordersBeforeCsrfTest = await orderItemCount();
   const noCsrf = await post('/api/checkout/order', {
     ...contact,
+    ...claim,
     lines: JSON.stringify([{ productId: productId, quantity: 1 }]),
     idempotencyKey: 'flow-no-csrf-0000000000001',
   });
@@ -243,6 +252,7 @@ export async function runCustomerFlowChecks(options: { base: string; pool: Pool 
   const invalid = await post('/api/checkout/order', {
     ...contact,
     csrf: csrf ?? '',
+    ...claim,
     lines: JSON.stringify([{ productId: productId, quantity: 1 }]),
     recipientPhone: '123',
     idempotencyKey: 'flow-invalid-0000000000001',
@@ -258,6 +268,7 @@ export async function runCustomerFlowChecks(options: { base: string; pool: Pool 
   const unavailable = await post('/api/checkout/order', {
     ...contact,
     csrf: csrf ?? '',
+    ...claim,
     lines: JSON.stringify([{ productId: '999999999', quantity: 1 }]),
     idempotencyKey: 'flow-unavailable-000000000001',
   });
@@ -273,6 +284,7 @@ export async function runCustomerFlowChecks(options: { base: string; pool: Pool 
   const orderBody = {
     ...contact,
     csrf: csrf ?? '',
+    ...claim,
     lines: JSON.stringify([{ productId: productId, quantity: 2 }]),
     idempotencyKey,
     priceMinor: '1',
@@ -385,6 +397,7 @@ export async function runCustomerFlowChecks(options: { base: string; pool: Pool 
   const bannedOrder = await post('/api/checkout/order', {
     ...contact,
     csrf: banCsrf ?? '',
+    ...claim,
     lines: JSON.stringify([{ productId: productId, quantity: 1 }]),
     idempotencyKey: 'flow-banned-000000000000001',
   });

@@ -79,6 +79,25 @@ describe('order creation', { skip: toolingAvailable ? false : SKIP_REASON }, () 
     return { productId, variantId: Number(variant.rows[0]?.id), sku, nameEn };
   }
 
+  /** One active recipient row for a method; reused across tests in the file, created on demand. */
+  async function recipientId(method: 'bkash' | 'nagad'): Promise<number> {
+    const existing = await fixture.pool.query<{ id: string }>(
+      `select id from payment_recipient where method = $1 and is_active limit 1`,
+      [method],
+    );
+    if (existing.rows[0] !== undefined) return Number(existing.rows[0].id);
+    const staff = await fixture.pool.query<{ id: string }>(
+      `insert into staff_user (email, display_name) values ($1, 'Staff') returning id`,
+      ['staff-recipient-' + method + '-' + Date.now() + '@example.test'],
+    );
+    const inserted = await fixture.pool.query<{ id: string }>(
+      `insert into payment_recipient (method, account_number, account_label, created_by_staff_id)
+       values ($1, '01711111111', 'Test', $2) returning id`,
+      [method, Number(staff.rows[0]?.id)],
+    );
+    return Number(inserted.rows[0]?.id);
+  }
+
   async function place(
     customerId: number,
     lines: { productId: number; quantity: number }[],
@@ -87,9 +106,21 @@ describe('order creation', { skip: toolingAvailable ? false : SKIP_REASON }, () 
       fingerprint?: string;
       paymentMethod?: PaymentMethodInput;
       contact?: ContactInput;
+      /** Prepaid claim fields; a claimed order is the default for a prepaid method. */
+      claim?: { senderMsisdn?: string; transactionReference?: string; claimedAmount?: number } | null;
     } = {},
   ) {
     const key = options.key ?? submissionKey('key');
+    const paymentMethod = options.paymentMethod ?? 'bkash';
+    const claimFields = options.claim === null ? null : (options.claim ?? {
+      senderMsisdn: '01712345678',
+      transactionReference: 'REF' + submissionKey('ref').slice(4, 14),
+      claimedAmount: 240,
+    });
+    const recipientIdResolved =
+      paymentMethod === 'cod' || claimFields === null
+        ? null
+        : await recipientId(paymentMethod === 'bkash' ? 'bkash' : 'nagad');
     return fixture.db.transaction((tx) =>
       createOrder(tx, {
         customerId,
@@ -97,7 +128,16 @@ describe('order creation', { skip: toolingAvailable ? false : SKIP_REASON }, () 
         fingerprint: options.fingerprint ?? 'fp-' + key,
         lines: lines.map((line) => ({ productId: String(line.productId), quantity: line.quantity })),
         contact: options.contact ?? CONTACT,
-        paymentMethod: options.paymentMethod ?? 'bkash',
+        paymentMethod,
+        claim:
+          paymentMethod === 'cod' || claimFields === null || recipientIdResolved === null
+            ? null
+            : {
+                paymentRecipientId: recipientIdResolved,
+                senderMsisdn: claimFields.senderMsisdn ?? '01712345678',
+                transactionReference: claimFields.transactionReference ?? 'REF123456789',
+                claimedAmountMinor: (claimFields.claimedAmount ?? 240) * 100,
+              },
       }),
     );
   }
@@ -118,14 +158,18 @@ describe('order creation', { skip: toolingAvailable ? false : SKIP_REASON }, () 
     await fixture.close();
   });
 
-  it('creates one order from database prices, with the 24-hour expiry and a placed event', async () => {
+  it('creates one claimed prepaid order from database prices, in awaiting_verification with no expiry and a placed event', async () => {
     const customerId = await createCustomer('orders-happy@example.test');
     const product = await createProduct({ suffix: 'happy', priceMinor: 12000 });
 
-    const created = await place(customerId, [{ productId: product.productId, quantity: 2 }]);
+    // A claimed amount that deliberately differs from the total: it is recorded, never trusted, and
+    // the order is still created — the mismatch is an owner-facing flag, not a refusal (ADR 0014).
+    const created = await place(customerId, [{ productId: product.productId, quantity: 2 }], {
+      claim: { senderMsisdn: '01712345678', transactionReference: 'REF000111', claimedAmount: 250 },
+    });
     assert.equal(created.totalMinor, 24000);
     assert.equal(created.status, 'pending');
-    assert.equal(created.paymentState, 'awaiting_payment');
+    assert.equal(created.paymentState, 'awaiting_verification');
     assert.equal(created.codState, 'not_applicable');
     assert.match(created.orderNumber, /^QB[0-9A-F]{16}$/);
 
@@ -144,7 +188,9 @@ describe('order creation', { skip: toolingAvailable ? false : SKIP_REASON }, () 
       items_subtotal_minor: 24000,
       shipping_minor: 0,
       total_minor: 24000,
-      seconds_to_expiry: 86400,
+      // A submitted claim makes the order non-expirable: expires_at is cleared at claim time, so no
+      // expiry writer can ever target it (the ADR 0014 resolution, structural rather than scheduled).
+      seconds_to_expiry: null,
     });
 
     const item = await fixture.pool.query<{
