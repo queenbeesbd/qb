@@ -1,5 +1,6 @@
 'use client';
 
+import { deliveryAreaName } from '@/lib/delivery-areas';
 import { useTranslation } from '@/i18n/useTranslation';
 import { AdminIcon } from './icons';
 import { ConfirmSubmit } from './ConfirmSubmit';
@@ -18,8 +19,11 @@ export type CodOrderRow = {
   orderId: number;
   orderNumber: string;
   placedAt: string;
+  itemsSubtotalMinor: number;
+  shippingMinor: number;
   totalMinor: number;
   recipientName: string;
+  districtCode: string | null;
   recipientPhone: string;
   area: string;
   city: string;
@@ -119,7 +123,8 @@ export function CodOrderCard({
             </a>
           </div>
           <p className={styles.orderAddress}>
-            {row.addressLine}, {row.area}, {row.city}
+            {row.addressLine}, {row.districtCode === null ? '' : `${deliveryAreaName(row.districtCode, locale)}, `}
+            {row.area}, {row.city}
           </p>
           <ul className={styles.orderItems} aria-label={t('admin.cod.itemsTitle')}>
             {row.items.map((item, index) => (
@@ -138,8 +143,22 @@ export function CodOrderCard({
 
       <div className={styles.orderSide}>
         <div>
-          <p className={styles.orderTotalLabel}>{t('admin.cod.total')}</p>
-          <p className={styles.orderTotal}>{price(row.totalMinor)}</p>
+          <dl className={styles.orderTotals}>
+            <div>
+              <dt>{t('cart.subtotal')}</dt>
+              <dd>{price(row.itemsSubtotalMinor)}</dd>
+            </div>
+            <div>
+              <dt>{t('cart.delivery')}</dt>
+              <dd>
+                {row.districtCode === null ? t('orders.deliveryPending') : price(row.shippingMinor)}
+              </dd>
+            </div>
+            <div className={styles.orderTotalRow}>
+              <dt>{t('admin.cod.total')}</dt>
+              <dd className={styles.orderTotal}>{price(row.totalMinor)}</dd>
+            </div>
+          </dl>
         </div>
         {decided === undefined ? (
           <div className={styles.orderActions}>

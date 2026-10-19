@@ -14,11 +14,12 @@ specified in `docs/data-model.md`; this file covers the mechanics around it.
 
 | Component | Location | Purpose |
 | --- | --- | --- |
-| Schema (40 tables) | `src/db/schema/*.ts` | The approved design, expressed in Drizzle's PostgreSQL schema DSL |
+| Schema (42 tables) | `src/db/schema/*.ts` | The approved design, expressed in Drizzle's PostgreSQL schema DSL |
 | Baseline migration | `drizzle/0000_baseline_schema.sql` | Generated SQL creating the whole schema |
 | Guards migration | `drizzle/0001_guards_and_privileges.sql` | Hand-written: triggers, append-only enforcement, transition guards |
 | Staff recovery migration | `drizzle/0002_staff_recovery_token.sql` | Generated: `staff_recovery_token`, the owner-issued staff credential path (Phase 12, `docs/data-model.md` 4.9). Takes the schema to **40 tables** |
 | Availability migration | `drizzle/0003_product_availability.sql` | Generated (Phase 13): adds `product.availability` with its `CHECK` constraint, the partial index the orderability gate reads, and nothing else. **Purely additive** - no column dropped, no table rewritten, and the inventory tables are untouched. Table count is unchanged at **40** |
+| Delivery-charge migration | `drizzle/0004_district_delivery_charges.sql` | Generated (Phase 19, ADR 0016): `delivery_setting`, `delivery_district_charge`, and a nullable `order_contact.district_code` with its format `CHECK`. Additive only; historical orders untouched. Takes the schema to **42 tables** |
 | Catalog read path | `src/server/catalog/read.ts`, `src/server/catalog/storefront.ts` | Server-only. The storefront's catalog read accessor and the loader that decides which source produced a record (section 9) |
 | Catalog seed (local/test) | `src/db/seed-catalog.ts`, `scripts/seed-catalog.ts` | Deterministic, idempotent reproduction of the 22-product fixture catalog for local/test verification. **Not a migration** (section 9) |
 | Connection layer | `src/db/client.ts` | Server-only. The only place a connection is created |

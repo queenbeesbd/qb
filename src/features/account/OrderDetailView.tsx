@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useTranslation } from '@/i18n/useTranslation';
+import { deliveryAreaName } from '@/lib/delivery-areas';
 import type { Locale } from '@/lib/types';
 import { ClearCart } from '@/features/checkout/ClearCart';
 import { methodLabel, paymentLabel, statusLabel } from './order-labels';
@@ -22,8 +23,10 @@ export type OrderDetail = {
   paymentMethod: string;
   totalMinor: number;
   itemsSubtotalMinor: number;
+  shippingMinor: number;
   placedAt: string;
   recipientName: string;
+  districtCode: string | null;
   recipientPhone: string;
   addressLine: string;
   area: string;
@@ -114,7 +117,11 @@ export function OrderDetailView({ order, placed }: { order: OrderDetail; placed:
           </div>
           <div>
             <dt>{t('cart.delivery')}</dt>
-            <dd className={styles.muted}>{t('orders.deliveryPending')}</dd>
+            <dd className={order.districtCode === null ? styles.muted : undefined}>
+              {order.districtCode === null
+                ? t('orders.deliveryPending')
+                : price(order.shippingMinor)}
+            </dd>
           </div>
           <div className={styles.totalRow}>
             <dt>{t('orders.total')}</dt>
@@ -128,7 +135,9 @@ export function OrderDetailView({ order, placed }: { order: OrderDetail; placed:
         <p>{order.recipientName}</p>
         <p className={styles.muted}>{order.recipientPhone}</p>
         <p className={styles.muted}>
-          {order.addressLine}, {order.area}, {order.city}
+          {order.addressLine}
+          {order.districtCode === null ? '' : `, ${deliveryAreaName(order.districtCode, locale)}`}, {order.area},{' '}
+          {order.city}
           {order.postcode ? ` ${order.postcode}` : ''}
         </p>
         {order.deliveryNote && <p className={styles.muted}>{order.deliveryNote}</p>}

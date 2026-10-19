@@ -151,7 +151,8 @@ dot, so colour is never the only signal.
 ### Shell and page anatomy
 
 - **Rail (desktop):** brand, then permission-filtered groups - Overview, Commerce (COD orders,
-  products, categories), Customers, System (owner accounts, audit trail) - then a storefront link. The
+  products, categories), Customers, Settings (delivery charges), System (owner accounts, audit trail) -
+  then a storefront link. The
   active item gets a soft fill plus a 3px pink rail marker; `aria-current` carries the same fact.
 - **Top bar:** a real breadcrumb (Admin / current page), the account menu (name, email, role, sign out)
   and, below 1024px, the drawer trigger.

@@ -518,7 +518,7 @@ not a speculative abstraction built in advance.
 | Real iOS/Android, screen-reader and 200% zoom checks | Now | Acceptance evidence for the current build; no backend dependency |
 | Bangla content review of product names and copy | Now | Content task, independent of code |
 | Image rights clearance | Now | Business task; gates launch and any imagery expansion |
-| Delivery prices and supported areas | Now | Owner input; unblocks the first Phase 19 slice |
+| Delivery amounts for the three areas | Now | Owner input; configuration exists, but the store cannot trade until the default is set |
 | Catalog migration tooling design | During Phase 18 | Needs the Phase 13 read layer, not the dashboard UI |
 
 Deliberately **not** parallelised: schema changes (each needs its own approval and rehearsal) and any
@@ -542,41 +542,52 @@ catalog management -> Phase 14 storefront cutover -> Phase 15 customer accounts 
 Phase 16 COD fulfilment (prepaid half superseded) -> Phase 17 COD-only baseline -> Phase 18 admin
 dashboard UX (complete locally) -> Phase 19 operational readiness -> Phase 20 deployment.`
 
-**Where the project actually stands:** Phases 11-18 are implemented **locally**. The commerce loop is
-COD-only and works end to end in a local build. The remaining gaps are **owner inputs** (delivery
-prices/areas, failed-delivery handling, retention, image rights) and **product work** (operational
-readiness), not undecided architecture.
+**Where the project actually stands:** Phases 11-19 are implemented **locally**. The commerce loop is
+COD-only and works end to end in a local build, with delivery priced from owner configuration (ADR
+0016). The remaining gaps are **owner inputs** (the actual delivery amounts, failed-delivery handling,
+retention, image rights) and **product work** (order depth and operational readiness), not undecided
+architecture.
 
 **Risks:** COD refusal at the door is now the only payment failure mode and is handled operationally;
 overselling is accepted (ADR 0013); the retained payment tables carry history that a future cleanup must
-not silently destroy. The admin surface is now a coherent operations panel; what it still lacks is
-operational depth (dispatch, cash collection/reconciliation, refunds), which is Phase 19.
+not silently destroy. The admin surface is a coherent operations panel and the checkout prices delivery;
+what it still lacks is operational depth (dispatch, cash collection/reconciliation, refunds), which is
+the rest of Phase 19.
 
 **No production launch date is promised.**
 
+## Phase 19, first slice - delivered 2026-10-20
+
+**Three-area delivery charges are implemented locally and verified.** Customers choose **Dhaka**,
+**Chattogram** or **Other districts**; the owner configures one required default and two optional
+overrides at **Settings → Delivery charges**. The server resolves the charge inside the order
+transaction, refuses an unconfigured default, and snapshots the area and amount. ADR 0016 records the
+decision. Migration `0004_district_delivery_charges` adds two tables and a nullable
+`order_contact.district_code`; historical orders are untouched.
+
+**Still an owner input:** the actual BDT amounts. Until the default is saved, checkout correctly refuses
+every order. No price was guessed.
+
 ## Current single best next step
 
-**Phase 19, first slice: delivery-charge configuration.** Phase 18 is complete and verified locally, so
-the owner panel no longer blocks daily operation. The largest remaining *trading* gap is that every order
-currently ships with `shipping_minor = 0` and tells the customer delivery is arranged on confirmation.
-Charging delivery is a launch requirement, and it is the only remaining blocker that is purely an owner
-input plus one reviewed migration.
+**Phase 19, next slice: the owner's post-approval COD workflow** - an owner order-detail page plus
+recording dispatch and cash collection/reconciliation into the existing `order.status` and
+`cod_state` values. Why this one: the customer can now be charged and the owner can approve, but after
+approval the order has no recorded operational life, so cash and delivery cannot be reconciled against
+anything. It is the largest remaining gap in the trading loop.
 
-**Why not the other Phase 19 items first:** order depth (dispatch, cash collection, refunds), customer
-credential reset and catalog completeness all matter, but none changes what a customer is charged or what
-the owner must decide at checkout. Delivery pricing does. It also removes the last place where the
-storefront has to state a policy gap.
+**Prerequisites:**
 
-**Prerequisites (all owner actions):**
+1. Owner approval of the exact dispatch/collection transitions and who may record them (the schema has
+   `cod_collected`, `cod_failed` and `cod_reconciled`, but no screens or policy).
+2. A decision on failed-delivery handling: whether the order is cancelled, returned or retried, and who
+   pays the delivery charge.
+3. Explicit authorization for any migration; none is presumed. A first slice may need only reads and
+   existing columns.
 
-1. **The actual amounts**: a site-wide delivery charge and any area overrides, in BDT.
-2. **The supported areas and the matching/fallback rule** (which area string wins, what happens when
-   nothing matches, whether pickup is offered).
-3. **Explicit authorization for the migration** that adds area/charge rows and snapshots the chosen
-   charge onto `order.shipping_minor` - schema changes are not implied by this plan.
-4. **A decision on refused/failed-delivery handling**, so the charge and the return path agree.
+**Acceptance:** an approved order can be marked dispatched, collected and reconciled with actor,
+timestamp and reason; no step marks cash collected before it is; failed delivery has a defined outcome;
+customer and owner views remain separate; tests cover each guarded transition and its refusal.
 
-Until those exist, this document does not start the slice, and no price may be guessed.
-
-**Not authorized by this recommendation:** provisioning, deployment, DNS changes, credential creation,
-object storage, image upload, any gateway work, any schema change, or any new business policy.
+**Not authorized by this recommendation:** deployment, provisioning, DNS, credentials, gateway work,
+inventory reservation, or any new price or refund policy.

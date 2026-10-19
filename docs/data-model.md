@@ -1,7 +1,7 @@
 # Data model and schema architecture
 
 > **Status: Phase 10 design proposal, 2026-10-11; implementation status updated 2026-10-17.**
-> The schema **is implemented locally** (Phases 11-15, 40 tables, migrations `drizzle/0000`-`0003`) and
+> The schema **is implemented locally** (Phases 11-19, 42 tables, migrations `drizzle/0000`-`0004`) and
 > verified against disposable local PostgreSQL clusters. **Nothing is deployed:** no cloud resource,
 > credential, bucket or DNS record exists, and provisioning requires its own owner authorization.
 >
@@ -687,10 +687,10 @@ cannot honour. The guarded update in section 12 is the normal path; this constra
 **It is inert at launch (ADR 0013):** nothing writes a reservation, so it cannot prevent the overselling
 that ADR 0013 accepts.
 
-> **Delivery charge relation (ADR 0014 decision 10).** `order.shipping_minor` is the per-order
-> snapshot, so a settings change never rewrites a historical order. The settings side is a **flat
-> `store_setting` value only**; per-area charges need a new table and a matching policy (see 9.5), and
-> neither is created here.
+> **Delivery charge relation (ADR 0014 decision 10, implemented by ADR 0016).** `order.shipping_minor`
+> is the per-order snapshot, so a settings change never rewrites a historical order. The settings side
+> is a required default plus optional overrides for Dhaka and Chattogram (see 9.5 and 9.6). The
+> customer's choice is stored as a stable area code on `order_contact`, not matched from free text.
 
 **Authorization.** Read: staff, and the storefront through a derived availability query that exposes
 only `available` for published variants - never `on_hand`. Write: never by direct update from a
@@ -807,7 +807,7 @@ Both are guarded by `WHERE state = 'held'` and are therefore idempotent (13.10.6
 | `payment_state` | text | NOT NULL | Money: `awaiting_payment` \| `awaiting_verification` \| `verified` \| `rejected` \| `falsely_claimed` \| `expired` \| `not_applicable` (COD only) |
 | `cod_state` | text | NOT NULL | `not_applicable` \| `cod_pending_approval` \| `cod_approved` \| `cod_collected` \| `cod_failed` \| `cod_reconciled`. **The four approved D9 COD state names are used verbatim.** `cod_reconciled` is the one addition, required by D9's rule that cash reconciliation is a separate state from collection (11.6); it renames nothing |
 | `items_subtotal_minor` | integer | NOT NULL | Sum of frozen line totals. `CHECK (>= 0)` |
-| `shipping_minor` | integer | NOT NULL | Default `0`. `CHECK (>= 0)`. **The historical delivery-charge snapshot** required by **ADR 0014 decision 10**: once written it is never recomputed, so a later settings change cannot alter an old order. Phase 15 writes `0` because no delivery charge is configured yet |
+| `shipping_minor` | integer | NOT NULL | Default `0`. `CHECK (>= 0)`. **The historical delivery-charge snapshot** required by **ADR 0014 decision 10**: once written it is never recomputed, so a later settings change cannot alter an old order. Since Phase 19 it is resolved server-side from the active area override or the required default; pre-Phase-19 orders retain `0` |
 | `total_minor` | integer | NOT NULL | `CHECK (total_minor = items_subtotal_minor + shipping_minor)` - the authoritative charged amount |
 | `placed_at` | timestamptz | NOT NULL | `now()`. **The expiry clock would start here if expiry were scheduled** |
 | `expires_at` | timestamptz | NULL | `placed_at + 24 hours`; NULL once a claim exists or the order is resolved. **Unused at launch (ADR 0014): the expiry timer is deferred and no scheduler is added.** Phase 15 still sets it; nothing reads it, and **no writer may target an order that has a submitted claim** |
@@ -869,7 +869,8 @@ statement and the order's financial facts survive it intact.
 | `recipient_name` | text | NOT NULL | `CHECK (char_length BETWEEN 2 AND 120)` |
 | `recipient_phone` | text | NOT NULL | `CHECK (recipient_phone ~ '^01[3-9][0-9]{8}$')` |
 | `address_line` | text | NOT NULL | `CHECK (char_length BETWEEN 5 AND 300)` |
-| `area` | text | NOT NULL | `CHECK (char_length <= 80)`. Free text supplied by the customer. **No configured delivery area matches it yet:** area-specific charges need a new table and a matching policy, and **the matching/fallback rule is an open owner decision** (ADR 0014 Part 5). Nothing may assume `area` matches a configured zone |
+| `district_code` | text | NULL | The customer's **delivery area code**: `dhaka` \| `chattogram` \| `others`. `CHECK` format; validated against the canonical list before insert. NULL on orders placed before Phase 19. The column keeps its original name; it stores an area code |
+| `area` | text | NOT NULL | `CHECK (char_length <= 80)`. Free text supplied by the customer, kept for the courier. **It is never matched against a configured area** and never determines a charge; the separate `district_code` does (ADR 0016) |
 | `city` | text | NOT NULL | `CHECK (char_length <= 80)` |
 | `postcode` | text | NULL | NULL means not supplied |
 | `delivery_note` | text | NULL | `CHECK (char_length <= 300)` |
@@ -1299,15 +1300,11 @@ window and shorter than the order's life.
 contact details, and operational thresholds. A single small typed key-value table avoids inventing a
 table per setting.
 
-> **Delivery charges - requirement confirmed, representation insufficient (ADR 0014 decision 10).**
-> This table can hold a **single site-wide default** charge as one `money_minor` row. It **cannot**
-> represent **per-area charges**, because it has one value per key and no area dimension, and
-> `order_contact.area` is customer-entered free text with no matching rule. Supporting area-specific
-> charges therefore needs a **minimum migration**: a new table with one row per configured area
-> (area identifier/label plus its charge) and a settings-controlled site-wide default, plus a defined
-> matching/fallback rule - and that rule is an **open owner decision**, not an engineering default.
-> **The migration is not created in this change.** When it is, `order.shipping_minor` remains the
-> historical snapshot and is never recomputed.
+> **Delivery charges no longer live here (ADR 0016).** The owner approved three customer choices -
+> Dhaka, Chattogram and Other districts - with one required default and two optional overrides. That
+> needs a typed singleton plus a per-area table, not a key-value setting, so the representation is
+> `delivery_setting` and `delivery_district_charge` (9.6). This table still holds **other** store
+> settings. `order.shipping_minor` remains the historical snapshot and is never recomputed.
 
 | Column | Type | Null | Notes |
 | --- | --- | --- | --- |
@@ -1325,6 +1322,40 @@ charge) through an explicit server-side projection - **never a blanket settings 
 credential, token or secret (secrets live only in server-side environment variables, never in the
 database, never in a bundle).
 
+### 9.6 Delivery charges (implemented in Phase 19)
+
+Two tables, because one row and many rows have different constraints. **Amounts are integer poisha**,
+entered by the owner in taka and converted by `parsePoisha`; zero is a valid free-delivery charge.
+
+### `delivery_setting` (singleton)
+
+| Column | Type | Null | Notes |
+| --- | --- | --- | --- |
+| `id` | integer | PK | `CHECK (id = 1)` - exactly one row |
+| `default_minor` | integer | NULL | The required charge for **Other districts**. NULL means unconfigured, which **blocks checkout**; it is never read as zero. `CHECK (0 .. 100000000)` |
+| `updated_at` | timestamptz | NOT NULL | |
+| `updated_by_staff_id` | bigint | NOT NULL | FK `staff_user(id)` |
+
+### `delivery_district_charge`
+
+| Column | Type | Null | Notes |
+| --- | --- | --- | --- |
+| `id` | bigint identity | PK | Audit entity id |
+| `district_code` | text | NOT NULL | `UNIQUE`. One of `dhaka` \| `chattogram`; an `others` override is refused by the service. Name retained; it stores the stable delivery-area code |
+| `amount_minor` | integer | NOT NULL | `CHECK (0 .. 100000000)` |
+| `is_active` | boolean | NOT NULL | Default true. False returns the area to the default while keeping history |
+| `created_at` / `updated_at` | timestamptz | NOT NULL | |
+| `updated_by_staff_id` | bigint | NOT NULL | FK `staff_user(id)` |
+
+**Resolution.** Active Dhaka/Chattogram override → configured default → **refusal**. The customer
+chooses one of the three codes; free-text `area`/`city` is never matched. The resolved charge and the
+chosen code are written into the order and its contact row in the same transaction (ADR 0016).
+
+**Authorization.** Read: staff with `settings.write` (the settings screen) and the server-side checkout
+projection. Write: `settings.write` only, audited with before/after. There is no public settings endpoint.
+
+**Retention.** Configuration rows are current state, not history; every change is in `audit_event`.
+
 ---
 
 ## 10. Entities deliberately not created
@@ -1334,7 +1365,6 @@ Restraint matters as much as coverage: a table nobody has approved is a policy i
 | Not created | Why |
 | --- | --- |
 | `promotion` / `coupon` | No approved promotion requirement exists. Discounts today are derived from a comparison price on the variant. A promotion engine would invent eligibility, stacking and usage-limit policy that the owner has not decided. |
-| `shipping_zone` / `shipping_rate` | **Confirmed requirement, representation still missing (ADR 0014 decision 10).** The schema provides a single flat `store_setting` for one site-wide delivery charge; it **cannot** hold per-area charges. Supporting areas is a **minimum migration** - a new area/charge table plus a settings-controlled default and a matching/fallback policy - and the amounts and the matching policy are **owner inputs that do not exist yet**. Creating the table now, with no values and no rule, would imply a pricing model nobody approved; the requirement and the migration are recorded instead. |
 | Saved address book | No approved requirement; a second copy of personal data is a second place to leak it. `order_contact` is a snapshot by design. |
 | Product options / option values | No option exists in the catalog. `product_variant.option_values` is a reserved nullable column, not a feature. |
 | Analytics or event-tracking tables | Analytics are not a launch requirement, and shipping pageview-level data into the transactional database would mix two trust domains. |
@@ -2422,8 +2452,9 @@ forbid.
 | Orders | `order`, `order_contact`, `order_item`, `order_event`, `cancellation_request`, `customer_return` |
 | Money | `payment_recipient`, `payment_claim`, `refund` |
 | Operations | `customer_notification`, `operational_exception`, `audit_event`, `idempotency_key`, `store_setting`, `customer_flag` |
+| Delivery | `delivery_setting`, `delivery_district_charge` |
 
-**40 tables.** Three are append-only **by database grant**: `inventory_movement`, `order_event` and
+**42 tables.** Three are append-only **by database grant**: `inventory_movement`, `order_event` and
 `audit_event`. `order_item` is frozen by a guard trigger rather than by a revoked grant, because an
 order line is a snapshot rather than a ledger. Every other table is written only through a
 state-guarded statement or a guarded update.
@@ -2438,6 +2469,10 @@ business rule changed.
 `0002` for the owner-issued staff credential path. The Phase 11 figure of 39 remains accurate for what
 Phase 11 delivered; the schema as it now stands is **40 tables**. This is a narrow extension of the
 identity design, not a change of model: no state machine, invariant or business rule moved.
+
+**Addition (Phase 19).** `delivery_setting` and `delivery_district_charge` (9.6) are the **41st and
+42nd** tables, and `order_contact.district_code` is an additive nullable column, all in migration
+`0004`. Existing orders are not rewritten. No existing state machine or total rule changed.
 
 ---
 

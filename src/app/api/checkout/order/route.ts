@@ -37,6 +37,7 @@ export async function POST(request: Request): Promise<Response> {
   const lines = parseCartLines(form.get('lines'));
   const contact = parseContact({
     recipientName: form.get('recipientName'),
+    districtCode: form.get('districtCode'),
     recipientPhone: form.get('recipientPhone'),
     addressLine: form.get('addressLine'),
     area: form.get('area'),

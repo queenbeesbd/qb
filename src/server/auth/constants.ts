@@ -71,6 +71,7 @@ export const REDEEM_PATH = '/admin/redeem';
 export const OWNERS_PATH = '/admin/owners';
 export const CATALOG_PATH = '/admin/catalog';
 export const CATEGORIES_PATH = '/admin/categories';
+export const DELIVERY_SETTINGS_PATH = '/admin/settings/delivery';
 
 /**
  * Phase 16 worklists: COD confirmation and customer moderation.

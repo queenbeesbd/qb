@@ -55,6 +55,9 @@ export type AuditAction =
   | 'catalog.image_attached'
   | 'catalog.image_updated'
   | 'catalog.image_removed'
+  | 'delivery.default_updated'
+  | 'delivery.district_saved'
+  | 'delivery.district_deactivated'
   | 'admin.action_denied';
 
 export type AuditEntry = {

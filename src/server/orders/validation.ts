@@ -12,6 +12,8 @@
 
 import { createHash } from 'node:crypto';
 
+import { isDeliveryAreaCode } from '@/lib/delivery-areas';
+
 /** `order_item.quantity > 0`, and a bound on how large one order may be. */
 export const ORDER_LIMITS = {
   maxLines: 40,
@@ -22,6 +24,8 @@ export type CartLineInput = { readonly productId: string; readonly quantity: num
 
 export type ContactInput = {
   readonly recipientName: string;
+  /** Canonical district code from `src/lib/districts.ts` - never a customer-typed name. */
+  readonly districtCode: string;
   readonly recipientPhone: string;
   readonly addressLine: string;
   readonly area: string;
@@ -108,6 +112,7 @@ export function parseOptionalText(value: unknown, max: number): string | null | 
  */
 export function parseContact(form: {
   recipientName: unknown;
+  districtCode: unknown;
   recipientPhone: unknown;
   addressLine: unknown;
   area: unknown;
@@ -116,6 +121,7 @@ export function parseContact(form: {
   deliveryNote: unknown;
 }): ContactInput | null {
   const recipientName = parseText(form.recipientName, 2, 120);
+  const districtCode = isDeliveryAreaCode(form.districtCode) ? form.districtCode : null;
   const addressLine = parseText(form.addressLine, 5, 300);
   const area = parseText(form.area, 1, 80);
   const city = parseText(form.city, 1, 80);
@@ -123,11 +129,28 @@ export function parseContact(form: {
   const postcode = parseOptionalText(form.postcode, 20);
   const deliveryNote = parseOptionalText(form.deliveryNote, 300);
 
-  if (recipientName === null || addressLine === null || area === null || city === null) return null;
+  if (
+    recipientName === null ||
+    districtCode === null ||
+    addressLine === null ||
+    area === null ||
+    city === null
+  ) {
+    return null;
+  }
   if (!PHONE_PATTERN.test(phone)) return null;
   if (postcode === undefined || deliveryNote === undefined) return null;
 
-  return { recipientName, recipientPhone: phone, addressLine, area, city, postcode, deliveryNote };
+  return {
+    recipientName,
+    districtCode,
+    recipientPhone: phone,
+    addressLine,
+    area,
+    city,
+    postcode,
+    deliveryNote,
+  };
 }
 
 /**

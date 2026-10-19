@@ -23,13 +23,14 @@ QueenBee's accepts **one** method: **Cash on Delivery**. Ordering still requires
 | Prepaid state | `order.payment_state = 'not_applicable'` | The schema's pairing constraint means a COD order cannot carry a prepaid state |
 | COD state | `order.cod_state = 'cod_pending_approval'` | The owner's decision moves it to `cod_approved` |
 | Expiry | `order.expires_at = NULL` | There is no prepaid payment to expire and **no expiry writer exists** |
-| Total | `order.total_minor` | Server-computed from `product_variant.price_minor`; delivery is `0` because no charge is configured |
+| Total | `order.total_minor` | Server-computed: frozen item subtotal plus the delivery charge. The charge is the active Dhaka/Chattogram override or the required default for Other districts (ADR 0016); an unconfigured default refuses the order |
 
 ### The customer journey
 
 1. Add available products to the cart and sign in (or register) at checkout.
-2. Enter delivery contact details. The page states that this release is cash on delivery and that
-   nothing is paid online.
+2. Enter delivery contact details and choose **Dhaka**, **Chattogram** or **Other districts**. The page
+   states that this release is cash on delivery, shows the resolved charge and total, and says nothing is
+   paid online.
 3. Submit. The server prices the order, refuses an out-of-stock, unpublished or archived product, refuses
    a suspended account **inside the transaction**, and writes the order, its items, its contact and its
    `order_placed` event together.
@@ -52,8 +53,10 @@ QueenBee's accepts **one** method: **Cash on Delivery**. Ordering still requires
 
 ### What is deliberately not modelled yet
 
-- **Delivery charges.** Unconfigured: `shipping_minor` is `0`, the storefront says delivery is arranged on
-  confirmation, and the owner has not supplied prices, areas or matching rules.
+- **Courier booking, tracking and delivery promises.** Delivery *pricing* is configured (ADR 0016), but
+  no courier API, consignment record or delivery estimate exists.
+- **Charges by weight, quantity or postal code.** The approved model is three areas and one amount per
+  order. Historical orders keep saying delivery is arranged on confirmation when they carry no area.
 - **Courier and consignment records.** No courier API is authorized and no consignment field is written.
 - **Cash collection and reconciliation below `cod_approved`.** `cod_collected`, `cod_failed` and
   `cod_reconciled` exist in the schema and have no screen or transition yet.
@@ -543,7 +546,7 @@ Under the design, owner approval confirmed the COD reservation and cleared its e
 
 ## 14. Honest limitations
 
-- This document records approved decisions (D7, D8, D9, D11, D12). **The customer account and order-creation foundation now exists** (Phase 15, local only), and the **schema** for claims, recipients, refunds and settings exists (Phase 11). **The payment flow itself - instructions, claim submission, verification queue and delivery charges - is not implemented.**
+- This document records approved decisions (D7, D8, D9, D11, D12). **The customer account and order-creation foundation now exists** (Phase 15, local only), and the **schema** for claims, recipients, refunds and settings exists (Phase 11). **The manual prepaid payment flow was removed (ADR 0015), so there are no instructions, claims or verification queue. COD order creation, owner approval and three-area delivery pricing are implemented locally (Phase 19, ADR 0016); dispatch, collection and reconciliation are not.**
 - No merchant account, provider arrangement or onboarding has been initiated or verified.
 - No MFS provider documentation was consulted for this design, because the launch model deliberately depends on **no provider API**. If a gateway is later approved, its documented contract must be read before that design is written.
 - Nothing here establishes that the workflow is secure. Every control in §11 is a requirement awaiting implementation and verification.

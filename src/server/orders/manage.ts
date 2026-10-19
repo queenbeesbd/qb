@@ -39,8 +39,11 @@ export type CodQueueRow = {
   readonly orderId: number;
   readonly orderNumber: string;
   readonly placedAt: Date;
+  readonly itemsSubtotalMinor: number;
+  readonly shippingMinor: number;
   readonly totalMinor: number;
   readonly recipientName: string;
+  readonly districtCode: string | null;
   readonly recipientPhone: string;
   readonly area: string;
   readonly city: string;
@@ -70,8 +73,11 @@ export async function listCodApprovalQueue(
       orderId: order.id,
       orderNumber: order.orderNumber,
       placedAt: order.placedAt,
+      itemsSubtotalMinor: order.itemsSubtotalMinor,
+      shippingMinor: order.shippingMinor,
       totalMinor: order.totalMinor,
       recipientName: orderContact.recipientName,
+      districtCode: orderContact.districtCode,
       recipientPhone: orderContact.recipientPhone,
       area: orderContact.area,
       city: orderContact.city,

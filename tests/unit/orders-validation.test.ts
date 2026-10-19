@@ -19,6 +19,7 @@ import {
 
 const CONTACT = {
   recipientName: 'Rahim Uddin',
+  districtCode: 'dhaka',
   recipientPhone: '01712345678',
   addressLine: 'House 12, Road 5',
   area: 'Dhanmondi',
@@ -71,6 +72,8 @@ describe('contact parsing', () => {
     assert.equal(parseContact({ ...CONTACT, addressLine: 'abc' }), null);
     assert.equal(parseContact({ ...CONTACT, deliveryNote: 'x'.repeat(301) }), null);
     assert.equal(parseContact({ ...CONTACT, city: '' }), null);
+    assert.equal(parseContact({ ...CONTACT, districtCode: 'not-a-district' }), null);
+    assert.equal(parseContact({ ...CONTACT, districtCode: undefined }), null);
   });
 });
 

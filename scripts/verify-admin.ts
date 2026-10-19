@@ -28,6 +28,8 @@ import {
   brand,
   category,
   customer,
+  deliveryDistrictCharge,
+  deliverySetting,
   order,
   orderContact,
   orderItem,
@@ -1590,6 +1592,76 @@ async function main(): Promise<void> {
               JSON.stringify(detailUi),
             );
             await browser.screenshot('/tmp/qb-admin-customer.png');
+
+            // ---- Phase 19: delivery charges, configured through the real UI ----
+            await browser.navigate('/admin/settings/delivery');
+            const deliveryUi = await browser.evaluate<{
+              title: string | null;
+              areas: string[];
+              inputs: number;
+              missing: boolean;
+            }>(`(() => {
+              const text = document.body.textContent ?? '';
+              return {
+                title: document.querySelector('h1')?.textContent?.trim() ?? null,
+                areas: ['Dhaka', 'Chattogram', 'Other districts'].filter((area) => text.includes(area)),
+                inputs: document.querySelectorAll('form[action="/api/admin/delivery"] input[name="amount"]').length,
+                missing: text.includes('No default delivery charge is configured'),
+              };
+            })()`);
+            record(
+              'the delivery settings screen shows the three areas and the unconfigured warning',
+              deliveryUi.title === 'Delivery charges' &&
+                deliveryUi.areas.length === 3 &&
+                deliveryUi.inputs === 3 &&
+                deliveryUi.missing === true,
+              JSON.stringify(deliveryUi),
+            );
+
+            await browser.evaluate(`(() => {
+              const form = document.querySelector('form[action="/api/admin/delivery"]');
+              const input = form?.querySelector('input[name="amount"]');
+              if (!(input instanceof HTMLInputElement)) return false;
+              input.value = '85';
+              form.requestSubmit();
+              return true;
+            })()`);
+            await browser.waitFor(
+              "location.pathname === '/admin/settings/delivery' && location.search.includes('notice=defaultSaved')",
+            );
+            const defaultAfter = await withTransaction((tx) =>
+              tx.select({ defaultMinor: deliverySetting.defaultMinor }).from(deliverySetting).limit(1),
+            );
+            record(
+              'saving the default through the form persists 85 taka as 8500 poisha',
+              defaultAfter[0]?.defaultMinor === 8500,
+              String(defaultAfter[0]?.defaultMinor),
+            );
+
+            await browser.evaluate(`(() => {
+              const form = [...document.querySelectorAll('form[action="/api/admin/delivery"]')]
+                .find((candidate) => candidate.querySelector('input[name="districtCode"]')?.value === 'dhaka');
+              const input = form?.querySelector('input[name="amount"]');
+              if (!(input instanceof HTMLInputElement)) return false;
+              input.value = '125.50';
+              form.requestSubmit();
+              return true;
+            })()`);
+            await browser.waitFor(
+              "location.pathname === '/admin/settings/delivery' && location.search.includes('notice=districtSaved')",
+            );
+            const dhakaAfter = await withTransaction((tx) =>
+              tx
+                .select({ amountMinor: deliveryDistrictCharge.amountMinor, isActive: deliveryDistrictCharge.isActive })
+                .from(deliveryDistrictCharge)
+                .where(sql`${deliveryDistrictCharge.districtCode} = 'dhaka'`),
+            );
+            record(
+              'saving the Dhaka override through the form persists 125.50 taka as 12550 poisha',
+              dhakaAfter[0]?.amountMinor === 12550 && dhakaAfter[0]?.isActive === true,
+              JSON.stringify(dhakaAfter[0]),
+            );
+            await browser.screenshot('/tmp/qb-admin-delivery.png');
           } finally {
             await browser.close();
           }

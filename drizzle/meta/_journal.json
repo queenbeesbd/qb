@@ -29,6 +29,13 @@
       "when": 1791783184625,
       "tag": "0003_product_availability",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1792440604577,
+      "tag": "0004_district_delivery_charges",
+      "breakpoints": true
     }
   ]
 }

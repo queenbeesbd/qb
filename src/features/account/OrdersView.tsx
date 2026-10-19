@@ -11,6 +11,9 @@ export type OrderListItem = {
   paymentState: string;
   codState: string;
   paymentMethod: string;
+  districtCode: string | null;
+  itemsSubtotalMinor: number;
+  shippingMinor: number;
   totalMinor: number;
   placedAt: string;
   itemCount: number;
@@ -57,6 +60,10 @@ export function OrdersView({ orders }: { orders: readonly OrderListItem[] }) {
               </Link>
               <span className={styles.orderTotal}>{price(order.totalMinor)}</span>
             </div>
+            <p className={styles.orderBreakdown}>
+              {t('cart.subtotal')} {price(order.itemsSubtotalMinor)} · {t('cart.delivery')}{' '}
+              {order.districtCode === null ? t('orders.deliveryPending') : price(order.shippingMinor)}
+            </p>
             <dl className={styles.orderMeta}>
               <div>
                 <dt>{t('orders.placedAt')}</dt>

@@ -109,6 +109,8 @@ export const orderContact = pgTable(
     recipientName: text('recipient_name').notNull(),
     recipientPhone: text('recipient_phone').notNull(),
     addressLine: text('address_line').notNull(),
+    /** Stable delivery-area code from `src/lib/delivery-areas.ts`; NULL on orders that predate Phase 19. */
+    districtCode: text('district_code'),
     area: text('area').notNull(),
     city: text('city').notNull(),
     postcode: text('postcode'),
@@ -119,6 +121,10 @@ export const orderContact = pgTable(
     check('order_contact_name_len', sql`char_length(${t.recipientName}) between 2 and 120`),
     check('order_contact_phone_format', sql`${t.recipientPhone} ~ '^01[3-9][0-9]{8}$'`),
     check('order_contact_address_len', sql`char_length(${t.addressLine}) between 5 and 300`),
+    check(
+      'order_contact_district_format',
+      sql`${t.districtCode} is null or ${t.districtCode} ~ '^[a-z][a-z0-9-]{1,40}$'`,
+    ),
     check('order_contact_area_len', sql`char_length(${t.area}) <= 80`),
     check('order_contact_city_len', sql`char_length(${t.city}) <= 80`),
     check('order_contact_note_len', sql`${t.deliveryNote} is null or char_length(${t.deliveryNote}) <= 300`),

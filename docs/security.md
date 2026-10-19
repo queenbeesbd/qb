@@ -493,6 +493,12 @@ customer remains an open owner decision and is not implied by the ban.
    principal and a missing filter cannot escalate privilege.
 8. **Deny by default.** A capability absent from the matrix is refused, and a new endpoint inherits no
    permission from an existing one.
+9. **Delivery configuration is owner-level and server-only (Phase 19, ADR 0016).** Every write requires
+   `settings.write` at the route **and** in the service, is same-origin/CSRF guarded, parses taka with the
+   shared integer parser, and audits before/after. The storefront may read only the resolved rate it needs;
+   no public endpoint exposes configuration. A customer cannot supply an area, charge or total that the
+   order persists - the area code is validated against the canonical list and the amount is recomputed
+   from database state inside the order transaction.
 
 **Not claimed:** row-level security in the database. At launch the boundary is server-side authorization
 plus least-privilege database grants; RLS is a documented future hardening step.

@@ -47,6 +47,8 @@ import {
   productVariant,
 } from '@/db/schema';
 import { checkOrderability } from '@/server/catalog/orderability';
+import { quoteDelivery } from '@/lib/delivery';
+import { loadDeliveryRates } from '@/server/delivery/service';
 
 import { ORDER_LIMITS, type CartLineInput, type ContactInput } from './validation';
 
@@ -63,6 +65,10 @@ export type OrderRefusalReason =
   | 'unavailable'
   /** A submitted line was malformed. */
   | 'invalid'
+  /** The selected district is not a canonical code. */
+  | 'invalid_district'
+  /** The owner has not configured the required default delivery charge. */
+  | 'delivery_unconfigured'
   /** The idempotency key was reused with a different body, or a first attempt is still in flight. */
   | 'idempotency_conflict';
 
@@ -240,13 +246,23 @@ export async function createOrder(tx: Transaction, input: CreateOrderInput): Pro
     });
   }
 
-  // 4. Totals, in integer poisha, from the database prices only.
+  // 4. Totals, in integer poisha, from database prices and the owner's delivery configuration only.
   let subtotalMinor = 0;
   for (const line of resolved) subtotalMinor += line.priceMinor * line.quantity;
-  // Delivery charges remain unconfigured (ADR 0014 Part 5), so shipping is zero and the total is the
-  // subtotal. This is a stated gap, not an estimate: the storefront says delivery is arranged at
-  // confirmation, and nothing puts a delivery charge into a total until the owner sets one.
-  const shippingMinor = 0;
+
+  // The same resolver the checkout preview uses. A missing default is a refusal, never free delivery;
+  // an active district override wins over the default. Nothing in the request can supply this number.
+  const rates = await loadDeliveryRates(tx);
+  const quote = quoteDelivery(rates, input.contact.districtCode);
+  if (!quote.ok) {
+    throw new OrderRefusalError(
+      quote.reason === 'unconfigured' ? 'delivery_unconfigured' : 'invalid_district',
+      quote.reason === 'unconfigured'
+        ? 'delivery charges are not configured'
+        : 'the selected district is not recognised',
+    );
+  }
+  const shippingMinor = quote.quote.chargeMinor;
   const totalMinor = subtotalMinor + shippingMinor;
 
   const placedAt = new Date();
@@ -283,6 +299,7 @@ export async function createOrder(tx: Transaction, input: CreateOrderInput): Pro
     recipientName: input.contact.recipientName,
     recipientPhone: input.contact.recipientPhone,
     addressLine: input.contact.addressLine,
+    districtCode: input.contact.districtCode,
     area: input.contact.area,
     city: input.contact.city,
     postcode: input.contact.postcode,
@@ -316,6 +333,7 @@ export async function createOrder(tx: Transaction, input: CreateOrderInput): Pro
       itemCount: resolved.reduce((total, line) => total + line.quantity, 0),
       lineCount: resolved.length,
       paymentMethod,
+      shippingMinor,
       totalMinor,
     },
   });

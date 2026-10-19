@@ -1,7 +1,10 @@
 'use client';
 
 import Link from 'next/link';
+import { useState } from 'react';
 import type { TranslationKey } from '@/i18n/dictionaries';
+import { quoteDelivery } from '@/lib/delivery';
+import { DELIVERY_AREAS } from '@/lib/delivery-areas';
 import { useTranslation } from '@/i18n/useTranslation';
 import { useCart } from '@/features/cart/useCart';
 import styles from './CheckoutForm.module.css';
@@ -12,6 +15,8 @@ const REFUSAL_KEYS: Record<string, TranslationKey> = {
   banned: 'checkout.notice.banned',
   empty_cart: 'checkout.notice.emptyCart',
   idempotency_conflict: 'checkout.notice.conflict',
+  invalid_district: 'checkout.notice.invalidDistrict',
+  delivery_unconfigured: 'checkout.notice.deliveryUnconfigured',
 };
 
 /**
@@ -29,22 +34,33 @@ const REFUSAL_KEYS: Record<string, TranslationKey> = {
  * derived from the session the visitor already holds. An empty cart shows the empty state in place of
  * the fields and no submit button.
  *
- * Delivery charges are not configured, so shipping stays "arranged on confirmation" rather than
- * invented, and the items subtotal is shown as the payable amount.
+ * Delivery is priced from the owner's configuration (Phase 19): an active district override, otherwise
+ * the required default. The preview below is convenience only - the route recomputes it from database
+ * state inside the order transaction, and a missing default refuses the order rather than charging zero.
  */
 export function CheckoutForm({
   csrfToken,
   idempotencyKey,
   notice,
   customerEmail,
+  delivery,
 }: {
   csrfToken: string;
   idempotencyKey: string;
   notice: string | null;
   customerEmail: string;
+  delivery: { defaultMinor: number | null; overrides: Record<string, number> };
 }) {
-  const { t, pick, price } = useTranslation();
+  const { t, pick, price, locale } = useTranslation();
   const cart = useCart();
+  const [districtCode, setDistrictCode] = useState('');
+  const rates = {
+    defaultMinor: delivery.defaultMinor,
+    overrides: new Map(Object.entries(delivery.overrides)),
+  };
+  const quote = districtCode === '' ? null : quoteDelivery(rates, districtCode);
+  const deliveryConfigured = delivery.defaultMinor !== null;
+  const previewTotal = quote?.ok === true ? cart.subtotalMinor + quote.quote.chargeMinor : null;
 
   const refusal = notice === null ? null : (REFUSAL_KEYS[notice] ?? 'checkout.notice.invalid');
   const lines = JSON.stringify(
@@ -111,6 +127,22 @@ export function CheckoutForm({
                   autoComplete="street-address"
                 />
               </label>
+              <label className={styles.field}>
+                <span>{t('checkout.field.district')}</span>
+                <select
+                  name="districtCode"
+                  required
+                  value={districtCode}
+                  onChange={(event) => setDistrictCode(event.target.value)}
+                >
+                  <option value="">{t('checkout.field.districtPrompt')}</option>
+                  {DELIVERY_AREAS.map((area) => (
+                    <option key={area.code} value={area.code}>
+                      {locale === 'bn' ? area.nameBn : area.nameEn}
+                    </option>
+                  ))}
+                </select>
+              </label>
               <div className={styles.row}>
                 <label className={styles.field}>
                   <span>{t('checkout.field.area')}</span>
@@ -162,15 +194,34 @@ export function CheckoutForm({
                 </div>
                 <div>
                   <dt>{t('cart.delivery')}</dt>
-                  <dd className={styles.muted}>{t('orders.deliveryPending')}</dd>
+                  <dd className={quote?.ok === true ? undefined : styles.muted}>
+                    {!deliveryConfigured
+                      ? t('checkout.deliveryUnconfigured')
+                      : quote === null
+                        ? t('checkout.field.districtPrompt')
+                        : quote.ok
+                          ? price(quote.quote.chargeMinor)
+                          : t('checkout.notice.invalidDistrict')}
+                  </dd>
                 </div>
                 <div className={styles.totalRow}>
                   <dt>{t('cart.total')}</dt>
-                  <dd>{price(cart.subtotalMinor)}</dd>
+                  <dd>{previewTotal === null ? '—' : price(previewTotal)}</dd>
                 </div>
               </dl>
-              <p className={styles.muted}>{t('checkout.totalNote')}</p>
-              <button type="submit" className={styles.primaryAction}>
+              {previewTotal !== null && (
+                <p className={styles.muted}>
+                  {quote?.ok === true && quote.quote.source === 'district'
+                    ? t('checkout.deliveryDistrictNote')
+                    : t('checkout.deliveryDefaultNote')}
+                </p>
+              )}
+              {!deliveryConfigured && (
+                <p className={styles.notice} role="alert">
+                  {t('checkout.deliveryUnconfigured')}
+                </p>
+              )}
+              <button type="submit" className={styles.primaryAction} disabled={!deliveryConfigured}>
                 {t('checkout.submit')}
               </button>
               <Link className={styles.secondaryAction} href="/cart">

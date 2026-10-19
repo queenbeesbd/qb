@@ -1,6 +1,8 @@
 import type { Metadata } from 'next';
 import { randomUUID } from 'node:crypto';
+import { withTransaction } from '@/db/client';
 import { CheckoutForm } from '@/features/checkout/CheckoutForm';
+import { loadDeliveryRates } from '@/server/delivery/service';
 import { CHECKOUT_PATH } from '@/server/customer-auth/constants';
 import { requireCustomerPage } from '@/server/customer-auth/guard';
 
@@ -34,6 +36,7 @@ export default async function CheckoutPage({
   const principal = await requireCustomerPage(CHECKOUT_PATH);
   const params = await searchParams;
   const notice = typeof params.notice === 'string' ? params.notice : null;
+  const rates = await withTransaction((tx) => loadDeliveryRates(tx));
 
   return (
     <CheckoutForm
@@ -41,6 +44,10 @@ export default async function CheckoutPage({
       idempotencyKey={randomUUID()}
       notice={notice}
       customerEmail={principal.email}
+      delivery={{
+        defaultMinor: rates.defaultMinor,
+        overrides: Object.fromEntries(rates.overrides),
+      }}
     />
   );
 }

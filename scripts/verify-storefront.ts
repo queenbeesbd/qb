@@ -135,6 +135,22 @@ async function main(): Promise<void> {
     // No payment configuration is seeded: Cash on Delivery is the only method this release accepts
     // (Phase 17), so the customer flow needs no recipient account and nothing is invented here.
 
+    // Delivery pricing is owner configuration, so the test environment supplies explicit values: a
+    // default for Other districts and a Dhaka override. The customer flow submits Dhaka and asserts
+    // the override, which proves the stored charge came from configuration rather than the browser.
+    const deliveryStaff = await fixture.pool.query<{ id: string }>(
+      `insert into staff_user (email, display_name) values ('delivery-verify@example.test', 'Delivery Verify') returning id`,
+    );
+    const deliveryStaffId = Number(deliveryStaff.rows[0]?.id);
+    await fixture.pool.query(
+      `insert into delivery_setting (id, default_minor, updated_by_staff_id) values (1, 8000, $1)`,
+      [deliveryStaffId],
+    );
+    await fixture.pool.query(
+      `insert into delivery_district_charge (district_code, amount_minor, updated_by_staff_id) values ('dhaka', 12000, $1)`,
+      [deliveryStaffId],
+    );
+
     // Both children get the same environment. The fixture opt-in is deleted, not merely unset: a
     // stray value in the caller's shell must not turn this run into a fixture run.
     const childEnv: NodeJS.ProcessEnv = {

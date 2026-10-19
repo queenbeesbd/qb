@@ -17,12 +17,13 @@ export type AdminIdentity = {
   readonly csrfToken: string;
 };
 
-const GROUP_ORDER: readonly AdminNavGroup[] = ['overview', 'commerce', 'customers', 'system'];
+const GROUP_ORDER: readonly AdminNavGroup[] = ['overview', 'commerce', 'customers', 'settings', 'system'];
 
 const GROUP_KEYS: Record<AdminNavGroup, TranslationKey> = {
   overview: 'admin.nav.group.overview',
   commerce: 'admin.nav.group.commerce',
   customers: 'admin.nav.group.customers',
+  settings: 'admin.nav.group.settings',
   system: 'admin.nav.group.system',
 };
 

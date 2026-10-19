@@ -20,9 +20,9 @@ function schemaTableNames(): string[] {
 }
 
 describe('schema and migration integrity', () => {
-  it('declares exactly the 40 approved tables', () => {
+  it('declares exactly the 42 approved tables', () => {
     const names = schemaTableNames();
-    assert.equal(names.length, 40, `expected 40 tables, found ${names.length}: ${names.join(', ')}`);
+    assert.equal(names.length, 42, `expected 42 tables, found ${names.length}: ${names.join(', ')}`);
   });
 
   it('generated SQL matches the TypeScript schema exactly (no unregenerated drift)', () => {
@@ -72,6 +72,9 @@ describe('schema and migration integrity', () => {
       ['cod state only for cod', /CONSTRAINT "order_cod_state_only_for_cod"/],
       // ADR 0006: an image cannot be marked cleared without a recorded basis.
       ['image rights need a basis', /CONSTRAINT "product_image_cleared_needs_note"/],
+      // Phase 19: one default row and one row per district; amounts are non-negative integers.
+      ['delivery default singleton', /CONSTRAINT "delivery_setting_singleton"/],
+      ['one delivery override per district', /CREATE UNIQUE INDEX "delivery_district_charge_district_unique"/],
       // Append-only history.
       ['append-only ledger', /CREATE TRIGGER inventory_movement_append_only/],
       ['append-only order events', /CREATE TRIGGER order_event_append_only/],

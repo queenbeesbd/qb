@@ -7,12 +7,12 @@
 > counterparty**, and since ADR 0015 this release takes payment as **cash on delivery only** - no store
 > bKash/Nagad account is configured or reconciled here.
 
-Status: proposal, 2026-10-11; **reconciled 2026-10-16 against ADRs 0013 and 0014, again 2026-10-17 against ADR 0015 (COD-only), and updated 2026-10-19 when Phase 18 was implemented locally**. Direction approved in `docs/decisions/0004-independent-platform-direction.md`; architecture in `docs/platform-architecture.md`. The owner/admin authentication, catalog, availability, COD queue, customer moderation and **the Phase 18 application shell and dashboard** are **implemented (Phases 12-18, local only)**. The shipping, dispatch, cash-reconciliation, analytics and other depth modules below are **not built**.
+Status: proposal, 2026-10-11; **reconciled 2026-10-16 against ADRs 0013 and 0014, 2026-10-17 against ADR 0015 (COD-only), updated 2026-10-19 when Phase 18 was implemented locally, and 2026-10-20 for ADR 0016 delivery charges**. Direction approved in `docs/decisions/0004-independent-platform-direction.md`; architecture in `docs/platform-architecture.md`. The owner/admin authentication, catalog, availability, COD queue, customer moderation, **the Phase 18 application shell and dashboard**, and **the Phase 19 delivery-charge settings** are **implemented (Phases 12-19, local only)**. Dispatch, cash-reconciliation, analytics and the other depth modules below are **not built**.
 
 > **Reconciliation note (2026-10-16).** Three premises here are superseded:
 > 1. **No reservation and no stock release.** Under **ADR 0013** availability is the only ordering gate and no reservation is written, so any text below about a held reservation, releasing stock through the ledger, or low-stock alerts describes **unused design**.
 > 2. **Expiry is deferred.** Under **ADR 0014** the 24-hour expiry is **not a launch priority** and no scheduler is added; the binding rule is that **a submitted claim never expires**. The expiry list described below is deferred with it.
-> 3. **Delivery areas and charges need a migration and owner inputs.** A flat `store_setting` exists; **per-area charges do not**, and the amounts, areas and matching policy are unapproved owner inputs. The stack question in the "still needed" list is settled (D14/D18, ADR 0007).
+> 3. **Delivery charges are now implemented (ADR 0016).** Three areas (Dhaka, Chattogram, Other districts), one required default and two optional overrides, priced server-side and snapshotted on the order. The **amounts** remain owner inputs. The stack question in the "still needed" list is settled (D14/D18, ADR 0007).
 > 4. **The prepaid payments module is gone (ADR 0015, 2026-10-17).** Cash on Delivery is the only method;
 >    the verification queue, recipient configuration and `payment.*` permissions were removed. Any
 >    prepaid text below is history.
@@ -45,7 +45,7 @@ These are required for the store to trade. Without them, orders cannot be fulfil
 | **Orders** | List with filters; itemized detail with frozen line prices; status transitions with history; payment status; shipping details; cancellation |
 | **Payments** | **Cash on Delivery only (ADR 0015).** The COD confirmation queue with approve/cancel, guarded transitions and an audit trail. The manual prepaid queue, its recipient configuration and its `payment.*` permissions were **removed in Phase 17** |
 | **Customers** | Profile with order history; minimal personal data; **ban after a confirmed fake order (D20, approved in ADR 0009)**, which revokes the account's sessions and refuses new orders and checkout. The review flag is a separate, non-blocking finding and is never presented as a ban |
-| **Shipping** | Delivery areas and charges; consignment reference and delivery status. **Per-area charges are a confirmed requirement with no representation yet (ADR 0014 decision 10):** the amounts and areas are owner inputs, and a new table plus a matching/fallback policy is the minimum migration. Consignment recording stays manual (no courier API, D6 open) |
+| **Shipping** | **Settings → Delivery charges (implemented in Phase 19, ADR 0016):** one required default for **Other districts** and optional separate charges for **Dhaka** and **Chattogram**, with edit, remove and reactivate. Customers choose exactly those three areas. The applied charge and area are snapshotted on the order. **Not built:** consignment reference, tracking and delivery status (no courier API, D6 open) |
 | **Store settings** | Store identity and contact; supported languages; announcement bar content; delivery and payment policy text |
 | **Access and audit** | **Owner login by email and password (D22, approved in ADR 0009).** **Owner role only at launch (D10):** multiple owners are permitted and each has full access, but there are no staff or support roles and **no permission-management system in the launch surface**. Audit log for sensitive changes **including refused actions**, kept distinguishable from customer/business activity records (D23). Secure session handling. **Implemented in Phase 13 as a minimal owner-account screen**: create an owner (the role is **forced**, never chosen), issue a single-use credential token, enable or disable an account, with the last-active-owner guard enforced under a row lock. **The Phase 12 staff and role screen, its navigation entry and its four API routes were removed**; the retired paths return 404, which `npm run verify:admin` asserts |
 
@@ -146,11 +146,11 @@ Policy: `docs/payment-workflow.md` sections 1 and 13 (the latter as historical d
 **Answered by the owner:** payment methods, required customer fields, the verification maximum, the fake-order rule, cancellation through support, manual refunds, COD approval before dispatch, the **24-hour unpaid-order expiry**, **cancellation after the window**, the **COD lifecycle**, the **D11 allocation rule and bound**, and - added 2026-10-12 in ADR 0009 - **availability as an owner-controlled In Stock / Out of Stock state (D19)**, the **customer ban after a confirmed fake order (D20)**, **owner-only administration with no staff roles or permission-management system at launch (D10)**, **owner authentication by email and password (D22)**, and **separation of customer/business activity records from internal security records (D23)**.
 
 **Narrowed by ADR 0015 (2026-10-17):** the manual prepaid flow, its recipient numbers and its
-verification evidence are **no longer needed** - the feature was removed. **Still needed before the
-operational-readiness phase:** real delivery prices and supported areas; the area matching/fallback
-policy; the COD failed-delivery/retry detail; what evidence and cadence a cash reconciliation requires;
-retention periods for orders and customer data; and, for **any future gateway**, the provider, fees,
-settlement, refund/dispute handling and implementation scope. **Deferred and not gating:** the expiry
+verification evidence are **no longer needed** - the feature was removed. **Settled by ADR 0016 (2026-10-20):** three delivery areas
+(Dhaka, Chattogram, Other districts), the default/override fallback, stable-code matching and the
+order snapshot. **Still needed:** the actual BDT amounts; the COD failed-delivery/retry detail; what
+evidence and cadence a cash reconciliation requires; retention periods for orders and customer data;
+and, for **any future gateway**, the provider, fees, settlement, refund/dispute handling and scope. **Deferred and not gating:** the expiry
 timer and external notification channels (ADR 0014 decisions 11 and 12). The availability-versus-quantity
 question is **settled** (ADR 0013: availability is the only gate). *(Which roles may act was D10 and is
 settled: owner-only, ADR 0009.)*

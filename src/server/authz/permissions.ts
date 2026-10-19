@@ -159,4 +159,6 @@ export const PERMISSIONS_IMPLEMENTED: readonly PermissionCode[] = [
   PERMISSIONS.orderCancel,
   PERMISSIONS.customerRead,
   PERMISSIONS.customerSuspend,
+  // Phase 19: the delivery-charge configuration screen.
+  PERMISSIONS.settingsWrite,
 ];

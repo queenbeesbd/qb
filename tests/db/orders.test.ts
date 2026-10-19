@@ -23,6 +23,7 @@ import { SKIP_REASON, startMigratedDatabase, toolingAvailable, type DbFixture } 
 
 const CONTACT: ContactInput = {
   recipientName: 'Rahim Uddin',
+  districtCode: 'dhaka',
   recipientPhone: '01712345678',
   addressLine: 'House 12, Road 5',
   area: 'Dhanmondi',
@@ -40,6 +41,7 @@ function submissionKey(seed: string): string {
 
 describe('order creation (Cash on Delivery only)', { skip: toolingAvailable ? false : SKIP_REASON }, () => {
   let fixture: DbFixture;
+  let deliveryStaffId: number;
 
   async function createCustomer(email: string, status = 'active'): Promise<number> {
     const rows = await fixture.pool.query<{ id: string }>(
@@ -110,6 +112,16 @@ describe('order creation (Cash on Delivery only)', { skip: toolingAvailable ? fa
 
   before(async () => {
     fixture = await startMigratedDatabase();
+    // A configured default of 0 (free delivery) keeps the pre-Phase-19 total expectations meaningful;
+    // the delivery-pricing cases below set explicit amounts and restore this value afterwards.
+    const staff = await fixture.pool.query<{ id: string }>(
+      `insert into staff_user (email, display_name) values ('delivery-test@example.test', 'Delivery Test') returning id`,
+    );
+    deliveryStaffId = Number(staff.rows[0]?.id);
+    await fixture.pool.query(
+      `insert into delivery_setting (id, default_minor, updated_by_staff_id) values (1, 0, $1)`,
+      [deliveryStaffId],
+    );
   });
 
   after(async () => {
@@ -420,5 +432,107 @@ describe('order creation (Cash on Delivery only)', { skip: toolingAvailable ? fa
     assert.equal(ownerList.length, 1);
     assert.equal(ownerList[0]?.orderNumber, created.orderNumber);
     assert.equal((await fixture.db.transaction((tx) => listCustomerOrders(tx, other))).length, 0);
+  });
+
+  async function setDelivery(defaultMinor: number | null, overrides: Record<string, number> = {}) {
+    await fixture.pool.query(
+      `update delivery_setting set default_minor = $1, updated_at = now(), updated_by_staff_id = $2 where id = 1`,
+      [defaultMinor, deliveryStaffId],
+    );
+    await fixture.pool.query(`delete from delivery_district_charge`);
+    for (const [districtCode, amountMinor] of Object.entries(overrides)) {
+      await fixture.pool.query(
+        `insert into delivery_district_charge (district_code, amount_minor, updated_by_staff_id)
+         values ($1, $2, $3)`,
+        [districtCode, amountMinor, deliveryStaffId],
+      );
+    }
+  }
+
+  it('prices an overridden district, the default-priced area, and survives configuration changes', async () => {
+    await setDelivery(5000, { dhaka: 7000, chattogram: 9000 });
+    const customerId = await createCustomer('orders-delivery@example.test');
+    const product = await createProduct({ suffix: 'delivery', priceMinor: 12000 });
+
+    const dhaka = await place(customerId, [{ productId: product.productId, quantity: 1 }], {
+      contact: { ...CONTACT, districtCode: 'dhaka' },
+    });
+    const dhakaDetail = await fixture.db.transaction((tx) =>
+      getCustomerOrderDetail(tx, customerId, dhaka.orderNumber),
+    );
+    assert.equal(dhakaDetail?.itemsSubtotalMinor, 12000);
+    assert.equal(dhakaDetail?.shippingMinor, 7000);
+    assert.equal(dhakaDetail?.totalMinor, 19000);
+    assert.equal(dhakaDetail?.contact.districtCode, 'dhaka');
+
+    const chattogram = await place(customerId, [{ productId: product.productId, quantity: 2 }], {
+      contact: { ...CONTACT, districtCode: 'chattogram' },
+    });
+    assert.equal(chattogram.totalMinor, 24000 + 9000);
+
+    // Rangpur has no override, so the configured default applies.
+    const rangpur = await place(customerId, [{ productId: product.productId, quantity: 1 }], {
+      contact: { ...CONTACT, districtCode: 'others' },
+    });
+    assert.equal(rangpur.totalMinor, 12000 + 5000);
+
+    // Changing the configuration must not rewrite an order that already exists.
+    await setDelivery(6000, { chattogram: 8000 });
+    const stored = await fixture.pool.query<{ shipping_minor: number; total_minor: number }>(
+      `select shipping_minor, total_minor from "order" where id = $1`,
+      [dhaka.orderId],
+    );
+    assert.deepEqual(stored.rows[0], { shipping_minor: 7000, total_minor: 19000 });
+
+    // With the Dhaka override gone, a new order returns to the default.
+    const dhakaAfter = await place(customerId, [{ productId: product.productId, quantity: 1 }], {
+      contact: { ...CONTACT, districtCode: 'dhaka' },
+    });
+    assert.equal(dhakaAfter.totalMinor, 12000 + 6000);
+
+    await setDelivery(0);
+  });
+
+  it('refuses checkout while the default is unconfigured', async () => {
+    await setDelivery(null, { dhaka: 7000 });
+    const customerId = await createCustomer('orders-no-default@example.test');
+    const product = await createProduct({ suffix: 'no-default' });
+
+    // A district override alone cannot price a district that has none.
+    await expectRefusal(
+      place(customerId, [{ productId: product.productId, quantity: 1 }], {
+        contact: { ...CONTACT, districtCode: 'others' },
+      }),
+      'delivery_unconfigured',
+    );
+
+    // The configured override still works when it exists.
+    const dhaka = await place(customerId, [{ productId: product.productId, quantity: 1 }], {
+      contact: { ...CONTACT, districtCode: 'dhaka' },
+    });
+    assert.equal(dhaka.totalMinor, 12000 + 7000);
+
+    const orders = await fixture.pool.query<{ total: number }>(
+      `select count(*)::int as total from "order" where customer_id = $1`,
+      [customerId],
+    );
+    assert.equal(orders.rows[0]?.total, 1);
+
+    await setDelivery(0);
+  });
+
+  it('refuses an unknown district identifier', async () => {
+    await setDelivery(5000);
+    const customerId = await createCustomer('orders-bad-district@example.test');
+    const product = await createProduct({ suffix: 'bad-district' });
+
+    await expectRefusal(
+      place(customerId, [{ productId: product.productId, quantity: 1 }], {
+        contact: { ...CONTACT, districtCode: 'atlantis' },
+      }),
+      'invalid_district',
+    );
+
+    await setDelivery(0);
   });
 });

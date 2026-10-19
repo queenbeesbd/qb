@@ -7,6 +7,7 @@ import {
   CATEGORIES_PATH,
   COD_PATH,
   CUSTOMERS_PATH,
+  DELIVERY_SETTINGS_PATH,
   LOGIN_PATH,
   OWNERS_PATH,
 } from '@/server/auth/constants';
@@ -54,6 +55,14 @@ export default async function AdminShellLayout({ children }: { children: React.R
   }
   if (hasPermission(principal, PERMISSIONS.customerRead)) {
     items.push({ href: CUSTOMERS_PATH, labelKey: 'admin.nav.customers', group: 'customers', icon: 'customers' });
+  }
+  if (hasPermission(principal, PERMISSIONS.settingsWrite)) {
+    items.push({
+      href: DELIVERY_SETTINGS_PATH,
+      labelKey: 'admin.nav.delivery',
+      group: 'settings',
+      icon: 'settings',
+    });
   }
   if (hasPermission(principal, PERMISSIONS.staffRead)) {
     items.push({ href: OWNERS_PATH, labelKey: 'admin.nav.owners', group: 'system', icon: 'owners' });

@@ -38,6 +38,7 @@ export type AdminIconName =
   | 'alert'
   | 'clock'
   | 'plus'
+  | 'settings'
   | 'logout';
 
 export function AdminIcon({ name, ...props }: IconProps & { name: AdminIconName }) {
@@ -146,6 +147,13 @@ export function AdminIcon({ name, ...props }: IconProps & { name: AdminIconName 
       return (
         <svg {...base} {...props}>
           <path d="M12 5v14M5 12h14" />
+        </svg>
+      );
+    case 'settings':
+      return (
+        <svg {...base} {...props}>
+          <circle cx="12" cy="12" r="3" />
+          <path d="M12 3.5v2M12 18.5v2M3.5 12h2M18.5 12h2M6 6l1.5 1.5M16.5 16.5 18 18M18 6l-1.5 1.5M7.5 16.5 6 18" />
         </svg>
       );
     case 'logout':

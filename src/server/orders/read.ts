@@ -22,17 +22,19 @@ export type CustomerOrderSummary = {
   readonly paymentState: string;
   readonly codState: string;
   readonly paymentMethod: string;
+  readonly districtCode: string | null;
+  readonly itemsSubtotalMinor: number;
+  readonly shippingMinor: number;
   readonly totalMinor: number;
   readonly placedAt: Date;
   readonly itemCount: number;
 };
 
 export type CustomerOrderDetail = CustomerOrderSummary & {
-  readonly itemsSubtotalMinor: number;
-  readonly shippingMinor: number;
   readonly expiresAt: Date | null;
   readonly contact: {
     readonly recipientName: string;
+    readonly districtCode: string | null;
     readonly recipientPhone: string;
     readonly addressLine: string;
     readonly area: string;
@@ -65,12 +67,16 @@ export async function listCustomerOrders(
       paymentState: order.paymentState,
       codState: order.codState,
       paymentMethod: order.paymentMethod,
+      districtCode: orderContact.districtCode,
+      itemsSubtotalMinor: order.itemsSubtotalMinor,
+      shippingMinor: order.shippingMinor,
       totalMinor: order.totalMinor,
       placedAt: order.placedAt,
       itemCount: sql<number>`coalesce(sum(${orderItem.quantity}), 0)::int`,
     })
     .from(order)
     .leftJoin(orderItem, sql`${orderItem.orderId} = ${order.id}`)
+    .leftJoin(orderContact, sql`${orderContact.orderId} = ${order.id}`)
     .where(sql`${order.customerId} = ${customerId}`)
     .groupBy(
       order.id,
@@ -79,6 +85,9 @@ export async function listCustomerOrders(
       order.paymentState,
       order.codState,
       order.paymentMethod,
+      orderContact.districtCode,
+      order.itemsSubtotalMinor,
+      order.shippingMinor,
       order.totalMinor,
       order.placedAt,
     )
@@ -112,6 +121,7 @@ export async function getCustomerOrderDetail(
       placedAt: order.placedAt,
       expiresAt: order.expiresAt,
       recipientName: orderContact.recipientName,
+      districtCode: orderContact.districtCode,
       recipientPhone: orderContact.recipientPhone,
       addressLine: orderContact.addressLine,
       area: orderContact.area,
@@ -148,14 +158,16 @@ export async function getCustomerOrderDetail(
     paymentState: row.paymentState,
     codState: row.codState,
     paymentMethod: row.paymentMethod,
-    totalMinor: row.totalMinor,
+    districtCode: row.districtCode,
     itemsSubtotalMinor: row.itemsSubtotalMinor,
     shippingMinor: row.shippingMinor,
+    totalMinor: row.totalMinor,
     placedAt: row.placedAt,
     expiresAt: row.expiresAt,
     itemCount: items.reduce((total, item) => total + item.quantity, 0),
     contact: {
       recipientName: row.recipientName,
+      districtCode: row.districtCode,
       recipientPhone: row.recipientPhone,
       addressLine: row.addressLine,
       area: row.area,

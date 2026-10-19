@@ -104,6 +104,8 @@ describe('permission catalogue', () => {
         PERMISSIONS.customerSuspend,
         PERMISSIONS.orderCancel,
         PERMISSIONS.orderRead,
+        // Phase 19: delivery-charge configuration.
+        PERMISSIONS.settingsWrite,
       ].sort(),
     );
   });

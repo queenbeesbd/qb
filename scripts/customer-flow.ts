@@ -120,6 +120,7 @@ export async function runCustomerFlowChecks(options: { base: string; pool: Pool 
   // payment method at all: the route does not read one, and a submission cannot choose.
   const contact = {
     recipientName: 'Rahim Uddin',
+    districtCode: 'dhaka',
     recipientPhone: '01712345678',
     addressLine: 'House 12, Route 5',
     area: 'Dhanmondi',
@@ -330,10 +331,10 @@ export async function runCustomerFlowChecks(options: { base: string; pool: Pool 
   );
   const storedRow = stored.rows[0];
   record(
-    'the stored total is the database price times the quantity, not the submitted price',
-    storedRow?.total_minor === unitPrice * 2 &&
+    'the stored total is the database price times the quantity plus the configured delivery charge',
+    storedRow?.total_minor === unitPrice * 2 + 12000 &&
       storedRow?.items_subtotal_minor === unitPrice * 2 &&
-      storedRow?.shipping_minor === 0,
+      storedRow?.shipping_minor === 12000,
     { stored: storedRow, expectedUnitPrice: unitPrice },
   );
   record(
