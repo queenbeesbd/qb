@@ -156,4 +156,4 @@ Decisions that can be settled later without rework: staff authentication, ORM ch
 
 **Parallel work needing no approval:** visual review of the logo and widened layout, real-device and assistive-technology checks, Bangla content review, and image rights clearance.
 
-Last audit date: 2026-10-15.
+Last audit date: 2026-10-20.
