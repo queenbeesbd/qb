@@ -16,9 +16,13 @@ const NOTICES: readonly CategoriesNotice[] = [
   'invalid',
 ];
 
-function readNotice(value: string | string[] | undefined): CategoriesNotice | null {
+function single(value: string | string[] | undefined): string {
   const candidate = Array.isArray(value) ? value[0] : value;
-  if (candidate === undefined) return null;
+  return candidate ?? '';
+}
+
+function readNotice(value: string | string[] | undefined): CategoriesNotice | null {
+  const candidate = single(value);
   return (NOTICES as readonly string[]).includes(candidate) ? (candidate as CategoriesNotice) : null;
 }
 
@@ -26,7 +30,8 @@ function readNotice(value: string | string[] | undefined): CategoriesNotice | nu
  * Categories.
  *
  * Requires `catalog.write`. The product count per category is shown so the owner can see what an archive
- * would be refused for, rather than discovering it by attempting the deletion.
+ * would be refused for, rather than discovering it by attempting the deletion. `?new=1` reveals the
+ * create form; `?edit=<id>` opens one category above the list.
  */
 export default async function AdminCategoriesPage({
   searchParams,
@@ -36,14 +41,10 @@ export default async function AdminCategoriesPage({
   const principal = await requireAdminPage(PERMISSIONS.catalogWrite);
   const params = await searchParams;
 
-  const rawEdit = params.edit;
-  const editId = Array.isArray(rawEdit) ? rawEdit[0] : rawEdit;
-
+  const editId = single(params.edit);
   const categories = await withTransaction((tx) => listCategoriesForAdmin(tx));
   const editing =
-    editId === undefined
-      ? null
-      : (categories.find((category) => String(category.id) === String(editId)) ?? null);
+    editId === '' ? null : (categories.find((category) => String(category.id) === editId) ?? null);
 
   return (
     <CategoriesView
@@ -75,6 +76,7 @@ export default async function AdminCategoriesPage({
       notice={readNotice(params.notice)}
       canManage={hasPermission(principal, PERMISSIONS.catalogWrite)}
       csrfToken={principal.csrfToken}
+      creating={single(params.new) === '1'}
     />
   );
 }

@@ -19,7 +19,7 @@
 
 import { spawn, type ChildProcess } from 'node:child_process';
 import { createServer } from 'node:net';
-import { existsSync } from 'node:fs';
+import { existsSync, writeFileSync } from 'node:fs';
 import { sql } from 'drizzle-orm';
 
 import { closeDb, withTransaction } from '../src/db/client';
@@ -30,6 +30,7 @@ import {
   customer,
   order,
   orderContact,
+  orderItem,
   permission,
   product,
   productImage,
@@ -334,6 +335,191 @@ async function availabilityOfProduct(productId: number): Promise<string | null> 
       .where(sql`${product.id} = ${productId}`);
     return rows[0]?.availability ?? null;
   });
+}
+
+/**
+ * A minimal Chromium driver over the DevTools Protocol.
+ *
+ * Node's built-in WebSocket and fetch are enough here, so the project gains no browser-test
+ * dependency. It exposes only what the interface checks use: cookie injection, viewport emulation,
+ * navigation, evaluation, a real click/keystroke, screenshots and clean teardown.
+ */
+type AdminBrowser = {
+  cookie(name: string, value: string): Promise<void>;
+  viewport(width: number, height: number): Promise<void>;
+  navigate(path: string): Promise<void>;
+  evaluate<T = unknown>(expression: string): Promise<T>;
+  click(selector: string): Promise<void>;
+  key(key: string): Promise<void>;
+  waitFor(expression: string, timeoutMs?: number): Promise<boolean>;
+  screenshot(path: string): Promise<void>;
+  close(): Promise<void>;
+};
+
+async function openChromium(base: string): Promise<AdminBrowser | null> {
+  const port = await freePort();
+  const chrome = spawn(
+    'chromium',
+    [
+      '--headless=new',
+      '--no-sandbox',
+      '--disable-dev-shm-usage',
+      '--disable-gpu',
+      `--remote-debugging-port=${port}`,
+      '--window-size=1440,900',
+      'about:blank',
+    ],
+    { stdio: 'ignore' },
+  );
+
+  const exited = Promise.withResolvers<void>();
+  chrome.once('error', () => exited.resolve());
+  chrome.once('exit', () => exited.resolve());
+  if (chrome.exitCode !== null) return null;
+
+  let target: { webSocketDebuggerUrl: string } | null = null;
+  for (let attempt = 0; attempt < 80; attempt += 1) {
+    if (chrome.exitCode !== null) return null;
+    try {
+      const response = await fetch(`http://127.0.0.1:${port}/json/list`);
+      const list = (await response.json()) as { type: string; webSocketDebuggerUrl: string }[];
+      const page = list.find((entry) => entry.type === 'page');
+      if (page !== undefined) {
+        target = page;
+        break;
+      }
+    } catch {
+      // Not listening yet.
+    }
+    const tick = Promise.withResolvers<void>();
+    setTimeout(tick.resolve, 150);
+    await tick.promise;
+  }
+  if (target === null) {
+    chrome.kill('SIGKILL');
+    return null;
+  }
+
+  const ws = new WebSocket(target.webSocketDebuggerUrl);
+  await new Promise<void>((resolve, reject) => {
+    ws.onopen = () => resolve();
+    ws.onerror = () => reject(new Error('DevTools websocket failed'));
+  });
+
+  type Pending = { resolve: (value: unknown) => void; reject: (error: Error) => void };
+  const pending = new Map<number, Pending>();
+  let nextId = 1;
+  ws.onmessage = (event: MessageEvent) => {
+    const message = JSON.parse(String(event.data)) as {
+      id?: number;
+      result?: unknown;
+      error?: { message?: string };
+    };
+    if (message.id === undefined) return;
+    const entry = pending.get(message.id);
+    if (entry === undefined) return;
+    pending.delete(message.id);
+    if (message.error !== undefined) entry.reject(new Error(message.error.message ?? 'CDP error'));
+    else entry.resolve(message.result);
+  };
+
+  const send = <T = unknown>(method: string, params: Record<string, unknown> = {}): Promise<T> => {
+    const id = nextId;
+    nextId += 1;
+    ws.send(JSON.stringify({ id, method, params }));
+    const result = Promise.withResolvers<T>();
+    pending.set(id, {
+      resolve: (value) => result.resolve(value as T),
+      reject: result.reject,
+    });
+    return result.promise;
+  };
+
+  await send('Page.enable');
+  await send('Runtime.enable');
+  await send('Network.enable');
+  await send('Emulation.setFocusEmulationEnabled', { enabled: true });
+
+  const evaluate = async <T = unknown>(expression: string): Promise<T> => {
+    const response = await send<{
+      result?: { value?: unknown };
+      exceptionDetails?: { text?: string; exception?: { description?: string } };
+    }>('Runtime.evaluate', { expression, returnByValue: true, awaitPromise: true });
+    if (response.exceptionDetails !== undefined) {
+      throw new Error(
+        response.exceptionDetails.text ?? response.exceptionDetails.exception?.description ?? 'evaluate failed',
+      );
+    }
+    return response.result?.value as T;
+  };
+
+  const waitFor = async (expression: string, timeoutMs = 8000): Promise<boolean> => {
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+      try {
+        if ((await evaluate(expression)) === true) return true;
+      } catch {
+        // Navigation in flight.
+      }
+      const tick = Promise.withResolvers<void>();
+      setTimeout(tick.resolve, 100);
+      await tick.promise;
+    }
+    return false;
+  };
+
+  const navigate = async (path: string): Promise<void> => {
+    await send('Page.navigate', { url: new URL(path, base).toString() });
+    await waitFor("document.readyState === 'complete' && document.querySelector('main') !== null");
+    await new Promise<void>((resolve) => setTimeout(resolve, 120));
+  };
+
+  return {
+    async cookie(name, value) {
+      await send('Network.setCookie', { name, value, path: '/', url: base });
+    },
+    async viewport(width, height) {
+      await send('Emulation.setDeviceMetricsOverride', {
+        width,
+        height,
+        deviceScaleFactor: 1,
+        mobile: width < 720,
+      });
+    },
+    navigate,
+    evaluate,
+    async click(selector) {
+      const clicked = await evaluate(
+        `(() => { const el = document.querySelector(${JSON.stringify(selector)}); if (el === null) return false; el.click(); return true; })()`,
+      );
+      if (clicked !== true) throw new Error(`no element matched ${selector}`);
+      await new Promise<void>((resolve) => setTimeout(resolve, 120));
+    },
+    async key(key) {
+      if (key === 'Escape') {
+        await send('Input.dispatchKeyEvent', { type: 'rawKeyDown', key, code: key, windowsVirtualKeyCode: 27 });
+        await send('Input.dispatchKeyEvent', { type: 'keyUp', key, code: key, windowsVirtualKeyCode: 27 });
+      } else {
+        throw new Error(`unsupported key ${key}`);
+      }
+      await new Promise<void>((resolve) => setTimeout(resolve, 120));
+    },
+    waitFor,
+    async screenshot(path) {
+      const result = await send<{ data?: string }>('Page.captureScreenshot', {
+        format: 'png',
+        captureBeyondViewport: false,
+      });
+      if (result.data === undefined) return;
+      writeFileSync(path, Buffer.from(result.data, 'base64'));
+    },
+    async close() {
+      ws.close();
+      chrome.kill('SIGTERM');
+      await Promise.race([exited.promise, new Promise<void>((resolve) => setTimeout(resolve, 400))]);
+      if (chrome.exitCode === null) chrome.kill('SIGKILL');
+    },
+  };
 }
 
 async function main(): Promise<void> {
@@ -1180,6 +1366,235 @@ async function main(): Promise<void> {
           (await call(base, '/products')).status === 200,
         'the storefront reads the database catalog server-side, so no fixture demo marker is ever served',
       );
+
+      // ---- Phase 18: the redesigned shell, exercised in a real browser ----
+      //
+      // The HTTP checks above prove authorization and persistence. These prove the things only a
+      // rendered page can show: the rail exists at desktop width, the drawer opens and closes with
+      // focus handled, nothing overflows horizontally at 360/390px, a destructive confirmation
+      // traps focus and closes on Escape, and the inline decision actually submits.
+      console.log('\nadmin interface in Chromium');
+      {
+        const secondCod = await withTransaction(async (tx) => {
+          const customerRow = await tx
+            .insert(customer)
+            .values({ email: 'cod-ui-' + Date.now() + '@verify.test', displayName: 'UI COD Buyer' })
+            .returning({ id: customer.id });
+          const customerId = customerRow[0]?.id;
+          if (customerId === undefined) fail('could not create the UI COD customer');
+          const orderNumber = 'QBUI' + Date.now().toString(36).toUpperCase();
+          const orderRow = await tx
+            .insert(order)
+            .values({
+              orderNumber,
+              customerId,
+              paymentMethod: 'cod',
+              status: 'pending',
+              paymentState: 'not_applicable',
+              codState: 'cod_pending_approval',
+              itemsSubtotalMinor: 50000,
+              shippingMinor: 0,
+              totalMinor: 50000,
+            })
+            .returning({ id: order.id });
+          const orderId = orderRow[0]?.id;
+          if (orderId === undefined) fail('could not create the UI COD order');
+          await tx.insert(orderContact).values({
+            orderId,
+            recipientName: 'UI COD Buyer',
+            recipientPhone: '01712345678',
+            addressLine: 'House 9, Road 4',
+            area: 'Dhanmondi',
+            city: 'Dhaka',
+          });
+          const variant = await tx
+            .select({ id: productVariant.id })
+            .from(productVariant)
+            .where(sql`${productVariant.productId} = ${productId} and ${productVariant.isDefault}`)
+            .limit(1);
+          if (variant[0] !== undefined) {
+            await tx.insert(orderItem).values({
+              orderId,
+              variantId: variant[0].id,
+              productNameBn: 'যাচাই পণ্য',
+              productNameEn: VERIFY_PRODUCT_NAME,
+              sku: 'VERIFY-SKU',
+              unitPriceMinor: 50000,
+              quantity: 1,
+              lineTotalMinor: 50000,
+            });
+          }
+          return { customerId, orderId, orderNumber };
+        });
+
+        const browser = await openChromium(base);
+        if (browser === null) {
+          record('Chromium is available for the interface checks', false, 'no chromium binary was found');
+        } else {
+          try {
+            await browser.cookie(SESSION_COOKIE, ownerJar.get(SESSION_COOKIE) ?? '');
+            await browser.viewport(1440, 900);
+            await browser.navigate('/admin');
+            await browser.evaluate("localStorage.setItem('queenbees.locale.v1','en')");
+            await browser.navigate('/admin');
+
+            const desktop = await browser.evaluate<{ nav: boolean; groups: string[]; h1: string | null; card: boolean; tel: boolean; overflow: number }>(`(() => {
+              const nav = document.querySelector('nav[aria-label]');
+              const groupLabels = [...document.querySelectorAll('nav p')].map((p) => p.textContent?.trim()).filter(Boolean);
+              const h1 = document.querySelector('h1')?.textContent?.trim();
+              const card = document.querySelector('article');
+              return {
+                nav: nav !== null,
+                groups: groupLabels,
+                h1,
+                card: card?.textContent?.includes(${JSON.stringify(secondCod.orderNumber)}) ?? false,
+                tel: document.querySelector('a[href^="tel:"]') !== null,
+                overflow: document.documentElement.scrollWidth - window.innerWidth,
+              };
+            })()`);
+            record(
+              'the desktop shell renders the rail, grouped navigation and the COD worklist card',
+              desktop.nav === true && desktop.groups.length >= 3 && typeof desktop.h1 === 'string' && desktop.card === true && desktop.tel === true,
+              JSON.stringify(desktop),
+            );
+            record(
+              'the dashboard does not overflow horizontally at 1440px',
+              desktop.overflow <= 1,
+              `${desktop.overflow}px`,
+            );
+            await browser.screenshot('/tmp/qb-admin-dashboard-desktop.png');
+
+            await browser.viewport(390, 844);
+            await browser.navigate('/admin');
+            const mobileClosed = await browser.evaluate<{ toggleVisible: boolean; railHidden: boolean; overflow: number }>(`(() => {
+              const toggle = document.querySelector('header button[aria-controls="admin-navigation"]');
+              const rail = document.getElementById('admin-navigation');
+              return {
+                toggleVisible: toggle !== null && getComputedStyle(toggle).display !== 'none',
+                railHidden: rail !== null && getComputedStyle(rail).visibility === 'hidden',
+                overflow: document.documentElement.scrollWidth - window.innerWidth,
+              };
+            })()`);
+            record(
+              'at 390px the rail is a drawer behind a visible menu control',
+              mobileClosed.toggleVisible === true && mobileClosed.railHidden === true && mobileClosed.overflow <= 1,
+              JSON.stringify(mobileClosed),
+            );
+
+            await browser.click('header button[aria-controls="admin-navigation"]');
+            const opened = await browser.evaluate<{ open: boolean; focus: string | null; bodyLocked: boolean }>(`(() => {
+              const rail = document.getElementById('admin-navigation');
+              return {
+                open: rail?.getAttribute('aria-modal') === 'true',
+                focus: document.activeElement?.getAttribute('aria-label'),
+                bodyLocked: getComputedStyle(document.body).overflow === 'hidden',
+              };
+            })()`);
+            record(
+              'the drawer opens modally, locks the page and moves focus to its close control',
+              opened.open === true && opened.focus === 'Close menu' && opened.bodyLocked === true,
+              JSON.stringify(opened),
+            );
+            await browser.screenshot('/tmp/qb-admin-dashboard-mobile-drawer.png');
+
+            await browser.key('Escape');
+            const closed = await browser.evaluate<{ modal: string | null; focus: string | null; bodyLocked: boolean }>(`(() => ({
+              modal: document.getElementById('admin-navigation')?.getAttribute('aria-modal'),
+              focus: document.activeElement?.getAttribute('aria-controls'),
+              bodyLocked: getComputedStyle(document.body).overflow === 'hidden',
+            }))()`);
+            record(
+              'Escape closes the drawer and returns focus to the menu control',
+              closed.modal === null && closed.focus === 'admin-navigation' && closed.bodyLocked === false,
+              JSON.stringify(closed),
+            );
+
+            const overflowAt360: string[] = [];
+            await browser.viewport(360, 800);
+            for (const route of ['/admin', '/admin/orders-cod', '/admin/catalog', '/admin/customers', '/admin/audit', '/admin/owners']) {
+              await browser.navigate(route);
+              const overflow = await browser.evaluate('document.documentElement.scrollWidth - window.innerWidth');
+              if (typeof overflow === 'number' && overflow > 1) overflowAt360.push(`${route}: ${overflow}px`);
+            }
+            record(
+              'no admin route overflows horizontally at 360px',
+              overflowAt360.length === 0,
+              overflowAt360.length === 0 ? 'all six routes within the viewport' : overflowAt360.join(', '),
+            );
+
+            await browser.viewport(390, 844);
+            await browser.navigate('/admin/orders-cod');
+            await browser.screenshot('/tmp/qb-admin-cod-mobile.png');
+
+            await browser.viewport(1440, 900);
+            await browser.navigate('/admin/orders-cod');
+            await browser.click('article form + form button[type="submit"]');
+            const dialog = await browser.evaluate<{ open: boolean; required: boolean; focus: string | null; order: boolean }>(`(() => {
+              const d = document.querySelector('[role="dialog"][aria-modal="true"]');
+              const reason = d?.querySelector('textarea[name="reason"]');
+              return {
+                open: d !== null,
+                required: reason instanceof HTMLTextAreaElement ? reason.required : false,
+                focus: document.activeElement?.textContent?.trim(),
+                order: document.querySelector('article')?.textContent?.includes(${JSON.stringify(secondCod.orderNumber)}) ?? false,
+              };
+            })()`);
+            record(
+              'the destructive COD confirmation opens with a required reason and focus on cancel',
+              dialog.open === true && dialog.required === true && dialog.focus === 'Cancel',
+              JSON.stringify(dialog),
+            );
+            await browser.screenshot('/tmp/qb-admin-cod-confirm.png');
+            await browser.key('Escape');
+            const dialogClosed = await browser.evaluate(`document.querySelector('[role="dialog"][aria-modal="true"]') === null`);
+            record('Escape dismisses the confirmation without submitting', dialogClosed === true, 'dialog removed');
+
+            const beforeApprove = await withTransaction((tx) =>
+              tx.select({ codState: order.codState, status: order.status }).from(order).where(sql`${order.id} = ${secondCod.orderId}`),
+            );
+            await browser.click('article form button[type="submit"]');
+            await browser.waitFor("document.querySelector('[role=status]') !== null || location.search.includes('notice=')");
+            const afterApprove = await withTransaction((tx) =>
+              tx.select({ codState: order.codState, status: order.status }).from(order).where(sql`${order.id} = ${secondCod.orderId}`),
+            );
+            record(
+              'the inline approve control decides the order through the real route',
+              beforeApprove[0]?.codState === 'cod_pending_approval' &&
+                afterApprove[0]?.codState === 'cod_approved' &&
+                afterApprove[0]?.status === 'confirmed',
+              `${beforeApprove[0]?.codState} → ${afterApprove[0]?.codState}`,
+            );
+
+            await browser.navigate('/admin/catalog');
+            const catalogUi = await browser.evaluate<{ switches: number; search: boolean; create: boolean }>(`(() => ({
+              switches: document.querySelectorAll('button[role="switch"][aria-checked]').length,
+              search: document.querySelector('form[role="search"] input[name="q"]') !== null,
+              create: document.body.textContent?.includes('New product') ?? false,
+            }))()`);
+            record(
+              'the catalog page exposes availability as a switch and a real search',
+              catalogUi.switches > 0 && catalogUi.search === true && catalogUi.create === true,
+              JSON.stringify(catalogUi),
+            );
+            await browser.screenshot('/tmp/qb-admin-catalog.png');
+
+            await browser.navigate(`/admin/customers/${secondCod.customerId}`);
+            const detailUi = await browser.evaluate<{ heading: string | null; order: boolean; suspend: boolean }>(`(() => ({
+              heading: document.querySelector('h1')?.textContent?.trim(),
+              order: document.body.textContent?.includes(${JSON.stringify(secondCod.orderNumber)}),
+              suspend: document.body.textContent?.includes('Suspend this customer?'),
+            }))()`);
+            record(
+              'the customer detail page shows the customer, their order and the guarded suspension',
+              detailUi.heading === 'UI COD Buyer' && detailUi.order === true && detailUi.suspend === true,
+              JSON.stringify(detailUi),
+            );
+            await browser.screenshot('/tmp/qb-admin-customer.png');
+          } finally {
+            await browser.close();
+          }
+        }
+      }
 
       console.log('\nsession revocation and replay');
       const logout = await call(base, '/api/admin/session/logout', { method: 'POST', jar: ownerJar, form: { csrf } });

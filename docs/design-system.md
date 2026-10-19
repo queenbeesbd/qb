@@ -124,6 +124,81 @@ Outlined text is not real text, so the SVG carries `role="img"` and an `aria-lab
 - **QuantityStepper** - accessible minus/plus with a numeric input clamped to 1..20.
 - **Header** - sticky. Inline nav and search appear from **1024px**; below that both live in a focus-trapped drawer.
 
+## Admin surface (Phase 18)
+
+The owner panel is the same design system in a different mode: **Operate**, not Persuade. The
+storefront earns attention; the panel removes obstacles from a task the owner repeats every day. Its
+visual world is a quiet operations ledger - a dark rail, a paper workspace, hairline rules and
+typography doing the hierarchy work - rather than a grid of rounded metric cards.
+
+### Tokens added
+
+| Token | Value | Role |
+| --- | --- | --- |
+| `--color-admin-sidebar` | `#251E2F` | Navigation rail. Derived from the storefront ink, darkened so chrome reads as chrome. |
+| `--color-admin-sidebar-ink` | `#EBE5F3` | Active and primary rail text. 12.4:1 on the rail. |
+| `--color-admin-sidebar-muted` | `#B6ACC6` | Inactive rail labels. 7.4:1 on the rail - AA for body text. |
+| `--admin-sidebar-width` | `15.5rem` | Rail width; the sidebar collapses to a drawer below 1024px. |
+| `--admin-topbar-height` | `3.75rem` | Top bar, including the breadcrumb and account menu. |
+| `--admin-content-width` | `75rem` | Workspace cap. Narrower than the storefront container because a worklist is read in a column. |
+| `--ease-out-ui` | `cubic-bezier(0.23, 1, 0.32, 1)` | State and entrance motion. |
+| `--ease-drawer` | `cubic-bezier(0.32, 0.72, 0, 1)` | Drawer transform only. |
+
+No brand colour is used for status. Pending/approved/cancelled/flagged states use the semantic
+`--color-warning`, `--color-success`, `--color-danger` pairs, and every pill also carries text and a
+dot, so colour is never the only signal.
+
+### Shell and page anatomy
+
+- **Rail (desktop):** brand, then permission-filtered groups - Overview, Commerce (COD orders,
+  products, categories), Customers, System (owner accounts, audit trail) - then a storefront link. The
+  active item gets a soft fill plus a 3px pink rail marker; `aria-current` carries the same fact.
+- **Top bar:** a real breadcrumb (Admin / current page), the account menu (name, email, role, sign out)
+  and, below 1024px, the drawer trigger.
+- **Page header:** an eyebrow that names the location, one `h1`, one sentence of context, an optional
+  primary action group, and a rule. Pages do not add their own headings above it.
+- **Sections:** heading plus optional description on the left, a text link to the full destination on the
+  right. No nested cards; panels are only used where a form or a list genuinely needs a surface.
+- **Order cards:** a 3px left accent, reference and age on the top line, contact with a `tel:` link,
+  address, recorded line items, total, then the decision controls. Age is the operational fact and is
+  repeated in the page-level summary (count, oldest wait).
+
+### Components
+
+`AdminShell` (rail, drawer, account menu, skip link), `PageHeader`, `Notice` (one polite/alert region
+per page), `SubmitButton` (pending state from `useFormStatus`), `ConfirmSubmit` (reason-capable dialog
+with focus trap, Escape and focus restoration), `StatusPill`, `EmptyState`, `AvailabilitySwitch`,
+`CodOrderCard`. All are small local components under `src/app/(admin)/admin/_ui`; styling stays in
+`admin.module.css` on the tokens above.
+
+### Motion
+
+Only state change is animated: button press (`scale(0.97)`, 120ms), drawer transform (220ms, drawer
+curve), dialog and menu entrance (140-160ms, `--ease-out-ui`, from `scale(0.98)` plus opacity), switch
+knob (160ms). Lists, tables and worklist rows never animate in - they are read many times a day. The
+global `prefers-reduced-motion` rule collapses every duration, and no animation library was added.
+
+### Responsive rules
+
+- **1024px:** rail becomes an off-canvas drawer with a backdrop and a close control. Opening moves focus
+to close, traps Tab, locks body scroll and sets `aria-modal`; Escape closes and returns focus to the
+trigger.
+- **720px:** order cards stack (actions full width), record rows move their side content under the
+  title, and the profile/order detail grid becomes one column.
+- **480px:** the account name hides (avatar remains); page actions share the full width.
+
+Verified: no horizontal overflow on all six admin routes at 360px, and the drawer/confirmation checks
+run in Chromium in `npm run verify:admin`. **Not verified:** real iOS Safari, Android Chrome, 200% zoom
+and screen-reader output.
+
+### Deliberate omission
+
+There is no route-level `loading.tsx`. An App Router loading boundary streams the shell before a page
+guard runs, which turns a refused admin page from a 307 into a 200 with a redirect script - the refusal
+is still enforced, but the HTTP contract `verify:admin` asserts becomes weaker. Pending states live on
+the actions instead. If a loading surface is added later, it must be placed where it cannot pre-empt an
+authorisation refusal.
+
 ## Layout width system
 
 Two tokens in `globals.css` define the content grid, and every piece of page

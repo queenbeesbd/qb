@@ -25,6 +25,7 @@
 import { sql } from 'drizzle-orm';
 
 import type { Transaction } from '@/db/client';
+import { likeTerm } from '@/lib/search';
 import { customer, order, orderContact, orderEvent } from '@/db/schema';
 import { recordAudit } from '../auth/audit';
 import { ConflictError, ValidationError, requirePermission, type ActorContext } from '../authz/authorize';
@@ -46,8 +47,24 @@ export type CodQueueRow = {
   readonly addressLine: string;
 };
 
-/** COD orders awaiting the owner's call and confirmation, oldest first. */
-export async function listCodApprovalQueue(tx: Transaction): Promise<CodQueueRow[]> {
+/**
+ * COD orders awaiting the owner's call and confirmation, oldest first.
+ *
+ * `search` matches the order number, the recipient's name or the phone number - the three things
+ * the owner has in front of them when a customer calls back. It is applied in SQL over the same
+ * guarded predicate, so filtering cannot widen the worklist.
+ */
+export async function listCodApprovalQueue(
+  tx: Transaction,
+  options: { readonly search?: string } = {},
+): Promise<CodQueueRow[]> {
+  const search = options.search?.trim() ?? '';
+  const searchClause =
+    search === ''
+      ? sql`true`
+      : sql`(${order.orderNumber} ilike ${likeTerm(search)}
+          or ${orderContact.recipientName} ilike ${likeTerm(search)}
+          or ${orderContact.recipientPhone} ilike ${likeTerm(search)})`;
   return tx
     .select({
       orderId: order.id,
@@ -65,7 +82,7 @@ export async function listCodApprovalQueue(tx: Transaction): Promise<CodQueueRow
     // Both halves of the same guard the decision holds: `cod_state` alone would keep an order the
     // owner has already rejected - which a rejection cancels - in this worklist for good, where every
     // further action could only answer "already decided".
-    .where(sql`${order.codState} = 'cod_pending_approval' and ${order.status} = 'pending'`)
+    .where(sql`${order.codState} = 'cod_pending_approval' and ${order.status} = 'pending' and ${searchClause}`)
     .orderBy(order.placedAt, order.id);
 }
 
@@ -203,7 +220,15 @@ export type CustomerQueueRow = {
 };
 
 /** The customer worklist, for the owner's moderation view - email, standing and order count only. */
-export async function listCustomers(tx: Transaction): Promise<CustomerQueueRow[]> {
+export async function listCustomers(
+  tx: Transaction,
+  options: { readonly search?: string } = {},
+): Promise<CustomerQueueRow[]> {
+  const search = options.search?.trim() ?? '';
+  const searchClause =
+    search === ''
+      ? sql`true`
+      : sql`(${customer.email} ilike ${likeTerm(search)} or coalesce(${customer.displayName}, '') ilike ${likeTerm(search)})`;
   const rows = await tx
     .select({
       customerId: customer.id,
@@ -222,7 +247,7 @@ export async function listCustomers(tx: Transaction): Promise<CustomerQueueRow[]
       )`,
     })
     .from(customer)
-    .where(sql`${customer.deletedAt} is null`)
+    .where(sql`${customer.deletedAt} is null and ${searchClause}`)
     .orderBy(sql`${customer.createdAt} desc`);
   return rows;
 }

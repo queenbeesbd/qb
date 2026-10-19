@@ -22,9 +22,13 @@ const NOTICES: readonly CatalogNotice[] = [
   'invalid',
 ];
 
-function readNotice(value: string | string[] | undefined): CatalogNotice | null {
+function single(value: string | string[] | undefined): string {
   const candidate = Array.isArray(value) ? value[0] : value;
-  if (candidate === undefined) return null;
+  return candidate ?? '';
+}
+
+function readNotice(value: string | string[] | undefined): CatalogNotice | null {
+  const candidate = single(value);
   return (NOTICES as readonly string[]).includes(candidate) ? (candidate as CatalogNotice) : null;
 }
 
@@ -35,8 +39,9 @@ function readNotice(value: string | string[] | undefined): CatalogNotice | null 
  * is not readable by a principal that cannot change them. Every control posts to a route that re-checks
  * the permission server-side.
  *
- * `?edit=<id>` opens one product. The id is validated by the service, which returns `null` for anything
- * that is not a live product, so a hand-crafted id cannot disclose an archived row.
+ * `?edit=<id>` opens one product; `?new=1` reveals the create form. The id is validated by the service,
+ * which returns `null` for anything that is not a live product, so a hand-crafted id cannot disclose an
+ * archived row. Search and the availability filter are applied in SQL over the live rows only.
  */
 export default async function AdminCatalogPage({
   searchParams,
@@ -46,15 +51,17 @@ export default async function AdminCatalogPage({
   const principal = await requireAdminPage(PERMISSIONS.catalogWrite);
   const params = await searchParams;
 
-  const rawEdit = params.edit;
-  const editId = Array.isArray(rawEdit) ? rawEdit[0] : rawEdit;
+  const editId = single(params.edit);
+  const search = single(params.q).slice(0, 80);
+  const stock = single(params.stock);
+  const availability = stock === 'in_stock' || stock === 'out_of_stock' ? stock : undefined;
 
   const data = await withTransaction(async (tx) => {
     const [products, categories, brands, editing] = await Promise.all([
-      listProductsForAdmin(tx),
+      listProductsForAdmin(tx, { search, availability }),
       listCategoriesForAdmin(tx),
       listBrands(tx),
-      editId === undefined ? Promise.resolve(null) : getProductForAdmin(tx, editId),
+      editId === '' ? Promise.resolve(null) : getProductForAdmin(tx, editId),
     ]);
     return { products, categories, brands, editing };
   });
@@ -105,6 +112,9 @@ export default async function AdminCatalogPage({
       notice={readNotice(params.notice)}
       canManage={hasPermission(principal, PERMISSIONS.catalogWrite)}
       csrfToken={principal.csrfToken}
+      search={search}
+      stock={availability ?? 'all'}
+      creating={single(params.new) === '1'}
     />
   );
 }

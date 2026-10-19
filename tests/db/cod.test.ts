@@ -4,6 +4,7 @@ import { after, before, describe, it } from 'node:test';
 import { withTransaction } from '../../src/db/client';
 import { seedOrder, SKIP_REASON, startMigratedDatabase, toolingAvailable, type DbFixture } from './helpers';
 import { countCodApprovalQueue, decideCod, listCodApprovalQueue } from '../../src/server/orders/manage';
+import { codDecidedToday, codQueue } from '../../src/server/orders/admin-read';
 import { ConflictError, ValidationError } from '../../src/server/authz/authorize';
 
 /**
@@ -180,6 +181,49 @@ describe('COD confirmation (Phase 16A, COD-only in Phase 17)', { skip: toolingAv
       [rejected.customerId],
     );
     assert.equal(account.rows[0]?.status, 'active', 'a rejection is not a ban (D20)');
+  });
+
+  it('searches the worklist by order number and treats search text as data, not a wildcard', async () => {
+    const seeded = await seedOrder(fixture.pool, { paymentMethod: 'cod', withReservation: false });
+
+    const byNumber = await withTransaction((tx) => listCodApprovalQueue(tx, { search: seeded.orderNumber }));
+    assert.deepEqual(
+      byNumber.map((row) => row.orderId),
+      [seeded.orderId],
+      'an order number narrows the queue to that order',
+    );
+
+    const byName = await withTransaction((tx) => listCodApprovalQueue(tx, { search: 'Recipient' }));
+    assert.equal(
+      byName.some((row) => row.orderId === seeded.orderId),
+      true,
+      'a recipient name matches the queue row',
+    );
+
+    // ILIKE reads a percent sign as "anything". Escaped, it is a literal that appears in no order,
+    // so a pattern character must not turn one search into the whole worklist.
+    const wildcard = await withTransaction((tx) => listCodApprovalQueue(tx, { search: '%' }));
+    assert.deepEqual(wildcard, []);
+  });
+
+  it('lists orders decided today with the decision and their recorded lines', async () => {
+    const seeded = await seedOrder(fixture.pool, { paymentMethod: 'cod', withReservation: false });
+    await withTransaction((tx) =>
+      decideCod(tx, actorFor(), {
+        orderId: seeded.orderId,
+        decision: 'approve',
+        reason: 'confirmed by phone before the browser check',
+      }),
+    );
+
+    const decided = await withTransaction((tx) => codDecidedToday(tx, { search: seeded.orderNumber }));
+    assert.equal(decided.length, 1);
+    assert.equal(decided[0]?.orderId, seeded.orderId);
+    assert.equal(decided[0]?.decision, 'approved');
+    assert.equal(decided[0]?.decidedAt instanceof Date, true);
+
+    const detail = await withTransaction((tx) => codQueue(tx, { search: seeded.orderNumber }));
+    assert.deepEqual(detail, [], 'a decided order is no longer in the waiting queue');
   });
 
   it('refuses to decide an order that is no longer pending', async () => {

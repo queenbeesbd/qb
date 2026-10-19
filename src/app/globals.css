@@ -85,6 +85,23 @@
 
   --transition-fast: 120ms ease;
   --transition-base: 180ms ease;
+
+  /*
+   * Admin shell. The rail is a deliberately darker surface than the storefront ink so the
+   * navigation reads as chrome rather than content; the workspace keeps the storefront page
+   * canvas. Content is capped narrower than the storefront container because a worklist is read
+   * in a column, not scanned across a merchandising grid.
+   */
+  --color-admin-sidebar: #251e2f;
+  --color-admin-sidebar-ink: #ebe5f3;
+  --color-admin-sidebar-muted: #b6acc6;
+  --admin-sidebar-width: 15.5rem;
+  --admin-topbar-height: 3.75rem;
+  --admin-content-width: 75rem;
+
+  /* Motion curves for UI state, not decoration. See docs/design-system.md. */
+  --ease-out-ui: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
 }
 
 html[lang='bn'] body {

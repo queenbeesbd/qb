@@ -2,7 +2,7 @@
 
 Status: Phases 0-8 complete (2026-10-11). **Phase 9 is complete: every blocking decision is owner-approved** - D1 (Neon PostgreSQL), D2 (Vercel), D3 (Neon Object Storage), D7 (manual bKash + manual Nagad + COD), D8 (sender number and transaction reference required, no screenshot), D9 (payment and order policy), D11 (inventory reservation and release) and D12 (account-required checkout). **Phase 10 is complete: the data model, state machines and security architecture are designed and documented** in `docs/data-model.md` and `docs/security.md`. **Nothing is implemented** - no database, migration, dependency, credential or resource exists. **Phase 11 is unblocked but not started**, and nothing beyond Phase 10 is authorized to begin automatically. The owner has approved an **independent e-commerce platform** (`docs/decisions/0004-independent-platform-direction.md`); the previous plan to integrate with the Zatiq merchant platform is **withdrawn**, and Zatiq is now a UX reference only. Nothing beyond Phase 8 is authorized to begin automatically.
 
-**Roadmap revision (2026-10-17, Phase 17, ADR 0015):** the owner has made **Cash on Delivery the only payment method** for this release. The manual bKash/Nagad flow is **removed from the application** and the roadmap is rebased accordingly: **Phase 17** is this COD-only transition and audit (complete locally), **Phase 18** is the admin dashboard UX redesign (recommended next), **Phase 19** is operational readiness and storefront completion, **Phase 20** is deployment, and an **automated gateway is a future item with no selected provider**. Sections describing earlier phases are kept as history; where they describe prepaid work as pending, that work is **superseded, not outstanding**.
+**Roadmap revision (2026-10-17, Phase 17, ADR 0015):** the owner has made **Cash on Delivery the only payment method** for this release. The manual bKash/Nagad flow is **removed from the application** and the roadmap is rebased accordingly: **Phase 17** is this COD-only transition and audit (complete locally), **Phase 18** was the admin dashboard UX redesign (now complete locally), **Phase 19** is operational readiness and storefront completion, **Phase 20** is deployment, and an **automated gateway is a future item with no selected provider**. Sections describing earlier phases are kept as history; where they describe prepaid work as pending, that work is **superseded, not outstanding**.
 
 Supporting documents: `docs/platform-architecture.md` (architecture and the decision register in section 11), `docs/payment-workflow.md` (COD workflow; the manual prepaid design is retained as superseded history), `docs/admin-dashboard.md` (dashboard scope, analytics and the Phase 18 design brief), `docs/migration-plan.md` (catalog migration), `docs/security.md` (security requirements), `docs/backend-capability-audit.md` (Phase 7 reference findings).
 
@@ -455,7 +455,7 @@ not a speculative abstraction built in advance.
   handled operationally; the retained payment tables will need an owner-approved retention decision if
   they are ever dropped; and the admin surface is functional but has had no dedicated UX pass.
 
-### Phase 18 - admin dashboard UX and design system application (recommended next)
+### Phase 18 - admin dashboard UX and design system application (complete - local only)
 
 - **Objective:** redesign the owner panel for the work the owner actually does every day - COD decisions,
   catalog and availability maintenance, order and customer lookup - using the existing design system and
@@ -474,6 +474,18 @@ not a speculative abstraction built in advance.
   keyboard and focus behaviour is verified; and no fabricated metric appears anywhere.
 - **Verification gate:** `verify:admin` extended for the new UI, the browser suite re-run, plus
   typecheck/lint/i18n/build.
+- **Status (2026-10-19): complete locally, not deployed.** The panel was rebuilt around the COD
+  worklist: a dark grouped rail (desktop) that becomes a focus-trapped drawer (mobile), a page-header
+  system, order cards with age, items, `tel:` contact and an inline approval (prefilled audit note) or a
+  confirmed rejection with a required reason, a server-filtered queue with waiting/decided-today tabs and
+  order search, product search plus an In Stock / Out of Stock switch, a customer detail page with
+  recorded orders and a guarded suspension, and consistent notice/empty/error states. `verify:admin`
+  grew to **119/119**, including real Chromium checks for the shell, drawer focus handling, 360px
+  overflow, the rejection dialog and an inline approval that decides the order. Schema unchanged (40
+  tables, no migration); no permission, state machine or total changed. **Deliberately not done:** a
+  route-level `loading.tsx` was rejected because streaming turns a refused admin page into a 200 shell
+  before the guard's redirect; action buttons carry pending states instead. No dispatch, refund,
+  collection/reconciliation or analytics surface was invented.
 
 ### Phase 19 - operational readiness and storefront completion (after Phase 18)
 
@@ -528,43 +540,43 @@ A passing storefront check says nothing about production commerce readiness.
 `Phases 0-9 complete -> Phase 10 design -> Phase 11 database foundation -> Phase 12 owner auth -> Phase 13
 catalog management -> Phase 14 storefront cutover -> Phase 15 customer accounts and order creation ->
 Phase 16 COD fulfilment (prepaid half superseded) -> Phase 17 COD-only baseline -> Phase 18 admin
-dashboard UX -> Phase 19 operational readiness -> Phase 20 deployment.`
+dashboard UX (complete locally) -> Phase 19 operational readiness -> Phase 20 deployment.`
 
-**Where the project actually stands:** Phases 11-17 are implemented **locally**. The commerce loop is
+**Where the project actually stands:** Phases 11-18 are implemented **locally**. The commerce loop is
 COD-only and works end to end in a local build. The remaining gaps are **owner inputs** (delivery
-prices/areas, failed-delivery handling, retention, image rights) and **product work** (dashboard UX,
-operational readiness), not undecided architecture.
+prices/areas, failed-delivery handling, retention, image rights) and **product work** (operational
+readiness), not undecided architecture.
 
 **Risks:** COD refusal at the door is now the only payment failure mode and is handled operationally;
 overselling is accepted (ADR 0013); the retained payment tables carry history that a future cleanup must
-not silently destroy; and the admin surface is functional but unpolished, which is exactly what Phase 18
-addresses.
+not silently destroy. The admin surface is now a coherent operations panel; what it still lacks is
+operational depth (dispatch, cash collection/reconciliation, refunds), which is Phase 19.
 
 **No production launch date is promised.**
 
 ## Current single best next step
 
-**Phase 18: Admin Dashboard UX and Design System Application.** Phase 17 is complete and verified, so the
-COD-only baseline is stable: one order queue, one payment method, no prepaid surface to work around.
+**Phase 19, first slice: delivery-charge configuration.** Phase 18 is complete and verified locally, so
+the owner panel no longer blocks daily operation. The largest remaining *trading* gap is that every order
+currently ships with `shipping_minor = 0` and tells the customer delivery is arranged on confirmation.
+Charging delivery is a launch requirement, and it is the only remaining blocker that is purely an owner
+input plus one reviewed migration.
 
-**Why this is next:** the owner now operates the store through a panel built incrementally across Phases
-12-16, where each screen was added to satisfy a correctness requirement rather than a workflow. The
-brief in `docs/admin-dashboard.md` identifies the concrete cost: the overview shows counts but not "what
-needs me now"; the COD queue is a wide table with per-row free-text forms; catalog and category editing
-live on separate pages with no shared status vocabulary; and empty/error states are inconsistent. Fixing
-that is the highest-value work that needs **no new owner decision and no new policy** - it is
-presentation and interaction over behaviour that already exists and is already permission-checked.
+**Why not the other Phase 19 items first:** order depth (dispatch, cash collection, refunds), customer
+credential reset and catalog completeness all matter, but none changes what a customer is charged or what
+the owner must decide at checkout. Delivery pricing does. It also removes the last place where the
+storefront has to state a policy gap.
 
-**Prerequisites:**
+**Prerequisites (all owner actions):**
 
-1. **Explicit authorization to begin Phase 18** - this document does not start it.
-2. **The owner's confirmation of the daily priority order** in the brief (COD decisions first, then
-   availability, then catalog editing) - if it differs, the brief is adjusted before any UI work.
-3. **Scope discipline:** no new business policy, no delivery-charge configuration, no analytics beyond
-   what the data supports, no chart or component library, and no payment feature. Every existing
-   permission check and server-side guard stays exactly as it is.
-4. **Verification:** the redesigned routes must keep `verify:admin` green and add browser coverage for the
-   new interactions; a passing build alone is not completion.
+1. **The actual amounts**: a site-wide delivery charge and any area overrides, in BDT.
+2. **The supported areas and the matching/fallback rule** (which area string wins, what happens when
+   nothing matches, whether pickup is offered).
+3. **Explicit authorization for the migration** that adds area/charge rows and snapshots the chosen
+   charge onto `order.shipping_minor` - schema changes are not implied by this plan.
+4. **A decision on refused/failed-delivery handling**, so the charge and the return path agree.
+
+Until those exist, this document does not start the slice, and no price may be guessed.
 
 **Not authorized by this recommendation:** provisioning, deployment, DNS changes, credential creation,
-object storage, image upload, any gateway work, or any schema change.
+object storage, image upload, any gateway work, any schema change, or any new business policy.

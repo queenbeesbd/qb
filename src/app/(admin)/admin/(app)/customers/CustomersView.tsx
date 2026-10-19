@@ -1,7 +1,15 @@
 'use client';
 
+import Link from 'next/link';
+
 import { useTranslation } from '@/i18n/useTranslation';
 import type { TranslationKey } from '@/i18n/dictionaries';
+import { AdminIcon } from '../../_ui/icons';
+import { ConfirmSubmit } from '../../_ui/ConfirmSubmit';
+import { EmptyState } from '../../_ui/EmptyState';
+import { Notice } from '../../_ui/Notice';
+import { PageHeader } from '../../_ui/PageHeader';
+import { StatusPill } from '../../_ui/StatusPill';
 import styles from '../../admin.module.css';
 
 export type CustomerRow = {
@@ -26,92 +34,132 @@ const NOTICE_KEYS: Record<CustomerNotice, TranslationKey> = {
 /**
  * Customer moderation.
  *
- * Minimal on purpose: identify, show standing, suspend with a reason. Not a CRM, and not a role or
- * permission surface (D10) - there is deliberately nothing else to do here.
+ * Lookup, standing, order count and one destructive action. Not a CRM, and not a role or permission
+ * surface (D10) - there is deliberately nothing else to do here. Suspension is an irreversible owner
+ * decision that revokes sessions, so it sits behind a confirmation that requires a reason and states
+ * the consequence; it is never a table-row text field.
  */
 export function CustomersView({
   rows,
   notice,
   csrfToken,
   canSuspend,
+  search,
 }: {
   rows: readonly CustomerRow[];
   notice: CustomerNotice | null;
   csrfToken: string;
   canSuspend: boolean;
+  search: string;
 }) {
   const { t, locale } = useTranslation();
+  const dateFormat = new Intl.DateTimeFormat(locale === 'bn' ? 'bn-BD' : 'en-US', { dateStyle: 'medium' });
 
   return (
-    <section className={styles.section}>
-      <div className={styles.sectionHead}>
-        <h1>{t('admin.customers.title')}</h1>
-        <p>{t('admin.customers.body')}</p>
-      </div>
+    <>
+      <PageHeader eyebrow={t('admin.nav.group.customers')} title={t('admin.customers.title')} description={t('admin.customers.body')} />
+
       {notice !== null && (
-        <p role="status" className={notice === 'suspended' ? styles.alertSuccess : styles.alertError}>
-          {t(NOTICE_KEYS[notice])}
-        </p>
+        <Notice tone={notice === 'suspended' ? 'success' : 'error'}>{t(NOTICE_KEYS[notice])}</Notice>
       )}
+
+      <div className={styles.toolbar}>
+        <form className={styles.searchForm} action="/admin/customers" method="get" role="search">
+          <div className={styles.searchField}>
+            <AdminIcon name="search" width={16} height={16} />
+            <label className="sr-only" htmlFor="customer-search">
+              {t('admin.customers.searchLabel')}
+            </label>
+            <input
+              id="customer-search"
+              className={styles.input}
+              type="search"
+              name="q"
+              defaultValue={search}
+              placeholder={t('admin.customers.searchPlaceholder')}
+              maxLength={80}
+            />
+          </div>
+          <button type="submit" className={`${styles.button} ${styles.buttonSecondary} ${styles.buttonSmall}`}>
+            {t('admin.common.search')}
+          </button>
+          {search !== '' && (
+            <Link className={styles.recordLink} href="/admin/customers">
+              {t('admin.common.clear')}
+            </Link>
+          )}
+        </form>
+        <span className={styles.toolbarMeta}>{t('admin.customers.resultCount', { count: rows.length })}</span>
+      </div>
+
       {rows.length === 0 ? (
-        <p className={styles.empty}>{t('admin.customers.empty')}</p>
+        search !== '' ? (
+          <EmptyState
+            icon="search"
+            title={t('admin.customers.searchEmptyTitle')}
+            body={t('admin.customers.searchEmptyBody')}
+            action={
+              <Link className={`${styles.button} ${styles.buttonSecondary} ${styles.buttonSmall}`} href="/admin/customers">
+                {t('admin.common.clear')}
+              </Link>
+            }
+          />
+        ) : (
+          <EmptyState title={t('admin.customers.emptyTitle')} body={t('admin.customers.emptyBody')} icon="customers" />
+        )
       ) : (
-        <div className={styles.tableWrap}>
-          <table className={styles.table}>
-            <thead>
-              <tr>
-                <th>{t('admin.customers.customer')}</th>
-                <th>{t('admin.customers.status')}</th>
-                <th>{t('admin.customers.joined')}</th>
-                <th>{t('admin.customers.orderCount')}</th>
-                <th>{t('admin.customers.actions')}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row) => (
-                <tr key={row.customerId}>
-                  <td>
-                    {row.displayName ?? '—'}
-                    <br />
-                    <small className={styles.mono}>{row.email}</small>
-                  </td>
-                  <td>
-                    <span className={row.status === 'suspended' ? styles.tagWarn : styles.tagMuted}>
-                      {row.status === 'suspended' ? t('admin.customers.suspended') : t('admin.customers.active')}
-                    </span>
-                    {row.flagged && <span className={styles.tagWarn}>{t('admin.customers.flagged')}</span>}
-                  </td>
-                  <td>{new Intl.DateTimeFormat(locale === 'bn' ? 'bn-BD' : 'en-US', { dateStyle: 'medium' }).format(new Date(row.createdAt))}</td>
-                  <td>{row.orderCount}</td>
-                  <td>
-                    {row.status === 'active' ? (
-                      <form className={styles.inlineForm} action="/api/admin/customers" method="post">
-                        <input type="hidden" name="csrf" value={csrfToken} />
-                        <input type="hidden" name="customerId" value={row.customerId} />
-                        <input
-                          type="text"
-                          name="reason"
-                          required
-                          minLength={10}
-                          maxLength={500}
-                          className={styles.tokenValue}
-                          style={{ maxWidth: '16rem' }}
-                          placeholder={t('admin.customers.reasonPlaceholder')}
-                        />
-                        <button type="submit" className={styles.buttonSecondary} disabled={!canSuspend}>
-                          {t('admin.customers.suspend')}
-                        </button>
-                      </form>
-                    ) : (
-                      <span className={styles.hint}>{t('admin.customers.suspendedNote')}</span>
+        <ul className={styles.recordList}>
+          {rows.map((row) => {
+            const active = row.status === 'active';
+            return (
+              <li className={styles.record} key={row.customerId}>
+                <span className={styles.recordThumb} aria-hidden="true">
+                  {(row.displayName ?? row.email).slice(0, 1).toUpperCase()}
+                </span>
+                <div className={styles.recordMain}>
+                  <span className={styles.recordTitle}>{row.displayName ?? row.email}</span>
+                  <span className={styles.recordMeta}>
+                    <span>{row.email}</span>
+                    <span>{t('admin.customers.joinedValue', { date: dateFormat.format(new Date(row.createdAt)) })}</span>
+                    <span>{t('admin.customers.ordersValue', { count: row.orderCount })}</span>
+                  </span>
+                </div>
+                <div className={styles.recordSide}>
+                  <StatusPill tone={active ? 'success' : 'danger'}>
+                    {active ? t('admin.customers.active') : t('admin.customers.suspended')}
+                  </StatusPill>
+                  {row.flagged && <StatusPill tone="warning">{t('admin.customers.flagged')}</StatusPill>}
+                  <div className={styles.recordActions}>
+                    <Link className={styles.recordLink} href={`/admin/customers/${row.customerId}`}>
+                      {t('admin.customers.view')}
+                    </Link>
+                    {active && canSuspend && (
+                      <ConfirmSubmit
+                        action="/api/admin/customers"
+                        csrfToken={csrfToken}
+                        fields={{ customerId: row.customerId }}
+                        triggerLabel={t('admin.customers.suspend')}
+                        title={t('admin.customers.suspendTitle')}
+                        body={t('admin.customers.suspendBody')}
+                        confirmLabel={t('admin.customers.suspend')}
+                        cancelLabel={t('admin.common.cancel')}
+                        pendingLabel={t('admin.common.working')}
+                        reason={{
+                          label: t('admin.customers.reasonLabel'),
+                          placeholder: t('admin.customers.reasonPlaceholder'),
+                          minLength: 10,
+                          maxLength: 500,
+                          required: true,
+                        }}
+                      />
                     )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+                  </div>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
       )}
-    </section>
+    </>
   );
 }

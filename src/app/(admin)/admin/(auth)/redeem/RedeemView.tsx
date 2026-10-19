@@ -1,8 +1,11 @@
 'use client';
 
 import Link from 'next/link';
+
 import { useTranslation } from '@/i18n/useTranslation';
 import { PASSWORD_MIN_LENGTH } from '@/lib/password-policy';
+import { Notice } from '../../_ui/Notice';
+import { SubmitButton } from '../../_ui/SubmitButton';
 import styles from '../../admin.module.css';
 
 export type RedeemError = 'invalidToken' | 'weakPassword' | 'mismatch' | 'accountDisabled' | null;
@@ -31,30 +34,32 @@ export function RedeemView({ error, token, done }: { error: RedeemError; token: 
   return (
     <div className={styles.centered}>
       <div className={styles.card}>
-        <h1>{t('admin.redeem.title')}</h1>
-        <p className={styles.lede}>{t('admin.redeem.body')}</p>
+        <Link href="/" className={styles.authBrand}>
+          <span aria-hidden="true">✦</span> QueenBee&apos;s
+        </Link>
+        <div>
+          <h1>{t('admin.redeem.title')}</h1>
+          <p className={styles.lede} style={{ marginTop: 'var(--space-2)' }}>
+            {t('admin.redeem.body')}
+          </p>
+        </div>
 
         {done ? (
           <>
-            <p className={`${styles.alert} ${styles.alertSuccess}`} role="status">
-              {t('admin.redeem.success')}
-            </p>
+            <Notice tone="success">{t('admin.redeem.success')}</Notice>
             <p className={styles.links}>
               <Link href="/admin/login">{t('admin.login.submit')}</Link>
             </p>
           </>
         ) : (
           <>
-            {error !== null ? (
-              <p className={`${styles.alert} ${styles.alertError}`} role="alert">
-                {errorText[error]}
-              </p>
-            ) : null}
+            {error !== null ? <Notice tone="error">{errorText[error]}</Notice> : null}
 
             <form className={styles.form} action="/api/admin/session/redeem" method="post">
               <div className={styles.field}>
                 <label htmlFor="redeem-token">{t('admin.redeem.tokenLabel')}</label>
                 <input
+                  className={styles.input}
                   id="redeem-token"
                   name="token"
                   type="text"
@@ -71,6 +76,7 @@ export function RedeemView({ error, token, done }: { error: RedeemError; token: 
               <div className={styles.field}>
                 <label htmlFor="redeem-password">{t('admin.redeem.passwordLabel')}</label>
                 <input
+                  className={styles.input}
                   id="redeem-password"
                   name="password"
                   type="password"
@@ -86,6 +92,7 @@ export function RedeemView({ error, token, done }: { error: RedeemError; token: 
               <div className={styles.field}>
                 <label htmlFor="redeem-confirm">{t('admin.redeem.confirmLabel')}</label>
                 <input
+                  className={styles.input}
                   id="redeem-confirm"
                   name="confirm"
                   type="password"
@@ -94,9 +101,7 @@ export function RedeemView({ error, token, done }: { error: RedeemError; token: 
                   autoComplete="new-password"
                 />
               </div>
-              <button type="submit" className={styles.button}>
-                {t('admin.redeem.submit')}
-              </button>
+              <SubmitButton label={t('admin.redeem.submit')} pendingLabel={t('admin.common.working')} wide />
             </form>
 
             <p className={styles.links}>

@@ -2,6 +2,12 @@
 
 import { useTranslation } from '@/i18n/useTranslation';
 import type { TranslationKey } from '@/i18n/dictionaries';
+import { ConfirmSubmit } from '../../_ui/ConfirmSubmit';
+import { EmptyState } from '../../_ui/EmptyState';
+import { Notice } from '../../_ui/Notice';
+import { PageHeader } from '../../_ui/PageHeader';
+import { StatusPill } from '../../_ui/StatusPill';
+import { SubmitButton } from '../../_ui/SubmitButton';
 import styles from '../../admin.module.css';
 
 export type OwnerRow = {
@@ -44,7 +50,7 @@ const ERROR_NOTICES: readonly OwnerNotice[] = ['denied', 'conflict', 'exists', '
  * and the same-origin header server-side, so the interface is a convenience and never the control.
  *
  * There is deliberately no role picker: a new account is an owner, and that is the only kind of account
- * this screen can create.
+ * this screen can create. Disabling another owner is confirmed with its consequence written out.
  */
 export function OwnersView({
   owners,
@@ -72,161 +78,130 @@ export function OwnersView({
 
   return (
     <>
-      <section className={styles.section}>
-        <div className={styles.sectionHead}>
-          <h1>{t('admin.owners.title')}</h1>
-          <p>{t('admin.owners.body')}</p>
-        </div>
+      <PageHeader eyebrow={t('admin.nav.group.system')} title={t('admin.owners.title')} description={t('admin.owners.body')} />
 
-        {notice !== null && (
-          <p className={noticeIsError ? `${styles.alert} ${styles.alertError}` : `${styles.alert} ${styles.alertSuccess}`}>
-            {t(NOTICE_KEYS[notice])}
+      {notice !== null && (
+        <Notice tone={noticeIsError ? 'error' : 'success'}>{t(NOTICE_KEYS[notice])}</Notice>
+      )}
+
+      {/* Shown exactly once, and only to the browser that performed the action. Kept before any form
+          so the one-time token is the first opaque value in the document. */}
+      {issuedToken !== null && (
+        <div className={styles.tokenBox}>
+          <strong>{t('admin.owners.tokenTitle')}</strong>
+          <p className={styles.note}>{t('admin.owners.tokenBody')}</p>
+          <p className={styles.tokenValue}>{issuedToken.token}</p>
+          <p className={styles.hint}>
+            {t('admin.owners.tokenExpires')}: {format(issuedToken.expiresAt)}
           </p>
-        )}
+        </div>
+      )}
 
-        {/* Shown exactly once, and only to the browser that performed the action. */}
-        {issuedToken !== null && (
-          <div className={styles.tokenBox}>
-            <strong>{t('admin.owners.tokenTitle')}</strong>
-            <p className={styles.note}>{t('admin.owners.tokenBody')}</p>
-            <p className={styles.tokenValue}>{issuedToken.token}</p>
-            <p className={styles.hint}>
-              {t('admin.owners.tokenExpires')}: {format(issuedToken.expiresAt)}
-            </p>
-          </div>
-        )}
-      </section>
-
-      <section className={styles.section}>
+      <section className={styles.section} aria-labelledby="owners-list-heading">
         <div className={styles.sectionHead}>
-          <h2>{t('admin.owners.listTitle')}</h2>
+          <h2 id="owners-list-heading">{t('admin.owners.listTitle')}</h2>
+          <p>{t('admin.owners.listBody')}</p>
         </div>
 
         {owners.length === 0 ? (
-          <p className={styles.empty}>{t('admin.owners.empty')}</p>
+          <EmptyState title={t('admin.owners.emptyTitle')} body={t('admin.owners.emptyBody')} icon="owners" />
         ) : (
-          <div className={styles.tableWrap}>
-            <table className={styles.table}>
-              <thead>
-                <tr>
-                  <th>{t('admin.owners.displayName')}</th>
-                  <th>{t('admin.owners.status')}</th>
-                  <th>{t('admin.owners.credentialSet')}</th>
-                  <th>{t('admin.owners.lastSeen')}</th>
-                  <th>{t('admin.owners.actions')}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {owners.map((owner) => {
-                  const isSelf = owner.id === currentStaffUserId;
-                  const active = owner.status === 'active';
-                  return (
-                    <tr key={owner.id}>
-                      <td>
-                        {owner.displayName}
-                        {isSelf && (
-                          <>
-                            {' '}
-                            <span className={styles.tag}>{t('admin.owners.you')}</span>
-                          </>
+          <ul className={styles.recordList}>
+            {owners.map((owner) => {
+              const isSelf = owner.id === currentStaffUserId;
+              const active = owner.status === 'active';
+              return (
+                <li className={styles.record} key={owner.id}>
+                  <span className={styles.recordThumb} aria-hidden="true">
+                    {owner.displayName.slice(0, 1).toUpperCase()}
+                  </span>
+                  <div className={styles.recordMain}>
+                    <span className={styles.recordTitle}>
+                      {owner.displayName}{' '}
+                      {isSelf && <StatusPill tone="info">{t('admin.owners.you')}</StatusPill>}
+                    </span>
+                    <span className={styles.recordMeta}>
+                      <span>{owner.email}</span>
+                      <span>
+                        {owner.lastSeenAt === null
+                          ? t('admin.owners.never')
+                          : t('admin.owners.lastSeenValue', { time: format(owner.lastSeenAt) })}
+                      </span>
+                      {!owner.hasCredential && <span className={styles.tagWarn}>{t('admin.owners.credentialNotSet')}</span>}
+                    </span>
+                  </div>
+                  <div className={styles.recordSide}>
+                    <StatusPill tone={active ? 'success' : 'danger'}>
+                      {active ? t('admin.owners.statusActive') : t('admin.owners.statusDisabled')}
+                    </StatusPill>
+                    {canManage && (
+                      <div className={styles.recordActions}>
+                        <form action="/api/admin/owners/credential" method="post">
+                          <input type="hidden" name="csrf" value={csrfToken} />
+                          <input type="hidden" name="staffUserId" value={owner.id} />
+                          <SubmitButton
+                            label={t('admin.owners.issueToken')}
+                            pendingLabel={t('admin.common.working')}
+                            variant="secondary"
+                            small
+                          />
+                        </form>
+                        {/* Self-disable is refused by the service, so the control is not offered. */}
+                        {!isSelf && (
+                          <ConfirmSubmit
+                            action="/api/admin/owners/status"
+                            csrfToken={csrfToken}
+                            fields={{ staffUserId: owner.id, operation: active ? 'disable' : 'enable' }}
+                            triggerLabel={active ? t('admin.owners.disable') : t('admin.owners.enable')}
+                            triggerVariant={active ? 'dangerOutline' : 'secondary'}
+                            title={active ? t('admin.owners.disable') : t('admin.owners.enable')}
+                            body={active ? t('admin.owners.disableBody') : t('admin.owners.enableBody')}
+                            confirmLabel={active ? t('admin.owners.disable') : t('admin.owners.enable')}
+                            cancelLabel={t('admin.common.cancel')}
+                            pendingLabel={t('admin.common.working')}
+                          />
                         )}
-                        <br />
-                        <span className={styles.mono}>{owner.email}</span>
-                      </td>
-                      <td>
-                        {active ? (
-                          <span className={styles.tag}>{t('admin.owners.statusActive')}</span>
-                        ) : (
-                          <span className={`${styles.tag} ${styles.tagWarn}`}>
-                            {t('admin.owners.statusDisabled')}
-                          </span>
-                        )}
-                      </td>
-                      <td>
-                        {owner.hasCredential ? (
-                          t('admin.owners.credentialSet')
-                        ) : (
-                          <span className={styles.tagMuted}>{t('admin.owners.credentialNotSet')}</span>
-                        )}
-                      </td>
-                      <td>
-                        {owner.lastSeenAt === null ? (
-                          <span className={styles.tagMuted}>{t('admin.owners.never')}</span>
-                        ) : (
-                          format(owner.lastSeenAt)
-                        )}
-                      </td>
-                      <td>
-                        {canManage && (
-                          <div className={styles.inlineForm}>
-                            <form className={styles.inlineForm} action="/api/admin/owners/credential" method="post">
-                              <input type="hidden" name="csrf" value={csrfToken} />
-                              <input type="hidden" name="staffUserId" value={owner.id} />
-                              <button
-                                type="submit"
-                                className={`${styles.button} ${styles.buttonSecondary} ${styles.buttonSmall}`}
-                              >
-                                {t('admin.owners.issueToken')}
-                              </button>
-                            </form>
-                            {/* Self-disable is refused by the service, so the control is not offered. */}
-                            {!isSelf && (
-                              <form
-                                className={styles.inlineForm}
-                                action="/api/admin/owners/status"
-                                method="post"
-                                onSubmit={(event) => {
-                                  if (active && !window.confirm(t('admin.owners.lastOwnerNote'))) {
-                                    event.preventDefault();
-                                  }
-                                }}
-                              >
-                                <input type="hidden" name="csrf" value={csrfToken} />
-                                <input type="hidden" name="staffUserId" value={owner.id} />
-                                <input type="hidden" name="operation" value={active ? 'disable' : 'enable'} />
-                                <button
-                                  type="submit"
-                                  className={`${styles.button} ${styles.buttonSecondary} ${styles.buttonSmall}`}
-                                >
-                                  {active ? t('admin.owners.disable') : t('admin.owners.enable')}
-                                </button>
-                              </form>
-                            )}
-                          </div>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                      </div>
+                    )}
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
         )}
 
-        <p className={styles.note}>{t('admin.owners.selfNote')}</p>
-        <p className={styles.note}>{t('admin.owners.lastOwnerNote')}</p>
-        <p className={styles.note}>{t('admin.owners.noSelfRegistration')}</p>
+        <ul className={styles.dividerList}>
+          <li className={styles.dividerItem}>
+            <span className={styles.note}>{t('admin.owners.selfNote')}</span>
+          </li>
+          <li className={styles.dividerItem}>
+            <span className={styles.note}>{t('admin.owners.lastOwnerNote')}</span>
+          </li>
+          <li className={styles.dividerItem}>
+            <span className={styles.note}>{t('admin.owners.noSelfRegistration')}</span>
+          </li>
+        </ul>
       </section>
 
       {canManage && (
-        <section className={styles.section}>
+        <section className={styles.section} aria-labelledby="create-owner-heading">
           <div className={styles.sectionHead}>
-            <h2>{t('admin.owners.createTitle')}</h2>
+            <h2 id="create-owner-heading">{t('admin.owners.createTitle')}</h2>
             <p>{t('admin.owners.createBody')}</p>
           </div>
-          <form className={styles.form} action="/api/admin/owners" method="post">
+          <form className={`${styles.panel} ${styles.form} ${styles.formNarrow}`} action="/api/admin/owners" method="post">
             <input type="hidden" name="csrf" value={csrfToken} />
             <div className={styles.field}>
               <label htmlFor="displayName">{t('admin.owners.displayName')}</label>
-              <input id="displayName" name="displayName" required maxLength={80} />
+              <input className={styles.input} id="displayName" name="displayName" required maxLength={80} />
             </div>
             <div className={styles.field}>
               <label htmlFor="email">{t('admin.owners.email')}</label>
-              <input id="email" name="email" type="email" required maxLength={254} />
+              <input className={styles.input} id="email" name="email" type="email" required maxLength={254} />
             </div>
-            <button type="submit" className={styles.button}>
-              {t('admin.owners.createSubmit')}
-            </button>
+            <div className={styles.formActions}>
+              <SubmitButton label={t('admin.owners.createSubmit')} pendingLabel={t('admin.common.working')} />
+            </div>
           </form>
         </section>
       )}

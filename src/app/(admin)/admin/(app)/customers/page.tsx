@@ -9,9 +9,13 @@ export const dynamic = 'force-dynamic';
 
 const NOTICES: readonly CustomerNotice[] = ['suspended', 'denied', 'conflict', 'invalid'];
 
-function readNotice(value: string | string[] | undefined): CustomerNotice | null {
+function single(value: string | string[] | undefined): string {
   const candidate = Array.isArray(value) ? value[0] : value;
-  if (candidate === undefined) return null;
+  return candidate ?? '';
+}
+
+function readNotice(value: string | string[] | undefined): CustomerNotice | null {
+  const candidate = single(value);
   return (NOTICES as readonly string[]).includes(candidate) ? (candidate as CustomerNotice) : null;
 }
 
@@ -21,7 +25,7 @@ function readNotice(value: string | string[] | undefined): CustomerNotice | null
  * Viewing requires `customer.read`; suspending requires `customer.suspend` and is re-checked server
  * side, calls the existing `suspendCustomer` primitive (which revokes every live session and writes
  * the audited reason), and is only ever an owner decision made on a confirmed finding - never a
- * consequence of a COD decision.
+ * consequence of a COD decision. Search is a literal match on email or display name.
  */
 export default async function AdminCustomersPage({
   searchParams,
@@ -30,8 +34,9 @@ export default async function AdminCustomersPage({
 }) {
   const principal = await requireAdminPage(PERMISSIONS.customerRead);
   const params = await searchParams;
+  const search = single(params.q).slice(0, 80);
 
-  const rows = await withTransaction((tx) => customers(tx));
+  const rows = await withTransaction((tx) => customers(tx, { search }));
 
   return (
     <CustomersView
@@ -47,6 +52,7 @@ export default async function AdminCustomersPage({
       notice={readNotice(params.notice)}
       csrfToken={principal.csrfToken}
       canSuspend={hasPermission(principal, PERMISSIONS.customerSuspend)}
+      search={search}
     />
   );
 }

@@ -1,6 +1,7 @@
 'use client';
 
 import { useTranslation } from '@/i18n/useTranslation';
+import { Notice } from './_ui/Notice';
 import styles from './admin.module.css';
 
 /**
@@ -18,6 +19,7 @@ export default function AdminError({ reset }: { error: Error; reset: () => void 
       <div className={styles.card}>
         <h1>{t('admin.error.title')}</h1>
         <p className={styles.lede}>{t('admin.error.body')}</p>
+        <Notice tone="error">{t('admin.error.body')}</Notice>
         <button type="button" className={styles.button} onClick={reset}>
           {t('common.retry')}
         </button>

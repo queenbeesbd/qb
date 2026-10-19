@@ -1,6 +1,8 @@
 'use client';
 
 import { useTranslation } from '@/i18n/useTranslation';
+import { EmptyState } from '../../_ui/EmptyState';
+import { PageHeader } from '../../_ui/PageHeader';
 import styles from '../../admin.module.css';
 
 export type AuditRow = {
@@ -32,21 +34,16 @@ export function AuditView({ rows, total, shown }: { rows: readonly AuditRow[]; t
     }).format(new Date(iso));
 
   return (
-    <section className={styles.section}>
-      <div className={styles.sectionHead}>
-        <h1>{t('admin.audit.title')}</h1>
-        <p>{t('admin.audit.body')}</p>
-      </div>
+    <>
+      <PageHeader eyebrow={t('admin.nav.group.system')} title={t('admin.audit.title')} description={t('admin.audit.body')} />
 
       {rows.length === 0 ? (
-        <div className={styles.tableWrap}>
-          <p className={styles.empty}>{t('admin.audit.empty')}</p>
-        </div>
+        <EmptyState title={t('admin.audit.emptyTitle')} body={t('admin.audit.emptyBody')} icon="audit" />
       ) : (
         <>
           <div className={styles.tableWrap}>
             <table className={styles.table}>
-              <caption className="visually-hidden">{t('admin.audit.title')}</caption>
+              <caption className="sr-only">{t('admin.audit.title')}</caption>
               <thead>
                 <tr>
                   <th scope="col">{t('admin.audit.when')}</th>
@@ -84,6 +81,6 @@ export function AuditView({ rows, total, shown }: { rows: readonly AuditRow[]; t
           <p className={styles.note}>{t('admin.audit.showing', { shown, total })}</p>
         </>
       )}
-    </section>
+    </>
   );
 }

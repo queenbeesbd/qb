@@ -4,6 +4,13 @@ import Link from 'next/link';
 
 import { useTranslation } from '@/i18n/useTranslation';
 import type { TranslationKey } from '@/i18n/dictionaries';
+import { AdminIcon } from '../../_ui/icons';
+import { ConfirmSubmit } from '../../_ui/ConfirmSubmit';
+import { EmptyState } from '../../_ui/EmptyState';
+import { Notice } from '../../_ui/Notice';
+import { PageHeader } from '../../_ui/PageHeader';
+import { StatusPill } from '../../_ui/StatusPill';
+import { SubmitButton } from '../../_ui/SubmitButton';
 import styles from '../../admin.module.css';
 
 export type CategoryRow = {
@@ -34,9 +41,9 @@ const ERROR_NOTICES: readonly CategoriesNotice[] = ['denied', 'conflict', 'inval
 /**
  * Categories.
  *
- * Archiving is refused while a category still has live products or subcategories, so the product count is
- * shown in the list: the owner can see what is in the way before trying. The refusal itself happens on the
- * server, in the same transaction as the read that decides it.
+ * Archiving is refused while a category still has live products or subcategories, so the product count
+ * is shown in the list: the owner can see what is in the way before trying. The refusal itself happens on
+ * the server, in the same transaction as the read that decides it.
  */
 export function CategoriesView({
   categories,
@@ -44,15 +51,29 @@ export function CategoriesView({
   notice,
   canManage,
   csrfToken,
+  creating,
 }: {
   categories: readonly CategoryRow[];
-  editing: { id: number; slug: string; nameBn: string; nameEn: string; descriptionBn: string | null; descriptionEn: string | null; sortOrder: number; isVisible: boolean } | null;
+  editing:
+    | {
+        id: number;
+        slug: string;
+        nameBn: string;
+        nameEn: string;
+        descriptionBn: string | null;
+        descriptionEn: string | null;
+        sortOrder: number;
+        isVisible: boolean;
+      }
+    | null;
   notice: CategoriesNotice | null;
   canManage: boolean;
   csrfToken: string;
+  creating: boolean;
 }) {
   const { t } = useTranslation();
   const noticeIsError = notice !== null && ERROR_NOTICES.includes(notice);
+  const formOpen = editing !== null || (canManage && creating);
 
   const fields = (values: {
     slug?: string;
@@ -63,32 +84,50 @@ export function CategoriesView({
     sortOrder?: number;
     isVisible?: boolean;
   }) => (
-    <>
-      <div className={styles.field}>
-        <label htmlFor="categoryNameBn">{t('admin.categories.field.nameBn')}</label>
-        <input id="categoryNameBn" name="nameBn" required maxLength={80} defaultValue={values.nameBn ?? ''} />
-      </div>
-      <div className={styles.field}>
-        <label htmlFor="categoryNameEn">{t('admin.categories.field.nameEn')}</label>
-        <input id="categoryNameEn" name="nameEn" required maxLength={80} defaultValue={values.nameEn ?? ''} />
-      </div>
-      <div className={styles.field}>
-        <label htmlFor="categorySlug">{t('admin.categories.field.slug')}</label>
-        <input id="categorySlug" name="slug" defaultValue={values.slug ?? ''} />
-        <p className={styles.hint}>{t('admin.categories.field.slugHelp')}</p>
-      </div>
-      <div className={styles.field}>
-        <label htmlFor="categoryDescriptionBn">{t('admin.categories.field.descriptionBn')}</label>
-        <textarea
-          id="categoryDescriptionBn"
-          name="descriptionBn"
-          rows={2}
-          defaultValue={values.descriptionBn ?? ''}
-        />
+    <div className={styles.form}>
+      <div className={styles.formGrid}>
+        <div className={styles.field}>
+          <label htmlFor="categoryNameEn">{t('admin.categories.field.nameEn')}</label>
+          <input
+            className={styles.input}
+            id="categoryNameEn"
+            name="nameEn"
+            required
+            maxLength={80}
+            defaultValue={values.nameEn ?? ''}
+          />
+        </div>
+        <div className={styles.field}>
+          <label htmlFor="categoryNameBn">{t('admin.categories.field.nameBn')}</label>
+          <input
+            className={styles.input}
+            id="categoryNameBn"
+            name="nameBn"
+            required
+            maxLength={80}
+            defaultValue={values.nameBn ?? ''}
+          />
+        </div>
+        <div className={styles.field}>
+          <label htmlFor="categorySlug">{t('admin.categories.field.slug')}</label>
+          <input className={styles.input} id="categorySlug" name="slug" defaultValue={values.slug ?? ''} />
+          <p className={styles.hint}>{t('admin.categories.field.slugHelp')}</p>
+        </div>
+        <div className={styles.field}>
+          <label htmlFor="sortOrder">{t('admin.categories.field.sortOrder')}</label>
+          <input
+            className={styles.input}
+            id="sortOrder"
+            name="sortOrder"
+            inputMode="numeric"
+            defaultValue={values.sortOrder ?? 0}
+          />
+        </div>
       </div>
       <div className={styles.field}>
         <label htmlFor="categoryDescriptionEn">{t('admin.categories.field.descriptionEn')}</label>
         <textarea
+          className={styles.textarea}
           id="categoryDescriptionEn"
           name="descriptionEn"
           rows={2}
@@ -96,140 +135,122 @@ export function CategoriesView({
         />
       </div>
       <div className={styles.field}>
-        <label htmlFor="sortOrder">{t('admin.categories.field.sortOrder')}</label>
-        <input
-          id="sortOrder"
-          name="sortOrder"
-          inputMode="numeric"
-          defaultValue={values.sortOrder ?? 0}
+        <label htmlFor="categoryDescriptionBn">{t('admin.categories.field.descriptionBn')}</label>
+        <textarea
+          className={styles.textarea}
+          id="categoryDescriptionBn"
+          name="descriptionBn"
+          rows={2}
+          defaultValue={values.descriptionBn ?? ''}
         />
       </div>
-      <div className={styles.field}>
-        <label htmlFor="isVisible">
-          <input id="isVisible" name="isVisible" type="checkbox" defaultChecked={values.isVisible ?? true} />{' '}
-          {t('admin.categories.field.isVisible')}
-        </label>
-      </div>
-    </>
+      <label className={styles.checkboxRow} htmlFor="isVisible">
+        <input id="isVisible" name="isVisible" type="checkbox" defaultChecked={values.isVisible ?? true} />{' '}
+        {t('admin.categories.field.isVisible')}
+      </label>
+    </div>
   );
 
   return (
     <>
-      <section className={styles.section}>
-        <div className={styles.sectionHead}>
-          <h1>{t('admin.categories.title')}</h1>
-          <p>{t('admin.categories.body')}</p>
-        </div>
-
-        {notice !== null && (
-          <p className={noticeIsError ? `${styles.alert} ${styles.alertError}` : `${styles.alert} ${styles.alertSuccess}`}>
-            {t(NOTICE_KEYS[notice])}
-          </p>
-        )}
-      </section>
-
-      {canManage && editing === null && (
-        <section className={styles.section}>
-          <div className={styles.sectionHead}>
-            <h2>{t('admin.categories.createTitle')}</h2>
-          </div>
-          <form className={styles.form} action="/api/admin/catalog/category" method="post">
-            <input type="hidden" name="csrf" value={csrfToken} />
-            <input type="hidden" name="operation" value="create" />
-            {fields({})}
-            <button type="submit" className={styles.button}>
+      <PageHeader
+        eyebrow={t('admin.nav.group.commerce')}
+        title={editing === null ? t('admin.categories.title') : t('admin.categories.editTitle')}
+        description={editing === null ? t('admin.categories.body') : t('admin.categories.editBody')}
+        actions={
+          editing === null && !creating ? (
+            <Link className={styles.button} href="/admin/categories?new=1">
+              <AdminIcon name="plus" width={15} height={15} />
               {t('admin.categories.create')}
-            </button>
-          </form>
-        </section>
+            </Link>
+          ) : (
+            <Link className={styles.buttonSecondary} href="/admin/categories">
+              {t('admin.common.cancel')}
+            </Link>
+          )
+        }
+      />
+
+      {notice !== null && (
+        <Notice tone={noticeIsError ? 'error' : 'success'}>{t(NOTICE_KEYS[notice])}</Notice>
       )}
 
-      {canManage && editing !== null && (
-        <section className={styles.section}>
+      {formOpen && (
+        <section className={styles.section} aria-labelledby="category-form-heading">
           <div className={styles.sectionHead}>
-            <h2>{t('admin.categories.editTitle')}</h2>
-            <p className={styles.note}>
-              <Link href="/admin/categories">{t('admin.categories.editCancel')}</Link>
-            </p>
+            <h2 id="category-form-heading">
+              {editing === null ? t('admin.categories.createTitle') : t('admin.categories.editTitle')}
+            </h2>
+            {editing !== null && <p className={styles.mono}>{editing.slug}</p>}
           </div>
-          <form className={styles.form} action="/api/admin/catalog/category" method="post">
+          <form className={styles.panel} action="/api/admin/catalog/category" method="post">
             <input type="hidden" name="csrf" value={csrfToken} />
-            <input type="hidden" name="operation" value="update" />
-            <input type="hidden" name="categoryId" value={editing.id} />
-            {fields(editing)}
-            <button type="submit" className={styles.button}>
-              {t('admin.categories.save')}
-            </button>
+            <input type="hidden" name="operation" value={editing === null ? 'create' : 'update'} />
+            {editing !== null && <input type="hidden" name="categoryId" value={editing.id} />}
+            {fields(editing ?? {})}
+            <div className={styles.formActions}>
+              <SubmitButton
+                label={editing === null ? t('admin.categories.create') : t('admin.categories.save')}
+                pendingLabel={t('admin.common.working')}
+              />
+              <Link className={styles.recordLink} href="/admin/categories">
+                {t('admin.common.cancel')}
+              </Link>
+            </div>
           </form>
         </section>
       )}
 
-      <section className={styles.section}>
+      <section className={styles.section} aria-labelledby="category-list-heading">
         <div className={styles.sectionHead}>
-          <h2>{t('admin.categories.listTitle')}</h2>
+          <h2 id="category-list-heading">{t('admin.categories.listTitle')}</h2>
+          <p>{t('admin.categories.listBody')}</p>
         </div>
 
         {categories.length === 0 ? (
-          <p className={styles.empty}>{t('admin.categories.empty')}</p>
+          <EmptyState title={t('admin.categories.emptyTitle')} body={t('admin.categories.emptyBody')} icon="categories" />
         ) : (
-          <div className={styles.tableWrap}>
-            <table className={styles.table}>
-              <thead>
-                <tr>
-                  <th>{t('admin.categories.field.nameEn')}</th>
-                  <th>{t('admin.categories.field.sortOrder')}</th>
-                  <th>{t('admin.categories.visible')}</th>
-                  <th>{t('admin.categories.productCount')}</th>
-                  <th>{t('admin.owners.actions')}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {categories.map((category) => (
-                  <tr key={category.id}>
-                    <td>
-                      {category.nameEn}
-                      <br />
-                      <span className={styles.mono}>{category.slug}</span>
-                    </td>
-                    <td>{category.sortOrder}</td>
-                    <td>
-                      {category.isVisible ? (
-                        <span className={styles.tag}>{t('admin.categories.visible')}</span>
-                      ) : (
-                        <span className={styles.tagMuted}>{t('admin.categories.hidden')}</span>
-                      )}
-                    </td>
-                    <td>{category.productCount}</td>
-                    <td>
-                      <div className={styles.inlineForm}>
-                        <Link href={`/admin/categories?edit=${category.id}`}>{t('admin.categories.edit')}</Link>
-                        {canManage && (
-                          <form
-                            className={styles.inlineForm}
-                            action="/api/admin/catalog/category"
-                            method="post"
-                            onSubmit={(event) => {
-                              if (!window.confirm(t('admin.categories.archiveConfirm'))) event.preventDefault();
-                            }}
-                          >
-                            <input type="hidden" name="csrf" value={csrfToken} />
-                            <input type="hidden" name="operation" value="archive" />
-                            <input type="hidden" name="categoryId" value={category.id} />
-                            <button
-                              type="submit"
-                              className={`${styles.button} ${styles.buttonSecondary} ${styles.buttonSmall}`}
-                            >
-                              {t('admin.categories.archive')}
-                            </button>
-                          </form>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <ul className={styles.recordList}>
+            {categories.map((category) => (
+              <li className={styles.record} key={category.id}>
+                <span className={styles.recordThumb} aria-hidden="true">
+                  {category.nameEn.slice(0, 1).toUpperCase()}
+                </span>
+                <div className={styles.recordMain}>
+                  <span className={styles.recordTitle}>{category.nameEn}</span>
+                  <span className={styles.recordMeta}>
+                    <span className={styles.mono}>{category.slug}</span>
+                    <span>{t('admin.categories.productCountValue', { count: category.productCount })}</span>
+                    <span>{t('admin.categories.orderValue', { count: category.sortOrder })}</span>
+                  </span>
+                </div>
+                <div className={styles.recordSide}>
+                  <StatusPill tone={category.isVisible ? 'success' : 'neutral'}>
+                    {category.isVisible ? t('admin.categories.visible') : t('admin.categories.hidden')}
+                  </StatusPill>
+                  <div className={styles.recordActions}>
+                    <Link className={styles.recordLink} href={`/admin/categories?edit=${category.id}`}>
+                      {t('admin.categories.edit')}
+                    </Link>
+                    {canManage && (
+                      <ConfirmSubmit
+                        action="/api/admin/catalog/category"
+                        csrfToken={csrfToken}
+                        fields={{ operation: 'archive', categoryId: category.id }}
+                        triggerLabel={t('admin.categories.archive')}
+                        triggerVariant="ghost"
+                        title={t('admin.categories.archive')}
+                        body={t('admin.categories.archiveConfirm')}
+                        confirmLabel={t('admin.categories.archive')}
+                        cancelLabel={t('admin.common.cancel')}
+                        pendingLabel={t('admin.common.working')}
+                      />
+                    )}
+                  </div>
+                </div>
+              </li>
+            ))}
+          </ul>
         )}
       </section>
     </>

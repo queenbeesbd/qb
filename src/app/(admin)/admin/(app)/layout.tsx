@@ -13,9 +13,8 @@ import {
 import { currentStaffPrincipal } from '@/server/auth/guard';
 import { hasPermission } from '@/server/authz/principal';
 import { PERMISSIONS } from '@/server/authz/permissions';
-import { AdminHeader } from './AdminHeader';
-import type { AdminNavItem } from './AdminNav';
-import styles from '../admin.module.css';
+import { AdminShell } from '../_ui/AdminShell';
+import type { AdminNavItem } from '../_ui/nav';
 
 export const metadata: Metadata = {
   title: 'Admin',
@@ -40,37 +39,40 @@ export default async function AdminShellLayout({ children }: { children: React.R
   const principal = await currentStaffPrincipal();
   if (principal === null) redirect(LOGIN_PATH);
 
-  const items: AdminNavItem[] = [{ href: ADMIN_ROOT, labelKey: 'admin.nav.overview' }];
+  // Grouped by the owner's actual work, not by database table: the confirmation queue is the first
+  // commercial destination because it is the one that waits on a person. Each entry is gated by the
+  // same permission its page requires, so the rail cannot advertise a refusal.
+  const items: AdminNavItem[] = [
+    { href: ADMIN_ROOT, labelKey: 'admin.nav.overview', group: 'overview', icon: 'overview' },
+  ];
+  if (hasPermission(principal, PERMISSIONS.orderRead)) {
+    items.push({ href: COD_PATH, labelKey: 'admin.nav.cod', group: 'commerce', icon: 'orders' });
+  }
   if (hasPermission(principal, PERMISSIONS.catalogWrite)) {
-    items.push({ href: CATALOG_PATH, labelKey: 'admin.nav.catalog' });
-    items.push({ href: CATEGORIES_PATH, labelKey: 'admin.nav.categories' });
+    items.push({ href: CATALOG_PATH, labelKey: 'admin.nav.catalog', group: 'commerce', icon: 'package' });
+    items.push({ href: CATEGORIES_PATH, labelKey: 'admin.nav.categories', group: 'commerce', icon: 'categories' });
+  }
+  if (hasPermission(principal, PERMISSIONS.customerRead)) {
+    items.push({ href: CUSTOMERS_PATH, labelKey: 'admin.nav.customers', group: 'customers', icon: 'customers' });
   }
   if (hasPermission(principal, PERMISSIONS.staffRead)) {
-    items.push({ href: OWNERS_PATH, labelKey: 'admin.nav.owners' });
-  }
-  if (hasPermission(principal, PERMISSIONS.orderRead)) {
-    // Cash on Delivery is the only method this release accepts (Phase 17), so the owner's order
-    // worklist is the COD confirmation queue - there is no prepaid verification screen to link to.
-    items.push({ href: COD_PATH, labelKey: 'admin.nav.cod' });
-    items.push({ href: CUSTOMERS_PATH, labelKey: 'admin.nav.customers' });
+    items.push({ href: OWNERS_PATH, labelKey: 'admin.nav.owners', group: 'system', icon: 'owners' });
   }
   if (hasPermission(principal, PERMISSIONS.auditRead)) {
-    items.push({ href: `${ADMIN_ROOT}/audit`, labelKey: 'admin.nav.audit' });
+    items.push({ href: `${ADMIN_ROOT}/audit`, labelKey: 'admin.nav.audit', group: 'system', icon: 'audit' });
   }
 
   return (
-    <div className={styles.page}>
-      <AdminHeader
-        identity={{
-          displayName: principal.displayName,
-          roleCodes: principal.roles.map((role) => role.code),
-          csrfToken: principal.csrfToken,
-        }}
-        items={items}
-      />
-      <main id="admin-main" className={styles.main} tabIndex={-1}>
-        {children}
-      </main>
-    </div>
+    <AdminShell
+      identity={{
+        displayName: principal.displayName,
+        email: principal.email,
+        roleCodes: principal.roles.map((role) => role.code),
+        csrfToken: principal.csrfToken,
+      }}
+      items={items}
+    >
+      {children}
+    </AdminShell>
   );
 }

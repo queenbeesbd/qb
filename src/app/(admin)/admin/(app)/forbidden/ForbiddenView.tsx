@@ -17,14 +17,12 @@ export function ForbiddenView() {
   const { t } = useTranslation();
 
   return (
-    <section className={styles.section}>
-      <div className={styles.sectionHead}>
-        <h1>{t('admin.forbidden.title')}</h1>
-        <p>{t('admin.forbidden.body')}</p>
-      </div>
-      <Link className={styles.button} href="/admin">
+    <div className={styles.emptyState}>
+      <h1 className={styles.emptyTitle}>{t('admin.forbidden.title')}</h1>
+      <p className={styles.emptyBody}>{t('admin.forbidden.body')}</p>
+      <Link className={`${styles.button} ${styles.buttonSecondary} ${styles.buttonSmall}`} href="/admin">
         {t('admin.forbidden.home')}
       </Link>
-    </section>
+    </div>
   );
 }

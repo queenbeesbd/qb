@@ -7,7 +7,7 @@
 > counterparty**, and since ADR 0015 this release takes payment as **cash on delivery only** - no store
 > bKash/Nagad account is configured or reconciled here.
 
-Status: proposal, 2026-10-11; **reconciled 2026-10-16 against ADRs 0013 and 0014, and again 2026-10-17 against ADR 0015 (COD-only)**. Direction approved in `docs/decisions/0004-independent-platform-direction.md`; architecture in `docs/platform-architecture.md`. The owner/admin authentication, catalog, availability, COD queue and customer-moderation screens are **implemented (Phases 12-16, local only)**; the shipping, analytics and depth modules below are **not built**, and the **Phase 18 design brief** in this document is prepared but **not implemented**.
+Status: proposal, 2026-10-11; **reconciled 2026-10-16 against ADRs 0013 and 0014, again 2026-10-17 against ADR 0015 (COD-only), and updated 2026-10-19 when Phase 18 was implemented locally**. Direction approved in `docs/decisions/0004-independent-platform-direction.md`; architecture in `docs/platform-architecture.md`. The owner/admin authentication, catalog, availability, COD queue, customer moderation and **the Phase 18 application shell and dashboard** are **implemented (Phases 12-18, local only)**. The shipping, dispatch, cash-reconciliation, analytics and other depth modules below are **not built**.
 
 > **Reconciliation note (2026-10-16).** Three premises here are superseded:
 > 1. **No reservation and no stock release.** Under **ADR 0013** availability is the only ordering gate and no reservation is written, so any text below about a held reservation, releasing stock through the ledger, or low-stock alerts describes **unused design**.
@@ -155,12 +155,25 @@ timer and external notification channels (ADR 0014 decisions 11 and 12). The ava
 question is **settled** (ADR 0013: availability is the only gate). *(Which roles may act was D10 and is
 settled: owner-only, ADR 0009.)*
 
-## Phase 18 design brief - dashboard UX (prepared in Phase 17, not implemented)
+## Phase 18 design brief - dashboard UX (implemented locally, 2026-10-19)
 
-**Status:** a brief, not a mockup and not a redesign. Prepared from the code in `src/app/(admin)/` and
-`src/server/` as it exists after Phase 17, using the project's own design system
-(`docs/design-system.md`, `src/app/globals.css` tokens) and the installed Emil Kowalski design-engineering
-guidance (restraint, hierarchy, deliberate interaction details). **Nothing here is built yet.**
+**Status: implemented locally and verified; not deployed.** The brief below was prepared from the code as
+it existed after Phase 17, using the project's own design system (`docs/design-system.md`,
+`src/app/globals.css` tokens) and the installed Emil Kowalski design-engineering guidance. The delivered
+shell, components, motion, responsive rules and their limits are recorded in
+`docs/design-system.md` under *Admin surface*; verification evidence is in `docs/project-status.md`.
+
+**What shipped:** the grouped rail and mobile drawer; the operational overview (COD worklist first,
+attention second, quick access and catalog counts last); inline approval with a prefilled audit note and
+a confirmed rejection with a required reason; server-side search plus waiting/decided-today filters;
+product search, stock filter and the availability switch; category list/form consistency; a customer
+detail page with recorded orders and a guarded suspension; and one notice/empty/error vocabulary.
+
+**What the brief deferred and remains unbuilt:** dispatch/consignment, cash collection and reconciliation,
+refund and cancellation recording, owner-operated customer credential reset, analytics, delivery-charge
+configuration, and any route-level loading skeleton (rejected in Phase 18 because it weakens the refusal
+contract - see `docs/design-system.md`). The status, rather than the customer account, is still the only
+place a decided COD order appears; there is no order detail page yet.
 
 ### What the audit found (the evidence this brief rests on)
 

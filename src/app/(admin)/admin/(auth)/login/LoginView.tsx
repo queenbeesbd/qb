@@ -1,7 +1,10 @@
 'use client';
 
 import Link from 'next/link';
+
 import { useTranslation } from '@/i18n/useTranslation';
+import { Notice } from '../../_ui/Notice';
+import { SubmitButton } from '../../_ui/SubmitButton';
 import styles from '../../admin.module.css';
 
 export type LoginError = 'invalid' | 'throttled' | null;
@@ -23,13 +26,20 @@ export function LoginView({ error, next }: { error: LoginError; next: string }) 
   return (
     <div className={styles.centered}>
       <div className={styles.card}>
-        <h1>{t('admin.login.title')}</h1>
-        <p className={styles.lede}>{t('admin.login.body')}</p>
+        <Link href="/" className={styles.authBrand}>
+          <span aria-hidden="true">✦</span> QueenBee&apos;s
+        </Link>
+        <div>
+          <h1>{t('admin.login.title')}</h1>
+          <p className={styles.lede} style={{ marginTop: 'var(--space-2)' }}>
+            {t('admin.login.body')}
+          </p>
+        </div>
 
         {error !== null ? (
-          <p className={`${styles.alert} ${styles.alertError}`} role="alert">
+          <Notice tone="error">
             {error === 'throttled' ? t('admin.login.throttled') : t('admin.login.failed')}
-          </p>
+          </Notice>
         ) : null}
 
         <form className={styles.form} action="/api/admin/session/login" method="post">
@@ -37,6 +47,7 @@ export function LoginView({ error, next }: { error: LoginError; next: string }) 
           <div className={styles.field}>
             <label htmlFor="login-email">{t('admin.login.email')}</label>
             <input
+              className={styles.input}
               id="login-email"
               name="email"
               type="email"
@@ -47,16 +58,19 @@ export function LoginView({ error, next }: { error: LoginError; next: string }) 
           </div>
           <div className={styles.field}>
             <label htmlFor="login-password">{t('admin.login.password')}</label>
-            <input id="login-password" name="password" type="password" required autoComplete="current-password" />
+            <input
+              className={styles.input}
+              id="login-password"
+              name="password"
+              type="password"
+              required
+              autoComplete="current-password"
+            />
           </div>
-          <button type="submit" className={styles.button}>
-            {t('admin.login.submit')}
-          </button>
+          <SubmitButton label={t('admin.login.submit')} pendingLabel={t('admin.common.working')} wide />
         </form>
 
-        <p className={styles.note} style={{ marginTop: 'var(--space-5)' }}>
-          {t('admin.login.noSelfRegistration')}
-        </p>
+        <p className={styles.note}>{t('admin.login.noSelfRegistration')}</p>
         <p className={styles.links}>
           <Link href="/admin/redeem">{t('admin.login.redeemLink')}</Link>
         </p>

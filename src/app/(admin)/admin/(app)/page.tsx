@@ -1,65 +1,100 @@
-import { PERMISSIONS } from '@/server/authz/permissions';
-import {
-  countAuditEvents,
-  countOpenOperationalExceptions,
-} from '@/server/auth/audit';
-import { countCodApprovalQueue } from '@/server/orders/manage';
-import { requireAdminPage } from '@/server/auth/guard';
-import { countOwnerAccounts } from '@/server/authz/owners';
-import { countCatalog } from '@/server/catalog/read';
 import { withTransaction } from '@/db/client';
-import { OverviewView, type Fact } from './OverviewView';
+import { requestNowIso } from '@/lib/clock';
+import { requireAdminPage } from '@/server/auth/guard';
+import { hasPermission } from '@/server/authz/principal';
+import { PERMISSIONS } from '@/server/authz/permissions';
+import { countCatalog } from '@/server/catalog/read';
+import {
+  codQueue,
+  countRecentDenials,
+  flaggedCustomers,
+  type CodQueueItem,
+  type FlaggedCustomer,
+} from '@/server/orders/admin-read';
+import { OverviewView } from './OverviewView';
 
 /** The overview is a session-scoped page; nothing here is cached. */
 export const dynamic = 'force-dynamic';
 
+/** How many orders the overview shows before sending the owner to the full queue. */
+const OVERVIEW_LIMIT = 5;
+
 /**
- * The overview.
+ * The overview answers one question: what needs the owner right now?
  *
- * It requires `staff.read`, which every owner-level account holds. It shows **only counts that exist** -
- * orders and payments are worklist counts, not revenue figures, and a placeholder would be a
- * fabricated metric.
+ * The old facts grid counted rows whether or not anything was waiting, so it answered "how much is
+ * there". This page leads with the COD worklist - the only queue that waits on a person - then
+ * everything that is blocked or refused, then reference counts. Every figure is a count of rows
+ * that exist; there is no revenue, conversion or growth metric because the application cannot
+ * substantiate one.
  *
- * The Phase 12 role and permission counters were removed in Phase 13: they described a role model that is
- * no longer part of the launch surface (D10, ADR 0009), and a count of rows nobody operates is dashboard
- * clutter. Owner accounts and catalog counts replace them.
+ * Requires `staff.read`, which every owner-level account holds. The sections inside are gated by the
+ * permission their destination requires, so the page never links to a refusal.
  */
 export default async function AdminOverviewPage() {
   const principal = await requireAdminPage(PERMISSIONS.staffRead);
+  const canReadOrders = hasPermission(principal, PERMISSIONS.orderRead);
+  const canReadCustomers = hasPermission(principal, PERMISSIONS.customerRead);
+  const canReadAudit = hasPermission(principal, PERMISSIONS.auditRead);
+  const canReadCatalog = hasPermission(principal, PERMISSIONS.catalogWrite);
 
-  const { owners, catalog, auditEvents, codQueue, openExceptions } = await withTransaction(
-    async (tx) => ({
-      owners: await countOwnerAccounts(tx),
-      catalog: await countCatalog(tx),
-      auditEvents: await countAuditEvents(tx),
-      codQueue: await countCodApprovalQueue(tx),
-      openExceptions: await countOpenOperationalExceptions(tx),
-    }),
-  );
+  const data = await withTransaction(async (tx) => {
+    const pending = canReadOrders ? await codQueue(tx) : [];
+    const flagged = canReadCustomers ? await flaggedCustomers(tx) : [];
+    const denials = canReadAudit ? await countRecentDenials(tx) : null;
+    const catalog = canReadCatalog ? await countCatalog(tx) : null;
+    return { pending, flagged, denials, catalog };
+  });
 
-  const facts: Fact[] = [
-    { labelKey: 'admin.overview.codQueue', value: codQueue },
-    { labelKey: 'admin.overview.openExceptions', value: openExceptions },
-    { labelKey: 'admin.overview.ownerTotal', value: owners.total },
-    { labelKey: 'admin.overview.ownerActive', value: owners.active },
-    { labelKey: 'admin.overview.catalogProducts', value: catalog.products },
-    { labelKey: 'admin.overview.catalogPublished', value: catalog.productsPublished },
-    { labelKey: 'admin.overview.catalogInStock', value: catalog.productsInStock },
-    { labelKey: 'admin.overview.catalogOutOfStock', value: catalog.productsOutOfStock },
-    { labelKey: 'admin.overview.categories', value: catalog.categories },
-    { labelKey: 'admin.overview.brands', value: catalog.brands },
-    { labelKey: 'admin.overview.images', value: catalog.images },
-    { labelKey: 'admin.overview.auditEvents', value: auditEvents },
-  ];
+  const pending = data.pending;
+  const oldest = pending[0] ?? null;
 
   return (
     <OverviewView
-      facts={facts}
-      session={{
-        email: principal.email,
-        absoluteExpiresAt: principal.absoluteExpiresAt.toISOString(),
-        idleExpiresAt: principal.idleExpiresAt.toISOString(),
-      }}
+      nowIso={requestNowIso()}
+      pending={pending.slice(0, OVERVIEW_LIMIT).map(serializeOrder)}
+      pendingCount={pending.length}
+      oldestPlacedAt={oldest === null ? null : oldest.placedAt.toISOString()}
+      moreCount={Math.max(0, pending.length - OVERVIEW_LIMIT)}
+      flagged={data.flagged.map(serializeFlag)}
+      denials={data.denials}
+      catalog={data.catalog}
+      csrfToken={principal.csrfToken}
+      canApprove={hasPermission(principal, PERMISSIONS.codApprove)}
+      canCancel={hasPermission(principal, PERMISSIONS.orderCancel)}
+      canReadOrders={canReadOrders}
+      canReadCustomers={canReadCustomers}
+      canReadAudit={canReadAudit}
+      canReadCatalog={canReadCatalog}
     />
   );
+}
+
+function serializeOrder(row: CodQueueItem) {
+  return {
+    orderId: row.orderId,
+    orderNumber: row.orderNumber,
+    placedAt: row.placedAt.toISOString(),
+    totalMinor: row.totalMinor,
+    recipientName: row.recipientName,
+    recipientPhone: row.recipientPhone,
+    area: row.area,
+    city: row.city,
+    addressLine: row.addressLine,
+    items: row.items.map((item) => ({
+      nameBn: item.nameBn,
+      nameEn: item.nameEn,
+      quantity: item.quantity,
+      lineTotalMinor: item.lineTotalMinor,
+    })),
+  };
+}
+
+function serializeFlag(row: FlaggedCustomer) {
+  return {
+    customerId: row.customerId,
+    displayName: row.displayName,
+    email: row.email,
+    reason: row.reason,
+  };
 }

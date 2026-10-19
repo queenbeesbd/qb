@@ -23,6 +23,7 @@
 import { sql } from 'drizzle-orm';
 
 import type { Transaction } from '@/db/client';
+import { likeTerm } from '@/lib/search';
 import {
   brand,
   category,
@@ -405,7 +406,10 @@ export type ProductInput = {
  * the schema puts them - the storefront's `Product.priceMinor` is the same value projected through the
  * read layer.
  */
-export async function listProductsForAdmin(tx: Transaction): Promise<
+export async function listProductsForAdmin(
+  tx: Transaction,
+  options: { readonly search?: string; readonly availability?: 'in_stock' | 'out_of_stock' } = {},
+): Promise<
   {
     id: number;
     slug: string;
@@ -423,6 +427,20 @@ export async function listProductsForAdmin(tx: Transaction): Promise<
     primaryImageKey: string | null;
   }[]
 > {
+  const search = options.search?.trim() ?? '';
+  const searchClause =
+    search === ''
+      ? sql`true`
+      : sql`(${product.nameEn} ilike ${likeTerm(search)}
+          or ${product.nameBn} ilike ${likeTerm(search)}
+          or ${product.slug} ilike ${likeTerm(search)}
+          or exists (
+            select 1 from "product_variant"
+            where "product_variant"."product_id" = ${product.id}
+              and "product_variant"."is_default"
+              and "product_variant"."sku" ilike ${likeTerm(search)}
+          ))`;
+  const availability = options.availability ?? null;
   return tx
     .select({
       id: product.id,
@@ -463,7 +481,13 @@ export async function listProductsForAdmin(tx: Transaction): Promise<
     .from(product)
     .innerJoin(category, sql`${category.id} = ${product.categoryId}`)
     .innerJoin(brand, sql`${brand.id} = ${product.brandId}`)
-    .where(sql`${product.deletedAt} is null`)
+    // Filters narrow an owner-facing list only. They apply over the same "live row" predicate, so a
+    // search cannot reveal an archived product, and availability stays the binary state it is.
+    .where(
+      sql`${product.deletedAt} is null
+          and (${availability}::text is null or ${product.availability} = ${availability})
+          and ${searchClause}`,
+    )
     .orderBy(product.nameEn);
 }
 
