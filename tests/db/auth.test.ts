@@ -557,7 +557,7 @@ describe('staff authentication', { skip: toolingAvailable ? false : SKIP_REASON 
     const roleId = Number(inserted.rows[0]?.id);
     const privileged = await fixture.pool.query<{ id: string }>(
       `select id from permission where code = $1`,
-      [PERMISSIONS.paymentVerify],
+      [PERMISSIONS.codApprove],
     );
     const permissionId = Number(privileged.rows[0]?.id);
 
@@ -607,7 +607,7 @@ describe('staff authentication', { skip: toolingAvailable ? false : SKIP_REASON 
     const held = await fixture.db.transaction((tx) => loadStaffPermissions(tx, supportId));
     assert.deepEqual([...held], [PERMISSIONS.orderRead]);
     assert.ok(!held.has(PERMISSIONS.staffManage));
-    assert.ok(!held.has(PERMISSIONS.paymentVerify));
+    assert.ok(!held.has(PERMISSIONS.codApprove));
 
     await fixture.pool.query(`delete from staff_role where staff_user_id = $1`, [supportId]);
     await fixture.pool.query(`delete from staff_user where id = $1`, [supportId]);

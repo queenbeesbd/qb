@@ -3,11 +3,11 @@ import { after, before, describe, it } from 'node:test';
 
 import { OrderRefusalError, createOrder } from '../../src/server/orders/create';
 import { getCustomerOrderDetail, listCustomerOrders } from '../../src/server/orders/read';
-import { ORDER_LIMITS, type ContactInput, type PaymentMethodInput } from '../../src/server/orders/validation';
+import { ORDER_LIMITS, type ContactInput } from '../../src/server/orders/validation';
 import { SKIP_REASON, startMigratedDatabase, toolingAvailable, type DbFixture } from './helpers';
 
 /**
- * Order creation against real PostgreSQL (Phase 15, ADR 0013).
+ * Cash on Delivery order creation against real PostgreSQL (Phase 15, ADR 0013; COD-only since Phase 17).
  *
  * These tests are the evidence for the phase's correctness claims, and they are deliberately narrow
  * about what that means: an order is priced from **database state**, refuses an unorderable product and
@@ -15,6 +15,10 @@ import { SKIP_REASON, startMigratedDatabase, toolingAvailable, type DbFixture } 
  * when it refuses. There is **no oversell test to write**: under ADR 0013 availability is the only gate,
  * no reservation or deduction is written, and two valid submissions for the same product are both
  * allowed - that is the accepted behaviour, not a gap this suite can close.
+ *
+ * Cash on Delivery is the **only** method `createOrder` accepts: the method is not an input, so these
+ * tests also assert that no prepaid claim, sender number or transaction reference can be written by a
+ * submission.
  */
 
 const CONTACT: ContactInput = {
@@ -34,7 +38,7 @@ function submissionKey(seed: string): string {
   return (seed + '-' + String(sequence).padStart(6, '0') + '-abcdefghij').slice(0, 64);
 }
 
-describe('order creation', { skip: toolingAvailable ? false : SKIP_REASON }, () => {
+describe('order creation (Cash on Delivery only)', { skip: toolingAvailable ? false : SKIP_REASON }, () => {
   let fixture: DbFixture;
 
   async function createCustomer(email: string, status = 'active'): Promise<number> {
@@ -79,48 +83,12 @@ describe('order creation', { skip: toolingAvailable ? false : SKIP_REASON }, () 
     return { productId, variantId: Number(variant.rows[0]?.id), sku, nameEn };
   }
 
-  /** One active recipient row for a method; reused across tests in the file, created on demand. */
-  async function recipientId(method: 'bkash' | 'nagad'): Promise<number> {
-    const existing = await fixture.pool.query<{ id: string }>(
-      `select id from payment_recipient where method = $1 and is_active limit 1`,
-      [method],
-    );
-    if (existing.rows[0] !== undefined) return Number(existing.rows[0].id);
-    const staff = await fixture.pool.query<{ id: string }>(
-      `insert into staff_user (email, display_name) values ($1, 'Staff') returning id`,
-      ['staff-recipient-' + method + '-' + Date.now() + '@example.test'],
-    );
-    const inserted = await fixture.pool.query<{ id: string }>(
-      `insert into payment_recipient (method, account_number, account_label, created_by_staff_id)
-       values ($1, '01711111111', 'Test', $2) returning id`,
-      [method, Number(staff.rows[0]?.id)],
-    );
-    return Number(inserted.rows[0]?.id);
-  }
-
   async function place(
     customerId: number,
     lines: { productId: number; quantity: number }[],
-    options: {
-      key?: string;
-      fingerprint?: string;
-      paymentMethod?: PaymentMethodInput;
-      contact?: ContactInput;
-      /** Prepaid claim fields; a claimed order is the default for a prepaid method. */
-      claim?: { senderMsisdn?: string; transactionReference?: string; claimedAmount?: number } | null;
-    } = {},
+    options: { key?: string; fingerprint?: string; contact?: ContactInput } = {},
   ) {
     const key = options.key ?? submissionKey('key');
-    const paymentMethod = options.paymentMethod ?? 'bkash';
-    const claimFields = options.claim === null ? null : (options.claim ?? {
-      senderMsisdn: '01712345678',
-      transactionReference: 'REF' + submissionKey('ref').slice(4, 14),
-      claimedAmount: 240,
-    });
-    const recipientIdResolved =
-      paymentMethod === 'cod' || claimFields === null
-        ? null
-        : await recipientId(paymentMethod === 'bkash' ? 'bkash' : 'nagad');
     return fixture.db.transaction((tx) =>
       createOrder(tx, {
         customerId,
@@ -128,16 +96,6 @@ describe('order creation', { skip: toolingAvailable ? false : SKIP_REASON }, () 
         fingerprint: options.fingerprint ?? 'fp-' + key,
         lines: lines.map((line) => ({ productId: String(line.productId), quantity: line.quantity })),
         contact: options.contact ?? CONTACT,
-        paymentMethod,
-        claim:
-          paymentMethod === 'cod' || claimFields === null || recipientIdResolved === null
-            ? null
-            : {
-                paymentRecipientId: recipientIdResolved,
-                senderMsisdn: claimFields.senderMsisdn ?? '01712345678',
-                transactionReference: claimFields.transactionReference ?? 'REF123456789',
-                claimedAmountMinor: (claimFields.claimedAmount ?? 240) * 100,
-              },
       }),
     );
   }
@@ -158,28 +116,28 @@ describe('order creation', { skip: toolingAvailable ? false : SKIP_REASON }, () 
     await fixture.close();
   });
 
-  it('creates one claimed prepaid order from database prices, in awaiting_verification with no expiry and a placed event', async () => {
+  it('creates one COD order from database prices, pending approval, with no expiry and a placed event', async () => {
     const customerId = await createCustomer('orders-happy@example.test');
     const product = await createProduct({ suffix: 'happy', priceMinor: 12000 });
 
-    // A claimed amount that deliberately differs from the total: it is recorded, never trusted, and
-    // the order is still created — the mismatch is an owner-facing flag, not a refusal (ADR 0014).
-    const created = await place(customerId, [{ productId: product.productId, quantity: 2 }], {
-      claim: { senderMsisdn: '01712345678', transactionReference: 'REF000111', claimedAmount: 250 },
-    });
+    const created = await place(customerId, [{ productId: product.productId, quantity: 2 }]);
     assert.equal(created.totalMinor, 24000);
     assert.equal(created.status, 'pending');
-    assert.equal(created.paymentState, 'awaiting_verification');
-    assert.equal(created.codState, 'not_applicable');
+    assert.equal(created.paymentMethod, 'cod');
+    assert.equal(created.paymentState, 'not_applicable');
+    assert.equal(created.codState, 'cod_pending_approval');
     assert.match(created.orderNumber, /^QB[0-9A-F]{16}$/);
 
     const orderRow = await fixture.pool.query<{
       items_subtotal_minor: number;
       shipping_minor: number;
       total_minor: number;
-      seconds_to_expiry: number;
+      seconds_to_expiry: number | null;
+      payment_state: string;
+      cod_state: string;
+      payment_method: string;
     }>(
-      `select items_subtotal_minor, shipping_minor, total_minor,
+      `select items_subtotal_minor, shipping_minor, total_minor, payment_method, payment_state, cod_state,
               extract(epoch from (expires_at - placed_at))::int as seconds_to_expiry
          from "order" where id = $1`,
       [created.orderId],
@@ -188,8 +146,10 @@ describe('order creation', { skip: toolingAvailable ? false : SKIP_REASON }, () 
       items_subtotal_minor: 24000,
       shipping_minor: 0,
       total_minor: 24000,
-      // A submitted claim makes the order non-expirable: expires_at is cleared at claim time, so no
-      // expiry writer can ever target it (the ADR 0014 resolution, structural rather than scheduled).
+      payment_method: 'cod',
+      payment_state: 'not_applicable',
+      cod_state: 'cod_pending_approval',
+      // A COD order has no prepaid payment to expire, so it carries no expiry timestamp.
       seconds_to_expiry: null,
     });
 
@@ -226,6 +186,23 @@ describe('order creation', { skip: toolingAvailable ? false : SKIP_REASON }, () 
       [customerId],
     );
     assert.equal(stored.rows[0]?.result_ref, created.orderNumber);
+
+    // No prepaid artefact is written by a COD order: no claim, no reservation, no movement.
+    const claims = await fixture.pool.query<{ total: string }>(
+      `select count(*)::text as total from payment_claim where order_id = $1`,
+      [created.orderId],
+    );
+    assert.equal(claims.rows[0]?.total, '0');
+    const reservations = await fixture.pool.query<{ total: string }>(
+      `select count(*)::text as total from stock_reservation where order_id = $1`,
+      [created.orderId],
+    );
+    assert.equal(reservations.rows[0]?.total, '0');
+    const movements = await fixture.pool.query<{ total: string }>(
+      `select count(*)::text as total from inventory_movement where variant_id = $1`,
+      [product.variantId],
+    );
+    assert.equal(movements.rows[0]?.total, '0');
   });
 
   it('prices from the database and freezes the line, so a later price change cannot rewrite history', async () => {
@@ -363,25 +340,6 @@ describe('order creation', { skip: toolingAvailable ? false : SKIP_REASON }, () 
     );
   });
 
-  it('records a COD order with its own state and no expiry timestamp', async () => {
-    const customerId = await createCustomer('orders-cod@example.test');
-    const product = await createProduct({ suffix: 'cod' });
-
-    const created = await place(customerId, [{ productId: product.productId, quantity: 1 }], {
-      paymentMethod: 'cod',
-    });
-    assert.equal(created.paymentState, 'not_applicable');
-    assert.equal(created.codState, 'cod_pending_approval');
-
-    const row = await fixture.pool.query<{ expires_at: string | null; payment_state: string; cod_state: string }>(
-      `select expires_at, payment_state, cod_state from "order" where id = $1`,
-      [created.orderId],
-    );
-    assert.equal(row.rows[0]?.expires_at, null);
-    assert.equal(row.rows[0]?.payment_state, 'not_applicable');
-    assert.equal(row.rows[0]?.cod_state, 'cod_pending_approval');
-  });
-
   it('is atomic: a refusal on the second line leaves no order, item, event or claimed key', async () => {
     const customerId = await createCustomer('orders-atomic@example.test');
     const good = await createProduct({ suffix: 'atomic-good' });
@@ -451,6 +409,7 @@ describe('order creation', { skip: toolingAvailable ? false : SKIP_REASON }, () 
     assert.equal(detail?.orderNumber, created.orderNumber);
     assert.equal(detail?.itemCount, 3);
     assert.equal(detail?.items.length, 1);
+    assert.equal(detail?.paymentMethod, 'cod');
 
     assert.equal(
       await fixture.db.transaction((tx) => getCustomerOrderDetail(tx, other, created.orderNumber)),

@@ -21,7 +21,7 @@ function readNotice(value: string | string[] | undefined): CustomerNotice | null
  * Viewing requires `customer.read`; suspending requires `customer.suspend` and is re-checked server
  * side, calls the existing `suspendCustomer` primitive (which revokes every live session and writes
  * the audited reason), and is only ever an owner decision made on a confirmed finding - never a
- * consequence of a rejected claim or an amount mismatch.
+ * consequence of a COD decision.
  */
 export default async function AdminCustomersPage({
   searchParams,

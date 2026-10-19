@@ -1,73 +1,16 @@
 /**
- * Admin reads for the payments, COD and customer queues.
+ * Admin reads for the COD and customer queues.
  *
  * Read-only projections for the owner screens. They carry the minimum data each screen needs -
- * payments evidence without session or credential data, customer standing without a full profile -
- * and each is called from a page that has already checked the page permission.
+ * delivery contact without payment evidence, customer standing without a full profile - and each is
+ * called from a page that has already checked the page permission.
  */
 
 import { sql } from 'drizzle-orm';
 
 import type { Transaction } from '@/db/client';
-import { customerFlag, paymentClaim } from '@/db/schema';
-import { listCodApprovalQueue, listCustomers, listVerificationQueue } from './manage';
-
-export type PaymentsQueueItem = {
-  readonly claimId: number;
-  readonly orderId: number;
-  readonly orderNumber: string;
-  readonly submittedAt: Date;
-  readonly method: string;
-  readonly recipientNumber: string;
-  readonly recipientLabel: string;
-  readonly senderMsisdn: string;
-  readonly transactionReference: string;
-  readonly claimedAmountMinor: number;
-  readonly orderTotalMinor: number;
-  readonly recipientName: string;
-  readonly recipientPhone: string;
-  readonly area: string;
-  readonly city: string;
-  readonly addressLine: string;
-  readonly held: boolean;
-  /** The same transaction reference appears on another submitted claim - surface before any decision. */
-  readonly duplicateReference: boolean;
-};
-
-/** The prepaid verification worklist, oldest submission first, with duplicate-reference flags. */
-export async function paymentsQueue(tx: Transaction): Promise<PaymentsQueueItem[]> {
-  const rows = await listVerificationQueue(tx);
-  const duplicates = await duplicateReferenceSet(tx);
-  return rows.map((row) => ({
-    claimId: row.claimId,
-    orderId: row.orderId,
-    orderNumber: row.orderNumber,
-    submittedAt: row.submittedAt,
-    method: row.paymentMethod,
-    recipientNumber: row.recipientNumber,
-    recipientLabel: row.recipientLabel,
-    senderMsisdn: row.senderMsisdn,
-    transactionReference: row.transactionReference,
-    claimedAmountMinor: row.claimedAmountMinor,
-    orderTotalMinor: row.orderTotalMinor,
-    recipientName: row.recipientName,
-    recipientPhone: row.recipientPhone,
-    area: row.area,
-    city: row.city,
-    addressLine: row.addressLine,
-    held: row.hasOpenHold,
-    duplicateReference: duplicates.has(row.transactionReference),
-  }));
-}
-
-async function duplicateReferenceSet(tx: Transaction): Promise<Set<string>> {
-  const rows = await tx
-    .select({ reference: paymentClaim.transactionReference, uses: sql<number>`count(*)::int` })
-    .from(paymentClaim)
-    .where(sql`${paymentClaim.state} = 'submitted'`)
-    .groupBy(paymentClaim.transactionReference);
-  return new Set(rows.filter((row) => row.uses > 1).map((row) => row.reference));
-}
+import { customerFlag } from '@/db/schema';
+import { listCodApprovalQueue, listCustomers } from './manage';
 
 export type CodQueueItem = {
   readonly orderId: number;
@@ -114,4 +57,3 @@ export async function customerFlagInfo(
     .limit(1);
   return rows[0] ?? null;
 }
-

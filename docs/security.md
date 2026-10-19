@@ -242,15 +242,38 @@ with headroom to raise the cost (a 128 MiB working set is 8x today's 16 MiB) wit
 tests: `tests/unit/password.test.ts` covers an empty derived key, an oversized `N`, out-of-range `r`/`p`, an
 over-ceiling working set, wrong field lengths, non-canonical encodings and an oversized stored value.
 
-## Manual payment verification - threat model and required controls
+## Payment - threat model and required controls
 
-Approved launch model (D7): **manual bKash**, **manual Nagad** and **Cash on Delivery**, with human verification for the two prepaid methods (`docs/payment-workflow.md`). **No automated gateway is authorized.** Ordering requires an account (D12).
+**Current release (ADR 0015, 2026-10-17): Cash on Delivery only.** There is no prepaid method, no payment
+instruction, no sender number, no transaction reference, no recipient configuration and **no verification
+queue**; those were removed with the manual prepaid flow. `payment_recipient` and `payment_claim` remain
+in the schema, unused, and the following rules still bind anything that touches them.
 
-**Every control below is a requirement. None is implemented.** The workflow does not exist yet, and none of this may be reported as done until it is built and verified.
+**Extracted from the former manual-verification model, and still true:**
+
+- Ordering requires an account (D12), and a suspended account is refused **inside the order transaction**.
+- COD is a distinct method with **no verification step**; cash collection and reconciliation are separate
+  states and are not implemented.
+- No customer-submitted artefact is proof of payment.
+- No payment credential, PIN, OTP or MFS secret is ever requested, logged or stored.
+- The storefront has no writable path to any order, payment, COD or refund state.
+- Refusals are recorded durably in their own transaction, never inside the failing one.
+
+**Retired with the flow:** the verification maximum, the payment-recipient permission and its history
+rules, mismatch holds, duplicate-reference flagging and false-claim findings. They are documented in
+`docs/payment-workflow.md` as **historical design** and must not be reimplemented without a new owner
+decision.
+
+**Not implemented, and not claimed:** courier consignment, cash collection (`cod_collected`), failed
+delivery (`cod_failed`), reconciliation (`cod_reconciled`), cancellation and refund workflows, and any
+expiry sweep.
 
 ### The governing rule
 
-**A customer-submitted transaction id, screenshot, sender number or confirmation message is never proof that payment succeeded.** Payment is marked `verified` only after an authorized person independently confirms receipt through the merchant account. No code path derives payment success from customer-supplied data.
+**A customer-submitted transaction id, screenshot, sender number or confirmation message is never proof that payment succeeded.** No code path derives payment success from customer-supplied data. **In this release no code path can mark a payment verified at all**, because the manual flow is removed; the rule survives for any future gateway, which must confirm server-side.
+
+> The controls below describe the removed manual-verification workflow. They are retained as **historical
+> requirements** - what the manual flow would have had to satisfy - not as current behaviour.
 
 ### Controls
 
@@ -510,9 +533,9 @@ below is implemented**, and none has been tested. Residual risks are stated rath
 
 ### T3 Privilege escalation and unauthorized owner/admin actions
 
-- **Scenario.** A staff member calls an admin endpoint directly, edits their own role, or grants
-  themselves `payment.verify`.
-- **Impact.** Fraudulent verification, refunds or stock manipulation.
+- **Scenario.** An authenticated principal calls an admin endpoint directly, edits their own role, or
+  grants themselves a privileged capability such as `cod.approve`.
+- **Impact.** Fraudulent order approval, refunds or stock manipulation.
 - **Control.** Permissions checked per request from the database, not from a token claim. No self-edit of
   roles. Owner-level grants require an owner-level actor.
 - **Detection.** Every privileged action is audited with actor, role snapshot, timestamp, before/after and

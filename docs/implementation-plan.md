@@ -2,7 +2,9 @@
 
 Status: Phases 0-8 complete (2026-10-11). **Phase 9 is complete: every blocking decision is owner-approved** - D1 (Neon PostgreSQL), D2 (Vercel), D3 (Neon Object Storage), D7 (manual bKash + manual Nagad + COD), D8 (sender number and transaction reference required, no screenshot), D9 (payment and order policy), D11 (inventory reservation and release) and D12 (account-required checkout). **Phase 10 is complete: the data model, state machines and security architecture are designed and documented** in `docs/data-model.md` and `docs/security.md`. **Nothing is implemented** - no database, migration, dependency, credential or resource exists. **Phase 11 is unblocked but not started**, and nothing beyond Phase 10 is authorized to begin automatically. The owner has approved an **independent e-commerce platform** (`docs/decisions/0004-independent-platform-direction.md`); the previous plan to integrate with the Zatiq merchant platform is **withdrawn**, and Zatiq is now a UX reference only. Nothing beyond Phase 8 is authorized to begin automatically.
 
-Supporting documents: `docs/platform-architecture.md` (architecture and the decision register in section 11), `docs/payment-workflow.md` (manual MFS verification design), `docs/admin-dashboard.md` (dashboard scope and analytics), `docs/migration-plan.md` (catalog migration), `docs/security.md` (security requirements), `docs/backend-capability-audit.md` (Phase 7 reference findings).
+**Roadmap revision (2026-10-17, Phase 17, ADR 0015):** the owner has made **Cash on Delivery the only payment method** for this release. The manual bKash/Nagad flow is **removed from the application** and the roadmap is rebased accordingly: **Phase 17** is this COD-only transition and audit (complete locally), **Phase 18** is the admin dashboard UX redesign (recommended next), **Phase 19** is operational readiness and storefront completion, **Phase 20** is deployment, and an **automated gateway is a future item with no selected provider**. Sections describing earlier phases are kept as history; where they describe prepaid work as pending, that work is **superseded, not outstanding**.
+
+Supporting documents: `docs/platform-architecture.md` (architecture and the decision register in section 11), `docs/payment-workflow.md` (COD workflow; the manual prepaid design is retained as superseded history), `docs/admin-dashboard.md` (dashboard scope, analytics and the Phase 18 design brief), `docs/migration-plan.md` (catalog migration), `docs/security.md` (security requirements), `docs/backend-capability-audit.md` (Phase 7 reference findings).
 
 ## Phase 0 - audit and foundation (complete)
 
@@ -388,121 +390,181 @@ These fix the **schema and transaction shape** and the **order state machine**, 
 - **Risks:** duplicate orders from retries; **overselling the last unit, accepted by the owner (ADR 0013) and managed operationally**; customer PII in scope for the first time (retention, safe logging, the owner-operated reset).
 - **Deliverables note:** checkout is reachable only to an authenticated customer (D12). A guest who proceeds to checkout is routed through login/registration with the cart preserved. **There is no self-service password recovery at launch** (ADR 0012): the interface must state the gap rather than offer a reset that does not exist, and the documented path is an owner-operated reset with one-time credentials, audit logging and session revocation. **Out of scope:** real payment capture, courier booking, refunds, and any external authentication or mail provider.
 
-### Phase 16 - manual payment verification, shipping and order lifecycle (Phase 15 implemented locally)
+### Phase 16 - manual payment verification, shipping and order lifecycle (implemented in part, then superseded)
 
-- **Decision record:** **ADR 0014** (`docs/decisions/0014-phase-16-checkout-payment-and-delivery-decisions.md`) records the owner's confirmed checkout, payment-verification and delivery-charge decisions, the deferred items (expiry, external notifications), and the order-state review this phase implements against.
-- **Objective:** complete the commerce loop from manual payment through to delivery, using the approved manual MFS verification model (`docs/payment-workflow.md`).
-- **Deliverables:** the separate fulfilment/payment/COD states, already in the schema; the customer payment-instruction and claim-submission flow (claim written **inside the order-creation transaction**, moving the order to `awaiting_verification`); the owner verification queue with **verify, hold, reject and false-claim** actions; duplicate transaction-reference detection; append-only audit of every payment decision; owner-configured recipient details and instructions; the **COD owner-confirmation queue**; delivery charges as settings (**blocked on owner values and a per-area migration**); manual courier dispatch with a recorded consignment id and status; order status transitions with history; cancellation and refund workflows per approved policy; **manual** reconciliation of verified payments against the payment statement.
-- **Dependencies:** Phase 15; approved payment policy (D7-D9); **ADR 0014** (recorded); courier arrangement confirmed. **Amended by ADR 0013:** no reservation timing applies, and no inventory movement, allocation or deduction is written.
-- **Acceptance:** a customer submission can reach `awaiting_verification` but **never** `verified`; `verified`, a hold, `rejected` and `falsely_claimed` are reachable only through an owner action; a repeated verify/reject is a no-op; a duplicate transaction reference is flagged before any decision; **an amount mismatch permits a hold and never auto-approves or auto-rejects**; **a submitted claim is never expired or released by a timer**; **no automatic customer ban** follows a rejection or mismatch; every decision is audited with actor, timestamp, decision and reason; **a refund does not itself change availability** - under ADR 0013 no movement ledger is written, so any availability change is a separate owner action; order history is complete and append-only.
-- **Verification gate:** negative tests attempting to set payment state from the storefront; idempotency tests for repeated decisions; duplicate-reference and amount-mismatch drills; **a test that no expiry writer touches an order with a submitted claim**; a reconciliation rehearsal against a payment statement extract.
-- **Risks:** verification staffed too slowly, causing customer wait and duplicate payments; a transaction reference reused across orders being counted twice; reconciliation gaps.
-- **Approved inputs:** D7 (manual bKash, manual Nagad, COD), D8 (sender number and transaction reference required, no screenshot), the approved D9 rules (24-hour verification maximum, exceptions queue, fake-order findings, cancellation via support, manual refund states, COD approval before dispatch, state separation), the D11 payment-priority intent re-scoped by ADR 0013, and **ADR 0014** (mismatch hold, rejection-versus-false-claim, ban requirements, delivery charges, deferred expiry and notifications).
-- **Still needed before this phase (ADR 0014 Part 5):** bKash/Nagad recipient numbers and labels; real delivery prices and supported areas; the area matching/fallback policy; what counts as sufficient evidence of receipt plus the reconciliation cadence; and the COD retry/rejection detail. **Deferred and not blocking:** the expiry timer and external notification channels. (Verifying roles was D10 and is settled: owner-only, ADR 0009.)
-- **Out of scope:** automated gateways, webhooks, automatic confirmation, automated refunds, schedulers/expiry jobs, notification providers and courier APIs - **none is authorized**.
+- **Decision record:** **ADR 0014** (`docs/decisions/0014-phase-16-checkout-payment-and-delivery-decisions.md`).
+- **What was built (16A, 16B, 16C):** the prepaid claim write inside the order transaction; the owner
+  verification queue with verify/hold/reject/false-claim; duplicate-reference flagging; the owner
+  payment-recipient configuration screen and its `payment.recipient_manage` permission; the COD
+  confirmation queue; the customer suspension control. Local only, never deployed.
+- **Status: superseded by Phase 17 (ADR 0015).** The owner decided this release supports **Cash on
+  Delivery only**, so the prepaid half - recipient configuration, claims, verification, holds, duplicate
+  references, the `payment.*` permissions and every prepaid screen and translation - was **removed**
+  from the application. **The COD half is retained unchanged.** The prepaid work is recorded here as
+  history, not as a deliverable to finish.
+- **Deliberately never built, and still not built:** delivery charges (owner values and a per-area
+  migration are missing), courier/consignment recording, refund and return workflows, expiry (deferred
+  by ADR 0014), and external notifications.
+- **Owner decisions still open from ADR 0014:** real delivery prices and supported areas, the
+  area-matching/fallback policy, the COD failed-delivery/retry detail, and what evidence and cadence a
+  cash reconciliation requires.
 
-### Phase 16b - automated payment gateway (deferred, not scheduled)
+### Phase 16b - automated payment gateway (deferred; not scheduled, not authorized)
 
-Not part of launch. When a gateway is approved, the addition is a signature-verified webhook path and a server-side verification call writing the **same** payment record, status enum and audit trail - not a new subsystem. Required at that point: webhook signature verification, idempotency keyed on the provider event id, amount/currency/reference matching, replay protection and settlement reconciliation. No abstraction is built now, because a provider framework with only one manual path is speculative complexity.
+Not part of this release. **No provider is selected** and none should be inferred. When the owner
+approves a specific gateway, that decision must state the provider, fees, settlement timing,
+refund/dispute handling and implementation scope, and the work must be a server-verified integration
+writing its own payment record and audit trail - **not** a revival of the retired manual claim flow and
+not a speculative abstraction built in advance.
 
-### Phase 17 - analytics on verified data (blocked on Phase 16, design can start earlier)
+### Phase 17 - COD-only transition, documentation reset and codebase audit (complete - local only)
 
-- **Objective:** give the **owner** decision-useful figures derived from real orders.
-- **Deliverables:** the charts in `docs/admin-dashboard.md`, each answering a named question; date-range selection with period comparison; BDT formatting in both locales; loading, empty, error and partial-data states; server-side aggregation with caching.
-- **Dependencies:** Phase 16 for real data; chart design may begin earlier and is a candidate for parallel work.
-- **Acceptance:** every figure reconciles against the order tables; no fabricated or interpolated metric; empty periods render as empty rather than as zero-filled lines; charts remain readable on mobile.
-- **Verification gate:** reconciliation tests comparing dashboard aggregates against direct queries, plus accessibility review of chart labels and legends.
-- **Risks:** misleading presentation of thin data; over-promising insight from a small sample.
-- **Owner decisions:** which metrics matter most. **Out of scope:** third-party analytics products, customer-data export, retention modelling without sufficient data.
+- **Objective:** make the shipped product match what the store actually does, remove the manual prepaid
+  subsystem without destroying history, and establish a reliable baseline for the dashboard redesign.
+- **Status: complete (2026-10-17), local only.** Recorded in **ADR 0015**. No migration: the schema stays
+  at **40 tables**.
+- **Delivered:**
+  - **Cash on Delivery is the only active payment method.** `createOrder` no longer accepts a payment
+    method; it writes `cod` / `not_applicable` / `cod_pending_approval` with no expiry. Checkout submits
+    no method field, so no page or request can choose a prepaid method.
+  - **Removed:** the bKash/Nagad checkout branch and claim fields; `/admin/payments` (verification
+    queue), `/admin/payments/recipients` (recipient configuration), `/api/admin/payments` and
+    `/api/admin/payment-recipients`; the payment-recipient service and validation modules;
+    `decideVerification` and the prepaid queue reads; the `payment.verify`, `payment.reject`,
+    `payment.flag_false` and `payment.recipient_manage` permissions; their audit action codes; the
+    prepaid translation keys; and the tests and verification checks that exercised them. Retired paths
+    **404**.
+  - **Retained deliberately:** the COD queue and its decisions, the customer suspension control, the ban
+    enforcement, the audit trail, the COD order-page copy, and the historical death of nothing -
+    `payment_recipient`, `payment_claim` and the prepaid state values stay in the schema **unused**,
+    because they hold claim history and audit references (ADR 0015 section 3).
+  - **Documentation reset:** requirements, roadmap, payment workflow, data model, security, dashboard and
+    status documents reconciled to the COD-only product; contradictions about prepaid support removed.
+  - **Dashboard preparation:** a design brief and prioritised feature list in `docs/admin-dashboard.md`,
+    grounded in the codebase audit rather than in a mockup.
+- **Verification (executed 2026-10-17, disposable local clusters and a real production build):** see
+  `docs/project-status.md` for the exact counts - unit and database suites, `verify:admin` (including
+  owner COD approve/reject over HTTP with a limited principal refused), `verify:storefront` browser
+  suite plus the HTTP customer flow (COD order placed, stored as COD with no expiry, confirmation names
+  cash on delivery), `typecheck`, `lint`, `check:catalog`, `check:i18n`, `check:secrets`,
+  `db:check`, `db:rehearsal` and `build`.
+- **Explicitly not done:** no gateway, no provider, no credential; no delivery charges; no courier
+  integration; no refund/return screens; no analytics; **no dashboard redesign** (Phase 18); no schema
+  cleanup that would destroy data; no provisioning, deployment or DNS change.
+- **Known limits:** a customer who cannot pay cash on delivery cannot order at all; a refused parcel is
+  handled operationally; the retained payment tables will need an owner-approved retention decision if
+  they are ever dropped; and the admin surface is functional but has had no dedicated UX pass.
 
-### Phase 18 - catalog migration tooling (partly parallel, blocked on Phase 13)
+### Phase 18 - admin dashboard UX and design system application (recommended next)
 
-- **Objective:** import the real catalog without hand entry, safely and recoverably.
-- **Deliverables:** the staged workflow in `docs/migration-plan.md` - extraction, validation, a mandatory migration report, idempotent and recoverable import, and post-import verification.
-- **Dependencies:** Phase 13 for a catalog to import into; owner authorization for any extraction. Can run in parallel with Phases 15-17.
-- **Acceptance:** dry-run by default; a repeated import updates rather than duplicates; a failed import leaves the catalog unchanged; every record carries provenance; the report is produced and reviewed before any write.
-- **Verification gate:** owner review of the migration report, then a spot-check of imported records against source.
-- **Risks:** incomplete or stale source data; unresolved image rights; unreviewed Bangla transliterations.
-- **Owner decisions:** extraction authorization and image rights. **Out of scope:** live synchronization with any external system; importing customers or orders.
+- **Objective:** redesign the owner panel for the work the owner actually does every day - COD decisions,
+  catalog and availability maintenance, order and customer lookup - using the existing design system and
+  the brief in `docs/admin-dashboard.md`.
+- **Prerequisites:** Phase 17 verified (done); an owner decision on the dashboard's daily priority order
+  if it differs from the brief; explicit authorization to begin.
+- **Scope (from the brief):** an operational overview that answers "what needs me now"; one unified order
+  surface with status filters and the COD decision inline; catalog/availability management with clear
+  state and save feedback; customer history with ban controls and safeguards; consistent empty, loading
+  and error states; safe destructive actions; responsive behaviour down to a phone; reusable components
+  and tokens rather than page-specific CSS.
+- **Explicitly not in scope:** new business policy, delivery-charge configuration (needs owner values and
+  a migration), analytics that the data cannot support, a chart library, or any payment feature.
+- **Acceptance:** every existing admin route keeps its server-side permission check and behaviour; no
+  capability is added by moving a control; the browser suite is extended to cover the redesigned routes;
+  keyboard and focus behaviour is verified; and no fabricated metric appears anywhere.
+- **Verification gate:** `verify:admin` extended for the new UI, the browser suite re-run, plus
+  typecheck/lint/i18n/build.
 
-### Phase 19 - production readiness (blocked on Phases 16-18)
+### Phase 19 - operational readiness and storefront completion (after Phase 18)
 
-- **Objective:** establish launch quality, security and operational evidence.
-- **Deliverables:** closure of the requirements in `docs/security.md`; dependency and build review; rate limits; privacy and retention; safe logging; monitoring and alerts; tested backup and restore; rollback rehearsal; real-device and assistive-technology checks; 200% zoom; constrained-network image loading; Bangla and English content review; image rights clearance; regression evidence; **and measurement of image delivery latency and egress against the Neon Object Storage limits** recorded in `docs/platform-architecture.md` section 8.
-- **Dependencies:** a complete system and a production-like environment; business and legal approval for content, image rights, privacy and policies; a named operational owner.
-- **Acceptance:** every mandatory security requirement is evidenced or explicitly accepted as a blocker with a documented reason; no critical or high finding remains without an owner-approved disposition; demo safeguards are changed only under explicit launch approval.
-- **Verification gate:** full suite against a served build plus authorized security, accessibility and performance checks, recording devices, versions and limitations.
-- **Risks:** untested production configuration; third-party failure; unresolved rights or policies.
-- **Owner decisions:** launch authorization, policies, operational owner. **Out of scope:** claiming security from frontend checks alone, or launching with unresolved rights.
+- **Objective:** close the launch-critical gaps the Phase 17 audit found, in priority order.
+- **Content, priority order to be confirmed by the owner:**
+  1. **Delivery-charge configuration** - blocked on owner values and one new migration (areas plus a
+     site-wide default, snapshotted onto `order.shipping_minor`).
+  2. **Order and customer management depth** - an owner-visible order detail surface beyond the COD
+     queue, cancellation and refund recording, and the owner-operated customer credential reset.
+  3. **Catalog completeness** - multiple images per product, variant editing only if the real catalog
+     needs it, and a documented answer on image rights.
+  4. **Storefront polish** - empty/loading/error states, mobile usability, and honest copy audits.
+  5. **Security and operations** - the open requirements in `docs/security.md`, dependency review,
+     privacy/retention decisions, backups with a tested restore, and monitoring.
+  6. **Deployment readiness** - environment separation, secrets, TLS, headers, and a rollback rehearsal.
+- **Explicitly not in scope:** deployment itself, DNS changes, and any provider onboarding - each needs
+  its own written authorization.
 
-### Phase 20 - deployment, operations and handoff (blocked on Phase 19)
+### Phase 20 - deployment and handoff (blocked on Phase 19)
 
-- **Objective:** release through an owner-approved, reversible deployment and support model.
-- **Deliverables:** approved domain, indexing and robots configuration; TLS and security headers; secret provisioning; deployment pipeline; monitoring; runbooks; support and escalation paths; rollback; handoff documentation.
-- **Dependencies:** Phase 19 acceptance, hosting and domain access, a named operational owner, and explicit launch authorization.
-- **Acceptance:** smoke checks pass; alert, restore and rollback drills succeed; ownership and incident paths are documented; indexability reflects the owner's launch intent (the demo is currently `noindex`).
-- **Verification gate:** staged release with post-deploy smoke checks and a monitored rollback rehearsal.
-- **Risks:** operational gaps; irreversible customer impact. **Out of scope:** public launch before explicit owner sign-off.
+- **Objective:** release through an owner-approved, reversible deployment with a named operational owner.
+- **Acceptance:** smoke checks pass, alert/restore/rollback drills succeed, indexability reflects the
+  owner's launch intent (the site is currently `noindex`), and handoff documentation exists.
+- **Blocked by:** Phase 19 acceptance, provisioning authorization, image rights, and a launch decision.
 
 ## Parallel work that does not block the critical path
 
 | Work | Can start | Why it is safe in parallel |
 | --- | --- | --- |
-| Visual review of the Phase 4 logo and Phase 5 layout | Now | Presentation only; no backend dependency |
-| Real iOS/Android, screen-reader and 200% zoom checks on the demo | Now | Demo acceptance, independent of the backend |
-| Bangla content review of product names | Now | Content task; feeds Phase 18 |
-| Image rights clearance | Now | Business task; gates Phase 18 and launch |
-| Analytics chart design | During Phase 12-14 | Design does not need real data; only implementation does |
-| Catalog migration tooling | During Phases 15-17 | Needs the Phase 13 catalog API, not the commerce loop |
-| Admin dashboard UI design | During Phase 12 | Presentation over an already-defined module scope |
+| Real iOS/Android, screen-reader and 200% zoom checks | Now | Acceptance evidence for the current build; no backend dependency |
+| Bangla content review of product names and copy | Now | Content task, independent of code |
+| Image rights clearance | Now | Business task; gates launch and any imagery expansion |
+| Delivery prices and supported areas | Now | Owner input; unblocks the first Phase 19 slice |
+| Catalog migration tooling design | During Phase 18 | Needs the Phase 13 read layer, not the dashboard UI |
 
-Deliberately **not** parallelised: schema design, order creation and payment integration. These share transactional invariants and parallelising them creates rework and integrity risk.
+Deliberately **not** parallelised: schema changes (each needs its own approval and rehearsal) and any
+payment work (no provider is authorized).
 
 ## Frontend-demo milestones versus production-launch requirements
 
-**Demo milestones** (the current application): complete through Phase 5, with demo acceptance items outstanding. These are presentation, content and device checks on an explicitly `noindex` demonstration.
+**Demo milestones:** complete through Phase 5, with device and content checks outstanding on an
+explicitly `noindex` build.
 
-**Production-launch requirements** (everything from Phase 9 onward): a real database, real orders, verified payments, real delivery, customer data protection, and operational readiness. None of it exists yet.
+**Production-launch requirements:** a real database, real orders, a COD fulfilment workflow, delivery
+charges, customer-data protection and operational readiness. The database, catalog, customer accounts and
+order creation exist **locally**; everything else is Phase 19 or later. **Nothing is deployed.**
 
-The two must not be conflated in reporting. A passing storefront check says nothing about production commerce readiness.
+A passing storefront check says nothing about production commerce readiness.
 
 ## Critical path and risks
 
-`Phases 0-8 complete → Phase 9 complete (D1, D2, D3, D7, D8, D9, D11, D12 approved) → Phase 10 schema and security architecture → Phase 11 backend foundation → Phase 12 owner/admin authentication and dashboard foundation → Phase 13 catalog management and API → Phase 14 storefront integration → Phase 15 cart validation, customer authentication and order creation → Phase 16 manual payment, shipping and lifecycle → Phase 17 analytics → Phase 18 migration → Phase 19 readiness → Phase 20 release.`
+`Phases 0-9 complete -> Phase 10 design -> Phase 11 database foundation -> Phase 12 owner auth -> Phase 13
+catalog management -> Phase 14 storefront cutover -> Phase 15 customer accounts and order creation ->
+Phase 16 COD fulfilment (prepaid half superseded) -> Phase 17 COD-only baseline -> Phase 18 admin
+dashboard UX -> Phase 19 operational readiness -> Phase 20 deployment.`
 
-Phase 9 and Phase 10 are complete, and **Phases 11, 12, 13, 14 and 15 are implemented locally**. **Phase 15** (cart validation, customer authentication and order creation) is done against a disposable local cluster and a real production build, so the critical path now runs through **Phase 16** (manual payment verification, shipping and order lifecycle), whose **decision record is now accepted (ADR 0014)**. The remaining gaps are **operational owner inputs** - recipient numbers, real delivery prices and areas, the area-matching/fallback policy, and the verification-evidence/reconciliation detail - not undecided architecture. **No resource has been provisioned and no deployment exists.**
+**Where the project actually stands:** Phases 11-17 are implemented **locally**. The commerce loop is
+COD-only and works end to end in a local build. The remaining gaps are **owner inputs** (delivery
+prices/areas, failed-delivery handling, retention, image rights) and **product work** (dashboard UX,
+operational readiness), not undecided architecture.
 
-The answers shaped the plan: the **one-claim-per-order bound** (per unit was re-scoped by ADR 0013) fixes the claim transaction, while **post-dispatch cancellation** and the **COD lifecycle** fix the order state machine. **The 24-hour expiry is deferred (ADR 0014)** and is **not** a launch dependency; a submitted claim is never expired or released by a timer. Owner business rules and asset rights can still block branches earlier.
+**Risks:** COD refusal at the door is now the only payment failure mode and is handled operationally;
+overselling is accepted (ADR 0013); the retained payment tables carry history that a future cleanup must
+not silently destroy; and the admin surface is functional but unpolished, which is exactly what Phase 18
+addresses.
 
-**No production launch date is promised.** The remaining scope includes external dependencies - merchant arrangements, courier agreements, image rights - that are outside this project's control and are not yet resolved.
+**No production launch date is promised.**
 
 ## Current single best next step
 
-**Phase 16A (the checkout payment-claim flow, the prepaid-verification queue and the COD confirmation queue, plus the customer-suspension control) and Phase 16C (the owner payment-recipient screen, `/admin/payments/recipients`, permission `payment.recipient_manage`) are implemented locally.** The next step is the **delivery-charge slice** - a site-wide default plus per-area charges, which needs a **new owner-approved migration** (an area/charge table; none exists) and **real owner values**: the prices, the supported areas, and the area-matching/fallback policy (ADR 0014 Part 5 item 3 records that no existing decision defines matching).
+**Phase 18: Admin Dashboard UX and Design System Application.** Phase 17 is complete and verified, so the
+COD-only baseline is stable: one order queue, one payment method, no prepaid surface to work around.
 
-**Why this is next:** the checkout loop now records real payment claims against configured recipient accounts and queues them for the owner, COD orders wait for the owner's call, and a suspension control exists - so the store can trade end to end without delivery charges being invented. **Delivery is the last blocking gap in the customer journey:** the checkout currently states delivery is arranged on confirmation, the order snapshot keeps `shipping_minor = 0`, and nothing in the code produces a delivery charge until the owner supplies the facts. Every element of that slice is owner input plus one migration; no ambiguity remains in the architecture.
-
-**What was implemented (Phase 16A, this change):** the claim submits **inside the order-creation transaction** (one `payment_claim`, the order moves to `awaiting_verification`, `expires_at` cleared, claim idempotency claimed under `claim_submit`); the owner queues at `/admin/payments` and `/admin/orders-cod` with verify/reject/false-claim/hold/release-hold and COD accept/reject actions, each permission-checked server-side, guarded on prior state, idempotent-by-conflict and audited in the transaction; duplicate transaction references are flagged on the queue before any decision and never auto-resolved; a mismatch hold is an open `payment_mismatch` `operational_exception` (ADR 0014 Part 3.2 option 1, no migration); the customer moderation screen suspends through the existing `suspendCustomer` primitive; and no expiry writer exists to touch a claimed order.
-
-**Prerequisites for the delivery slice:**
-
-1. **The owner's delivery values:** the site-wide default charge, each supported area's charge, and whether a COD order pays a different charge (ADR 0014 Part 4 item 3 leaves matching). **No price may be invented; until then the storefront keeps stating delivery is not determined.**
-2. **Authorization for the per-area migration** - the minimum shape is one area/charge table plus the site-wide default in `store_setting`, with the charge snapshotted onto `order.shipping_minor` at creation. This is a separate approval from the checkout work already done.
-3. **Scope discipline unchanged:** no scheduler or expiry job, no notification provider, no courier API, no automated gateway, no automatic ban, and no delivery-matching policy guessed where the owner has not chosen one.
-
-**D17 - settled (2026-10-15).** `docs/decisions/0012-customer-authentication.md` records the customer-authentication model - registration, sign-in, sessions and the no-self-service-recovery position - together with how a **D20 ban** (revoked sessions and refused new orders inside the order transaction) is enforced against it. D17 is marked settled in the decision register, and **no provisioning, credential or deployment was created** by recording the decision.
+**Why this is next:** the owner now operates the store through a panel built incrementally across Phases
+12-16, where each screen was added to satisfy a correctness requirement rather than a workflow. The
+brief in `docs/admin-dashboard.md` identifies the concrete cost: the overview shows counts but not "what
+needs me now"; the COD queue is a wide table with per-row free-text forms; catalog and category editing
+live on separate pages with no shared status vocabulary; and empty/error states are inconsistent. Fixing
+that is the highest-value work that needs **no new owner decision and no new policy** - it is
+presentation and interaction over behaviour that already exists and is already permission-checked.
 
 **Prerequisites:**
 
-1. **Explicit owner authorization to implement the scoped Phase 16 checkout/verification work.** Recording ADR 0014 authorized design and documentation only; no code, migration, provider or credential was created by it.
-2. **The owner inputs listed in ADR 0014 Part 5 that the scope actually needs** - at minimum the bKash/Nagad recipient numbers and labels, and the verification-evidence/reconciliation detail. **Delivery charges are a separate slice** and are **blocked** until the prices, areas and matching policy are supplied and the per-area migration is authorized; do not bundle them into the checkout/verification prompt.
-3. **Scope discipline:** the prompt must not add a scheduler or expiry job, a notification provider, a courier API, an automated gateway, or an automatic ban, and must not change the schema unless the owner has chosen the mismatch-hold representation (ADR 0014 Part 3.2).
-4. **Settled decisions stay settled:** D10/D13 and D19's scope (ADR 0009, ADR 0010) are unchanged, and no staff or support role, role-management surface, external identity provider, OAuth client or mail provider is reintroduced by this phase (ADR 0012).
+1. **Explicit authorization to begin Phase 18** - this document does not start it.
+2. **The owner's confirmation of the daily priority order** in the brief (COD decisions first, then
+   availability, then catalog editing) - if it differs, the brief is adjusted before any UI work.
+3. **Scope discipline:** no new business policy, no delivery-charge configuration, no analytics beyond
+   what the data supports, no chart or component library, and no payment feature. Every existing
+   permission check and server-side guard stays exactly as it is.
+4. **Verification:** the redesigned routes must keep `verify:admin` green and add browser coverage for the
+   new interactions; a passing build alone is not completion.
 
-**D17 - settled (2026-10-15).** `docs/decisions/0012-customer-authentication.md` records the customer-authentication model - registration, sign-in, sessions and the no-self-service-recovery position - together with how a **D20 ban** (revoked sessions and refused new orders inside the order transaction) is enforced against it. D17 is marked settled in the decision register, and **no provisioning, credential or deployment was created** by recording the decision.
-
-**Acceptance criteria - the scoped Phase 16 checkout/verification slice is complete when:** a prepaid claim is written in the same transaction that moves the order to `awaiting_verification`, with no client-supplied total trusted and the amount computed server-side; a COD order lands in `cod_pending_approval` and is dispatched only after an owner confirmation; a verification decision is an owner action that is idempotent and audited with actor, timestamp, decision and reason; a claimed-amount mismatch permits a hold and never auto-approves or auto-rejects; a rejection never bans anyone; a duplicate transaction reference is flagged before any decision; and **no expiry writer touches an order with a submitted claim**. There is deliberately **no** oversell criterion (ADR 0013).
-
-**Still required from the owner before implementation of commerce features:** **explicit authorization for the scoped Phase 16 work**; then the operational items in ADR 0014 Part 5 - recipient numbers and labels, real delivery prices and areas, the area-matching/fallback policy, the verification-evidence and reconciliation detail, and the password-recovery delivery channel - plus retention periods and image rights. **Deferred and not blocking:** the expiry timer and external notifications (ADR 0014). *(D17 is settled in ADR 0012, D19's ordering gate in ADR 0013, and the Phase 16 decisions in ADR 0014; D10 and D13 are settled in ADR 0009, and D19's scope in ADR 0010.)*
-
-**Explicitly not authorized by this recommendation:** provisioning, deployment, DNS changes, credential creation, object storage, image upload, or any implementation work. Each requires its own authorization.
+**Not authorized by this recommendation:** provisioning, deployment, DNS changes, credential creation,
+object storage, image upload, any gateway work, or any schema change.

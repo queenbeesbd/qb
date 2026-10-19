@@ -1,9 +1,15 @@
 # Data model and schema architecture
 
-> **Status: Phase 10 design proposal, 2026-10-11. Nothing here is implemented.**
-> No database exists, no migration has been written or applied, no dependency has been added, no
-> resource has been provisioned, and no credential has been created. This document specifies the
-> schema that a later, separately authorized phase will build.
+> **Status: Phase 10 design proposal, 2026-10-11; implementation status updated 2026-10-17.**
+> The schema **is implemented locally** (Phases 11-15, 40 tables, migrations `drizzle/0000`-`0003`) and
+> verified against disposable local PostgreSQL clusters. **Nothing is deployed:** no cloud resource,
+> credential, bucket or DNS record exists, and provisioning requires its own owner authorization.
+>
+> **Phase 17 (ADR 0015) note.** This release takes **Cash on Delivery only**. `payment_recipient`,
+> `payment_claim`, the prepaid `payment_state` values and their constraints are **implemented and
+> unused** - the application no longer writes or reads them, and they are retained because they hold
+> claim history and audit references. No migration was created to remove them; dropping them is a
+> data-retention decision.
 >
 > **How to read the markers.** Sections marked **Approved** restate owner decisions recorded in
 > `docs/platform-architecture.md` section 11 and the ADRs; they are binding and must not be changed
@@ -1021,6 +1027,14 @@ a rejection writes a `return_written_off` movement instead.
 ---
 
 ## 8. Payments, claims and refunds
+
+> **Status (ADR 0015, 2026-10-17).** Cash on Delivery is the **only payment method** in this release.
+> **8.1 `payment_recipient` and 8.2 `payment_claim` are retained but unused**: no code path writes or
+> reads them, the recipient screen and the verification queue were removed, and the manual prepaid flow
+> no longer exists. Their constraints stay in force because the tables and their history remain, and
+> because the "at most one active submitted claim" bound is still a database guarantee for any future
+> writer. **8.3 `refund`** stays a separate table with its own states and no inventory link - it is
+> implemented and has no UI yet.
 
 ### 8.1 `payment_recipient`
 

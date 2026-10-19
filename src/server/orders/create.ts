@@ -1,10 +1,15 @@
 /**
- * Order creation - the one authoritative write in Phase 15.
+ * Order creation - the one authoritative write in the storefront (Phase 15; COD-only since Phase 17).
  *
  * Everything here happens inside **one transaction**, supplied by the caller through
  * `withTransaction`. That is the whole design: the idempotency claim, the ban check, the availability
  * read, the price resolution and the order's own rows commit together or not at all, so a failed
  * submission leaves no partial order and a retry cannot create a second one.
+ *
+ * **Cash on Delivery is the only method this release accepts (Phase 17).** The method is not a request
+ * field: there is no payment method in `CreateOrderInput`, so a submission cannot choose one, and no
+ * page or endpoint can imply that a manual transfer is supported. A prepaid method is a future roadmap
+ * item with no implementation, no provider and no schema change here.
  *
  * What this deliberately does **not** do (ADR 0013):
  *
@@ -37,21 +42,15 @@ import {
   orderContact,
   orderEvent,
   orderItem,
-  paymentClaim,
-  paymentRecipient,
   product,
   productImage,
   productVariant,
 } from '@/db/schema';
 import { checkOrderability } from '@/server/catalog/orderability';
 
-import { ORDER_LIMITS, type CartLineInput, type ContactInput, type PaymentMethodInput } from './validation';
+import { ORDER_LIMITS, type CartLineInput, type ContactInput } from './validation';
 
 const IDEMPOTENCY_SCOPE = 'order_create';
-/** Scope for the payment-claim idempotency key; kept distinct so a replay is never an order replay. */
-const CLAIM_IDEMPOTENCY_SCOPE = 'claim_submit';
-/** The claim idempotency window matches the order window: the browser retries both the same way. */
-const CLAIM_IDEMPOTENCY_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 /** The stored key is retained for a bounded window; a replay gets the original order within it. */
 const IDEMPOTENCY_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -62,14 +61,8 @@ export type OrderRefusalReason =
   | 'empty_cart'
   /** At least one product is not orderable from current database state (unpublished, archived, out of stock). */
   | 'unavailable'
-  /** A prepaid submission lacked a claim, or its claim fields were invalid. */
+  /** A submitted line was malformed. */
   | 'invalid'
-  /**
-   * The prepaid method has no active recipient, so the owner is not currently accepting it. Distinct
-   * from `invalid` on purpose: the customer did nothing wrong, and telling them to check their input
-   * sent them looking for a mistake that was not there (found in the Phase 16B review).
-   */
-  | 'payment_unavailable'
   /** The idempotency key was reused with a different body, or a first attempt is still in flight. */
   | 'idempotency_conflict';
 
@@ -94,15 +87,6 @@ export type CreatedOrder = {
   readonly placedAt: Date;
 };
 
-export type PaymentClaimInput = {
-  /** The active recipient for this method, resolved by the route from owner configuration. */
-  readonly paymentRecipientId: number;
-  readonly senderMsisdn: string;
-  readonly transactionReference: string;
-  /** The claimed amount, poisha. Recorded, never trusted (D8; the order total is authoritative). */
-  readonly claimedAmountMinor: number;
-};
-
 export type CreateOrderInput = {
   readonly customerId: number;
   readonly idempotencyKey: string;
@@ -110,9 +94,6 @@ export type CreateOrderInput = {
   readonly fingerprint: string;
   readonly lines: readonly CartLineInput[];
   readonly contact: ContactInput;
-  readonly paymentMethod: PaymentMethodInput;
-  /** Required when `paymentMethod` is an MFS transfer; `null` for COD (COD has no claim). */
-  readonly claim: PaymentClaimInput | null;
 };
 
 /** An opaque public order reference. Random, uppercase hex, never a sequence and never a customer id. */
@@ -121,7 +102,7 @@ function generateOrderNumber(): string {
 }
 
 /**
- * Creates an order, or returns the original one for a replayed submission.
+ * Creates a COD order, or returns the original one for a replayed submission.
  *
  * Returns the created (or replayed) order. Throws `OrderRefusalError` for a refusal the route can map
  * to a user-facing notice, and lets any other error (including a database constraint violation)
@@ -269,13 +250,11 @@ export async function createOrder(tx: Transaction, input: CreateOrderInput): Pro
   const totalMinor = subtotalMinor + shippingMinor;
 
   const placedAt = new Date();
-  const paymentMethod = input.paymentMethod;
-  const isCod = paymentMethod === 'cod';
-  const paymentState = isCod ? 'not_applicable' : 'awaiting_payment';
-  const codState = isCod ? 'cod_pending_approval' : 'not_applicable';
-  // D9/ADR 0014: the claim, not a timer, is what makes an order non-expirable. A prepaid order leaving
-  // this function carries its submitted claim and **no** expiry timestamp; the expiry rule applies only
-  // to claim-less orders, which this flow cannot produce. A COD order has no prepaid payment to expire.
+  const paymentMethod = 'cod';
+  // The three states stay separate (D9): a COD order has no prepaid money state, waits for the owner's
+  // confirmation, and carries no expiry - there is no prepaid payment to expire.
+  const paymentState = 'not_applicable';
+  const codState = 'cod_pending_approval';
   const expiresAt = null;
 
   const orderRows = await tx
@@ -341,48 +320,6 @@ export async function createOrder(tx: Transaction, input: CreateOrderInput): Pro
     },
   });
 
-  // The prepaid claim is written **in the same transaction as the order**, and the order moves to
-  // `awaiting_verification` with its expiry cleared: the claim, not a timer, is what makes an order
-  // non-expirable (ADR 0014). A replay resolves through the claim's own idempotency key below.
-  if (input.claim !== null) {
-    const recipient = await tx
-      .select({ id: paymentRecipient.id, isActive: paymentRecipient.isActive, method: paymentRecipient.method })
-      .from(paymentRecipient)
-      .where(sql`${paymentRecipient.id} = ${input.claim.paymentRecipientId}`);
-    const recipientRow = recipient[0];
-    if (recipientRow === undefined || !recipientRow.isActive || recipientRow.method !== paymentMethod) {
-      throw new OrderRefusalError('invalid', 'the payment recipient is not available');
-    }
-
-    const claimKey = `${IDEMPOTENCY_SCOPE}:${input.idempotencyKey}`;
-    await tx.insert(idempotencyKey).values({
-      scope: CLAIM_IDEMPOTENCY_SCOPE,
-      key: claimKey,
-      principalKind: 'customer',
-      principalId: input.customerId,
-      requestFingerprint: input.fingerprint,
-      resultRef: created.orderNumber,
-      expiresAt: new Date(Date.now() + CLAIM_IDEMPOTENCY_TTL_MS),
-    });
-
-    await tx.insert(paymentClaim).values({
-      orderId: created.id,
-      paymentRecipientId: recipientRow.id,
-      senderMsisdn: input.claim.senderMsisdn,
-      transactionReference: input.claim.transactionReference,
-      claimedAmountMinor: input.claim.claimedAmountMinor,
-      state: 'submitted',
-      submittedByCustomerId: input.customerId,
-    });
-
-    const claimedOrder = await tx
-      .update(order)
-      .set({ paymentState: 'awaiting_verification', expiresAt: null, updatedAt: new Date() })
-      .where(sql`${order.id} = ${created.id} and ${order.paymentState} = 'awaiting_payment'`)
-      .returning({ id: order.id });
-    if (claimedOrder.length === 0) throw new Error('claim: the order was not in awaiting_payment');
-  }
-
   await tx
     .update(idempotencyKey)
     .set({ resultRef: created.orderNumber })
@@ -396,7 +333,7 @@ export async function createOrder(tx: Transaction, input: CreateOrderInput): Pro
     totalMinor,
     paymentMethod,
     status: 'pending',
-    paymentState: input.claim !== null ? 'awaiting_verification' : paymentState,
+    paymentState,
     codState,
     placedAt,
   };

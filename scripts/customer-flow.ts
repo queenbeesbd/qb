@@ -116,21 +116,14 @@ export async function runCustomerFlowChecks(options: { base: string; pool: Pool 
       headers: jar.header() === '' ? {} : { cookie: jar.header() },
     });
 
+  // Cash on Delivery is the only method this release accepts (Phase 17), so the flow submits no
+  // payment method at all: the route does not read one, and a submission cannot choose.
   const contact = {
     recipientName: 'Rahim Uddin',
     recipientPhone: '01712345678',
-    addressLine: 'House 12, Road 5',
+    addressLine: 'House 12, Route 5',
     area: 'Dhanmondi',
     city: 'Dhaka',
-    paymentMethod: 'bkash',
-  };
-  // The D8 claim fields a prepaid submission carries. The claimed amount deliberately differs from
-  // the order total in the flow's successful order: the server records it and the owner would see the
-  // mismatch flag - the amount is never trusted, and the order is not refused because of it.
-  const claim = {
-    senderMsisdn: '01798765432',
-    transactionReference: 'FLOW8HJ2K9',
-    claimedAmount: '250',
   };
 
   // 1. Checkout is not reachable without an account (D12).
@@ -216,7 +209,6 @@ export async function runCustomerFlowChecks(options: { base: string; pool: Pool 
   const ordersBeforeCsrfTest = await orderItemCount();
   const noCsrf = await post('/api/checkout/order', {
     ...contact,
-    ...claim,
     lines: JSON.stringify([{ productId: productId, quantity: 1 }]),
     idempotencyKey: 'flow-no-csrf-0000000000001',
   });
@@ -248,11 +240,28 @@ export async function runCustomerFlowChecks(options: { base: string; pool: Pool 
     },
   );
 
+  // 7b. The served checkout carries no prepaid method and no claim field. This is the customer-facing
+  // assertion that the manual prepaid subsystem is gone: no bKash/Nagad option, no sender number, no
+  // transaction reference, no claimed amount and no payment-method radio to choose from. (The cart
+  // lives in the browser, so a server render of /checkout has an empty cart and therefore does not
+  // render the payment section at all; the COD method itself is asserted on the confirmation page
+  // below, where a real order exists.)
+  const prepaidTraces = /bkash|nagad|senderMsisdn|transactionReference|claimedAmount|বিকাশ|নগদ/i;
+  const methodFields = /name="paymentMethod"/i;
+  record(
+    'the checkout renders no prepaid method, claim field or payment-method choice',
+    checkoutPage.status === 200 && !prepaidTraces.test(checkoutHtml) && !methodFields.test(checkoutHtml),
+    {
+      status: checkoutPage.status,
+      prepaidTraceFound: prepaidTraces.test(checkoutHtml),
+      methodFieldFound: methodFields.test(checkoutHtml),
+    },
+  );
+
   // 8. An invalid delivery contact is refused with a notice, not with a partial order.
   const invalid = await post('/api/checkout/order', {
     ...contact,
     csrf: csrf ?? '',
-    ...claim,
     lines: JSON.stringify([{ productId: productId, quantity: 1 }]),
     recipientPhone: '123',
     idempotencyKey: 'flow-invalid-0000000000001',
@@ -268,7 +277,6 @@ export async function runCustomerFlowChecks(options: { base: string; pool: Pool 
   const unavailable = await post('/api/checkout/order', {
     ...contact,
     csrf: csrf ?? '',
-    ...claim,
     lines: JSON.stringify([{ productId: '999999999', quantity: 1 }]),
     idempotencyKey: 'flow-unavailable-000000000001',
   });
@@ -284,7 +292,6 @@ export async function runCustomerFlowChecks(options: { base: string; pool: Pool 
   const orderBody = {
     ...contact,
     csrf: csrf ?? '',
-    ...claim,
     lines: JSON.stringify([{ productId: productId, quantity: 2 }]),
     idempotencyKey,
     priceMinor: '1',
@@ -312,8 +319,13 @@ export async function runCustomerFlowChecks(options: { base: string; pool: Pool 
     total_minor: number;
     items_subtotal_minor: number;
     shipping_minor: number;
+    payment_method: string;
+    payment_state: string;
+    cod_state: string;
+    expires_at: Date | null;
   }>(
-    'select total_minor, items_subtotal_minor, shipping_minor from "order" where order_number = $1',
+    `select total_minor, items_subtotal_minor, shipping_minor, payment_method, payment_state, cod_state, expires_at
+       from "order" where order_number = $1`,
     [orderNumber],
   );
   const storedRow = stored.rows[0];
@@ -324,6 +336,19 @@ export async function runCustomerFlowChecks(options: { base: string; pool: Pool 
       storedRow?.shipping_minor === 0,
     { stored: storedRow, expectedUnitPrice: unitPrice },
   );
+  record(
+    'the stored order is a COD order awaiting the owner, with no prepaid state and no expiry',
+    storedRow?.payment_method === 'cod' &&
+      storedRow?.payment_state === 'not_applicable' &&
+      storedRow?.cod_state === 'cod_pending_approval' &&
+      storedRow?.expires_at === null,
+    {
+      paymentMethod: storedRow?.payment_method,
+      paymentState: storedRow?.payment_state,
+      codState: storedRow?.cod_state,
+      expiresAt: storedRow?.expires_at,
+    },
+  );
 
   const confirmation = await get('/account/orders/' + orderNumber + '?placed=1');
   const confirmationHtml = await body(confirmation);
@@ -333,21 +358,24 @@ export async function runCustomerFlowChecks(options: { base: string; pool: Pool 
     { status: confirmation.status },
   );
 
-  // The order just placed is a prepaid one carrying a claim, so its page must say that the payment
-  // details were recorded. The retired wording claimed prepaid instructions and verification "are not
-  // built yet" and that no payment details had been collected - false on exactly this page. Both
-  // locales are accepted; neither may contain the retired sentence.
-  const saysDetailsRecorded =
-    /the payment details you submitted are recorded/i.test(confirmationHtml) ||
-    confirmationHtml.includes('আপনি যে পেমেন্ট তথ্য দিয়েছেন তা সংরক্ষণ করা হয়েছে');
-  const retiredWording =
-    /not built yet/i.test(confirmationHtml) ||
-    confirmationHtml.includes('নেওয়া বা সংরক্ষণ করা হয়নি') ||
-    confirmationHtml.includes('চালু হয়নি');
+  // The order just placed is a COD order, so its page must say that cash is paid on delivery and must
+  // not imply an online transfer, a transaction reference or a verification step. Both locales are
+  // accepted because the storefront renders the default locale on the server.
+  const saysCashOnDelivery =
+    /cash is paid to the courier on delivery/i.test(confirmationHtml) ||
+    confirmationHtml.includes('নগদ টাকা ডেলিভারির সময় নেওয়া হবে');
+  // The order's own method line must name Cash on Delivery, so the page cannot describe a COD order
+  // without saying how it is paid.
+  const namesMethod =
+    /cash on delivery/i.test(confirmationHtml) || confirmationHtml.includes('ক্যাশ অন ডেলিভারি');
+  const impliesPrepaid =
+    /transaction id|sender number|bKash|Nagad/i.test(confirmationHtml) ||
+    confirmationHtml.includes('ট্রানজেকশন') ||
+    confirmationHtml.includes('প্রেরক নম্বর');
   record(
-    'the prepaid order page states that the submitted payment details are recorded, never the retired gap wording',
-    confirmation.status === 200 && saysDetailsRecorded && !retiredWording,
-    { status: confirmation.status, saysDetailsRecorded, retiredWording },
+    'the COD confirmation names Cash on Delivery, says cash is paid on delivery, and implies no online payment',
+    confirmation.status === 200 && saysCashOnDelivery && namesMethod && !impliesPrepaid,
+    { status: confirmation.status, saysCashOnDelivery, namesMethod, impliesPrepaid },
   );
 
   const list = await get('/account/orders');
@@ -414,7 +442,6 @@ export async function runCustomerFlowChecks(options: { base: string; pool: Pool 
   const bannedOrder = await post('/api/checkout/order', {
     ...contact,
     csrf: banCsrf ?? '',
-    ...claim,
     lines: JSON.stringify([{ productId: productId, quantity: 1 }]),
     idempotencyKey: 'flow-banned-000000000000001',
   });

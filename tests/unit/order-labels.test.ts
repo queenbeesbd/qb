@@ -1,49 +1,57 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { PAYMENT_LABELS, prepayNoteKey } from '../../src/features/account/order-labels';
+import { COD_LABELS, PAYMENT_LABELS, methodLabel, paymentLabel, statusLabel } from '../../src/features/account/order-labels';
 import { dictionary } from '../../src/i18n/dictionaries';
 
 /**
- * The prepaid note on a customer's own order page (Phase 16B regression).
+ * Order-state labels on a customer's own order pages.
  *
- * The defect these cover: one unconditional sentence said prepaid instructions and manual verification
- * "are not built yet" and that **no payment details had been collected or stored**. After Phase 16A that
- * was false on the customer's own page - the order sat in `awaiting_verification` with a stored sender
- * number, transaction reference and claimed amount. The note is now chosen from the prepaid state, and
- * every state has something true to say.
+ * The order carries separate state columns by design (fulfilment, prepaid payment, COD). Cash on
+ * Delivery is the only method this release accepts (Phase 17), so a COD order must resolve to its own
+ * COD state, and a historical prepaid order must still render a truthful label rather than a raw
+ * database value or a note about a method the store no longer offers.
  */
 
-describe('prepaid order note', () => {
-  it('has a note for every prepaid state the order can be in', () => {
-    for (const state of Object.keys(PAYMENT_LABELS)) {
-      const key = prepayNoteKey(state);
-      assert.equal(typeof key, 'string');
-      assert.equal(dictionary.en[key].length > 0, true, `en note missing for ${state}`);
-      assert.equal(dictionary.bn[key].length > 0, true, `bn note missing for ${state}`);
+describe('order labels', () => {
+  it('maps every COD state to a translated key in both locales', () => {
+    for (const state of Object.keys(COD_LABELS)) {
+      const key = paymentLabel('cod', 'not_applicable', state);
+      assert.equal(typeof dictionary.en[key], 'string', 'en label missing for ' + state);
+      assert.equal(typeof dictionary.bn[key], 'string', 'bn label missing for ' + state);
     }
   });
 
-  it('tells the customer in awaiting_verification that their payment details were recorded', () => {
-    const key = prepayNoteKey('awaiting_verification');
-    assert.match(dictionary.en[key], /payment details you submitted are recorded/i);
-    assert.notEqual(key, 'orders.prepayNote');
+  it('shows a COD order its COD lifecycle state, never a prepaid one', () => {
+    assert.equal(paymentLabel('cod', 'not_applicable', 'cod_approved'), 'orders.cod.cod_approved');
+    assert.notEqual(paymentLabel('cod', 'not_applicable', 'cod_approved'), 'orders.payment.awaiting_payment');
   });
 
-  it('distinguishes a verified payment from a rejected one', () => {
-    assert.notEqual(prepayNoteKey('verified'), prepayNoteKey('rejected'));
-    assert.notEqual(prepayNoteKey('rejected'), prepayNoteKey('falsely_claimed'));
+  it('keeps a label for every legacy prepaid state, so history renders as a state and not a raw value', () => {
+    for (const state of Object.keys(PAYMENT_LABELS)) {
+      const key = paymentLabel('bkash', state, 'not_applicable');
+      assert.equal(typeof dictionary.en[key], 'string', 'en label missing for ' + state);
+      assert.equal(typeof dictionary.bn[key], 'string', 'bn label missing for ' + state);
+    }
   });
 
-  it('falls back to the neutral prepaid note for a state it does not know', () => {
-    assert.equal(prepayNoteKey('something_new'), 'orders.prepayNote');
+  it('degrades an unrecognised value to a stated unknown rather than printing it', () => {
+    assert.equal(paymentLabel('cod', 'not_applicable', 'something_new'), 'orders.cod.unknown');
+    assert.equal(paymentLabel('bkash', 'something_new', 'not_applicable'), 'orders.payment.unknown');
+    assert.equal(statusLabel('something_new'), 'orders.status.unknown');
+    assert.equal(methodLabel('something_new'), 'orders.method.unknown');
   });
 
-  it('no prepaid note claims that payment details were not collected or stored', () => {
+  it('states, in both locales, that a legacy order predates the COD-only release', () => {
+    assert.match(dictionary.en['orders.legacyPaymentNote'], /predates cash on delivery/i);
+    assert.match(dictionary.bn['orders.legacyPaymentNote'], /ক্যাশ অন ডেলিভারি/);
+  });
+
+  it('offers no copy that implies a manual prepaid method is supported now', () => {
     for (const locale of ['en', 'bn'] as const) {
       for (const [key, value] of Object.entries(dictionary[locale])) {
-        if (!key.startsWith('orders.prepayNote')) continue;
-        assert.doesNotMatch(value, /not built yet|not collected or stored|নেওয়া বা সংরক্ষণ করা হয়নি/iu, key);
+        if (!key.startsWith('checkout.')) continue;
+        assert.doesNotMatch(value, /bkash|nagad|transaction id|বিকাশ|নগদ/iu, key);
       }
     }
   });

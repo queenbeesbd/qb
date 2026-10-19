@@ -3,7 +3,7 @@ import {
   countAuditEvents,
   countOpenOperationalExceptions,
 } from '@/server/auth/audit';
-import { countCodApprovalQueue, countVerificationQueue } from '@/server/orders/manage';
+import { countCodApprovalQueue } from '@/server/orders/manage';
 import { requireAdminPage } from '@/server/auth/guard';
 import { countOwnerAccounts } from '@/server/authz/owners';
 import { countCatalog } from '@/server/catalog/read';
@@ -27,19 +27,17 @@ export const dynamic = 'force-dynamic';
 export default async function AdminOverviewPage() {
   const principal = await requireAdminPage(PERMISSIONS.staffRead);
 
-  const { owners, catalog, auditEvents, verificationQueue, codQueue, openExceptions } = await withTransaction(
+  const { owners, catalog, auditEvents, codQueue, openExceptions } = await withTransaction(
     async (tx) => ({
       owners: await countOwnerAccounts(tx),
       catalog: await countCatalog(tx),
       auditEvents: await countAuditEvents(tx),
-      verificationQueue: await countVerificationQueue(tx),
       codQueue: await countCodApprovalQueue(tx),
       openExceptions: await countOpenOperationalExceptions(tx),
     }),
   );
 
   const facts: Fact[] = [
-    { labelKey: 'admin.overview.verificationQueue', value: verificationQueue },
     { labelKey: 'admin.overview.codQueue', value: codQueue },
     { labelKey: 'admin.overview.openExceptions', value: openExceptions },
     { labelKey: 'admin.overview.ownerTotal', value: owners.total },

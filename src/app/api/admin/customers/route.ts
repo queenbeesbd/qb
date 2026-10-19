@@ -3,8 +3,8 @@
  *
  * The owner's explicit decision, with a required reason. The existing `suspendCustomer` primitive does
  * the work: a guarded `active -> suspended` transition, every live customer session revoked, and an
- * append-only audit record. Nothing here is automatic: a rejected claim, an amount mismatch or an
- * open hold never reaches this route, and a ban never cancels or refunds an order.
+ * append-only audit record. Nothing here is automatic: a cancelled COD order never reaches this route,
+ * and a ban never cancels, refunds or deletes an order.
  */
 
 import { withTransaction } from '@/db/client';

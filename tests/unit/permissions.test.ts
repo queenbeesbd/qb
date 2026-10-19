@@ -48,9 +48,6 @@ describe('permission catalogue', () => {
       PERMISSION_CATALOGUE.filter((entry) => entry.isPrivileged).map((entry) => entry.code),
     );
     for (const code of [
-      PERMISSIONS.paymentVerify,
-      PERMISSIONS.paymentReject,
-      PERMISSIONS.paymentFlagFalse,
       PERMISSIONS.codApprove,
       PERMISSIONS.codConfirmCollection,
       PERMISSIONS.financeReconcile,
@@ -107,11 +104,6 @@ describe('permission catalogue', () => {
         PERMISSIONS.customerSuspend,
         PERMISSIONS.orderCancel,
         PERMISSIONS.orderRead,
-        PERMISSIONS.paymentFlagFalse,
-        PERMISSIONS.paymentReject,
-        PERMISSIONS.paymentVerify,
-        // Phase 16C: the owner's payment-recipient configuration screen.
-        PERMISSIONS.paymentRecipientManage,
       ].sort(),
     );
   });

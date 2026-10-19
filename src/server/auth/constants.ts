@@ -72,11 +72,15 @@ export const OWNERS_PATH = '/admin/owners';
 export const CATALOG_PATH = '/admin/catalog';
 export const CATEGORIES_PATH = '/admin/categories';
 
-/** Phase 16 worklists: payment verification, COD confirmation and customer moderation. */
-export const PAYMENTS_PATH = '/admin/payments';
+/**
+ * Phase 16 worklists: COD confirmation and customer moderation.
+ *
+ * Phase 17 removed the prepaid verification queue and the payment-recipient screen along with the
+ * manual-payment subsystem, so `/admin/payments` and `/admin/payments/recipients` are retired paths.
+ * They are not kept as aliases: a route that no longer exists should 404, not quietly render something
+ * else.
+ */
 export const COD_PATH = '/admin/orders-cod';
-/** Owner configuration of the account that receives each prepaid method (Phase 16C). */
-export const RECIPIENTS_PATH = '/admin/payments/recipients';
 export const CUSTOMERS_PATH = '/admin/customers';
 
 /**

@@ -13,7 +13,7 @@ import {
 
 import { customer, staffUser } from './identity';
 import { order } from './orders';
-import { CLAIM_STATE, PAYMENT_METHOD, REFUND_METHOD, REFUND_STATE, colIn } from './values';
+import { CLAIM_STATE, REFUND_METHOD, REFUND_STATE, colIn } from './values';
 
 /**
  * Payments, claims and refunds - data-model section 8.
@@ -172,6 +172,3 @@ export const refund = pgTable(
     ),
   ],
 );
-
-/** Kept for reference: the MFS methods a prepaid order may use. */
-export const MFS_PAYMENT_METHODS = PAYMENT_METHOD.filter((m) => m !== 'cod');

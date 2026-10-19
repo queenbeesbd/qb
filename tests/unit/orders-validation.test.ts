@@ -7,7 +7,6 @@ import {
   parseCartLines,
   parseContact,
   parseIdempotencyKey,
-  parsePaymentMethod,
 } from '../../src/server/orders/validation';
 
 /**
@@ -75,20 +74,6 @@ describe('contact parsing', () => {
   });
 });
 
-describe('payment method parsing', () => {
-  it('accepts exactly the three approved methods', () => {
-    assert.equal(parsePaymentMethod('bkash'), 'bkash');
-    assert.equal(parsePaymentMethod('nagad'), 'nagad');
-    assert.equal(parsePaymentMethod('cod'), 'cod');
-  });
-
-  it('refuses anything else', () => {
-    for (const value of ['card', 'COD', '', 'sslcommerz', undefined, 1]) {
-      assert.equal(parsePaymentMethod(value), null, String(value));
-    }
-  });
-});
-
 describe('idempotency key parsing', () => {
   it('accepts a uuid-shaped key and refuses short or odd ones', () => {
     assert.equal(parseIdempotencyKey('3f2504e0-4f89-11d3-9a0c-0305e82c3301'), '3f2504e0-4f89-11d3-9a0c-0305e82c3301');
@@ -100,18 +85,22 @@ describe('idempotency key parsing', () => {
 
 describe('submission fingerprint', () => {
   it('is stable for the same body regardless of line order', () => {
-    const a = orderFingerprint([{ productId: '2', quantity: 1 }, { productId: '1', quantity: 1 }], CONTACT, 'bkash', null);
-    const b = orderFingerprint([{ productId: '1', quantity: 1 }, { productId: '2', quantity: 1 }], CONTACT, 'bkash', null);
+    const a = orderFingerprint([{ productId: '2', quantity: 1 }, { productId: '1', quantity: 1 }], CONTACT);
+    const b = orderFingerprint([{ productId: '1', quantity: 1 }, { productId: '2', quantity: 1 }], CONTACT);
     assert.equal(a, b);
   });
 
-  it('changes when a quantity, an address or the method changes', () => {
-    const base = orderFingerprint([{ productId: '1', quantity: 1 }], CONTACT, 'bkash', null);
-    assert.notEqual(base, orderFingerprint([{ productId: '1', quantity: 2 }], CONTACT, 'bkash', null));
-    assert.notEqual(base, orderFingerprint([{ productId: '1', quantity: 1 }], { ...CONTACT, city: 'Sylhet' }, 'bkash', null));
-    assert.notEqual(base, orderFingerprint([{ productId: '1', quantity: 1 }], CONTACT, 'cod', null));
-    assert.notEqual(base, orderFingerprint([{ productId: '1', quantity: 1 }], CONTACT, 'bkash', {
-      senderMsisdn: '01712345678', transactionReference: 'ref123', claimedAmountMinor: 100,
-    }));
+  it('changes when a quantity or an address changes', () => {
+    const base = orderFingerprint([{ productId: '1', quantity: 1 }], CONTACT);
+    assert.notEqual(base, orderFingerprint([{ productId: '1', quantity: 2 }], CONTACT));
+    assert.notEqual(base, orderFingerprint([{ productId: '1', quantity: 1 }], { ...CONTACT, city: 'Sylhet' }));
+  });
+
+  it('carries no payment method, because COD is the only method and is not submitted', () => {
+    // The fingerprint is built from the cart and the contact alone; a submission cannot vary a method
+    // it does not carry, so two identical carts and addresses are the same submission.
+    const base = orderFingerprint([{ productId: '1', quantity: 1 }], CONTACT);
+    assert.equal(base, orderFingerprint([{ productId: '1', quantity: 1 }], CONTACT));
+    assert.match(base, /^[0-9a-f]{64}$/);
   });
 });

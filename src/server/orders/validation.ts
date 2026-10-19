@@ -30,18 +30,6 @@ export type ContactInput = {
   readonly deliveryNote: string | null;
 };
 
-export type PaymentMethodInput = 'bkash' | 'nagad' | 'cod';
-
-/**
- * The payment-claim fields exactly as D8 approves them (sender number, transaction reference,
- * claimed amount). Nothing else is accepted: no screenshot field, no payment credentials.
- */
-export type PaymentClaimFields = {
-  readonly senderMsisdn: string;
-  readonly transactionReference: string;
-  readonly claimedAmountMinor: number;
-};
-
 /** Product ids are decimal strings of a bigint identity; never a UUID and never free text. */
 const PRODUCT_ID_PATTERN = /^[1-9][0-9]{0,18}$/;
 
@@ -142,67 +130,19 @@ export function parseContact(form: {
   return { recipientName, recipientPhone: phone, addressLine, area, city, postcode, deliveryNote };
 }
 
-/** One of the three approved methods (D7). COD is a distinct method, not a variation of MFS. */
-export function parsePaymentMethod(value: unknown): PaymentMethodInput | null {
-  return value === 'bkash' || value === 'nagad' || value === 'cod' ? value : null;
-}
-
 /**
  * A stable digest of what was submitted, used to detect a reused idempotency key with a *different*
  * body. It is compared, never stored as the order - the order's own amounts come from the database.
+ *
+ * The payment method is deliberately absent: Cash on Delivery is the only method this release accepts,
+ * so it is not part of the submitted body and cannot vary between two submissions of the same order.
  */
-export function orderFingerprint(
-  lines: readonly CartLineInput[],
-  contact: ContactInput,
-  paymentMethod: PaymentMethodInput,
-  claim: PaymentClaimFields | null,
-): string {
+export function orderFingerprint(lines: readonly CartLineInput[], contact: ContactInput): string {
   const canonical = JSON.stringify({
     lines: [...lines].sort((a, b) => a.productId.localeCompare(b.productId)),
     contact,
-    paymentMethod,
-    claim,
   });
   return createHash('sha256').update(canonical, 'utf8').digest('hex');
-}
-
-/** The claim fields' own bounds, mirroring the `payment_claim` CHECK constraints. */
-const CLAIM_REFERENCE_MIN = 6;
-const CLAIM_REFERENCE_MAX = 64;
-const CLAIM_MAX_AMOUNT_MINOR = 999_999_999;
-
-/**
- * Parses one prepaid claim. `null` means the submission cannot be accepted as made; a caller that
- * receives `null` never stores a partial claim. The amount is parsed as a **positive integer in
- * poisha only**: a formatted total or a bare decimal is refused rather than guessed at.
- */
-export function parsePaymentClaim(input: {
-  senderMsisdn: unknown;
-  transactionReference: unknown;
-  claimedAmount: unknown;
-}): PaymentClaimFields | null {
-  const senderMsisdn = typeof input.senderMsisdn === 'string' ? input.senderMsisdn.trim() : '';
-  if (!PHONE_PATTERN.test(senderMsisdn)) return null;
-
-  const reference = typeof input.transactionReference === 'string' ? input.transactionReference.trim() : '';
-  if (
-    reference.length < CLAIM_REFERENCE_MIN ||
-    reference.length > CLAIM_REFERENCE_MAX ||
-    !/^[A-Za-z0-9-]+$/.test(reference)
-  ) {
-    return null;
-  }
-
-  // The customer types whole taka; the stored claim is poisha. The conversion is server-side and the
-  // unit is explicit here, so a formatted number or a decimal refusal can never be mistaken for a
-  // 100x unit error.
-  if (typeof input.claimedAmount !== 'string' || !/^[0-9]{1,9}$/.test(input.claimedAmount.trim())) return null;
-  const claimedTaka = Number.parseInt(input.claimedAmount, 10);
-  if (!Number.isSafeInteger(claimedTaka) || claimedTaka <= 0) return null;
-  const claimedAmountMinor = claimedTaka * 100;
-  if (claimedAmountMinor > CLAIM_MAX_AMOUNT_MINOR) return null;
-
-  return { senderMsisdn, transactionReference: reference, claimedAmountMinor };
 }
 
 /** The client-generated submission key shape (`idempotency_key.key` CHECK is 16..128 characters). */

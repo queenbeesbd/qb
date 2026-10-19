@@ -15,9 +15,6 @@
 
 /** Every permission code the application knows how to check. */
 export const PERMISSIONS = {
-  paymentVerify: 'payment.verify',
-  paymentReject: 'payment.reject',
-  paymentFlagFalse: 'payment.flag_false',
   codApprove: 'cod.approve',
   codConfirmCollection: 'cod.confirm_collection',
   financeReconcile: 'finance.reconcile',
@@ -36,7 +33,6 @@ export const PERMISSIONS = {
   staffManage: 'staff.manage',
   auditRead: 'audit.read',
   settingsWrite: 'settings.write',
-  paymentRecipientManage: 'payment.recipient_manage',
 } as const;
 
 export type PermissionCode = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];
@@ -58,20 +54,12 @@ export type PermissionDefinition = {
  * authenticated session alone.
  */
 export const PERMISSION_CATALOGUE: readonly PermissionDefinition[] = [
-  { code: PERMISSIONS.paymentVerify, description: 'Confirm a submitted payment claim against the merchant account', isPrivileged: true },
-  { code: PERMISSIONS.paymentReject, description: 'Reject a payment claim whose receipt is not confirmed', isPrivileged: true },
-  { code: PERMISSIONS.paymentFlagFalse, description: 'Record an independently confirmed false claim', isPrivileged: true },
   { code: PERMISSIONS.codApprove, description: 'Approve a COD order before dispatch', isPrivileged: true },
   { code: PERMISSIONS.codConfirmCollection, description: 'Confirm COD cash was collected', isPrivileged: true },
   { code: PERMISSIONS.financeReconcile, description: 'Reconcile collected COD cash', isPrivileged: true },
   { code: PERMISSIONS.refundConfirm, description: 'Advance a refund to completed or failed', isPrivileged: true },
   { code: PERMISSIONS.staffManage, description: 'Create, disable or re-role a staff user', isPrivileged: true },
   { code: PERMISSIONS.settingsWrite, description: 'Write store settings', isPrivileged: true },
-  {
-    code: PERMISSIONS.paymentRecipientManage,
-    description: 'Configure the account that receives a prepaid payment method',
-    isPrivileged: true,
-  },
 
   { code: PERMISSIONS.orderRead, description: 'Read any order', isPrivileged: false },
   { code: PERMISSIONS.orderCancel, description: 'Record or decide a cancellation request', isPrivileged: false },
@@ -98,9 +86,6 @@ export const OWNER_ROLE = {
 
 /** A human label for a permission code, used by the staff screen. Falls back to the code itself. */
 export const PERMISSION_LABELS: Record<string, string> = {
-  [PERMISSIONS.paymentVerify]: 'Verify payments',
-  [PERMISSIONS.paymentReject]: 'Reject payments',
-  [PERMISSIONS.paymentFlagFalse]: 'Record false claims',
   [PERMISSIONS.codApprove]: 'Approve COD',
   [PERMISSIONS.codConfirmCollection]: 'Confirm COD collection',
   [PERMISSIONS.financeReconcile]: 'Reconcile COD cash',
@@ -119,13 +104,9 @@ export const PERMISSION_LABELS: Record<string, string> = {
   [PERMISSIONS.staffManage]: 'Manage staff and roles',
   [PERMISSIONS.auditRead]: 'Read the audit trail',
   [PERMISSIONS.settingsWrite]: 'Write store settings',
-  [PERMISSIONS.paymentRecipientManage]: 'Configure payment recipients',
 };
 
 export const PERMISSION_LABELS_BN: Record<string, string> = {
-  [PERMISSIONS.paymentVerify]: 'পেমেন্ট যাচাই',
-  [PERMISSIONS.paymentReject]: 'পেমেন্ট প্রত্যাখ্যান',
-  [PERMISSIONS.paymentFlagFalse]: 'মিথ্যা দাবি নথিভুক্ত',
   [PERMISSIONS.codApprove]: 'সিওডি অনুমোদন',
   [PERMISSIONS.codConfirmCollection]: 'সিওডি আদায় নিশ্চিত',
   [PERMISSIONS.financeReconcile]: 'সিওডি নগদ মিলকরণ',
@@ -144,7 +125,6 @@ export const PERMISSION_LABELS_BN: Record<string, string> = {
   [PERMISSIONS.staffManage]: 'স্টাফ ও ভূমিকা ব্যবস্থাপনা',
   [PERMISSIONS.auditRead]: 'অডিট ট্রেইল দেখা',
   [PERMISSIONS.settingsWrite]: 'স্টোর সেটিংস লেখা',
-  [PERMISSIONS.paymentRecipientManage]: 'পেমেন্ট প্রাপকের তথ্য নির্ধারণ',
 };
 
 /**
@@ -155,33 +135,28 @@ export const PERMISSION_LABELS_BN: Record<string, string> = {
  * brand and image mutations, plus the availability toggle - and kept `staff.read`/`staff.manage` for
  * owner-account management and `audit.read` for the trail.
  *
- * Phase 16C added `payment.recipient_manage` - the owner screen that configures which account
- * receives a prepaid method. It is privileged because it changes where a customer's money must be
- * sent, and a wrong number sends money to a stranger.
+ * **Phase 16A added the COD confirmation queue and customer moderation.** **Phase 17 removed the manual
+ * prepaid subsystem** - the verification queue, the payment-recipient screen and their permissions - so
+ * `payment.verify`, `payment.reject`, `payment.flag_false` and `payment.recipient_manage` are no
+ * longer part of the catalogue at all: no code checks them, and a permission with no check behind it is
+ * a name, not an ability. Rows already written to `permission`/`role_permission` by an earlier seed are
+ * untouched history; the seed only adds, never removes.
  *
- * Everything else is still catalogued but unreachable: `payment.*` (except the recipient screen),
- * `cod.*`, `refund.*`,
- * `return.inspect`, `customer.*`, `order.*`, `settings.write`, `finance.reconcile` and
- * `inventory.adjust` belong to Phases 15-17. `inventory.adjust` deserves a note: Phase 13 deliberately
- * writes **no** inventory movement, so the permission has no workflow and the ledger stays unused.
- *
- * Nothing here grants a capability by accident just because a code exists - a permission with no route
- * behind it is a name, not an ability.
+ * Everything else is still catalogued but unreachable: `cod.confirm_collection`, `refund.*`,
+ * `return.inspect`, `finance.reconcile`, `customer.flag`, `customer.revoke_session`,
+ * `inventory.adjust` and `settings.write` have no route yet. `inventory.adjust` deserves a note:
+ * availability is the only ordering gate (ADR 0013), so that permission has no workflow and the ledger
+ * stays unused.
  */
 export const PERMISSIONS_IMPLEMENTED: readonly PermissionCode[] = [
   PERMISSIONS.catalogWrite,
   PERMISSIONS.staffRead,
   PERMISSIONS.staffManage,
   PERMISSIONS.auditRead,
-  // Phase 16A: the payment, COD and customer moderation worklists and their mutations.
+  // Phase 16A: the COD and customer moderation worklists and their mutations.
   PERMISSIONS.orderRead,
-  PERMISSIONS.paymentVerify,
-  PERMISSIONS.paymentReject,
-  PERMISSIONS.paymentFlagFalse,
   PERMISSIONS.codApprove,
   PERMISSIONS.orderCancel,
   PERMISSIONS.customerRead,
   PERMISSIONS.customerSuspend,
-  // Phase 16C: the owner's payment-recipient configuration screen.
-  PERMISSIONS.paymentRecipientManage,
 ];

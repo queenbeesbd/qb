@@ -56,25 +56,3 @@ export function methodLabel(value: string): TranslationKey {
   return METHOD_LABELS[value] ?? 'orders.method.unknown';
 }
 
-/**
- * The prepaid note under the payment line, chosen from the **prepaid state** rather than from the
- * payment method alone.
- *
- * It used to be one unconditional sentence saying instructions and manual verification "are not built
- * yet" and that no payment details had been collected or stored. Once a claim was written at checkout
- * that statement became false on the customer's own order page, while the order sat in
- * `awaiting_verification` with a stored sender number, reference and amount. Each state now states what
- * is actually true of that order.
- */
-export const PREPAY_NOTES: Record<string, TranslationKey> = {
-  awaiting_payment: 'orders.prepayNote',
-  awaiting_verification: 'orders.prepayNoteVerification',
-  verified: 'orders.prepayNoteVerified',
-  rejected: 'orders.prepayNoteRejected',
-  falsely_claimed: 'orders.prepayNoteUnconfirmed',
-  expired: 'orders.prepayNoteExpired',
-};
-
-export function prepayNoteKey(paymentState: string): TranslationKey {
-  return PREPAY_NOTES[paymentState] ?? 'orders.prepayNote';
-}

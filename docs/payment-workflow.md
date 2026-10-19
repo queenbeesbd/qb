@@ -1,35 +1,88 @@
-# Payment workflow (manual mobile financial service verification)
+# Payment workflow - Cash on Delivery
 
-Status: 2026-10-11; **reconciled 2026-10-16 against ADR 0014**. **D7, D8, D9 and D12 are approved, and D11 is approved.** Phase 15 (customer accounts and server-authoritative order creation) is implemented locally; **the manual payment flow in this document is not implemented.** Companion documents: `docs/platform-architecture.md` (§5, §6), `docs/security.md` (threat model), `docs/admin-dashboard.md` (verification queue), `docs/implementation-plan.md` (phases 15-16), **`docs/decisions/0014-phase-16-checkout-payment-and-delivery-decisions.md`** (the Phase 16 decision record).
+Status: **rewritten 2026-10-17 for the COD-only release (ADR 0015)**. Supersedes the manual mobile
+financial service verification design of 2026-10-11/2026-10-16, which is retained below from §2 onward
+as **historical design**, not as behaviour. Companion documents: `docs/decisions/0015-cod-only-release.md`
+(this release), `docs/decisions/0014-phase-16-checkout-payment-and-delivery-decisions.md` (the COD
+decisions and the deferred items), `docs/security.md`, `docs/admin-dashboard.md`, and
+`docs/implementation-plan.md` (Phase 17).
 
-> **Reconciliation note (2026-10-16).** This document is the Phase 9/10 design. Three of its premises have since been superseded, and the corrections are listed here so the body is not read as current behaviour:
->
-> 1. **Reservation and allocation language is unused.** Under **ADR 0013**, availability is the only ordering gate: order creation writes **no** `stock_reservation`, `inventory_movement` or `inventory_balance` change, and overselling is accepted. Statements below about held stock, releasing a reservation, allocation, preemption, or "available = on_hand - reserved" describe **design mechanics that are not exercised at launch**; the inventory tables stay implemented and unused.
-> 2. **The 24-hour expiry is deferred, not scheduled.** **ADR 0014** records that the automatic order-expiry timer is **not a launch priority**; **no scheduler, cron or job runner is added now.** The binding rule that survives is the opposite one: **an order with a submitted payment claim never expires and is never released by a timer.** Where this document describes an automatic expiry sweep as part of the system, treat it as deferred design.
-> 3. **Implemented field names differ from the Phase 9 vocabulary.** The schema uses `order.payment_state` (not `payment_status`), carries the COD values in the separate `order.cod_state` column (not inside the payment enum), and stores refunds in a separate `refund` table with `refund.state` (there is no `order.refund_status`). The payment method values in the schema are `bkash`, `nagad`, `cod`.
->
-> Refunds remain **supported by the schema** (`refund` table, `refund.state`), but no refund UI or workflow is in scope for the narrow Phase 16 checkout/verification work.
->
-> **Implementation status (Phase 16A, 2026-10-16).** The customer flow in §4 steps 0-8 and the owner queue in §7-§8 now exist as code for the **checkout-claim and verification slice**: the claim is written inside the order-creation transaction and the order enters `awaiting_verification` with no expiry timestamp; the owner works the `/admin/payments` queue with **verify, reject, confirmed false claim, hold and release-hold** actions, each guarded on prior state, idempotent by conflict, and audited with actor, timestamp, decision and reason; a duplicate transaction reference is **flagged on the queue** before any decision and never auto-resolved; and a mismatch hold is an **open `payment_mismatch` operational exception**, not a new claim state (ADR 0014 Part 3.2 option 1). The `/admin/orders-cod` queue records the owner's post-call decision, and lists **only orders still `pending`** - a rejected order is cancelled, which does not change `cod_state`, so the queue must not keep offering a decision the server would refuse (corrected in the Phase 16B review, together with the customer order page's prepaid note, which now states that the submitted payment details are recorded instead of claiming none were collected). Banning is a separate, explicit owner action on the `/admin/customers` screen. **Not implemented:** courier consignment, COD collection/reconciliation states below `cod_approved`, cancellation and refund workflows, expiry (deferred), and any notification surface beyond the customer's own order page. Payment instructions appear **only** from a configured `payment_recipient` row - with no configuration, the method is unavailable and nothing is invented. **Phase 16C** added the owner screen that writes that row (`/admin/payments/recipients`, permission `payment.recipient_manage`): add, edit, deactivate and reactivate one recipient per prepaid method, with availability derived from the row itself rather than a second switch. Editing a recipient that a submitted claim already references **creates a successor row** and retires the old one, so a claim keeps showing the account it was actually paid into.
+> **Read this first.** This release accepts **Cash on Delivery only**. There is **no** prepaid method, no
+> payment instructions, no sender number, no transaction reference, no claimed amount, no recipient
+> account, no verification queue and no `payment.*` permission in the application. Those were built in
+> Phase 16 and **removed in Phase 17**. References to them below are history.
 
-## 1. Launch model
+## 1. The current payment model
 
-QueenBee's accepts **manual bKash**, **manual Nagad** and **Cash on Delivery** (D7, approved). The two prepaid methods are verified by a human through the owner's merchant arrangements. **No automated payment gateway is authorized.** Ordering requires a customer account (D12, approved).
+QueenBee's accepts **one** method: **Cash on Delivery**. Ordering still requires a customer account
+(D12), and the customer pays the courier when the parcel arrives.
 
-This is deliberately simple and is not a compromise: it removes the largest source of correctness risk (asynchronous provider state) from the first release, while keeping real money flowing. **No automated payment gateway is authorized** - see §12.
+| Fact | Where it lives | Notes |
+| --- | --- | --- |
+| Method | `order.payment_method = 'cod'` | Not a request field: `createOrder` takes no method, so a submission cannot choose one |
+| Prepaid state | `order.payment_state = 'not_applicable'` | The schema's pairing constraint means a COD order cannot carry a prepaid state |
+| COD state | `order.cod_state = 'cod_pending_approval'` | The owner's decision moves it to `cod_approved` |
+| Expiry | `order.expires_at = NULL` | There is no prepaid payment to expire and **no expiry writer exists** |
+| Total | `order.total_minor` | Server-computed from `product_variant.price_minor`; delivery is `0` because no charge is configured |
 
-### What this is
+### The customer journey
 
-- A customer-initiated transfer to the owner's merchant account.
-- A customer-submitted claim of payment (reference number and related details).
-- An **independent human verification** step performed by authorized staff.
-- An auditable payment decision recorded against the order.
+1. Add available products to the cart and sign in (or register) at checkout.
+2. Enter delivery contact details. The page states that this release is cash on delivery and that
+   nothing is paid online.
+3. Submit. The server prices the order, refuses an out-of-stock, unpublished or archived product, refuses
+   a suspended account **inside the transaction**, and writes the order, its items, its contact and its
+   `order_placed` event together.
+4. The confirmation page states that cash is paid to the courier on delivery. The order appears in the
+   customer's own order list and never in anyone else's.
 
-### What this is not
+### The owner journey
 
-- Not a payment gateway, and not a payment provider integration.
-- Not automatic confirmation of anything.
-- **A customer-submitted transaction id, screenshot, sender number or confirmation message is never proof that payment succeeded.**
+1. The order appears in **`/admin/orders-cod`**, oldest first, with the total and the delivery contact.
+2. The owner **calls the customer**. Nothing is automatic: no message is sent and no state changes on its
+   own.
+3. The owner **approves** - `cod_approved`, order `confirmed`, one `cod_approved` event and one
+   `cod.approved` audit record - or **rejects** with a required reason, which cancels the order while it
+   is still `pending` and writes `cod.cancelled`.
+4. Both transitions are guarded in the SQL `WHERE` clause on prior state, so a double click or two racing
+   requests produce exactly one decision; the loser reads a conflict. The order leaves the queue.
+5. **No decision bans a customer.** A ban is a separate, reasoned, audited owner action on
+   `/admin/customers`, which revokes live sessions and refuses future orders inside the order transaction
+   (D20).
+
+### What is deliberately not modelled yet
+
+- **Delivery charges.** Unconfigured: `shipping_minor` is `0`, the storefront says delivery is arranged on
+  confirmation, and the owner has not supplied prices, areas or matching rules.
+- **Courier and consignment records.** No courier API is authorized and no consignment field is written.
+- **Cash collection and reconciliation below `cod_approved`.** `cod_collected`, `cod_failed` and
+  `cod_reconciled` exist in the schema and have no screen or transition yet.
+- **Cancellation and refund workflows.** Refunds remain manual and, in this release, are recorded only if
+  the owner records them by other means; no refund UI exists.
+- **Any notification.** There is no mail, SMS or push provider; the customer's own order page is the
+  record.
+
+### Future online payment - not authorized, not designed
+
+An automated gateway is a **future roadmap item**. No provider is selected, no fee or settlement model is
+agreed, and no SDK, credential, webhook, endpoint or abstraction exists or may be added in advance. When
+the owner approves one, that work must:
+
+- verify authenticity server-side (signature or server-to-server confirmation), never trust a browser;
+- key idempotency on the provider's own event id, with replay protection;
+- match amount, currency and reference server-side before marking anything paid;
+- keep payment, fulfilment, COD and refund state **separate**, as the schema already does; and
+- record every decision append-only with actor, timestamp and reason.
+
+---
+
+## Historical design (superseded 2026-10-17)
+
+The numbered sections below describe the manual bKash/Nagad verification model that **no longer exists in the
+application**. They are kept because they record *why* the schema has `payment_recipient`,
+`payment_claim`, the prepaid `payment_state` values and their constraints, and because a future gateway
+decision must not repeat the mistakes they document. **Do not read them as current product behaviour, and
+do not implement them.**
 
 ## 2. Payment methods
 

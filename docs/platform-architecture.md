@@ -227,19 +227,19 @@ Priority is therefore decided by the **order of payment-claim submission**, not 
 - Order status transitions are validated against an explicit state machine and recorded as append-only events.
 - If a payment provider confirms after a failure or timeout, reconciliation must detect and resolve the mismatch rather than creating a duplicate order.
 
-## 6. Payments - manual verification at launch
+## 6. Payments - Cash on Delivery only
 
-**Approved (D7):** QueenBee's accepts three payment methods at launch - **manual bKash**, **manual Nagad**, and **Cash on Delivery**. The two prepaid methods are verified by a human in the admin dashboard. **COD is a distinct payment method**, not a variation of prepaid MFS: it has no verification step, the courier collects cash, and it carries its own confirmation, failed-delivery and reconciliation behaviour. **No automated payment gateway is authorized.**
+**Current release (D7 narrowed by ADR 0015, 2026-10-17):** QueenBee's accepts **one** payment method - **Cash on Delivery**. There is **no prepaid method**, no payment instruction, no recipient configuration and no verification queue: the manual bKash/Nagad flow and its `payment.*` permissions were **removed from the application**. **No online gateway is authorized**, and automated payment is a future roadmap item with no selected provider.
 
-**Approved (D8):** the customer submits a **required sender mobile number** and a **required transaction ID/reference**. A **screenshot is not required**. Recipient account details are **owner-configurable settings**, never hardcoded.
+**COD is a distinct payment method**: it has no verification step, the courier collects cash, and it carries its own confirmation, failed-delivery and reconciliation behaviour. The owner confirms every COD order by phone before dispatch (see `docs/payment-workflow.md` section 1).
 
-**Approved (D9) - verification window.** The owner has **up to 24 hours from order placement** to verify. This is a **maximum, not a promise**, and an internal service maximum rather than a customer-facing commitment. A genuine payment that cannot be verified within it is **never silently discarded**: the order enters an exceptions queue and **keeps its stock reservation** until an explicit admin decision.
+**Withdrawn (D8, ADR 0015):** the prepaid claim fields - sender mobile number, transaction ID/reference - and the owner-configured recipient accounts. None is collected, stored or displayed. The schema tables that held them (`payment_recipient`, `payment_claim`) remain implemented and **unused**.
 
-**Approved (D9) - fake orders.** A payment is marked `verified` or `rejected`. **`rejected` is not an accusation** - a delayed transaction or a mistyped reference is not evidence of fraud. Only where an admin **confirms** the claim was false may the order be marked `falsely_claimed` and the customer account flagged for review, with an audited reason and actor. **An ordinary unpaid order is not a fraud signal.**
+**Historical (D9, no longer reachable - ADR 0015).** The verification window, the exceptions queue, the `verified`/`rejected`/`falsely_claimed` claim outcomes and the false-claim finding were part of the removed manual prepaid flow. They are retained in the schema and in `docs/payment-workflow.md` as history. Two rules survive for any future gateway: **a customer-submitted artefact is never proof of payment**, and **an ordinary unpaid or cancelled order is not a fraud signal**. A customer ban is always a separate, reasoned, audited owner action.
 
 **Approved (D9) - cancellation and refunds.** Cancellation is requested **through support with the order ID** within 24 hours of placement; the customer never cancels or refunds self-service. Refunds are **manual through support**, and `refund.state` (`requested` / `processing` / `completed` / `failed`) in its own `refund` table is **separate from `order.payment_state`** - a dashboard must never report a refund as completed merely because it was requested or approved.
 
-**Approved (D9) - COD.** Every **COD order is manually approved by the owner before dispatch**, and COD has **no** sender-number, transaction-reference or verification requirement.
+**Approved (D9) - COD.** Every **COD order is manually approved by the owner before dispatch**, and COD has **no** verification requirement of any kind. This is the only payment path in this release.
 
 **Approved (D9) - expiry, cancellation and the COD lifecycle; expiry amended by ADR 0014.** An order with no submitted claim **expires 24 hours after placement** - **deferred, not a launch priority: no scheduler or expiry job is added now.** An order awaiting verification never expires automatically. Cancellation after the window is a **pre-dispatch support decision** or, once dispatched, a **delivery cancellation / return case**. COD follows the same shape: owner approval before dispatch, support cancellation before dispatch, the return workflow after, return-to-store on failure, and **separate delivery-completion, cash-collection and reconciliation states**. Full text: `docs/payment-workflow.md` section 13.9.
 

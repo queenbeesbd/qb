@@ -27,10 +27,12 @@ import {
   auditEvent,
   brand,
   category,
+  customer,
+  order,
+  orderContact,
   permission,
   product,
   productImage,
-  paymentRecipient,
   productVariant,
   role,
   rolePermission,
@@ -204,38 +206,6 @@ async function holdsRole(staffUserId: number, roleCode: string): Promise<boolean
       .innerJoin(role, sql`${role.id} = ${staffRole.roleId}`)
       .where(sql`${staffRole.staffUserId} = ${staffUserId} and ${role.code} = ${roleCode}`);
     return rows.length > 0;
-  });
-}
-
-/** The number of the active recipient for a method, read from the database - never from a page. */
-async function activeRecipientNumber(method: string): Promise<string | null> {
-  return withTransaction(async (tx) => {
-    const rows = await tx
-      .select({ accountNumber: paymentRecipient.accountNumber })
-      .from(paymentRecipient)
-      .where(sql`${paymentRecipient.method} = ${method} and ${paymentRecipient.isActive}`);
-    return rows[0]?.accountNumber ?? null;
-  });
-}
-
-/** Every recipient row for a method, active or not: deactivation must never delete. */
-async function recipientRowCount(method: string): Promise<number> {
-  return withTransaction(async (tx) => {
-    const rows = await tx
-      .select({ id: paymentRecipient.id })
-      .from(paymentRecipient)
-      .where(sql`${paymentRecipient.method} = ${method}`);
-    return rows.length;
-  });
-}
-
-async function activeRecipientId(method: string): Promise<number | null> {
-  return withTransaction(async (tx) => {
-    const rows = await tx
-      .select({ id: paymentRecipient.id })
-      .from(paymentRecipient)
-      .where(sql`${paymentRecipient.method} = ${method} and ${paymentRecipient.isActive}`);
-    return rows[0]?.id ?? null;
   });
 }
 
@@ -766,179 +736,176 @@ async function main(): Promise<void> {
         `status ${limitedCatalogRead.status}`,
       );
 
-      // ---- Phase 16C: the owner's payment-recipient configuration ----
+      // ---- Phase 17: the manual prepaid subsystem is gone ----
       //
-      // The screen exists because checkout renders its instructions only from an active
-      // `payment_recipient` row. Every check below asserts an effect read back from the database, not a
-      // status code: the point is that configuring a recipient changes what the checkout can offer, and
-      // that deactivating one takes the method away without deleting history.
-      const recipientsPage = await call(base, '/admin/payments/recipients', { jar: ownerJar });
+      // Cash on Delivery is the only payment method this release accepts, so the prepaid verification
+      // queue, the payment-recipient configuration screen and their API routes were removed rather
+      // than hidden. A retired route must 404: an unlinked page that still answered would still be an
+      // administrative surface.
+      for (const retired of ['/admin/payments', '/admin/payments/recipients']) {
+        const page = await call(base, retired, { jar: ownerJar });
+        record(`the retired prepaid page ${retired} no longer exists`, page.status === 404, `status ${page.status}`);
+      }
+      for (const retiredApi of ['/api/admin/payments', '/api/admin/payment-recipients']) {
+        const response = await call(base, retiredApi, { method: 'POST', jar: ownerJar, form: { csrf } });
+        record(
+          `the retired prepaid endpoint ${retiredApi} no longer exists`,
+          response.status === 404,
+          `status ${response.status}`,
+        );
+      }
       record(
-        'the owner can open the payment-recipient screen',
-        recipientsPage.status === 200 && recipientsPage.body.includes('/api/admin/payment-recipients'),
-        `status ${recipientsPage.status}`,
+        'the owner navigation links the COD worklist and no prepaid verification screen',
+        overview.body.includes('href="/admin/orders-cod"') && !overview.body.includes('/admin/payments'),
+        'COD link shown; no payment-verification link',
       );
       record(
-        'the payment-recipient screen is in the owner navigation and absent from the limited one',
-        overview.body.includes('href="/admin/payments/recipients"') &&
-          !limitedOverview.body.includes('/admin/payments/recipients'),
-        'shown to the owner only',
+        'no admin page offers a prepaid recipient form',
+        !limitedOverview.body.includes('payment-recipient') && !overview.body.includes('payment-recipient'),
+        'no recipient control in the shell',
+      );      // ---- Phase 17: the COD worklist end to end over HTTP ----
+      //
+      // The queue read, the route guard, the decision and its effect are separate things, and only a
+      // served request exercises all four. A COD order is seeded directly (the customer flow that
+      // creates one is verified by verify:storefront); the owner then decides it through the route.
+      const codSeed = await withTransaction(async (tx) => {
+        const customerRow = await tx
+          .insert(customer)
+          .values({ email: 'cod-' + Date.now() + '@verify.test', displayName: 'COD Buyer' })
+          .returning({ id: customer.id });
+        const customerId = customerRow[0]?.id;
+        if (customerId === undefined) fail('could not create the COD verification customer');
+        const orderNumber = 'QBCOD' + Date.now().toString(36).toUpperCase();
+        const orderRow = await tx
+          .insert(order)
+          .values({
+            orderNumber,
+            customerId,
+            paymentMethod: 'cod',
+            status: 'pending',
+            paymentState: 'not_applicable',
+            codState: 'cod_pending_approval',
+            itemsSubtotalMinor: 10000,
+            shippingMinor: 0,
+            totalMinor: 10000,
+          })
+          .returning({ id: order.id });
+        const orderId = orderRow[0]?.id;
+        if (orderId === undefined) fail('could not create the COD verification order');
+        await tx.insert(orderContact).values({
+          orderId,
+          recipientName: 'COD Buyer',
+          recipientPhone: '01712345678',
+          addressLine: 'House 1, Road 2',
+          area: 'Dhanmondi',
+          city: 'Dhaka',
+        });
+        return { customerId, orderId, orderNumber };
+      });
+
+      const codPage = await call(base, '/admin/orders-cod', { jar: ownerJar });
+      record(
+        'the owner sees a pending COD order in the COD worklist with a decision form',
+        codPage.status === 200 &&
+          codPage.body.includes(codSeed.orderNumber) &&
+          codPage.body.includes('/api/admin/orders-cod'),
+        `status ${codPage.status}, order shown: ${codPage.body.includes(codSeed.orderNumber)}`,
       );
 
-      const limitedRecipients = await call(base, '/admin/payments/recipients', { jar: limitedJar });
-      record(
-        'a principal without the permission is refused the screen by direct request',
-        limitedRecipients.status === 307 || limitedRecipients.location === '/admin/forbidden',
-        `status ${limitedRecipients.status} → ${limitedRecipients.location ?? ''}`,
-      );
-
-      const recipientsCsrf = csrfFrom(recipientsPage.body);
-      const limitedRecipientWrite = await call(base, '/api/admin/payment-recipients', {
+      const limitedCod = await call(base, '/api/admin/orders-cod', {
         method: 'POST',
         jar: limitedJar,
         form: {
           csrf: limitedCsrf,
-          action: 'create',
-          method: 'bkash',
-          accountNumber: '01711111111',
-          accountLabel: 'Sneaky recipient',
+          orderId: String(codSeed.orderId),
+          decision: 'approve',
+          reason: 'a limited principal should never reach this decision',
         },
       });
-      record(
-        'a principal without the permission cannot configure a recipient, and none is created',
-        denied(limitedRecipientWrite) && (await activeRecipientNumber('bkash')) === null,
-        `status ${limitedRecipientWrite.status} → ${limitedRecipientWrite.location ?? ''}`,
-      );
-
-      const codRecipient = await call(base, '/api/admin/payment-recipients', {
-        method: 'POST',
-        jar: ownerJar,
-        form: { csrf: recipientsCsrf, action: 'create', method: 'cod', accountNumber: '01712345678', accountLabel: 'Cash' },
-      });
-      record(
-        'a recipient for COD is refused: the courier collects cash',
-        codRecipient.status === 303 &&
-          (codRecipient.location ?? '').includes('notice=invalid') &&
-          (await recipientRowCount('cod')) === 0,
-        `status ${codRecipient.status} → ${codRecipient.location ?? ''}`,
-      );
-
-      const badNumber = await call(base, '/api/admin/payment-recipients', {
-        method: 'POST',
-        jar: ownerJar,
-        form: { csrf: recipientsCsrf, action: 'create', method: 'bkash', accountNumber: '0171234567', accountLabel: 'Too short' },
-      });
-      record(
-        'an invalid number is refused and nothing is stored',
-        badNumber.status === 303 &&
-          (badNumber.location ?? '').includes('notice=invalid') &&
-          (await activeRecipientNumber('bkash')) === null,
-        `status ${badNumber.status} → ${badNumber.location ?? ''}`,
-      );
-
-      const createRecipientCall = await call(base, '/api/admin/payment-recipients', {
-        method: 'POST',
-        jar: ownerJar,
-        form: {
-          csrf: recipientsCsrf,
-          action: 'create',
-          method: 'bkash',
-          accountNumber: '+880 1712-345678',
-          accountLabel: 'bKash — verify',
-        },
-      });
-      record(
-        'the owner configures a recipient and the number is stored in one canonical form',
-        createRecipientCall.status === 303 &&
-          (createRecipientCall.location ?? '').includes('notice=created') &&
-          (await activeRecipientNumber('bkash')) === '01712345678',
-        `status ${createRecipientCall.status} → ${createRecipientCall.location ?? ''}, stored ${await activeRecipientNumber('bkash')}`,
-      );
-
-      const afterCreate = await call(base, '/admin/payments/recipients', { jar: ownerJar });
-      record(
-        'the configuration the checkout reads now offers the method',
-        afterCreate.status === 200 && afterCreate.body.includes('01712345678'),
-        'the page shows the stored number as available',
-      );
-
-      const duplicateRecipient = await call(base, '/api/admin/payment-recipients', {
-        method: 'POST',
-        jar: ownerJar,
-        form: { csrf: recipientsCsrf, action: 'create', method: 'bkash', accountNumber: '01799998888', accountLabel: 'Second bKash' },
-      });
-      record(
-        'a second active recipient for one method is refused, and the first is unchanged',
-        duplicateRecipient.status === 303 &&
-          (duplicateRecipient.location ?? '').includes('notice=conflict') &&
-          (await activeRecipientNumber('bkash')) === '01712345678' &&
-          (await recipientRowCount('bkash')) === 1,
-        `status ${duplicateRecipient.status} → ${duplicateRecipient.location ?? ''}`,
-      );
-
-      const recipientId = await activeRecipientId('bkash');
-      const editRecipient = await call(base, '/api/admin/payment-recipients', {
-        method: 'POST',
-        jar: ownerJar,
-        form: {
-          csrf: recipientsCsrf,
-          action: 'update',
-          recipientId: String(recipientId),
-          accountNumber: '01712345679',
-          accountLabel: 'bKash — verify (business)',
-        },
-      });
-      record(
-        'an edit with no claims referencing the row updates it in place',
-        editRecipient.status === 303 &&
-          (editRecipient.location ?? '').includes('notice=updated') &&
-          (await activeRecipientNumber('bkash')) === '01712345679' &&
-          (await recipientRowCount('bkash')) === 1,
-        `status ${editRecipient.status} → ${editRecipient.location ?? ''}`,
-      );
-
-      const deactivateRecipient = await call(base, '/api/admin/payment-recipients', {
-        method: 'POST',
-        jar: ownerJar,
-        form: { csrf: recipientsCsrf, action: 'deactivate', recipientId: String(recipientId) },
-      });
-      record(
-        'deactivating removes the method from the configuration, and keeps the row',
-        deactivateRecipient.status === 303 &&
-          (deactivateRecipient.location ?? '').includes('notice=deactivated') &&
-          (await activeRecipientNumber('bkash')) === null &&
-          (await recipientRowCount('bkash')) === 1,
-        `status ${deactivateRecipient.status} → ${deactivateRecipient.location ?? ''}`,
-      );
-
-      const reactivateRecipient = await call(base, '/api/admin/payment-recipients', {
-        method: 'POST',
-        jar: ownerJar,
-        form: { csrf: recipientsCsrf, action: 'reactivate', recipientId: String(recipientId) },
-      });
-      record(
-        'reactivating brings the same row back to the configuration',
-        reactivateRecipient.status === 303 &&
-          (reactivateRecipient.location ?? '').includes('notice=reactivated') &&
-          (await activeRecipientNumber('bkash')) === '01712345679',
-        `status ${reactivateRecipient.status} → ${reactivateRecipient.location ?? ''}`,
-      );
-
-      const recipientAudit = await withTransaction((tx) =>
+      const codAfterLimited = await withTransaction((tx) =>
         tx
-          .select({ action: auditEvent.action, actorStaffId: auditEvent.actorStaffId })
-          .from(auditEvent)
-          .where(sql`${auditEvent.entityType} = 'payment_recipient'`),
+          .select({ codState: order.codState, status: order.status })
+          .from(order)
+          .where(sql`${order.id} = ${codSeed.orderId}`),
       );
-      const actions = recipientAudit.map((row) => row.action);
       record(
-        'every recipient change is audited against the acting owner',
-        actions.includes('payment.recipient_created') &&
-          actions.includes('payment.recipient_updated') &&
-          actions.includes('payment.recipient_deactivated') &&
-          actions.includes('payment.recipient_reactivated') &&
-          recipientAudit.every((row) => row.actorStaffId === limited.ownerId),
-        `${actions.join(', ')}`,
+        'a principal without the cod.approve permission is refused the decision, and the order stays pending',
+        denied(limitedCod) &&
+          codAfterLimited[0]?.codState === 'cod_pending_approval' &&
+          codAfterLimited[0]?.status === 'pending',
+        `status ${limitedCod.status} → ${limitedCod.location ?? ''}, cod_state ${codAfterLimited[0]?.codState}`,
+      );
+
+      const approvedCod = await call(base, '/api/admin/orders-cod', {
+        method: 'POST',
+        jar: ownerJar,
+        form: {
+          csrf,
+          orderId: String(codSeed.orderId),
+          decision: 'approve',
+          reason: 'confirmed by phone with the COD buyer',
+        },
+      });
+      const codAfterApproval = await withTransaction((tx) =>
+        tx
+          .select({ codState: order.codState, status: order.status })
+          .from(order)
+          .where(sql`${order.id} = ${codSeed.orderId}`),
+      );
+      // The refusal above wrote a durable denial against this order entity too, so the decision is
+      // selected by its own action rather than by entity alone - which is also what makes the count a
+      // statement about decisions instead of about every record that mentions the order.
+      const codAuditWhere = sql`${auditEvent.entityType} = 'order' and ${auditEvent.entityId} = ${codSeed.orderId}`;
+      const codAudit = await withTransaction((tx) =>
+        tx
+          .select({ action: auditEvent.action, actor: auditEvent.actorStaffId, after: auditEvent.after })
+          .from(auditEvent)
+          .where(sql`${codAuditWhere} and ${auditEvent.action} = 'cod.approved'`),
+      );
+      const codDenials = await withTransaction((tx) =>
+        tx
+          .select({ actor: auditEvent.actorStaffId, after: auditEvent.after })
+          .from(auditEvent)
+          .where(sql`${codAuditWhere} and ${auditEvent.action} = 'admin.action_denied'`),
+      );
+      record(
+        'the owner approves the COD order: cod_approved and confirmed, audited against the acting owner',
+        approvedCod.status === 303 &&
+          (approvedCod.location ?? '').includes('notice=approved') &&
+          codAfterApproval[0]?.codState === 'cod_approved' &&
+          codAfterApproval[0]?.status === 'confirmed' &&
+          codAudit.length === 1 &&
+          codAudit[0]?.actor === limited.ownerId,
+        `status ${approvedCod.status} → ${approvedCod.location ?? ''}, cod_state ${codAfterApproval[0]?.codState}, ${codAudit.length} approval record(s)`,
+      );
+      record(
+        'the refused COD decision left a durable denial naming the acting principal',
+        codDenials.length >= 1 && codDenials.every((row) => row.actor === limited.limitedId),
+        `${codDenials.length} denial record(s)`,
+      );
+
+      const codRepeat = await call(base, '/api/admin/orders-cod', {
+        method: 'POST',
+        jar: ownerJar,
+        form: {
+          csrf,
+          orderId: String(codSeed.orderId),
+          decision: 'approve',
+          reason: 'a repeated approval must not decide the order twice',
+        },
+      });
+      const codAuditAfterRepeat = await withTransaction((tx) =>
+        tx
+          .select({ action: auditEvent.action })
+          .from(auditEvent)
+          .where(sql`${codAuditWhere} and ${auditEvent.action} = 'cod.approved'`),
+      );
+      record(
+        'a repeated COD decision is a conflict and writes no second approval record',
+        codRepeat.status === 303 &&
+          (codRepeat.location ?? '').includes('notice=conflict') &&
+          codAuditAfterRepeat.length === 1,
+        `status ${codRepeat.status} → ${codRepeat.location ?? ''}, ${codAuditAfterRepeat.length} approval record(s)`,
       );
 
       // The refusals above happened over real HTTP, through the real guards, inside real transactions
