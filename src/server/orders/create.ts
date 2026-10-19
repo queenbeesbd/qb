@@ -62,8 +62,14 @@ export type OrderRefusalReason =
   | 'empty_cart'
   /** At least one product is not orderable from current database state (unpublished, archived, out of stock). */
   | 'unavailable'
-  /** A prepaid submission lacked its claim, or the recipient is not available. */
+  /** A prepaid submission lacked a claim, or its claim fields were invalid. */
   | 'invalid'
+  /**
+   * The prepaid method has no active recipient, so the owner is not currently accepting it. Distinct
+   * from `invalid` on purpose: the customer did nothing wrong, and telling them to check their input
+   * sent them looking for a mistake that was not there (found in the Phase 16B review).
+   */
+  | 'payment_unavailable'
   /** The idempotency key was reused with a different body, or a first attempt is still in flight. */
   | 'idempotency_conflict';
 

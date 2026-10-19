@@ -10,6 +10,7 @@ import {
   LOGIN_PATH,
   OWNERS_PATH,
   PAYMENTS_PATH,
+  RECIPIENTS_PATH,
 } from '@/server/auth/constants';
 import { currentStaffPrincipal } from '@/server/auth/guard';
 import { hasPermission } from '@/server/authz/principal';
@@ -53,6 +54,12 @@ export default async function AdminShellLayout({ children }: { children: React.R
     items.push({ href: PAYMENTS_PATH, labelKey: 'admin.nav.payments' });
     items.push({ href: COD_PATH, labelKey: 'admin.nav.cod' });
     items.push({ href: CUSTOMERS_PATH, labelKey: 'admin.nav.customers' });
+  }
+  // The recipient screen configures where a prepaid method's money must arrive. It is its own
+  // permission (`payment.recipient_manage`), not `order.read`, because reading an order is not the
+  // same capability as redirecting the account customers are told to pay into.
+  if (hasPermission(principal, PERMISSIONS.paymentRecipientManage)) {
+    items.push({ href: RECIPIENTS_PATH, labelKey: 'admin.nav.paymentRecipients' });
   }
   if (hasPermission(principal, PERMISSIONS.auditRead)) {
     items.push({ href: `${ADMIN_ROOT}/audit`, labelKey: 'admin.nav.audit' });

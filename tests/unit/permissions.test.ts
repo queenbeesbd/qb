@@ -110,6 +110,8 @@ describe('permission catalogue', () => {
         PERMISSIONS.paymentFlagFalse,
         PERMISSIONS.paymentReject,
         PERMISSIONS.paymentVerify,
+        // Phase 16C: the owner's payment-recipient configuration screen.
+        PERMISSIONS.paymentRecipientManage,
       ].sort(),
     );
   });

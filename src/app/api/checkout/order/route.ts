@@ -85,7 +85,10 @@ export async function POST(request: Request): Promise<Response> {
               .limit(1)
               .then((rows) => rows[0]?.id ?? null);
       if (claim !== null && recipient === null) {
-        throw new OrderRefusalError('invalid', 'no active payment recipient for this method');
+        throw new OrderRefusalError(
+          'payment_unavailable',
+          'no active payment recipient for this method',
+        );
       }
       recipientId = recipient ?? 0;
 

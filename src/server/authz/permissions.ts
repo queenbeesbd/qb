@@ -36,6 +36,7 @@ export const PERMISSIONS = {
   staffManage: 'staff.manage',
   auditRead: 'audit.read',
   settingsWrite: 'settings.write',
+  paymentRecipientManage: 'payment.recipient_manage',
 } as const;
 
 export type PermissionCode = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];
@@ -66,6 +67,11 @@ export const PERMISSION_CATALOGUE: readonly PermissionDefinition[] = [
   { code: PERMISSIONS.refundConfirm, description: 'Advance a refund to completed or failed', isPrivileged: true },
   { code: PERMISSIONS.staffManage, description: 'Create, disable or re-role a staff user', isPrivileged: true },
   { code: PERMISSIONS.settingsWrite, description: 'Write store settings', isPrivileged: true },
+  {
+    code: PERMISSIONS.paymentRecipientManage,
+    description: 'Configure the account that receives a prepaid payment method',
+    isPrivileged: true,
+  },
 
   { code: PERMISSIONS.orderRead, description: 'Read any order', isPrivileged: false },
   { code: PERMISSIONS.orderCancel, description: 'Record or decide a cancellation request', isPrivileged: false },
@@ -113,6 +119,7 @@ export const PERMISSION_LABELS: Record<string, string> = {
   [PERMISSIONS.staffManage]: 'Manage staff and roles',
   [PERMISSIONS.auditRead]: 'Read the audit trail',
   [PERMISSIONS.settingsWrite]: 'Write store settings',
+  [PERMISSIONS.paymentRecipientManage]: 'Configure payment recipients',
 };
 
 export const PERMISSION_LABELS_BN: Record<string, string> = {
@@ -137,6 +144,7 @@ export const PERMISSION_LABELS_BN: Record<string, string> = {
   [PERMISSIONS.staffManage]: 'স্টাফ ও ভূমিকা ব্যবস্থাপনা',
   [PERMISSIONS.auditRead]: 'অডিট ট্রেইল দেখা',
   [PERMISSIONS.settingsWrite]: 'স্টোর সেটিংস লেখা',
+  [PERMISSIONS.paymentRecipientManage]: 'পেমেন্ট প্রাপকের তথ্য নির্ধারণ',
 };
 
 /**
@@ -147,7 +155,12 @@ export const PERMISSION_LABELS_BN: Record<string, string> = {
  * brand and image mutations, plus the availability toggle - and kept `staff.read`/`staff.manage` for
  * owner-account management and `audit.read` for the trail.
  *
- * Everything else is still catalogued but unreachable: `payment.*`, `cod.*`, `refund.*`,
+ * Phase 16C added `payment.recipient_manage` - the owner screen that configures which account
+ * receives a prepaid method. It is privileged because it changes where a customer's money must be
+ * sent, and a wrong number sends money to a stranger.
+ *
+ * Everything else is still catalogued but unreachable: `payment.*` (except the recipient screen),
+ * `cod.*`, `refund.*`,
  * `return.inspect`, `customer.*`, `order.*`, `settings.write`, `finance.reconcile` and
  * `inventory.adjust` belong to Phases 15-17. `inventory.adjust` deserves a note: Phase 13 deliberately
  * writes **no** inventory movement, so the permission has no workflow and the ledger stays unused.
@@ -169,4 +182,6 @@ export const PERMISSIONS_IMPLEMENTED: readonly PermissionCode[] = [
   PERMISSIONS.orderCancel,
   PERMISSIONS.customerRead,
   PERMISSIONS.customerSuspend,
+  // Phase 16C: the owner's payment-recipient configuration screen.
+  PERMISSIONS.paymentRecipientManage,
 ];

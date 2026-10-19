@@ -75,6 +75,8 @@ export const CATEGORIES_PATH = '/admin/categories';
 /** Phase 16 worklists: payment verification, COD confirmation and customer moderation. */
 export const PAYMENTS_PATH = '/admin/payments';
 export const COD_PATH = '/admin/orders-cod';
+/** Owner configuration of the account that receives each prepaid method (Phase 16C). */
+export const RECIPIENTS_PATH = '/admin/payments/recipients';
 export const CUSTOMERS_PATH = '/admin/customers';
 
 /**

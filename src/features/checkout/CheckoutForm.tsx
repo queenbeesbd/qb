@@ -25,6 +25,7 @@ const REFUSAL_KEYS: Record<string, TranslationKey> = {
   banned: 'checkout.notice.banned',
   empty_cart: 'checkout.notice.emptyCart',
   idempotency_conflict: 'checkout.notice.conflict',
+  payment_unavailable: 'checkout.notice.paymentUnavailable',
 };
 
 /**

@@ -30,6 +30,7 @@ import {
   permission,
   product,
   productImage,
+  paymentRecipient,
   productVariant,
   role,
   rolePermission,
@@ -203,6 +204,38 @@ async function holdsRole(staffUserId: number, roleCode: string): Promise<boolean
       .innerJoin(role, sql`${role.id} = ${staffRole.roleId}`)
       .where(sql`${staffRole.staffUserId} = ${staffUserId} and ${role.code} = ${roleCode}`);
     return rows.length > 0;
+  });
+}
+
+/** The number of the active recipient for a method, read from the database - never from a page. */
+async function activeRecipientNumber(method: string): Promise<string | null> {
+  return withTransaction(async (tx) => {
+    const rows = await tx
+      .select({ accountNumber: paymentRecipient.accountNumber })
+      .from(paymentRecipient)
+      .where(sql`${paymentRecipient.method} = ${method} and ${paymentRecipient.isActive}`);
+    return rows[0]?.accountNumber ?? null;
+  });
+}
+
+/** Every recipient row for a method, active or not: deactivation must never delete. */
+async function recipientRowCount(method: string): Promise<number> {
+  return withTransaction(async (tx) => {
+    const rows = await tx
+      .select({ id: paymentRecipient.id })
+      .from(paymentRecipient)
+      .where(sql`${paymentRecipient.method} = ${method}`);
+    return rows.length;
+  });
+}
+
+async function activeRecipientId(method: string): Promise<number | null> {
+  return withTransaction(async (tx) => {
+    const rows = await tx
+      .select({ id: paymentRecipient.id })
+      .from(paymentRecipient)
+      .where(sql`${paymentRecipient.method} = ${method} and ${paymentRecipient.isActive}`);
+    return rows[0]?.id ?? null;
   });
 }
 
@@ -731,6 +764,181 @@ async function main(): Promise<void> {
         'the limited principal is refused the catalog read API',
         limitedCatalogRead.status === 403,
         `status ${limitedCatalogRead.status}`,
+      );
+
+      // ---- Phase 16C: the owner's payment-recipient configuration ----
+      //
+      // The screen exists because checkout renders its instructions only from an active
+      // `payment_recipient` row. Every check below asserts an effect read back from the database, not a
+      // status code: the point is that configuring a recipient changes what the checkout can offer, and
+      // that deactivating one takes the method away without deleting history.
+      const recipientsPage = await call(base, '/admin/payments/recipients', { jar: ownerJar });
+      record(
+        'the owner can open the payment-recipient screen',
+        recipientsPage.status === 200 && recipientsPage.body.includes('/api/admin/payment-recipients'),
+        `status ${recipientsPage.status}`,
+      );
+      record(
+        'the payment-recipient screen is in the owner navigation and absent from the limited one',
+        overview.body.includes('href="/admin/payments/recipients"') &&
+          !limitedOverview.body.includes('/admin/payments/recipients'),
+        'shown to the owner only',
+      );
+
+      const limitedRecipients = await call(base, '/admin/payments/recipients', { jar: limitedJar });
+      record(
+        'a principal without the permission is refused the screen by direct request',
+        limitedRecipients.status === 307 || limitedRecipients.location === '/admin/forbidden',
+        `status ${limitedRecipients.status} → ${limitedRecipients.location ?? ''}`,
+      );
+
+      const recipientsCsrf = csrfFrom(recipientsPage.body);
+      const limitedRecipientWrite = await call(base, '/api/admin/payment-recipients', {
+        method: 'POST',
+        jar: limitedJar,
+        form: {
+          csrf: limitedCsrf,
+          action: 'create',
+          method: 'bkash',
+          accountNumber: '01711111111',
+          accountLabel: 'Sneaky recipient',
+        },
+      });
+      record(
+        'a principal without the permission cannot configure a recipient, and none is created',
+        denied(limitedRecipientWrite) && (await activeRecipientNumber('bkash')) === null,
+        `status ${limitedRecipientWrite.status} → ${limitedRecipientWrite.location ?? ''}`,
+      );
+
+      const codRecipient = await call(base, '/api/admin/payment-recipients', {
+        method: 'POST',
+        jar: ownerJar,
+        form: { csrf: recipientsCsrf, action: 'create', method: 'cod', accountNumber: '01712345678', accountLabel: 'Cash' },
+      });
+      record(
+        'a recipient for COD is refused: the courier collects cash',
+        codRecipient.status === 303 &&
+          (codRecipient.location ?? '').includes('notice=invalid') &&
+          (await recipientRowCount('cod')) === 0,
+        `status ${codRecipient.status} → ${codRecipient.location ?? ''}`,
+      );
+
+      const badNumber = await call(base, '/api/admin/payment-recipients', {
+        method: 'POST',
+        jar: ownerJar,
+        form: { csrf: recipientsCsrf, action: 'create', method: 'bkash', accountNumber: '0171234567', accountLabel: 'Too short' },
+      });
+      record(
+        'an invalid number is refused and nothing is stored',
+        badNumber.status === 303 &&
+          (badNumber.location ?? '').includes('notice=invalid') &&
+          (await activeRecipientNumber('bkash')) === null,
+        `status ${badNumber.status} → ${badNumber.location ?? ''}`,
+      );
+
+      const createRecipientCall = await call(base, '/api/admin/payment-recipients', {
+        method: 'POST',
+        jar: ownerJar,
+        form: {
+          csrf: recipientsCsrf,
+          action: 'create',
+          method: 'bkash',
+          accountNumber: '+880 1712-345678',
+          accountLabel: 'bKash — verify',
+        },
+      });
+      record(
+        'the owner configures a recipient and the number is stored in one canonical form',
+        createRecipientCall.status === 303 &&
+          (createRecipientCall.location ?? '').includes('notice=created') &&
+          (await activeRecipientNumber('bkash')) === '01712345678',
+        `status ${createRecipientCall.status} → ${createRecipientCall.location ?? ''}, stored ${await activeRecipientNumber('bkash')}`,
+      );
+
+      const afterCreate = await call(base, '/admin/payments/recipients', { jar: ownerJar });
+      record(
+        'the configuration the checkout reads now offers the method',
+        afterCreate.status === 200 && afterCreate.body.includes('01712345678'),
+        'the page shows the stored number as available',
+      );
+
+      const duplicateRecipient = await call(base, '/api/admin/payment-recipients', {
+        method: 'POST',
+        jar: ownerJar,
+        form: { csrf: recipientsCsrf, action: 'create', method: 'bkash', accountNumber: '01799998888', accountLabel: 'Second bKash' },
+      });
+      record(
+        'a second active recipient for one method is refused, and the first is unchanged',
+        duplicateRecipient.status === 303 &&
+          (duplicateRecipient.location ?? '').includes('notice=conflict') &&
+          (await activeRecipientNumber('bkash')) === '01712345678' &&
+          (await recipientRowCount('bkash')) === 1,
+        `status ${duplicateRecipient.status} → ${duplicateRecipient.location ?? ''}`,
+      );
+
+      const recipientId = await activeRecipientId('bkash');
+      const editRecipient = await call(base, '/api/admin/payment-recipients', {
+        method: 'POST',
+        jar: ownerJar,
+        form: {
+          csrf: recipientsCsrf,
+          action: 'update',
+          recipientId: String(recipientId),
+          accountNumber: '01712345679',
+          accountLabel: 'bKash — verify (business)',
+        },
+      });
+      record(
+        'an edit with no claims referencing the row updates it in place',
+        editRecipient.status === 303 &&
+          (editRecipient.location ?? '').includes('notice=updated') &&
+          (await activeRecipientNumber('bkash')) === '01712345679' &&
+          (await recipientRowCount('bkash')) === 1,
+        `status ${editRecipient.status} → ${editRecipient.location ?? ''}`,
+      );
+
+      const deactivateRecipient = await call(base, '/api/admin/payment-recipients', {
+        method: 'POST',
+        jar: ownerJar,
+        form: { csrf: recipientsCsrf, action: 'deactivate', recipientId: String(recipientId) },
+      });
+      record(
+        'deactivating removes the method from the configuration, and keeps the row',
+        deactivateRecipient.status === 303 &&
+          (deactivateRecipient.location ?? '').includes('notice=deactivated') &&
+          (await activeRecipientNumber('bkash')) === null &&
+          (await recipientRowCount('bkash')) === 1,
+        `status ${deactivateRecipient.status} → ${deactivateRecipient.location ?? ''}`,
+      );
+
+      const reactivateRecipient = await call(base, '/api/admin/payment-recipients', {
+        method: 'POST',
+        jar: ownerJar,
+        form: { csrf: recipientsCsrf, action: 'reactivate', recipientId: String(recipientId) },
+      });
+      record(
+        'reactivating brings the same row back to the configuration',
+        reactivateRecipient.status === 303 &&
+          (reactivateRecipient.location ?? '').includes('notice=reactivated') &&
+          (await activeRecipientNumber('bkash')) === '01712345679',
+        `status ${reactivateRecipient.status} → ${reactivateRecipient.location ?? ''}`,
+      );
+
+      const recipientAudit = await withTransaction((tx) =>
+        tx
+          .select({ action: auditEvent.action, actorStaffId: auditEvent.actorStaffId })
+          .from(auditEvent)
+          .where(sql`${auditEvent.entityType} = 'payment_recipient'`),
+      );
+      const actions = recipientAudit.map((row) => row.action);
+      record(
+        'every recipient change is audited against the acting owner',
+        actions.includes('payment.recipient_created') &&
+          actions.includes('payment.recipient_updated') &&
+          actions.includes('payment.recipient_deactivated') &&
+          actions.includes('payment.recipient_reactivated') &&
+          recipientAudit.every((row) => row.actorStaffId === limited.ownerId),
+        `${actions.join(', ')}`,
       );
 
       // The refusals above happened over real HTTP, through the real guards, inside real transactions
