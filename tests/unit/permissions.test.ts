@@ -51,6 +51,7 @@ describe('permission catalogue', () => {
       PERMISSIONS.codApprove,
       PERMISSIONS.codConfirmCollection,
       PERMISSIONS.financeReconcile,
+      PERMISSIONS.orderCostRecord,
       PERMISSIONS.refundConfirm,
       PERMISSIONS.staffManage,
       PERMISSIONS.settingsWrite,
@@ -111,6 +112,8 @@ describe('permission catalogue', () => {
         PERMISSIONS.codConfirmCollection,
         PERMISSIONS.orderDispatch,
         PERMISSIONS.returnInspect,
+        // Phase 22: additional courier costs recorded with payment receipt.
+        PERMISSIONS.orderCostRecord,
       ].sort(),
     );
   });

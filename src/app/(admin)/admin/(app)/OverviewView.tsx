@@ -12,8 +12,23 @@ import styles from '../admin.module.css';
 
 type FlagRow = { customerId: number; email: string; displayName: string | null; reason: string };
 
-/** Recorded revenue, derived from completed orders with recorded payment receipt. */
-type RevenueTotals = { orderCount: number; revenueMinor: number; itemsSubtotalMinor: number; shippingMinor: number };
+/**
+ * The dashboard's money figures, derived from completed orders with recorded payment receipt.
+ *
+ * Four amounts, never one: what the customer paid, the standard delivery fee inside it, the extra
+ * courier costs the owner recorded, and the estimated net proceeds. The gross figure is not revenue,
+ * and the net figure is an estimate - the screen says both.
+ */
+type RevenueTotals = {
+  orderCount: number;
+  customerPaymentMinor: number;
+  standardDeliveryFeeMinor: number;
+  additionalCostsMinor: number;
+  activeCostCount: number;
+  estimatedNetProceedsMinor: number | null;
+  netBasisOrderCount: number;
+  unsubstantiatedOrderCount: number;
+};
 
 type CatalogCounts = {
   products: number;
@@ -276,23 +291,38 @@ export function OverviewView({
           </div>
           <div className={styles.statRow}>
             <div className={styles.stat}>
-              <span className={styles.statValue}>{price(revenue.revenueMinor)}</span>
-              <span className={styles.statLabel}>{t('admin.overview.revenueTotal')}</span>
+              <span className={styles.statValue}>{price(revenue.customerPaymentMinor)}</span>
+              <span className={styles.statLabel}>{t('admin.overview.revenueCustomerPayment')}</span>
+            </div>
+            <div className={styles.stat}>
+              <span className={styles.statValue}>{price(revenue.standardDeliveryFeeMinor)}</span>
+              <span className={styles.statLabel}>{t('admin.overview.revenueStandardFee')}</span>
+            </div>
+            <div className={styles.stat}>
+              <span className={styles.statValue}>{price(revenue.additionalCostsMinor)}</span>
+              <span className={styles.statLabel}>
+                {t('admin.overview.revenueAdditionalCosts', { count: revenue.activeCostCount })}
+              </span>
+            </div>
+            <div className={styles.stat}>
+              <span className={styles.statValue}>
+                {revenue.estimatedNetProceedsMinor === null
+                  ? t('admin.overview.revenueUnavailable')
+                  : price(revenue.estimatedNetProceedsMinor)}
+              </span>
+              <span className={styles.statLabel}>{t('admin.overview.revenueNetEstimate')}</span>
             </div>
             <div className={styles.stat}>
               <span className={styles.statValue}>{revenue.orderCount}</span>
               <span className={styles.statLabel}>{t('admin.overview.revenueOrders')}</span>
             </div>
-            <div className={styles.stat}>
-              <span className={styles.statValue}>{price(revenue.itemsSubtotalMinor)}</span>
-              <span className={styles.statLabel}>{t('admin.overview.revenueItems')}</span>
-            </div>
-            <div className={styles.stat}>
-              <span className={styles.statValue}>{price(revenue.shippingMinor)}</span>
-              <span className={styles.statLabel}>{t('admin.overview.revenueShipping')}</span>
-            </div>
           </div>
           <p className={styles.note}>{t('admin.overview.revenueNote')}</p>
+          {revenue.unsubstantiatedOrderCount > 0 && (
+            <p className={styles.note}>
+              {t('admin.overview.revenueUnsubstantiated', { count: revenue.unsubstantiatedOrderCount })}
+            </p>
+          )}
         </section>
       )}
 

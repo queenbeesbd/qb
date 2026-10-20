@@ -23,6 +23,9 @@ const NOTICES: readonly AdminOrderNotice[] = [
   'completed',
   'cancelled',
   'inspected',
+  'costRecorded',
+  'costVoided',
+  'costInvalid',
   'denied',
   'conflict',
   'invalid',
@@ -134,6 +137,21 @@ export default async function AdminOrderDetailPage({
           inspectedAt: entry.inspectedAt === null ? null : entry.inspectedAt.toISOString(),
           inspectionNote: entry.inspectionNote,
         })),
+        costs: detail.costs.map((cost) => ({
+          id: cost.id,
+          amountMinor: cost.amountMinor,
+          description: cost.description,
+          recordedAt: cost.recordedAt.toISOString(),
+          voidedAt: cost.voidedAt === null ? null : cost.voidedAt.toISOString(),
+          voidReason: cost.voidReason,
+        })),
+        money: {
+          customerPaymentMinor: detail.money.customerPaymentMinor,
+          standardDeliveryFeeMinor: detail.money.standardDeliveryFeeMinor,
+          additionalCostsMinor: detail.money.additionalCostsMinor,
+          activeCostCount: detail.money.activeCostCount,
+          estimatedNetProceedsMinor: detail.money.estimatedNetProceedsMinor,
+        },
         events: detail.events.map((event) => ({
           id: event.id,
           eventType: event.eventType,
@@ -164,6 +182,7 @@ export default async function AdminOrderDetailPage({
       canFulfil={hasPermission(principal, PERMISSIONS.orderDispatch)}
       canCollect={hasPermission(principal, PERMISSIONS.codConfirmCollection)}
       canInspect={hasPermission(principal, PERMISSIONS.returnInspect)}
+      canRecordCosts={hasPermission(principal, PERMISSIONS.orderCostRecord)}
       canReadCustomers={canReadCustomers}
       canReadAudit={hasPermission(principal, PERMISSIONS.auditRead)}
       returnTo={returnTo}

@@ -87,6 +87,29 @@ async function orderOfReturn(tx: Transaction, returnId: number): Promise<number 
   return rows[0]?.orderId ?? null;
 }
 
+/**
+ * The additional costs a form submitted, in the order they appear.
+ *
+ * The form posts `costAmount` and `costDescription` as repeated fields with no index: a blank pair is
+ * simply skipped, so "no costs" needs no special case and the owner is never forced to invent one. Each
+ * value is passed through untouched - the service parses and validates it, and refuses the whole action
+ * if any pair is invalid.
+ */
+function readCosts(form: FormData): { amount: string; description: string }[] {
+  const amounts = form.getAll('costAmount');
+  const descriptions = form.getAll('costDescription');
+  const costs: { amount: string; description: string }[] = [];
+  for (let index = 0; index < Math.max(amounts.length, descriptions.length); index += 1) {
+    const amount = amounts[index];
+    const description = descriptions[index];
+    const amountText = typeof amount === 'string' ? amount : '';
+    const descriptionText = typeof description === 'string' ? description : '';
+    if (amountText.trim() === '' && descriptionText.trim() === '') continue;
+    costs.push({ amount: amountText, description: descriptionText });
+  }
+  return costs;
+}
+
 /** A refusal: back to the order the request named, resolved from the database, or to the list. */
 async function backTo(notice: string, orderId: number | null, returnId: number | null): Promise<Response> {
   if (orderId === null && returnId === null) return redirectTo(ORDERS_PATH + '?notice=' + notice);
@@ -149,7 +172,7 @@ export async function POST(request: Request): Promise<Response> {
           await recordParcelReceived(tx, actor, { orderId: id, note });
           break;
         case 'paid':
-          await markPaymentReceived(tx, actor, { orderId: id, note });
+          await markPaymentReceived(tx, actor, { orderId: id, note, costs: readCosts(form) });
           break;
         case 'complete':
           await completeOrder(tx, actor, { orderId: id, note });

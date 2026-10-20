@@ -37,6 +37,7 @@ import { customerReturn, order, orderEvent, orderItem } from '@/db/schema';
 import { recordAudit, type AuditAction } from '../auth/audit';
 import { ConflictError, ValidationError, requirePermission, type ActorContext } from '../authz/authorize';
 import { PERMISSIONS } from '../authz/permissions';
+import { parseCostAmount, recordAdditionalCost, type AdditionalCostInput } from './costs';
 
 /** Minimum length for a reason a person must give (matching the COD decision and suspension rules). */
 const MIN_REASON = 10;
@@ -670,11 +671,29 @@ export async function cancelOrderBeforeDispatch(
 export async function markPaymentReceived(
   tx: Transaction,
   actor: ActorContext,
-  input: { readonly orderId: number; readonly note?: string },
+  input: {
+    readonly orderId: number;
+    readonly note?: string;
+    /** Extra courier costs the owner incurred on this order, recorded with the receipt. */
+    readonly costs?: readonly AdditionalCostInput[];
+  },
 ): Promise<void> {
   await requirePermission(actor, PERMISSIONS.codConfirmCollection, 'order', input.orderId);
   const note = optionalNote(input.note);
   const current = await loadOrder(tx, input.orderId);
+  const costs = input.costs ?? [];
+
+  // Costs are validated before anything is written. A malformed amount or description refuses the
+  // whole action, so the order is never completed with a receipt whose costs were silently dropped.
+  // The cost permission is checked here too: recording a cost is not implied by confirming payment.
+  if (costs.length > 0) {
+    await requirePermission(actor, PERMISSIONS.orderCostRecord, 'order', input.orderId);
+    for (const cost of costs) {
+      if (parseCostAmount(cost.amount) === null) {
+        throw new ValidationError('every additional cost must be a positive BDT amount');
+      }
+    }
+  }
 
   const at = new Date();
   const receipted = await tx
@@ -742,5 +761,14 @@ export async function markPaymentReceived(
     after: { status: 'completed', codState: 'cod_collected' },
     reason: note,
   });
+
+  // Last, so a cost write that fails rolls the receipt and the completion back with it.
+  for (const cost of costs) {
+    await recordAdditionalCost(tx, actor, {
+      orderId: current.id,
+      amount: cost.amount,
+      description: cost.description,
+    });
+  }
 }
 

@@ -18,6 +18,7 @@ import { sql } from 'drizzle-orm';
 import type { Transaction } from '@/db/client';
 import { auditEvent, customer, customerReturn, order, orderContact, orderEvent, orderItem } from '@/db/schema';
 import { likeTerm } from '@/lib/search';
+import { listAdditionalCosts, orderMoney, type AdditionalCost, type OrderMoney } from './costs';
 
 export type AdminOrderItem = {
   readonly id: number;
@@ -98,6 +99,13 @@ export type AdminOrderDetail = {
   readonly items: readonly AdminOrderItem[];
   /** Returned lines, once a parcel is coming back. Empty on an order that never failed delivery. */
   readonly returns: readonly AdminOrderReturn[];
+  /** Every additional courier cost recorded on this order, voided ones included, newest first. */
+  readonly costs: readonly AdditionalCost[];
+  /**
+   * The four money facts, kept separate: the customer's gross payment, the standard delivery fee
+   * already inside it, the additional costs the shop incurred, and the estimated net proceeds.
+   */
+  readonly money: OrderMoney;
   readonly events: readonly AdminOrderEvent[];
   readonly shippedAt: Date | null;
   readonly deliveredAt: Date | null;
@@ -203,6 +211,24 @@ export async function adminOrderDetail(
     .where(sql`${customerReturn.orderId} = ${row.orderId}`)
     .orderBy(customerReturn.id);
 
+  const costs = await listAdditionalCosts(tx, row.orderId);
+
+  /**
+   * The standard delivery fee can only be separated out when the order carries the delivery-area
+   * snapshot Phase 19 introduced. Orders placed before it stored `0` delivery with no area, so whether
+   * their shipping was ever the standard fee is unknown - the net figure is then reported unavailable
+   * rather than netting a fee that was never charged.
+   */
+  const money = orderMoney({
+    itemsSubtotalMinor: row.itemsSubtotalMinor,
+    shippingMinor: row.shippingMinor,
+    additionalCostsMinor: costs
+      .filter((cost) => cost.voidedAt === null)
+      .reduce((total, cost) => total + cost.amountMinor, 0),
+    activeCostCount: costs.filter((cost) => cost.voidedAt === null).length,
+    deliveryFeeSubstantiated: row.districtCode !== null,
+  });
+
   const events = await tx
     .select({
       id: orderEvent.id,
@@ -252,6 +278,8 @@ export async function adminOrderDetail(
     },
     items,
     returns,
+    costs,
+    money,
     events,
   };
 }

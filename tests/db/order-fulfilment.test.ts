@@ -467,7 +467,7 @@ describe('order fulfilment transitions (Phase 20)', { skip: toolingAvailable ? f
     // A completed order whose parcel came back collected nothing, so its total is not revenue.
     // Measured against the figure before this test ran, because the suite shares one database.
     const summary = await withTransaction((tx) => revenueSummary(tx));
-    assert.equal(summary.revenueMinor, revenueBefore.revenueMinor);
+    assert.equal(summary.customerPaymentMinor, revenueBefore.customerPaymentMinor);
     assert.equal(summary.orderCount, revenueBefore.orderCount);
   });
 
@@ -533,8 +533,12 @@ describe('order fulfilment transitions (Phase 20)', { skip: toolingAvailable ? f
     const order_ = await state(fixture, seeded.orderId);
     // Exactly one order was added, and it is this one - counted from its own recorded total.
     assert.equal(after.orderCount, before.orderCount + 1);
-    assert.equal(after.revenueMinor, before.revenueMinor + order_.total_minor);
-    assert.equal(after.itemsSubtotalMinor + after.shippingMinor, after.revenueMinor);
+    assert.equal(after.customerPaymentMinor, before.customerPaymentMinor + order_.total_minor);
+    // The gross payment is the order's own subtotal plus its delivery fee - nothing else.
+    assert.equal(
+      after.customerPaymentMinor - before.customerPaymentMinor,
+      order_.items_subtotal_minor + order_.shipping_minor,
+    );
     assert.equal(await eventCount(fixture, seeded.orderId, 'cod_collected'), 1);
     assert.equal(await eventCount(fixture, seeded.orderId, 'order_completed'), 1);
 
@@ -542,7 +546,7 @@ describe('order fulfilment transitions (Phase 20)', { skip: toolingAvailable ? f
     assert.equal(order_.shipping_minor, 12000);
     assert.equal(order_.total_minor, order_.items_subtotal_minor + 12000);
     // The one counted order is this one, and it contributed its own total - not twice its total.
-    assert.equal(after.revenueMinor - before.revenueMinor, order_.total_minor);
+    assert.equal(after.customerPaymentMinor - before.customerPaymentMinor, order_.total_minor);
   });
 
   it('never adds a failed-delivery charge to the customer total', async () => {
@@ -556,7 +560,7 @@ describe('order fulfilment transitions (Phase 20)', { skip: toolingAvailable ? f
     assert.equal(failed.total_minor, failed.items_subtotal_minor + failed.shipping_minor);
     // A failed delivery adds nothing to revenue: no money was received.
     const summary = await withTransaction((tx) => revenueSummary(tx));
-    assert.equal(summary.revenueMinor, revenueBefore.revenueMinor);
+    assert.equal(summary.customerPaymentMinor, revenueBefore.customerPaymentMinor);
   });
 
   it('authorizes every transition in the service, not only in the route', async () => {

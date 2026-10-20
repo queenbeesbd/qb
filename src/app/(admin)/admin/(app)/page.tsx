@@ -65,16 +65,7 @@ export default async function AdminOverviewPage() {
       flagged={data.flagged.map(serializeFlag)}
       denials={data.denials}
       catalog={data.catalog}
-      revenue={
-        canReadOrders
-          ? {
-              orderCount: data.revenue?.orderCount ?? 0,
-              revenueMinor: data.revenue?.revenueMinor ?? 0,
-              itemsSubtotalMinor: data.revenue?.itemsSubtotalMinor ?? 0,
-              shippingMinor: data.revenue?.shippingMinor ?? 0,
-            }
-          : null
-      }
+      revenue={canReadOrders ? (data.revenue ?? null) : null}
       csrfToken={principal.csrfToken}
       canApprove={hasPermission(principal, PERMISSIONS.codApprove)}
       canCancel={hasPermission(principal, PERMISSIONS.orderCancel)}

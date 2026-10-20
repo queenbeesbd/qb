@@ -1027,6 +1027,38 @@ a rejection writes a `return_written_off` movement instead.
 
 ---
 
+### 7.7 `order_additional_cost`
+
+**Why it exists (Phase 22, ADR 0018).** The courier may charge the shop more than its standard
+delivery fee on one particular order, and the owner records that when confirming payment. The row is
+part of the order's **money story**, not of the order's arithmetic: the customer's charged amounts are
+frozen, so a cost the shop pays is structurally unable to reach the invoice.
+
+| Column | Type | Null | Notes |
+| --- | --- | --- | --- |
+| `id` | bigint identity | PK | |
+| `order_id` | bigint | NOT NULL | FK `order(id)` `ON DELETE RESTRICT` |
+| `amount_minor` | integer | NOT NULL | Integer poisha. `CHECK > 0 and <= 100000000` |
+| `description` | text | NOT NULL | Owner-typed. `CHECK btrim length 3..200`. **No category column**: a fixed list would encode an unapproved policy |
+| `recorded_by_staff_id` / `recorded_at` | bigint / timestamptz | NOT NULL | The actor and the moment |
+| `voided_at` / `voided_by_staff_id` / `void_reason` | | NULL | All-null or all-set, reason `>= 3` chars |
+
+**Constraints.** The `CHECK`s above, plus an `(order_id, recorded_at)` index and a partial index on
+the active costs (`WHERE voided_at IS NULL`). **Immutable by trigger:** `order_additional_cost_immutable_columns`
+refuses any change to the order, amount, description or recording actor and refuses un-voiding;
+`order_additional_cost_no_delete` refuses `DELETE`. A mistake is **voided**, never edited or removed,
+so the history of what the owner recorded stays readable.
+
+**Authorization.** Read with `order.read`; record and void with **`order.cost_record`**, which is
+privileged because it writes a money fact. Audited as `order.cost_recorded` / `order.cost_voided`.
+
+**Recorded with the receipt.** `markPaymentReceived` writes the cost rows in the same transaction as
+`cod_collected` and `completed`, so the order is never completed with a receipt whose costs were
+dropped, and no cost is saved whose receipt was refused.
+
+**What it is not.** It is not a line on the customer's invoice, not a refund, not a ledger entry and
+not subtracted from any stored figure. Every net figure is derived on read (16.10).
+
 ## 8. Payments, claims and refunds
 
 > **Status (ADR 0015, 2026-10-17).** Cash on Delivery is the **only payment method** in this release.

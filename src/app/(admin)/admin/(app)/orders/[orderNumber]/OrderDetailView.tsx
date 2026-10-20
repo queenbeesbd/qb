@@ -5,7 +5,7 @@ import Link from 'next/link';
 import type { TranslationKey } from '@/i18n/dictionaries';
 import { useTranslation } from '@/i18n/useTranslation';
 import { deliveryAreaName } from '@/lib/delivery-areas';
-import { ORDER_TRANSITION_PATH } from '@/server/auth/constants';
+import { ORDER_COST_PATH, ORDER_TRANSITION_PATH } from '@/server/auth/constants';
 import { paymentLabel, statusLabel } from '@/features/account/order-labels';
 import { ConfirmSubmit } from '../../../_ui/ConfirmSubmit';
 import { EmptyState } from '../../../_ui/EmptyState';
@@ -26,6 +26,9 @@ export type AdminOrderNotice =
   | 'completed'
   | 'cancelled'
   | 'inspected'
+  | 'costRecorded'
+  | 'costVoided'
+  | 'costInvalid'
   | 'denied'
   | 'conflict'
   | 'invalid';
@@ -88,6 +91,23 @@ export type AdminOrderDetailModel = {
     lineTotalMinor: number;
   }[];
   returns: readonly AdminOrderReturnModel[];
+  /** Additional courier costs, voided ones included, newest first. */
+  costs: readonly {
+    id: number;
+    amountMinor: number;
+    description: string;
+    recordedAt: string;
+    voidedAt: string | null;
+    voidReason: string | null;
+  }[];
+  /** The four money facts, kept separate: never collapsed into one "revenue" number. */
+  money: {
+    customerPaymentMinor: number;
+    standardDeliveryFeeMinor: number;
+    additionalCostsMinor: number;
+    activeCostCount: number;
+    estimatedNetProceedsMinor: number | null;
+  };
   events: readonly {
     id: number;
     eventType: string;
@@ -121,12 +141,15 @@ const NOTICE_KEYS: Record<AdminOrderNotice, TranslationKey> = {
   completed: 'admin.order.notice.completed',
   cancelled: 'admin.order.notice.cancelled',
   inspected: 'admin.order.notice.inspected',
+  costRecorded: 'admin.order.notice.costRecorded',
+  costVoided: 'admin.order.notice.costVoided',
+  costInvalid: 'admin.order.notice.costInvalid',
   denied: 'admin.cod.notice.denied',
   conflict: 'admin.cod.notice.conflict',
   invalid: 'admin.cod.notice.invalid',
 };
 
-const ERROR_NOTICES: readonly AdminOrderNotice[] = ['denied', 'conflict', 'invalid'];
+const ERROR_NOTICES: readonly AdminOrderNotice[] = ['denied', 'conflict', 'invalid', 'costInvalid'];
 
 /**
  * Event types this release can actually write, translated. Anything else is shown as its stored code:
@@ -202,6 +225,7 @@ export function AdminOrderDetailView({
   canFulfil,
   canCollect,
   canInspect,
+  canRecordCosts,
   canReadCustomers,
   canReadAudit,
   returnTo,
@@ -214,6 +238,8 @@ export function AdminOrderDetailView({
   canFulfil: boolean;
   canCollect: boolean;
   canInspect: boolean;
+  /** `order.cost_record`: recording and voiding additional courier costs. */
+  canRecordCosts: boolean;
   canReadCustomers: boolean;
   canReadAudit: boolean;
   /** Where "back" goes: the queue or the order list, with its filters preserved. */
@@ -272,6 +298,113 @@ export function AdminOrderDetailView({
       />
 
       {notice !== null && <Notice tone={noticeTone}>{t(NOTICE_KEYS[notice])}</Notice>}
+
+      {/*
+        The money facts, kept separate on purpose. The customer's payment is gross; the standard
+        delivery fee inside it is what the courier keeps; additional costs are the shop's own; and the
+        net figure is an estimate, labelled as one, or "unavailable" when the order cannot substantiate
+        the split.
+      */}
+      <div className={styles.detailGrid}>
+        <div className={styles.section}>
+          <div className={styles.sectionHead}>
+            <div>
+              <h2>{t('admin.order.moneyTitle')}</h2>
+              <p>{t('admin.order.moneyBody')}</p>
+            </div>
+          </div>
+          <dl className={styles.moneyGrid}>
+            <div className={styles.moneyItem}>
+              <dt className={styles.factLabel}>{t('admin.order.moneyCustomerPayment')}</dt>
+              <dd className={styles.recordPrice}>{price(order.money.customerPaymentMinor)}</dd>
+            </div>
+            <div className={styles.moneyItem}>
+              <dt className={styles.factLabel}>{t('admin.order.moneyStandardFee')}</dt>
+              <dd className={styles.recordPrice}>{price(order.money.standardDeliveryFeeMinor)}</dd>
+            </div>
+            <div className={styles.moneyItem}>
+              <dt className={styles.factLabel}>{t('admin.order.moneyAdditionalCosts')}</dt>
+              <dd className={styles.recordPrice}>{price(order.money.additionalCostsMinor)}</dd>
+            </div>
+            <div className={styles.moneyItem}>
+              <dt className={styles.factLabel}>{t('admin.order.moneyNetEstimate')}</dt>
+              <dd className={styles.recordPrice}>
+                {order.money.estimatedNetProceedsMinor === null
+                  ? t('admin.order.moneyUnavailable')
+                  : price(order.money.estimatedNetProceedsMinor)}
+              </dd>
+            </div>
+          </dl>
+          <p className={styles.note}>{t('admin.order.moneyNote')}</p>
+          {order.money.estimatedNetProceedsMinor === null && (
+            <p className={styles.note}>{t('admin.order.moneyUnsubstantiated')}</p>
+          )}
+        </div>
+
+        <div className={styles.section}>
+          <div className={styles.sectionHead}>
+            <div>
+              <h2>{t('admin.order.costsTitle')}</h2>
+              <p>{t('admin.order.costsBody')}</p>
+            </div>
+          </div>
+          {order.costs.length === 0 ? (
+            <p className={styles.note}>{t('admin.order.costsEmpty')}</p>
+          ) : (
+            <ul className={styles.recordList}>
+              {order.costs.map((cost) => (
+                <li className={styles.record} key={cost.id}>
+                  <div className={styles.recordMain}>
+                    <span className={styles.recordTitle}>{cost.description}</span>
+                    <span className={styles.recordMeta}>
+                      <span>{dateTime.format(new Date(cost.recordedAt))}</span>
+                      {cost.voidedAt !== null && (
+                        <span>
+                          {t('admin.order.costVoided', { reason: cost.voidReason ?? '' })}
+                        </span>
+                      )}
+                    </span>
+                  </div>
+                  <div className={styles.recordSide}>
+                    <span
+                      className={
+                        cost.voidedAt === null ? styles.recordPrice : `${styles.recordPrice} ${styles.recordVoided}`
+                      }
+                    >
+                      {price(cost.amountMinor)}
+                    </span>
+                    {cost.voidedAt === null && canRecordCosts && (
+                      <form action={ORDER_COST_PATH} method="post" className={styles.costVoidForm}>
+                        <input type="hidden" name="csrf" value={csrfToken} />
+                        <input type="hidden" name="operation" value="void" />
+                        <input type="hidden" name="orderId" value={order.orderId} />
+                        <input type="hidden" name="costId" value={cost.id} />
+                        <details className={styles.noteDetails}>
+                          <summary>{t('admin.order.costVoid')}</summary>
+                          <label className="sr-only" htmlFor={`void-reason-${cost.id}`}>
+                            {t('admin.order.costVoidReason')}
+                          </label>
+                          <input
+                            id={`void-reason-${cost.id}`}
+                            name="reason"
+                            className={styles.input}
+                            maxLength={200}
+                          />
+                          <SubmitButton
+                            label={t('admin.order.costVoidConfirm')}
+                            pendingLabel={t('admin.common.working')}
+                            variant="secondary"
+                          />
+                        </details>
+                      </form>
+                    )}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </div>
 
       <div className={styles.detailGrid}>
         <div className={styles.section}>
@@ -701,6 +834,7 @@ export function AdminOrderDetailView({
                     <input type="hidden" name="csrf" value={csrfToken} />
                     <input type="hidden" name="action" value="paid" />
                     <input type="hidden" name="orderId" value={order.orderId} />
+                    <p className={styles.note}>{t('admin.order.paidBody')}</p>
                     <details className={styles.noteDetails}>
                       <summary>{t('admin.order.noteSummary')}</summary>
                       <label className="sr-only" htmlFor="collect-note">
@@ -708,6 +842,43 @@ export function AdminOrderDetailView({
                       </label>
                       <input id="collect-note" name="note" className={styles.input} maxLength={300} />
                     </details>
+
+                    {/*
+                      Additional costs are recorded with the receipt, in the same submission and the same
+                      transaction. Two blank rows are offered rather than one required row: no cost is a
+                      perfectly normal answer, and the owner is never made to invent one to complete.
+                    */}
+                    {canRecordCosts && (
+                      <fieldset className={styles.costEntry}>
+                        <legend className={styles.costLegend}>{t('admin.order.costsEntryTitle')}</legend>
+                        <p className={styles.note}>{t('admin.order.costsEntryBody')}</p>
+                        {[0, 1].map((index) => (
+                          <div key={index} className={styles.costRow}>
+                            <label className="sr-only" htmlFor={`cost-amount-${index}`}>
+                              {t('admin.order.costsEntryAmount')}
+                            </label>
+                            <input
+                              id={`cost-amount-${index}`}
+                              name="costAmount"
+                              className={styles.input}
+                              inputMode="decimal"
+                              placeholder={t('admin.order.costsEntryAmount')}
+                            />
+                            <label className="sr-only" htmlFor={`cost-description-${index}`}>
+                              {t('admin.order.costsEntryDescription')}
+                            </label>
+                            <input
+                              id={`cost-description-${index}`}
+                              name="costDescription"
+                              className={styles.input}
+                              maxLength={200}
+                              placeholder={t('admin.order.costsEntryDescription')}
+                            />
+                          </div>
+                        ))}
+                      </fieldset>
+                    )}
+
                     <SubmitButton
                       label={t('admin.order.paid')}
                       pendingLabel={t('admin.common.working')}

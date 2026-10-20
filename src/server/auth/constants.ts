@@ -102,6 +102,8 @@ export const ORDERS_PATH = '/admin/orders';
  * notices so a queue decision is never mistaken for an operation.
  */
 export const ORDER_TRANSITION_PATH = '/api/admin/orders/transition';
+/** Recording and voiding the additional courier costs an order incurred (Phase 22). */
+export const ORDER_COST_PATH = '/api/admin/orders/cost';
 
 /**
  * Where an authenticated page may send a browser after a successful sign-in. Anything else resolves

@@ -311,3 +311,57 @@ export const customerReturn = pgTable(
     ),
   ],
 );
+
+
+/**
+ * One additional cost the owner incurred on a specific order (Phase 22).
+ *
+ * **Why it is a separate table and not a column on `order`.** The customer's charged amounts are frozen
+ * by the `order_immutable_columns` trigger on purpose: a cost the *shop* pays must never be able to
+ * reach the invoice, so it lives beside the order and can never be summed into `total_minor` by
+ * accident. A ledger row also gives every cost its own identity, actor and timestamp, which a column
+ * could not.
+ *
+ * **Never deleted, never overwritten.** A mistake is corrected by voiding the row - actor, timestamp
+ * and a required reason - so the history of what the owner recorded stays readable. There is no
+ * `category` column: the owner's free-text description is the classification, because imposing a fixed
+ * list of cost types would encode a policy nobody approved.
+ */
+export const orderAdditionalCost = pgTable(
+  'order_additional_cost',
+  {
+    id: bigint('id', { mode: 'number' }).generatedAlwaysAsIdentity().primaryKey(),
+    orderId: bigint('order_id', { mode: 'number' })
+      .notNull()
+      .references(() => order.id, { onDelete: 'restrict' }),
+    /** Integer poisha. The bounds are the same the price parser enforces, checked twice on purpose. */
+    amountMinor: integer('amount_minor').notNull(),
+    description: text('description').notNull(),
+    recordedByStaffId: bigint('recorded_by_staff_id', { mode: 'number' })
+      .notNull()
+      .references(() => staffUser.id, { onDelete: 'restrict' }),
+    recordedAt: timestamp('recorded_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+    voidedAt: timestamp('voided_at', { withTimezone: true, mode: 'date' }),
+    voidedByStaffId: bigint('voided_by_staff_id', { mode: 'number' }).references(() => staffUser.id, {
+      onDelete: 'restrict',
+    }),
+    voidReason: text('void_reason'),
+  },
+  (t) => [
+    index('order_additional_cost_order_idx').on(t.orderId, t.recordedAt),
+    // The active-cost total is read per order, so a partial index keeps voided rows out of it.
+    index('order_additional_cost_active_idx')
+      .on(t.orderId)
+      .where(sql`${t.voidedAt} is null`),
+    check('order_additional_cost_amount_positive', sql`${t.amountMinor} > 0`),
+    check('order_additional_cost_amount_max', sql`${t.amountMinor} <= 100000000`),
+    check('order_additional_cost_description_len', sql`char_length(btrim(${t.description})) between 3 and 200`),
+    // A void is all-or-nothing: an actor, a timestamp and a reason that says something.
+    check(
+      'order_additional_cost_void_complete',
+      sql`(${t.voidedAt} is null and ${t.voidedByStaffId} is null and ${t.voidReason} is null)
+          or (${t.voidedAt} is not null and ${t.voidedByStaffId} is not null and ${t.voidReason} is not null and char_length(btrim(${t.voidReason})) >= 3)`,
+    ),
+  ],
+);
+

@@ -162,6 +162,30 @@ double click updates zero rows and reads `conflict`; a racing pair lets exactly 
 - **No automatic retry, reship, cancel or refund.** A failed delivery records the outcome and creates the
   returns; every decision after that is the owner's. The failed delivery's charge is the **owner's cost**
   (owner decision, 2026-10-20) and is never added to the customer's total.
+- **No courier data of any kind.** The owner verifies payment in the courier's own dashboard and records
+  the fact here; nothing is imported, matched or inferred.
+
+### The money figures (Phase 22, ADR 0018)
+
+Four amounts are kept **separate on purpose**, because collapsing them is what produces a false
+"revenue" number:
+
+| Figure | What it is |
+| --- | --- |
+| **Customer payments** | `items_subtotal + shipping` over completed, paid orders. What customers paid - **gross**, and never called revenue |
+| **Standard delivery fee** | The configured charge inside that payment, which the courier keeps |
+| **Additional courier costs** | Costs the owner recorded on those orders. Voided rows are excluded |
+| **Estimated net proceeds** | Customer payments **−** standard fee **−** additional costs. An estimate, and `Unavailable` when the split cannot be substantiated |
+
+Three rules make them correct:
+
+1. **The fee is subtracted once.** It is inside the customer payment, so netting it is not a second
+   deduction; additional costs were never in the payment and are subtracted after it.
+2. **Nothing is a counter.** Every figure is a `sum()` over order and cost rows on each read, so no order
+   or cost can be counted twice and a void simply leaves the sum.
+3. **The standard-fee equivalence is checked.** `order.shipping_minor` equals the configured fee for
+   every order under the three-area model. Orders that predate it (delivery `0`, no `district_code`)
+   add their gross payment but no net, and the screen states how many there are.
 - No cancellation or refund workflow beyond the COD rejection, which cancels a still-pending order.
 - No customer notification: the owner telephones, and the customer's own order page is the record.
 - No expiry: `expires_at` is `NULL` for a COD order and no expiry writer exists.

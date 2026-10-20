@@ -18,6 +18,7 @@ export const PERMISSIONS = {
   codApprove: 'cod.approve',
   codConfirmCollection: 'cod.confirm_collection',
   financeReconcile: 'finance.reconcile',
+  orderCostRecord: 'order.cost_record',
   orderRead: 'order.read',
   orderDispatch: 'order.dispatch',
   orderCancel: 'order.cancel',
@@ -58,6 +59,11 @@ export const PERMISSION_CATALOGUE: readonly PermissionDefinition[] = [
   { code: PERMISSIONS.codApprove, description: 'Approve a COD order before dispatch', isPrivileged: true },
   { code: PERMISSIONS.codConfirmCollection, description: 'Confirm COD cash was collected', isPrivileged: true },
   { code: PERMISSIONS.financeReconcile, description: 'Reconcile collected COD cash', isPrivileged: true },
+  {
+    code: PERMISSIONS.orderCostRecord,
+    description: 'Record and void additional courier costs on an order',
+    isPrivileged: true,
+  },
   { code: PERMISSIONS.refundConfirm, description: 'Advance a refund to completed or failed', isPrivileged: true },
   { code: PERMISSIONS.staffManage, description: 'Create, disable or re-role a staff user', isPrivileged: true },
   { code: PERMISSIONS.settingsWrite, description: 'Write store settings', isPrivileged: true },
@@ -95,6 +101,7 @@ export const PERMISSION_LABELS: Record<string, string> = {
   [PERMISSIONS.codApprove]: 'Approve COD',
   [PERMISSIONS.codConfirmCollection]: 'Confirm COD collection',
   [PERMISSIONS.financeReconcile]: 'Reconcile COD cash',
+  [PERMISSIONS.orderCostRecord]: 'Record additional order costs',
   [PERMISSIONS.orderRead]: 'Read orders',
   [PERMISSIONS.orderDispatch]: 'Dispatch and delivery outcomes',
   [PERMISSIONS.orderCancel]: 'Handle cancellations',
@@ -117,6 +124,7 @@ export const PERMISSION_LABELS_BN: Record<string, string> = {
   [PERMISSIONS.codApprove]: 'সিওডি অনুমোদন',
   [PERMISSIONS.codConfirmCollection]: 'সিওডি আদায় নিশ্চিত',
   [PERMISSIONS.financeReconcile]: 'সিওডি নগদ মিলকরণ',
+  [PERMISSIONS.orderCostRecord]: 'অর্ডারের অতিরিক্ত খরচ নথিভুক্ত',
   [PERMISSIONS.orderRead]: 'অর্ডার দেখা',
   [PERMISSIONS.orderDispatch]: 'ডেলিভারি ও প্রেরণ',
   [PERMISSIONS.orderCancel]: 'বাতিলকরণ পরিচালনা',
@@ -150,9 +158,11 @@ export const PERMISSION_LABELS_BN: Record<string, string> = {
  * a name, not an ability. Rows already written to `permission`/`role_permission` by an earlier seed are
  * untouched history; the seed only adds, never removes.
  *
- * Everything else is still catalogued but unreachable: `cod.confirm_collection`, `refund.*`,
- * `return.inspect`, `finance.reconcile`, `customer.flag`, `customer.revoke_session`,
- * `inventory.adjust` and `settings.write` have no route yet. `inventory.adjust` deserves a note:
+ * **Phase 22 added `order.cost_record`** - recording and voiding the extra courier costs an order
+ * incurred, recorded alongside payment receipt. It is privileged because it writes a money fact.
+ *
+ * Everything else is still catalogued but unreachable: `refund.*`, `finance.reconcile`,
+ * `customer.flag` and `customer.revoke_session` have no route yet. `inventory.adjust` deserves a note:
  * availability is the only ordering gate (ADR 0013), so that permission has no workflow and the ledger
  * stays unused.
  */
@@ -175,4 +185,6 @@ export const PERMISSIONS_IMPLEMENTED: readonly PermissionCode[] = [
   PERMISSIONS.orderDispatch,
   PERMISSIONS.codConfirmCollection,
   PERMISSIONS.returnInspect,
+  // Phase 22: additional courier costs, recorded with payment receipt.
+  PERMISSIONS.orderCostRecord,
 ];

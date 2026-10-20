@@ -1865,3 +1865,68 @@ html[dir='rtl'] .switchOn .switchKnob::after {
     flex: 1 1 auto;
   }
 }
+
+/* ------------------------------------------------------------------
+ * Additional courier costs and order money (Phase 22)
+ *
+ * Cost rows and the four money figures are deliberately quiet: the
+ * owner reads them while deciding, so they use the same type scale as
+ * the rest of the record list and never compete with the actions.
+ * ------------------------------------------------------------------ */
+
+.moneyGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: var(--space-3);
+  margin: 0 0 var(--space-3);
+  padding: 0;
+}
+
+.moneyItem {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.moneyItem dd {
+  margin: 0;
+}
+
+.costEntry {
+  border: 0;
+  border-top: 1px solid var(--color-border);
+  margin: var(--space-3) 0 0;
+  padding: var(--space-3) 0 0;
+  min-width: 0;
+}
+
+.costLegend {
+  padding: 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.costRow {
+  display: grid;
+  grid-template-columns: minmax(0, 8rem) minmax(0, 1fr);
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+.costRow input {
+  min-width: 0;
+}
+
+.costVoidForm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  align-items: flex-end;
+}
+
+.recordVoided {
+  text-decoration: line-through;
+  opacity: 0.65;
+}
+

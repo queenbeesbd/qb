@@ -647,20 +647,54 @@ statement-matching and discrepancy rules, and the `0005` migration that was prop
 `operational_exception` table keeps its `unreconciled_collection` type as unused schema, exactly as
 the reservation tables are retained.
 
+## Phase 22 - payment receipt with per-order courier costs, delivered 2026-10-20
+
+**The owner's actual money workflow is now implemented.** Customer pays the courier the price plus the
+delivery fee; the courier keeps its standard fee; the owner checks the courier's dashboard and marks the
+order **Payment Received**; at that moment the owner may record any **additional courier cost** for that
+order; the order completes and the dashboard's figures update.
+
+| Piece | Where |
+| --- | --- |
+| `order_additional_cost` table, immutability + no-delete triggers | **migration `0005`** (additive; schema 42 → **43** tables) |
+| Record / void costs, parse amounts | `src/server/orders/costs.ts` |
+| Costs saved atomically with receipt and completion | `markPaymentReceived` |
+| Cost route | `POST /api/admin/orders/cost` |
+| Permission | `order.cost_record` (privileged) |
+| Audit actions | `order.cost_recorded`, `order.cost_voided` |
+| Dashboard figures | `revenueSummary` → four separate amounts |
+
+**Four amounts, never collapsed:** customer payment (gross), standard delivery fee (inside it, kept by
+the courier), additional courier costs, and **estimated** net proceeds. The fee is subtracted **once**;
+additional costs are subtracted after it; the net figure reads **Unavailable** when an order cannot
+substantiate the split. Nothing is incremented - every figure is derived on read.
+
+**Unchanged:** no courier integration, consignment reference, tracking, statement import or automated
+reconciliation; no refund, inventory or delivery-policy change; the customer's charged total cannot be
+altered by a cost, and `order_immutable_columns` would refuse it.
+
 ## Current single best next step
 
-**Dispatch and cash-collection operating screens, then analytics - or an owner-operated customer
-credential reset.** The COD money story is now closed end to end (approve, dispatch, deliver or fail
-and return, payment received, completed, counted once), so what remains is operational convenience
-rather than a missing money fact.
+**A consignment reference the owner types in, or nothing at all - the next genuine gap is elsewhere: the
+order screens still have no cancellation/refund recording.** Refunds are the one money fact the platform
+can now *describe* but cannot *record*: `refund` exists in the schema with its four states and its
+evidence requirements, and no screen, service or route writes it.
 
-The highest-value remaining gap is **the courier relationship while the parcel is in transit**: there
-is no consignment or tracking reference and no failed-delivery retry, so the owner tracks it outside
-the app. **Prerequisites:** the owner names the couriers actually used and whether any tracking
-reference is worth storing; that is a data question with an owner answer, not an engineering guess.
-**Acceptance:** an order carries an optional consignment reference, recording it is audited, and no
-delivery promise, restock or automatic action follows from it.
+**Why this and not courier work:** courier booking, tracking and communication are explicitly outside the
+platform, and phase 22 closed the money story with the costs that made it accurate. A refund is the only
+remaining path where real money leaves the shop and the application cannot record it.
 
-**Not authorized by this recommendation:** deployment, provisioning, DNS, credentials, gateway or
-online payment work, inventory reservation, courier reconciliation, or any new price, delivery,
-refund or cancellation policy.
+**Prerequisites (all owner inputs, not guesses):** when a refund is allowed (before dispatch, after a
+failed delivery, after an inspection rejects the goods); whether a refund may be partial; who confirms it
+was actually paid out; and whether the cost records survive a refunded order.
+
+**Acceptance:** the owner can record a refund against a completed or cancelled order with its amount,
+reason and evidence note, in a state separate from the order status and from payment receipt; only an
+owner-level principal may advance it to `completed`, and only with a confirmed real-world action;
+`requested`/approved never read as completed; the audit trail records every transition; the dashboard
+continues to count the order's revenue exactly as recorded and states plainly that a refund has been
+made.
+
+**Not authorized by this recommendation:** deployment, provisioning, DNS, credentials, gateway or online
+payment work, courier integration, inventory reservation, or any new refund, delivery or cancellation
+policy.

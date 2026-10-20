@@ -31,6 +31,7 @@ import {
   deliveryDistrictCharge,
   deliverySetting,
   order,
+  orderAdditionalCost,
   orderContact,
   orderEvent,
   orderItem,
@@ -1799,10 +1800,10 @@ async function main(): Promise<void> {
 
             const revenueAfter = await withTransaction((tx) => revenueSummary(tx));
             record(
-              'the dashboard revenue moves by exactly that order total, once',
-              revenueAfter.revenueMinor === revenueBefore.revenueMinor + (paidRow[0]?.total ?? 0) &&
+              'the dashboard customer-payment figure moves by exactly that order total, once',
+              revenueAfter.customerPaymentMinor === revenueBefore.customerPaymentMinor + (paidRow[0]?.total ?? 0) &&
                 revenueAfter.orderCount === revenueBefore.orderCount + 1,
-              `${revenueBefore.revenueMinor} -> ${revenueAfter.revenueMinor} (${revenueBefore.orderCount} -> ${revenueAfter.orderCount} orders)`,
+              `${revenueBefore.customerPaymentMinor} -> ${revenueAfter.customerPaymentMinor} (${revenueBefore.orderCount} -> ${revenueAfter.orderCount} orders)`,
             );
 
             // Re-submitting the same form cannot record a second receipt or count the order twice.
@@ -1821,11 +1822,11 @@ async function main(): Promise<void> {
                 .where(sql`${orderEvent.orderId} = ${secondCod.orderId} and ${orderEvent.eventType} in ('cod_collected', 'order_completed')`),
             );
             record(
-              'a repeated submission cannot record a second receipt or double the revenue',
-              revenueRepeated.revenueMinor === revenueAfter.revenueMinor &&
+              'a repeated submission cannot record a second receipt or double the payment total',
+              revenueRepeated.customerPaymentMinor === revenueAfter.customerPaymentMinor &&
                 revenueRepeated.orderCount === revenueAfter.orderCount &&
                 eventsAfterRepeat.length === 2,
-              `revenue ${revenueAfter.revenueMinor} -> ${revenueRepeated.revenueMinor}, ${eventsAfterRepeat.length} money events`,
+              `payment ${revenueAfter.customerPaymentMinor} -> ${revenueRepeated.customerPaymentMinor}, ${eventsAfterRepeat.length} money events`,
             );
 
             await browser.navigate('/admin');
@@ -1842,6 +1843,128 @@ async function main(): Promise<void> {
               JSON.stringify(revenueUi),
             );
             await browser.screenshot('/tmp/qb-admin-revenue.png');
+
+
+            // ---- Phase 22: recording an additional courier cost in a real browser ----
+            //
+            // The order is already completed, so a cost is recorded directly through the cost route -
+            // the same form the order detail posts. What matters is that it lands, is auditable, and
+            // leaves the customer's charged total exactly as it was.
+            await browser.navigate('/admin/orders/' + secondCod.orderNumber);
+            const costFormUi = await browser.evaluate<{ money: boolean; costs: boolean }>(`(() => {
+              const text = document.body.textContent ?? '';
+              return {
+                money: text.includes('Estimated net proceeds'),
+                costs: text.includes('Additional courier costs'),
+              };
+            })()`);
+            record(
+              'the order detail shows the four money facts and the additional-costs section',
+              costFormUi.money === true && costFormUi.costs === true,
+              JSON.stringify(costFormUi),
+            );
+
+            // The CSRF token is read from the page the server rendered, never invented.
+            const costCsrf = csrfFrom(
+              await browser.evaluate<string>('document.documentElement.outerHTML'),
+            );
+            const chargedBefore = await withTransaction((tx) =>
+              tx
+                .select({ total: order.totalMinor, subtotal: order.itemsSubtotalMinor, shipping: order.shippingMinor })
+                .from(order)
+                .where(sql`${order.id} = ${secondCod.orderId}`),
+            );
+            await browser.evaluate(`(() => {
+              const form = document.createElement('form');
+              form.method = 'post';
+              form.action = '/api/admin/orders/cost';
+              const fields = {
+                csrf: ${JSON.stringify(costCsrf)},
+                operation: 'record',
+                orderId: ${JSON.stringify(String(secondCod.orderId))},
+                amount: '35',
+                description: 'Extra weight charge from the courier',
+              };
+              for (const [name, value] of Object.entries(fields)) {
+                const input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = name;
+                input.value = String(value);
+                form.appendChild(input);
+              }
+              document.body.appendChild(form);
+              form.submit();
+              return true;
+            })()`);
+            await browser.waitFor("location.search.includes('notice=costRecorded')");
+            const costRows = await withTransaction((tx) =>
+              tx
+                .select({ amount: orderAdditionalCost.amountMinor, description: orderAdditionalCost.description })
+                .from(orderAdditionalCost)
+                .where(sql`${orderAdditionalCost.orderId} = ${secondCod.orderId}`),
+            );
+            const costAudit = await withTransaction((tx) =>
+              tx
+                .select({ action: auditEvent.action })
+                .from(auditEvent)
+                .where(sql`${auditEvent.entityId} = ${secondCod.orderId} and ${auditEvent.action} = 'order.cost_recorded'`),
+            );
+            record(
+              'an additional cost is recorded and audited through the real route',
+              costRows.length === 1 &&
+                costRows[0]?.amount === 3500 &&
+                costRows[0]?.description === 'Extra weight charge from the courier' &&
+                costAudit.length === 1,
+              `${costRows.length} cost row(s), ${costAudit.length} audit row(s)`,
+            );
+
+            const chargedAfter = await withTransaction((tx) =>
+              tx
+                .select({ total: order.totalMinor, subtotal: order.itemsSubtotalMinor, shipping: order.shippingMinor })
+                .from(order)
+                .where(sql`${order.id} = ${secondCod.orderId}`),
+            );
+            record(
+              'recording a cost leaves the customer charged total untouched',
+              chargedAfter[0]?.total === chargedBefore[0]?.total &&
+                chargedAfter[0]?.subtotal === chargedBefore[0]?.subtotal &&
+                chargedAfter[0]?.shipping === chargedBefore[0]?.shipping,
+              `total ${chargedBefore[0]?.total} -> ${chargedAfter[0]?.total}`,
+            );
+
+            // The cost figure moves by exactly the recorded amount, the gross payment does not move at
+            // all, and the net figure either falls by the same amount or stays unavailable because this
+            // seeded order carries no delivery-area snapshot - never a number built on a guess.
+            const revenueWithCost = await withTransaction((tx) => revenueSummary(tx));
+            const netMoved =
+              revenueAfter.estimatedNetProceedsMinor === null ||
+              revenueWithCost.estimatedNetProceedsMinor === null
+                ? revenueWithCost.estimatedNetProceedsMinor === null &&
+                  revenueAfter.estimatedNetProceedsMinor === null
+                : revenueWithCost.estimatedNetProceedsMinor ===
+                  revenueAfter.estimatedNetProceedsMinor - 3500;
+            record(
+              'the dashboard costs figure includes the recorded cost, and the fee is not taken twice',
+              revenueWithCost.additionalCostsMinor === revenueAfter.additionalCostsMinor + 3500 &&
+                revenueWithCost.customerPaymentMinor === revenueAfter.customerPaymentMinor &&
+                netMoved,
+              `costs ${revenueAfter.additionalCostsMinor} -> ${revenueWithCost.additionalCostsMinor}, payment unchanged ${revenueWithCost.customerPaymentMinor}, net ${revenueWithCost.estimatedNetProceedsMinor}`,
+            );
+
+            await browser.navigate('/admin/orders/' + secondCod.orderNumber);
+            const costUi = await browser.evaluate<{ listed: boolean; voidable: boolean }>(`(() => {
+              const text = document.body.textContent ?? '';
+              return {
+                listed: text.includes('Extra weight charge from the courier'),
+                voidable: text.includes('Void this cost'),
+              };
+            })()`);
+            record(
+              'the recorded cost is listed with a void control',
+              costUi.listed === true && costUi.voidable === true,
+              JSON.stringify(costUi),
+            );
+            await browser.screenshot('/tmp/qb-admin-order-costs.png');
 
             await browser.navigate('/admin/catalog');
             const catalogUi = await browser.evaluate<{ switches: number; search: boolean; create: boolean }>(`(() => ({
