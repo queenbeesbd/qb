@@ -1031,6 +1031,23 @@ html[lang='bn'] .sectionHead h2 {
   font-size: var(--text-xs);
 }
 
+/* A pager is secondary navigation: the count first, then the controls. */
+.pagination {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding-top: var(--space-3);
+}
+
+.pagerNav {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
 .toolbarMeta {
   font-size: var(--text-sm);
   color: var(--color-ink-muted);
@@ -1829,6 +1846,15 @@ html[dir='rtl'] .switchOn .switchKnob::after {
 
   .toolbarMeta {
     margin-inline-start: 0;
+  }
+
+  /*
+     A pager that keeps its count on the right of a 360px screen pushes the controls off the edge.
+     Stacking it is the responsive answer, not shrinking the tap targets below 44px.
+  */
+  .pagination {
+    flex-direction: column;
+    align-items: flex-start;
   }
 
   .pageActions {

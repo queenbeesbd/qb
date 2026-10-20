@@ -60,6 +60,12 @@ export function CheckoutForm({
   };
   const quote = districtCode === '' ? null : quoteDelivery(rates, districtCode);
   const deliveryConfigured = delivery.defaultMinor !== null;
+  /**
+   * A line whose product is not in stock right now. Availability comes from the same catalog snapshot
+   * the cart is built from, and the server refuses such an order anyway - so the form says so here
+   * instead of letting the customer fill in an address for an order that cannot be placed.
+   */
+  const unavailableCount = cart.entries.filter((entry) => entry.product.availability !== 'in_stock').length;
   const previewTotal = quote?.ok === true ? cart.subtotalMinor + quote.quote.chargeMinor : null;
 
   const refusal = notice === null ? null : (REFUSAL_KEYS[notice] ?? 'checkout.notice.invalid');
@@ -221,7 +227,16 @@ export function CheckoutForm({
                   {t('checkout.deliveryUnconfigured')}
                 </p>
               )}
-              <button type="submit" className={styles.primaryAction} disabled={!deliveryConfigured}>
+              {unavailableCount > 0 && (
+                <p className={styles.notice} role="alert">
+                  {t('checkout.unavailableNotice')}
+                </p>
+              )}
+              <button
+                type="submit"
+                className={styles.primaryAction}
+                disabled={!deliveryConfigured || unavailableCount > 0}
+              >
                 {t('checkout.submit')}
               </button>
               <Link className={styles.secondaryAction} href="/cart">

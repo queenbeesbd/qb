@@ -60,6 +60,14 @@ export function ProductCard({ product }: { product: CatalogItem }) {
           </p>
         )}
 
+        {/*
+          Availability is the owner's binary state, so it is stated on the card rather than only on
+          the product page: a customer must be able to see an unavailable product *before* opening
+          it or adding it to the cart. An unverified state is stated too, never guessed.
+        */}
+        {product.availability === 'out_of_stock' && (
+          <p className={styles.outOfStock}>{t('product.availability.out_of_stock')}</p>
+        )}
         {product.availability === 'unknown' && (
           <p className={styles.availability}>{t('product.availability.unknown')}</p>
         )}

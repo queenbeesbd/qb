@@ -6,6 +6,7 @@ import { PERMISSIONS } from '@/server/authz/permissions';
 import {
   codDecidedToday,
   codQueue,
+  DECIDED_PAGE_SIZE,
   type CodDecidedItem,
   type CodQueueItem,
 } from '@/server/orders/admin-read';
@@ -25,6 +26,12 @@ function readNotice(value: string | string[] | undefined): CodNotice | null {
 function single(value: string | string[] | undefined): string {
   const candidate = Array.isArray(value) ? value[0] : value;
   return candidate ?? '';
+}
+
+/** A page number, parsed defensively: anything not a positive integer is page 1. */
+function pageNumber(value: string): number {
+  const parsed = Number.parseInt(value, 10);
+  return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : 1;
 }
 
 /**
@@ -50,8 +57,20 @@ export default async function AdminCodPage({
 
   const data = await withTransaction(async (tx) => {
     const waitingCount = await countCodApprovalQueue(tx);
-    const rows = filter === 'decided' ? await codDecidedToday(tx, { search }) : await codQueue(tx, { search });
-    return { waitingCount, rows };
+    if (filter === 'decided') {
+      // Resolve the page against the real total first, so a hand-typed page beyond the end shows the
+      // last page rather than an empty list with no explanation.
+      const first = await codDecidedToday(tx, { search, limit: DECIDED_PAGE_SIZE, offset: 0 });
+      const pageCount = Math.max(1, Math.ceil(first.total / DECIDED_PAGE_SIZE));
+      const page = Math.min(pageNumber(single(params.page)), pageCount);
+      const decided =
+        page === 1
+          ? first
+          : await codDecidedToday(tx, { search, limit: DECIDED_PAGE_SIZE, offset: (page - 1) * DECIDED_PAGE_SIZE });
+      return { waitingCount, rows: decided.rows, total: decided.total, page, pageCount };
+    }
+    const waiting = await codQueue(tx, { search });
+    return { waitingCount, rows: waiting, total: waiting.length, page: 1, pageCount: 1 };
   });
 
   const rows = data.rows.map((row) => ({
@@ -84,6 +103,9 @@ export default async function AdminCodPage({
       filter={filter}
       search={search}
       notice={readNotice(params.notice)}
+      total={data.total}
+      page={data.page}
+      pageCount={data.pageCount}
       csrfToken={principal.csrfToken}
       canApprove={hasPermission(principal, PERMISSIONS.codApprove)}
       canCancel={hasPermission(principal, PERMISSIONS.orderCancel)}

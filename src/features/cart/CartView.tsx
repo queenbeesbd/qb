@@ -9,6 +9,18 @@ import { TrashIcon } from '@/components/icons';
 import styles from '@/app/cart.module.css';
 
 /**
+ * A line whose product is no longer in stock right now.
+ *
+ * The cart stores ids and quantities only, so availability is always read from the current catalog
+ * snapshot rather than remembered. The line is kept - removing a customer's choice for them would be
+ * worse - but it is marked, and the summary says plainly that the order cannot be placed until it is
+ * removed. The server refuses the order regardless of what this says (ADR 0013).
+ */
+function unavailable(product: { availability: string }): boolean {
+  return product.availability !== 'in_stock';
+}
+
+/**
  * Demo cart. All totals are derived in one place (CartProvider) from the local
  * catalog, and nothing is ever sent anywhere. This state is explicitly not
  * authoritative for a future real order.
@@ -16,6 +28,7 @@ import styles from '@/app/cart.module.css';
 export function CartView() {
   const { t, pick, price } = useTranslation();
   const cart = useCart();
+  const unavailableCount = cart.entries.filter((entry) => unavailable(entry.product)).length;
 
   if (cart.isEmpty) {
     return (
@@ -70,6 +83,15 @@ export function CartView() {
                   {entry.product.pack && (
                     <p className={styles.linePack}>{entry.product.pack}</p>
                   )}
+                  {unavailable(entry.product) && (
+                    <p className={styles.lineUnavailable}>
+                      {entry.product.availability === 'out_of_stock'
+                        ? t('product.availability.out_of_stock')
+                        : t('product.availability.unknown')}
+                      {' — '}
+                      {t('cart.lineUnavailable')}
+                    </p>
+                  )}
 
                   <div className={styles.lineControls}>
                     <QuantityStepper
@@ -99,6 +121,11 @@ export function CartView() {
         </ul>
 
         <aside className={styles.summary} aria-labelledby="summary-title">
+          {unavailableCount > 0 && (
+            <p className={styles.summaryWarning} role="alert">
+              {t('cart.unavailableWarning')}
+            </p>
+          )}
           <h2 id="summary-title">{t('checkout.summary')}</h2>
           <dl className={styles.summaryList}>
             <div>

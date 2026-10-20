@@ -59,7 +59,13 @@ QueenBee's accepts **one** method: **Cash on Delivery**. Ordering still requires
   order. Historical orders keep saying delivery is arranged on confirmation when they carry no area.
 - **Courier and consignment records.** No courier API is authorized and no consignment field is written.
 - **Cash collection and reconciliation below `cod_approved`.** `cod_collected`, `cod_failed` and
-  `cod_reconciled` exist in the schema and have no screen or transition yet.
+  `cod_reconciled` exist in the schema and have no screen or transition yet. Phase 20 added the owner's
+  order detail and order history, which is where such a transition would live - but **no control was
+  added**, because the policy behind it is not the owner's yet. The detail page states explicitly that
+  **an approved COD order is not proof of cash**, and no view or count describes an order as collected,
+  paid or reconciled. The four questions that would unlock it (who records dispatch; how a failed
+  delivery is handled and who bears its charge; who records cash received and when; what reconciliation
+  means operationally) are listed in `docs/admin-dashboard.md` under **Owner decisions**.
 - **Cancellation and refund workflows.** Refunds remain manual and, in this release, are recorded only if
   the owner records them by other means; no refund UI exists.
 - **Any notification.** There is no mail, SMS or push provider; the customer's own order page is the

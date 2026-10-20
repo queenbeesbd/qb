@@ -9,6 +9,7 @@ import { ConfirmSubmit } from '../../_ui/ConfirmSubmit';
 import { EmptyState } from '../../_ui/EmptyState';
 import { Notice } from '../../_ui/Notice';
 import { PageHeader } from '../../_ui/PageHeader';
+import { Pagination } from '../../_ui/Pagination';
 import { StatusPill } from '../../_ui/StatusPill';
 import styles from '../../admin.module.css';
 
@@ -45,12 +46,18 @@ export function CustomersView({
   csrfToken,
   canSuspend,
   search,
+  total,
+  page,
+  pageCount,
 }: {
   rows: readonly CustomerRow[];
   notice: CustomerNotice | null;
   csrfToken: string;
   canSuspend: boolean;
   search: string;
+  total: number;
+  page: number;
+  pageCount: number;
 }) {
   const { t, locale } = useTranslation();
   const dateFormat = new Intl.DateTimeFormat(locale === 'bn' ? 'bn-BD' : 'en-US', { dateStyle: 'medium' });
@@ -89,7 +96,7 @@ export function CustomersView({
             </Link>
           )}
         </form>
-        <span className={styles.toolbarMeta}>{t('admin.customers.resultCount', { count: rows.length })}</span>
+        <span className={styles.toolbarMeta}>{t('admin.customers.resultCount', { count: total })}</span>
       </div>
 
       {rows.length === 0 ? (
@@ -108,6 +115,7 @@ export function CustomersView({
           <EmptyState title={t('admin.customers.emptyTitle')} body={t('admin.customers.emptyBody')} icon="customers" />
         )
       ) : (
+        <>
         <ul className={styles.recordList}>
           {rows.map((row) => {
             const active = row.status === 'active';
@@ -159,6 +167,15 @@ export function CustomersView({
             );
           })}
         </ul>
+        <Pagination
+          basePath="/admin/customers"
+          query={{ q: search }}
+          page={page}
+          pageCount={pageCount}
+          shown={rows.length}
+          total={total}
+        />
+        </>
       )}
     </>
   );

@@ -350,6 +350,49 @@ not rotated. Deleting or rotating a credential is an owner decision with real-wo
 
 ---
 
+## Phase 20 security and correctness review (implemented backend)
+
+A focused review of the delivered backend, with every confirmed defect fixed in the same sprint. It found
+**one disclosure defect**, now closed, and no authorization gap in the guards.
+
+### Defect found and fixed: a withheld field that was still delivered
+
+The new order detail withheld the customer's account email from the rendered page when the viewer did not
+hold `customer.read`. The email was nevertheless passed to the client component as a prop, and **React
+Server Component props are serialized into the response payload** - so "not rendered" was still
+"delivered to the browser". The page now omits the value entirely for a principal without `customer.read`,
+and the end-to-end check asserts the string is **absent from the response body**, not merely absent from
+the visible markup.
+
+The general rule this establishes for the codebase: **a permission-gated field must be excluded before it
+reaches a client component**, because gating it in the view is gating the rendering, not the delivery.
+
+### Reviewed and unchanged
+
+| Concern | Result |
+| --- | --- |
+| Server-side authorization | Both new pages call `requireAdminPage` themselves (`order.read`); the audit block adds `audit.read` and the customer link `customer.read`. The decision forms post to the **existing** guarded route, which re-checks `cod.approve`/`order.cancel` in the service layer. No guard was weakened or bypassed |
+| Order enumeration | The detail answers **404** for a reference that names no order, so the page cannot be used to test which references exist. The reference is truncated to 64 characters before use |
+| Search and filtering | All new searches route through `likeTerm` (literal `%`, `_`, `\\`), so a search box cannot become a pattern. A `%` search matches nothing - asserted in `tests/db/admin-orders.test.ts` |
+| Unbounded reads | Every new list takes a clamped `limit`/`offset` (1..100, page size 25) and reports an exact total, so no page renders an unbounded table and no list truncates silently |
+| Unauthorized status filters | The status filter is validated against a closed set; anything else is treated as "all" rather than reaching SQL |
+| SQL injection | Every value is a bound parameter; the only interpolated SQL is the fixed predicate text |
+| Price and total integrity | Unchanged and re-asserted: the server prices every line from `product_variant` and resolves delivery from the owner's configuration inside the order transaction. Order amounts are **immutable after insert** - the guard trigger refused an attempt to update them during this sprint's own test authoring, which is the guarantee working |
+| Historical data | No migration was added, so no historical row, delivery snapshot or legacy state was touched |
+| Error detail | Refusals remain fixed notice codes and empty bodies; no internal message reaches the browser |
+| Secrets | `check:secrets` passes; `.env.local` is gitignored and never staged; the new local-database script writes its data directory outside the repository |
+
+### Deliberately not changed
+
+- **No CSP was added.** It needs a nonce or hash inventory for the Next runtime and the CSS Modules build,
+  and a policy that silently breaks the storefront would be worse than none. It remains an open
+  requirement, recorded rather than silently claimed.
+- **No rate limiting was added.** The existing conventions are a database-backed login throttle and a
+  bounded in-process denial log; inventing a second mechanism for the new read pages would be a control
+  with no evidence behind it. The list bounds above are what stop a page from being a load amplifier.
+
+---
+
 ## Authorization matrix (Phase 10 design)
 
 **Design only.** No authorization exists yet, because no backend exists. Every cell below is a

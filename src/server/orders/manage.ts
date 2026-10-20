@@ -225,11 +225,21 @@ export type CustomerQueueRow = {
   readonly flagged: boolean;
 };
 
-/** The customer worklist, for the owner's moderation view - email, standing and order count only. */
+/** Rows per page for the customer worklist. */
+export const CUSTOMER_PAGE_SIZE = 25;
+
+/**
+ * The customer worklist, for the owner's moderation view - email, standing and order count only.
+ *
+ * Paginated with an exact total: the customer table only grows, and an unbounded list would eventually
+ * render every account on one page.
+ */
 export async function listCustomers(
   tx: Transaction,
-  options: { readonly search?: string } = {},
-): Promise<CustomerQueueRow[]> {
+  options: { readonly search?: string; readonly limit?: number; readonly offset?: number } = {},
+): Promise<{ readonly rows: CustomerQueueRow[]; readonly total: number }> {
+  const limit = Math.min(Math.max(options.limit ?? CUSTOMER_PAGE_SIZE, 1), 100);
+  const offset = Math.max(options.offset ?? 0, 0);
   const search = options.search?.trim() ?? '';
   const searchClause =
     search === ''
@@ -254,6 +264,14 @@ export async function listCustomers(
     })
     .from(customer)
     .where(sql`${customer.deletedAt} is null and ${searchClause}`)
-    .orderBy(sql`${customer.createdAt} desc`);
-  return rows;
+    .orderBy(sql`${customer.createdAt} desc`)
+    .limit(limit)
+    .offset(offset);
+
+  const counted = await tx
+    .select({ total: sql<number>`count(*)::int` })
+    .from(customer)
+    .where(sql`${customer.deletedAt} is null and ${searchClause}`);
+
+  return { rows, total: counted[0]?.total ?? 0 };
 }

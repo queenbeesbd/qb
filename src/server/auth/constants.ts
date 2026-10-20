@@ -85,6 +85,15 @@ export const COD_PATH = '/admin/orders-cod';
 export const CUSTOMERS_PATH = '/admin/customers';
 
 /**
+ * The order history and one order's detail (Phase 20).
+ *
+ * The queue stays its own destination because it is a worklist - the one list that waits on a person -
+ * while this is the record of everything taken. They share the decision route and the guarded service
+ * underneath, so the two screens cannot disagree about what an approval does.
+ */
+export const ORDERS_PATH = '/admin/orders';
+
+/**
  * Where an authenticated page may send a browser after a successful sign-in. Anything else resolves
  * to the admin root, so the login form cannot be used as an open redirect.
  */

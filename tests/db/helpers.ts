@@ -78,6 +78,13 @@ export type SeedOptions = {
   withReservation?: boolean;
   /** Backdates `placed_at`, so expiry behaviour can be tested without mutating a frozen column. */
   placedHoursAgo?: number;
+  /**
+   * Delivery charge saved on the order, in poisha. Set here rather than updated afterwards because
+   * `order`'s amounts are immutable after insert (the guard trigger refuses the UPDATE).
+   */
+  shippingMinor?: number;
+  /** Canonical delivery-area code. Omitted means the pre-Phase-19 shape, where the column is NULL. */
+  districtCode?: string | null;
 };
 
 /**
@@ -89,6 +96,7 @@ export async function seedOrder(pool: Pool, options: SeedOptions = {}): Promise<
   const quantity = options.quantity ?? 1;
   const reservationQuantity = options.reservationQuantity ?? quantity;
   const paymentMethod = options.paymentMethod ?? 'bkash';
+  const shippingMinor = options.shippingMinor ?? 0;
   const withReservation = options.withReservation ?? true;
   // `placed_at` is immutable after insert (guard trigger), so an overdue order must be seeded
   // already backdated rather than updated into the past.
@@ -168,7 +176,7 @@ export async function seedOrder(pool: Pool, options: SeedOptions = {}): Promise<
     `insert into "order"
        (order_number, customer_id, payment_method, payment_state, cod_state,
         items_subtotal_minor, shipping_minor, total_minor, placed_at, expires_at)
-     values ($1, $2, $3, $4, $5, $6, 0, $6, $7, $8)
+     values ($1, $2, $3, $4, $5, $6::int, $7::int, $6::int + $7::int, $8, $9)
      returning id`,
     [
       orderNumber,
@@ -177,6 +185,7 @@ export async function seedOrder(pool: Pool, options: SeedOptions = {}): Promise<
       paymentMethod === 'cod' ? 'not_applicable' : 'awaiting_payment',
       paymentMethod === 'cod' ? 'cod_pending_approval' : 'not_applicable',
       10000 * quantity,
+      shippingMinor,
       placedAt,
       expiresAt,
     ],
@@ -184,9 +193,9 @@ export async function seedOrder(pool: Pool, options: SeedOptions = {}): Promise<
   const orderId = Number(orderRow.rows[0]?.id);
 
   await pool.query(
-    `insert into order_contact (order_id, recipient_name, recipient_phone, address_line, area, city)
-     values ($1, 'Recipient', '01722222222', 'House 1, Road 2', 'Dhanmondi', 'Dhaka')`,
-    [orderId],
+    `insert into order_contact (order_id, recipient_name, recipient_phone, address_line, district_code, area, city)
+     values ($1, 'Recipient', '01722222222', 'House 1, Road 2', $2, 'Dhanmondi', 'Dhaka')`,
+    [orderId, options.districtCode ?? null],
   );
 
   const itemRow = await pool.query<{ id: string }>(

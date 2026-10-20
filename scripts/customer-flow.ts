@@ -288,6 +288,48 @@ export async function runCustomerFlowChecks(options: { base: string; pool: Pool 
     { status: unavailable.status, location: unavailable.headers.get('location') },
   );
 
+  // 9b. An out-of-stock product states its state on the page and is refused by the order route, so the
+  // storefront cannot invite a purchase the server will reject. The product is restored afterwards.
+  const oosRows = await pool.query<{ id: string; slug: string }>(
+    'select p.id, p.slug from product p ' +
+      'join product_variant v on v.product_id = p.id and v.is_default and v.is_active ' +
+      "where p.is_published and p.availability = 'in_stock' and p.deleted_at is null " +
+      'order by p.id limit 1',
+  );
+  const oos = oosRows.rows[0];
+  if (oos !== undefined) {
+    await pool.query("update product set availability = 'out_of_stock' where id = $1", [oos.id]);
+    try {
+      const oosPage = await fetch(base + '/products/' + oos.slug, { redirect: 'manual' });
+      const oosHtml = await oosPage.text();
+      // The default locale is Bangla, so the assertion accepts either locale's statement of the state.
+      const statesOutOfStock =
+        /out of stock/i.test(oosHtml) || oosHtml.includes('স্টকে নেই');
+      const offersAddToCart = /add to cart/i.test(oosHtml) || oosHtml.includes('কার্টে যোগ করুন');
+      record(
+        'an out-of-stock product states its state on the product page and offers no add-to-cart control',
+        oosPage.status === 200 && statesOutOfStock && !offersAddToCart,
+        { status: oosPage.status, statesOutOfStock, offersAddToCart },
+      );
+
+      const oosOrder = await post('/api/checkout/order', {
+        ...contact,
+        csrf: csrf ?? '',
+        lines: JSON.stringify([{ productId: oos.id, quantity: 1 }]),
+        idempotencyKey: 'flow-out-of-stock-0000000001',
+      });
+      await body(oosOrder);
+      record(
+        'an order for an out-of-stock product is refused from database state',
+        oosOrder.status >= 300 &&
+          (oosOrder.headers.get('location') ?? '').includes('notice=unavailable'),
+        { status: oosOrder.status, location: oosOrder.headers.get('location') },
+      );
+    } finally {
+      await pool.query("update product set availability = 'in_stock' where id = $1", [oos.id]);
+    }
+  }
+
   // 10. A real order succeeds, and prices submitted by the browser are ignored.
   const idempotencyKey = 'flow-order-0000000000000001';
   const orderBody = {

@@ -102,11 +102,37 @@ should suggest one.
   same transaction, and require their own permission server-side.
 - **Neither decision ever bans a customer.** A ban is a separate action on the customers screen (D20).
 
+### The order detail and order history (Phase 20)
+
+The queue is a **worklist**; an order also needs a **record**. Both now exist, and neither duplicates the
+other's policy:
+
+- **`/admin/orders`** (requires `order.read`): every order the store has taken, newest first, with
+  server-side search over the order number, recipient name and phone, a status filter (pending,
+  confirmed, cancelled - the states the model actually uses), and pagination with an exact total so a
+  list can never silently truncate. Rows link to the detail.
+- **`/admin/orders/[orderNumber]`** (requires `order.read`): the reference and placement time, the
+  customer and the delivery contact with a `tel:` link, the delivery area and full address, the recorded
+  lines at their saved unit prices, the **delivery-charge snapshot** the order stored, the order and COD
+  states, a cancelled order's reason, the **order event log**, and the **audit trail for that order** -
+  the last of these only for a principal holding `audit.read`. A reference that names no order is a
+  **404**, not a 403, so the page cannot be used to probe for order numbers.
+- **The decision controls on the detail page are the queue's own guarded forms** (the same
+  `/api/admin/orders-cod` route, the same service, the same audit). A decided order shows its decision
+  and no second form.
+- **The customer's account email is not sent to the browser** unless the viewer holds `customer.read`.
+  Reading an order and reading a customer are different permissions, and a client component's props are
+  serialized into the response - so withholding it in the view alone would still have delivered it.
+- Customer detail lists that customer's orders as links into the same page, and says when the list is
+  capped rather than ending silently.
+
 ### What the COD module does not do yet
 
-- No dispatch, consignment or courier record; no `cod_collected` / `cod_failed` / `cod_reconciled`
-  transition; no cash reconciliation.
-- No cancellation or refund workflow.
+- **No dispatch, consignment or courier record; no `cod_collected` / `cod_failed` /
+  `cod_reconciled` transition; no cash reconciliation.** The order detail deliberately offers **no such
+  control**, and **approving a COD order is never presented as cash received**. The four owner decisions
+  that would unlock it are listed under [Owner decisions](#owner-decisions).
+- No cancellation or refund workflow beyond the COD rejection, which cancels a still-pending order.
 - No customer notification: the owner telephones, and the customer's own order page is the record.
 - No expiry: `expires_at` is `NULL` for a COD order and no expiry writer exists.
 
@@ -334,6 +360,19 @@ A dependency is not added for the first dashboard charts. The initial charts are
 - Authorization is enforced on the server for every admin operation. Hiding a button is not access control.
 - Customer personal data is minimised at collection and access-controlled at read. Staff see what their role requires, not everything.
 - Sensitive administrative changes - price, stock, order status, permissions - are written to an audit log with actor, timestamp and before/after values.
+
+## Owner decisions
+
+These block specific, named features. None was guessed; the features they block are simply not built.
+
+| # | Question | What it blocks |
+| --- | --- | --- |
+| 1 | **Who records dispatch, and in which interface?** Is it the owner, a member of staff, or the courier's own app that is later imported? | Any dispatch control on the order detail, and therefore any recorded operational life for an approved order |
+| 2 | **How is a failed delivery handled** - retried, cancelled or returned - and **who bears the delivery charge when it fails**? | Any `cod_failed` state, any return flow, and any statement about what a failed delivery costs |
+| 3 | **Who records that the courier's cash was actually received, and when?** Is it the owner on the day, or after the courier's statement? | Any cash-collection control. `cod.confirm_collection` exists in the permission catalogue with no route behind it, and **approval is never shown as cash received** |
+| 4 | **What does reconciliation mean operationally**, over what period, and against what statement? | Any reconciliation figure or screen. No number in the dashboard is described as reconciled |
+| 5 | **The delivery amounts** for Other districts, Dhaka and Chattogram | Every order: checkout correctly refuses until the required default is saved |
+| 6 | **Photography rights** in writing | Public launch. The images are tagged pending confirmation and are not cleared |
 
 ## Open questions for the owner
 

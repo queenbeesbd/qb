@@ -3,6 +3,7 @@ import { requireAdminPage } from '@/server/auth/guard';
 import { hasPermission } from '@/server/authz/principal';
 import { PERMISSIONS } from '@/server/authz/permissions';
 import { customers } from '@/server/orders/admin-read';
+import { CUSTOMER_PAGE_SIZE } from '@/server/orders/manage';
 import { CustomersView, type CustomerNotice } from './CustomersView';
 
 export const dynamic = 'force-dynamic';
@@ -17,6 +18,12 @@ function single(value: string | string[] | undefined): string {
 function readNotice(value: string | string[] | undefined): CustomerNotice | null {
   const candidate = single(value);
   return (NOTICES as readonly string[]).includes(candidate) ? (candidate as CustomerNotice) : null;
+}
+
+/** A page number, parsed defensively: anything not a positive integer is page 1. */
+function pageNumber(value: string): number {
+  const parsed = Number.parseInt(value, 10);
+  return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : 1;
 }
 
 /**
@@ -36,11 +43,23 @@ export default async function AdminCustomersPage({
   const params = await searchParams;
   const search = single(params.q).slice(0, 80);
 
-  const rows = await withTransaction((tx) => customers(tx, { search }));
+  const data = await withTransaction(async (tx) => {
+    const first = await customers(tx, { search, limit: CUSTOMER_PAGE_SIZE, offset: 0 });
+    const pageCount = Math.max(1, Math.ceil(first.total / CUSTOMER_PAGE_SIZE));
+    const page = Math.min(pageNumber(single(params.page)), pageCount);
+    const result =
+      page === 1
+        ? first
+        : await customers(tx, { search, limit: CUSTOMER_PAGE_SIZE, offset: (page - 1) * CUSTOMER_PAGE_SIZE });
+    return { ...result, page, pageCount };
+  });
 
   return (
     <CustomersView
-      rows={rows.map((row) => ({
+      total={data.total}
+      page={data.page}
+      pageCount={data.pageCount}
+      rows={data.rows.map((row) => ({
         customerId: row.customerId,
         email: row.email,
         displayName: row.displayName,

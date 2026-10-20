@@ -568,26 +568,50 @@ decision. Migration `0004_district_delivery_charges` adds two tables and a nulla
 **Still an owner input:** the actual BDT amounts. Until the default is saved, checkout correctly refuses
 every order. No price was guessed.
 
+## Phase 20, first slice - delivered 2026-10-20
+
+**Launch-readiness sprint: the owner can now read an order, and the lists are honest about their size.**
+
+Delivered:
+
+1. **Order detail** (`/admin/orders/[orderNumber]`, requires `order.read`): reference and placement time,
+   customer and delivery contact with a `tel:` link, the delivery area and address, the recorded lines
+   with their saved unit prices, the delivery-charge snapshot, the order and COD states, the order event
+   log, and - only with `audit.read` - the audit trail. The approve/reject controls are the same guarded
+   forms the queue posts to, so there is one implementation of a decision.
+2. **Order history** (`/admin/orders`): server-side search (number, name, phone), status filter, and
+   pagination with an exact total. The queue and the customer list are paginated the same way, and a
+   capped customer order list now says how many orders exist beyond it.
+3. **Storefront availability**: an Out of Stock card badge, a product page that states its state instead
+   of offering an add-to-cart control, marked unavailable cart lines, and a checkout that refuses to
+   submit while one is present. All of it is presentation over the unchanged server gate.
+4. **Reproducible local start**: `npm run dev:db` plus `.env.local`-aware database scripts.
+5. **One defect found by verification and fixed**: the order detail withheld the customer email from the
+   page but still serialized it into the React Server Component payload, so it reached the browser
+   anyway. The page now omits it entirely unless the principal holds `customer.read`.
+
+**No migration. No new order state, transition or business policy.** The schema stays at 42 tables.
+
 ## Current single best next step
 
-**Phase 19, next slice: the owner's post-approval COD workflow** - an owner order-detail page plus
-recording dispatch and cash collection/reconciliation into the existing `order.status` and
-`cod_state` values. Why this one: the customer can now be charged and the owner can approve, but after
-approval the order has no recorded operational life, so cash and delivery cannot be reconciled against
-anything. It is the largest remaining gap in the trading loop.
+**The owner's post-approval COD workflow** remains the single largest gap, and it is unchanged by Phase
+20's first slice: the owner's order detail exists to hold it, but **recording dispatch, a delivery
+outcome, cash collection and reconciliation is still not built** - because the policy behind it is not
+the owner's yet.
 
-**Prerequisites:**
+**Prerequisites (owner decisions, not engineering work):**
 
-1. Owner approval of the exact dispatch/collection transitions and who may record them (the schema has
-   `cod_collected`, `cod_failed` and `cod_reconciled`, but no screens or policy).
-2. A decision on failed-delivery handling: whether the order is cancelled, returned or retried, and who
-   pays the delivery charge.
-3. Explicit authorization for any migration; none is presumed. A first slice may need only reads and
-   existing columns.
+1. Who records dispatch, and in which interface? The schema already holds `order.status` values
+   `shipped`/`delivered` and `cod_state` values `cod_collected`/`cod_failed`/`cod_reconciled`; it holds
+   no policy for who may write them or when.
+2. Failed delivery: retried, cancelled or returned - and who bears the charge when it fails?
+3. Who records that courier cash was actually received, and when? (`cod.confirm_collection` is in the
+   catalogue with no route behind it.)
+4. What does reconciliation mean operationally, over what period, against what statement?
 
 **Acceptance:** an approved order can be marked dispatched, collected and reconciled with actor,
 timestamp and reason; no step marks cash collected before it is; failed delivery has a defined outcome;
 customer and owner views remain separate; tests cover each guarded transition and its refusal.
 
 **Not authorized by this recommendation:** deployment, provisioning, DNS, credentials, gateway work,
-inventory reservation, or any new price or refund policy.
+inventory reservation, or any new price, delivery, refund or cancellation policy.

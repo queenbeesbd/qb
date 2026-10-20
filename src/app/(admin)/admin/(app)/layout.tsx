@@ -9,6 +9,7 @@ import {
   CUSTOMERS_PATH,
   DELIVERY_SETTINGS_PATH,
   LOGIN_PATH,
+  ORDERS_PATH,
   OWNERS_PATH,
 } from '@/server/auth/constants';
 import { currentStaffPrincipal } from '@/server/auth/guard';
@@ -48,6 +49,7 @@ export default async function AdminShellLayout({ children }: { children: React.R
   ];
   if (hasPermission(principal, PERMISSIONS.orderRead)) {
     items.push({ href: COD_PATH, labelKey: 'admin.nav.cod', group: 'commerce', icon: 'orders' });
+    items.push({ href: ORDERS_PATH, labelKey: 'admin.nav.orders', group: 'commerce', icon: 'list' });
   }
   if (hasPermission(principal, PERMISSIONS.catalogWrite)) {
     items.push({ href: CATALOG_PATH, labelKey: 'admin.nav.catalog', group: 'commerce', icon: 'package' });

@@ -53,6 +53,14 @@ export function ProductDetailView({
    */
   const compareAt = saving === null ? null : product.compareAtPriceMinor;
   const image = product.images[0];
+  /**
+   * Availability is the owner's binary In Stock / Out of Stock state and the only ordering gate the
+   * server reads (ADR 0013), so the purchase control follows it here. This is presentation only: the
+   * order transaction re-checks `checkOrderability` from database state, so a tampered page still
+   * cannot order an unavailable product. The control is removed rather than left clickable, because
+   * a button that always fails is a worse answer than a stated reason.
+   */
+  const orderable = product.availability === 'in_stock';
 
   return (
     <div className={styles.page}>
@@ -121,6 +129,7 @@ export function ProductDetailView({
             </div>
           </dl>
 
+          {orderable ? (
           <div className={styles.purchase}>
             <label className={styles.quantityLabel} htmlFor="pdp-quantity">
               {t('product.quantity')}
@@ -156,6 +165,23 @@ export function ProductDetailView({
               )}
             </p>
           </div>
+          ) : (
+            <div className={styles.unavailable} role="status">
+              <p className={styles.unavailableTitle}>
+                {product.availability === 'out_of_stock'
+                  ? t('product.availability.out_of_stock')
+                  : t('product.availability.unknown')}
+              </p>
+              <p className={styles.unavailableBody}>
+                {product.availability === 'out_of_stock'
+                  ? t('product.unavailableBody')
+                  : t('product.availabilityUnknownBody')}
+              </p>
+              <Link className={styles.secondaryAction} href="/products">
+                {t('footer.allProducts')}
+              </Link>
+            </div>
+          )}
 
           <section className={styles.details} aria-labelledby="details-title">
             <h2 id="details-title">{t('product.details')}</h2>

@@ -42,6 +42,7 @@ export default async function AdminCustomerDetailPage({
         createdAt: customer.createdAt.toISOString(),
         flagged: customer.flagged,
         flagReason: customer.flagReason,
+        orderTotal: customer.orderTotal,
         orders: canReadOrders
           ? customer.orders.map((order) => ({
               orderId: order.orderId,

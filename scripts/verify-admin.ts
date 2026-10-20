@@ -1096,6 +1096,77 @@ async function main(): Promise<void> {
         `status ${codRepeat.status} → ${codRepeat.location ?? ''}, ${codAuditAfterRepeat.length} approval record(s)`,
       );
 
+      // ---- Phase 20: the order detail and the order history over HTTP ----
+      //
+      // The queue is a worklist; the order detail is the record. Both are served pages, so the checks
+      // below are about what a permitted and an unpermitted session actually receive.
+      const orderDetail = await call(base, '/admin/orders/' + codSeed.orderNumber, { jar: ownerJar });
+      record(
+        'the owner opens one order and sees its reference, items, totals and contact',
+        orderDetail.status === 200 &&
+          orderDetail.body.includes(codSeed.orderNumber) &&
+          orderDetail.body.includes('COD Buyer') &&
+          orderDetail.body.includes('01712345678') &&
+          orderDetail.body.includes('Dhanmondi'),
+        `status ${orderDetail.status}`,
+      );
+      record(
+        'the decided order detail shows its decision rather than a second decision form',
+        orderDetail.status === 200 &&
+          !orderDetail.body.includes('name="decision" value="approve"') &&
+          orderDetail.body.includes('cod_approved'),
+        `status ${orderDetail.status}, decision form present: ${orderDetail.body.includes('name="decision" value="approve"')}`,
+      );
+
+      const missingOrder = await call(base, '/admin/orders/QBDEC0FFEE0000000', { jar: ownerJar });
+      record(
+        'an order reference that names no order is a 404, not a forbidden page',
+        missingOrder.status === 404,
+        `status ${missingOrder.status}`,
+      );
+
+      const orderList = await call(base, '/admin/orders', { jar: ownerJar });
+      record(
+        'the order history lists the order and links to its detail',
+        orderList.status === 200 &&
+          orderList.body.includes(codSeed.orderNumber) &&
+          orderList.body.includes('/admin/orders/' + codSeed.orderNumber),
+        `status ${orderList.status}`,
+      );
+
+      const orderSearch = await call(base, '/admin/orders?q=' + encodeURIComponent(codSeed.orderNumber), {
+        jar: ownerJar,
+      });
+      const noMatch = await call(base, '/admin/orders?q=QBNOSUCHORDER00000', { jar: ownerJar });
+      record(
+        'order search narrows to the matching order, and a non-matching search says so',
+        orderSearch.status === 200 &&
+          orderSearch.body.includes(codSeed.orderNumber) &&
+          noMatch.status === 200 &&
+          !noMatch.body.includes(codSeed.orderNumber),
+        `search ${orderSearch.status}, no-match ${noMatch.status}`,
+      );
+
+      // The limited principal holds `order.read` but not `customer.read` or `audit.read`. Reading an order
+      // and reading a customer are different permissions, so the order detail must serve the first and
+      // withhold the second: the delivery contact on the order is fulfilment data, the account email is
+      // customer-profile data, and the audit trail is its own permission again.
+      const buyerRow = await withTransaction((tx) =>
+        tx.select({ email: customer.email }).from(customer).where(sql`${customer.id} = ${codSeed.customerId}`),
+      );
+      const buyerEmail = buyerRow[0]?.email ?? '';
+      const limitedOrderDetail = await call(base, '/admin/orders/' + codSeed.orderNumber, { jar: limitedJar });
+      const limitedOrderList = await call(base, '/admin/orders', { jar: limitedJar });
+      record(
+        'a principal with order.read but without customer.read sees the order and not the customer email',
+        limitedOrderDetail.status === 200 &&
+          limitedOrderList.status === 200 &&
+          buyerEmail !== '' &&
+          !limitedOrderDetail.body.includes(buyerEmail) &&
+          orderDetail.body.includes(buyerEmail),
+        `detail ${limitedOrderDetail.status}, list ${limitedOrderList.status}, email withheld: ${!limitedOrderDetail.body.includes(buyerEmail)}`,
+      );
+
       // The refusals above happened over real HTTP, through the real guards, inside real transactions
       // that threw. This is the end-to-end regression assertion for the defect where a denial written
       // in the failing transaction was rolled back by the refusal itself.
@@ -1513,20 +1584,93 @@ async function main(): Promise<void> {
 
             const overflowAt360: string[] = [];
             await browser.viewport(360, 800);
-            for (const route of ['/admin', '/admin/orders-cod', '/admin/catalog', '/admin/customers', '/admin/audit', '/admin/owners']) {
+            const overflowRoutes = [
+              '/admin',
+              '/admin/orders-cod',
+              '/admin/orders',
+              '/admin/orders/' + codSeed.orderNumber,
+              '/admin/catalog',
+              '/admin/customers',
+              '/admin/audit',
+              '/admin/owners',
+            ];
+            for (const route of overflowRoutes) {
               await browser.navigate(route);
               const overflow = await browser.evaluate('document.documentElement.scrollWidth - window.innerWidth');
               if (typeof overflow === 'number' && overflow > 1) overflowAt360.push(`${route}: ${overflow}px`);
             }
             record(
-              'no admin route overflows horizontally at 360px',
+              'no admin route overflows horizontally at 360px, including the order history and an order detail',
               overflowAt360.length === 0,
-              overflowAt360.length === 0 ? 'all six routes within the viewport' : overflowAt360.join(', '),
+              overflowAt360.length === 0
+                ? `all ${overflowRoutes.length} routes within the viewport`
+                : overflowAt360.join(', '),
             );
 
             await browser.viewport(390, 844);
             await browser.navigate('/admin/orders-cod');
             await browser.screenshot('/tmp/qb-admin-cod-mobile.png');
+
+            // ---- Phase 20: the order detail and history in a real browser ----
+            await browser.viewport(1440, 900);
+            await browser.navigate('/admin/orders/' + secondCod.orderNumber);
+            const orderDetailUi = await browser.evaluate<{
+              heading: string | null;
+              tel: string | null;
+              items: boolean;
+              totals: boolean;
+              events: boolean;
+              overflow: number;
+            }>(`(() => {
+              const text = document.body.textContent ?? '';
+              return {
+                heading: document.querySelector('h1')?.textContent?.trim(),
+                tel: document.querySelector('a[href^="tel:"]')?.getAttribute('href') ?? null,
+                items: text.includes('Verify Product'),
+                totals: text.includes('Total'),
+                // This order is seeded directly, so its history is the honest empty state rather than an
+                // event row; what the check asserts is that the history section is present at all.
+                events: text.includes('Order history'),
+                overflow: document.documentElement.scrollWidth - window.innerWidth,
+              };
+            })()`);
+            record(
+              'the order detail renders its reference, a tap-to-call number, the items and the order history',
+              orderDetailUi.heading === secondCod.orderNumber &&
+                orderDetailUi.tel !== null &&
+                orderDetailUi.items === true &&
+                orderDetailUi.totals === true &&
+                orderDetailUi.events === true &&
+                orderDetailUi.overflow <= 1,
+              JSON.stringify(orderDetailUi),
+            );
+            await browser.screenshot('/tmp/qb-admin-order-detail-desktop.png');
+
+            await browser.viewport(390, 844);
+            await browser.navigate('/admin/orders/' + secondCod.orderNumber);
+            await browser.screenshot('/tmp/qb-admin-order-detail-mobile.png');
+            const detailMobile = await browser.evaluate<{ overflow: number }>(
+              '({ overflow: document.documentElement.scrollWidth - window.innerWidth })',
+            );
+            record(
+              'the order detail does not overflow horizontally at 390px',
+              detailMobile.overflow <= 1,
+              `${detailMobile.overflow}px`,
+            );
+
+            await browser.viewport(1440, 900);
+            await browser.navigate('/admin/orders');
+            const historyUi = await browser.evaluate<{ link: boolean; search: boolean; filters: boolean }>(`(() => ({
+              link: document.querySelector('a[href*="/admin/orders/' + ${JSON.stringify(secondCod.orderNumber)} + '"]') !== null,
+              search: document.querySelector('form[role="search"] input[name="q"]') !== null,
+              filters: [...document.querySelectorAll('[role="group"] a')].length >= 4,
+            }))()`);
+            record(
+              'the order history lists the order with a real link, server search and status filters',
+              historyUi.link === true && historyUi.search === true && historyUi.filters === true,
+              JSON.stringify(historyUi),
+            );
+            await browser.screenshot('/tmp/qb-admin-orders-history.png');
 
             await browser.viewport(1440, 900);
             await browser.navigate('/admin/orders-cod');

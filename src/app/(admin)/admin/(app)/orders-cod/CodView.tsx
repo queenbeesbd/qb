@@ -9,6 +9,7 @@ import { CodOrderCard, type CodOrderRow } from '../../_ui/CodOrderCard';
 import { EmptyState } from '../../_ui/EmptyState';
 import { Notice } from '../../_ui/Notice';
 import { PageHeader } from '../../_ui/PageHeader';
+import { Pagination } from '../../_ui/Pagination';
 import styles from '../../admin.module.css';
 
 export type CodNotice = 'approved' | 'rejected' | 'denied' | 'conflict' | 'invalid';
@@ -39,6 +40,9 @@ export function CodView({
   filter,
   search,
   notice,
+  total,
+  page,
+  pageCount,
   csrfToken,
   canApprove,
   canCancel,
@@ -49,6 +53,10 @@ export function CodView({
   filter: 'waiting' | 'decided';
   search: string;
   notice: CodNotice | null;
+  /** Total matching the current filter and search, so the page can state what it is not showing. */
+  total: number;
+  page: number;
+  pageCount: number;
   csrfToken: string;
   canApprove: boolean;
   canCancel: boolean;
@@ -118,7 +126,7 @@ export function CodView({
           )}
         </form>
         <span className={styles.toolbarMeta}>
-          {t('admin.cod.resultCount', { count: rows.length })}
+          {t('admin.cod.resultCount', { count: total })}
         </span>
       </div>
 
@@ -175,6 +183,17 @@ export function CodView({
             ),
           )}
         </div>
+      )}
+
+      {filter === 'decided' && rows.length > 0 && (
+        <Pagination
+          basePath="/admin/orders-cod"
+          query={{ q: search, filter: 'decided' }}
+          page={page}
+          pageCount={pageCount}
+          shown={rows.length}
+          total={total}
+        />
       )}
     </>
   );

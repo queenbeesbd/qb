@@ -162,6 +162,46 @@
   background: var(--color-action-hover);
 }
 
+/**
+ * The unavailable state replaces the purchase controls entirely. It states the owner's binary state
+ * and gives one way forward, instead of a disabled button with no explanation.
+ */
+.unavailable {
+  display: grid;
+  gap: var(--space-2);
+  justify-items: start;
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-sunken);
+}
+
+.unavailableTitle {
+  font-weight: 600;
+  font-size: var(--text-base);
+}
+
+.unavailableBody {
+  font-size: var(--text-sm);
+  color: var(--color-ink-muted);
+  margin: 0;
+}
+
+.secondaryAction {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 var(--space-4);
+  border: 1px solid var(--color-action);
+  border-radius: var(--radius-md);
+  color: var(--color-action);
+  font-weight: 600;
+}
+
+.secondaryAction:hover {
+  background: var(--color-surface);
+}
+
 .liveRegion {
   display: flex;
   align-items: center;

@@ -27,6 +27,8 @@ type Customer = {
   createdAt: string;
   flagged: boolean;
   flagReason: string | null;
+  /** Every order on record, so a capped list can state the difference. */
+  orderTotal: number;
   orders: readonly OrderRow[] | null;
 };
 
@@ -93,7 +95,12 @@ export function CustomerDetailView({
                   </span>
                   <div className={styles.recordMain}>
                     <span className={styles.recordTitle}>
-                      <span className={styles.mono}>{order.orderNumber}</span>
+                      <Link
+                        className={styles.recordLink}
+                        href={`/admin/orders/${encodeURIComponent(order.orderNumber)}`}
+                      >
+                        <span className={styles.mono}>{order.orderNumber}</span>
+                      </Link>
                     </span>
                     <span className={styles.recordMeta}>
                       <span>{dateTimeFormat.format(new Date(order.placedAt))}</span>
@@ -117,6 +124,15 @@ export function CustomerDetailView({
                 </li>
               ))}
             </ul>
+          )}
+          {/* The list is capped at 50 rows, so it must say when there are more rather than ending silently. */}
+          {canReadOrders && customer.orders !== null && customer.orderTotal > customer.orders.length && (
+            <p className={styles.note}>
+              {t('admin.customers.ordersTruncated', {
+                shown: customer.orders.length,
+                total: customer.orderTotal,
+              })}
+            </p>
           )}
         </div>
 

@@ -1,5 +1,7 @@
 'use client';
 
+import Link from 'next/link';
+
 import { deliveryAreaName } from '@/lib/delivery-areas';
 import { useTranslation } from '@/i18n/useTranslation';
 import { AdminIcon } from './icons';
@@ -112,6 +114,17 @@ export function CodOrderCard({
               ? t('admin.cod.placedAt', { time: placed })
               : t('admin.cod.decidedAt', { time: decidedAt ?? placed })}
           </span>
+          {/*
+            The card is the worklist entry; the order detail is the record. Opening it from here keeps
+            the queue as the place a decision is made for the common case, without making the card the
+            only view of an order the owner ever gets.
+          */}
+          <Link
+            className={styles.recordLink}
+            href={`/admin/orders/${encodeURIComponent(row.orderNumber)}?from=queue`}
+          >
+            {t('admin.cod.viewOrder')}
+          </Link>
         </div>
 
         <div className={styles.orderBody}>

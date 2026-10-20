@@ -85,17 +85,25 @@ export type CodDecidedItem = CodQueueRow & {
   readonly decidedAt: Date;
 };
 
+/** Rows per page for the decided list. A day's decisions are readable in one or two screens. */
+export const DECIDED_PAGE_SIZE = 25;
+
 /**
  * COD orders decided today, newest first.
  *
  * "Today" is the server's local day boundary, and the decision time is the timestamp the decision
  * wrote (`confirmed_at` or `cancelled_at`), never `updated_at` - an unrelated edit must not make an
- * old decision look recent. The list is bounded so the queue can never render an unbounded history.
+ * old decision look recent.
+ *
+ * The list is **paginated and reports its total**, so a busy day cannot silently truncate: the page says
+ * "showing 25 of 63" and offers the next page rather than pretending the rest does not exist.
  */
 export async function codDecidedToday(
   tx: Transaction,
-  options: { readonly search?: string } = {},
-): Promise<CodDecidedItem[]> {
+  options: { readonly search?: string; readonly limit?: number; readonly offset?: number } = {},
+): Promise<{ readonly rows: CodDecidedItem[]; readonly total: number }> {
+  const limit = Math.min(Math.max(options.limit ?? DECIDED_PAGE_SIZE, 1), 100);
+  const offset = Math.max(options.offset ?? 0, 0);
   const start = new Date();
   start.setHours(0, 0, 0, 0);
   const search = options.search?.trim() ?? '';
@@ -132,14 +140,25 @@ export async function codDecidedToday(
           and ${searchClause}`,
     )
     .orderBy(sql`coalesce(${order.confirmedAt}, ${order.cancelledAt}) desc`)
-    .limit(50);
+    .limit(limit)
+    .offset(offset);
+
+  const counted = await tx
+    .select({ total: sql<number>`count(*)::int` })
+    .from(order)
+    .innerJoin(orderContact, sql`${orderContact.orderId} = ${order.id}`)
+    .where(
+      sql`${order.paymentMethod} = 'cod'
+          and coalesce(${order.confirmedAt}, ${order.cancelledAt}) >= ${start}
+          and ${searchClause}`,
+    );
 
   const items = await itemsByOrder(
     tx,
     rows.map((row) => row.orderId),
   );
 
-  return rows.map((row) => ({
+  const mapped = rows.map((row) => ({
     orderId: row.orderId,
     orderNumber: row.orderNumber,
     placedAt: row.placedAt,
@@ -153,16 +172,18 @@ export async function codDecidedToday(
     city: row.city,
     addressLine: row.addressLine,
     items: items.get(row.orderId) ?? [],
-    decision: row.status === 'cancelled' ? 'rejected' : 'approved',
+    decision: row.status === 'cancelled' ? ('rejected' as const) : ('approved' as const),
     decidedAt: row.cancelledAt ?? row.confirmedAt ?? row.placedAt,
   }));
+
+  return { rows: mapped, total: counted[0]?.total ?? 0 };
 }
 
 /** Customers with their standing, for the moderation screen. Nothing beyond what it needs. */
 export async function customers(
   tx: Transaction,
-  options: { readonly search?: string } = {},
-): Promise<CustomersQueueItem[]> {
+  options: { readonly search?: string; readonly limit?: number; readonly offset?: number } = {},
+): Promise<{ readonly rows: CustomersQueueItem[]; readonly total: number }> {
   return listCustomers(tx, options);
 }
 
@@ -231,6 +252,8 @@ export type CustomerDetail = {
   readonly flagged: boolean;
   readonly flagReason: string | null;
   readonly orders: readonly CustomerOrderRow[];
+  /** Every order the customer has, so a truncated list can say so instead of implying that is all. */
+  readonly orderTotal: number;
 };
 
 /**
@@ -276,10 +299,16 @@ export async function customerDetail(tx: Transaction, customerId: number): Promi
     .orderBy(sql`${order.placedAt} desc`)
     .limit(50);
 
+  const counted = await tx
+    .select({ total: sql<number>`count(*)::int` })
+    .from(order)
+    .where(sql`${order.customerId} = ${customerId}`);
+
   return {
     ...row,
     flagged: flagRows.length > 0,
     flagReason: flagRows[0]?.reason ?? null,
     orders,
+    orderTotal: counted[0]?.total ?? 0,
   };
 }

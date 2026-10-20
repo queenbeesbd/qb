@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useTranslation } from '@/i18n/useTranslation';
+import type { TranslationKey } from '@/i18n/dictionaries';
 import { deliveryAreaName } from '@/lib/delivery-areas';
 import type { Locale } from '@/lib/types';
 import { ClearCart } from '@/features/checkout/ClearCart';
@@ -13,6 +14,24 @@ function formatWhen(iso: string, locale: Locale): string {
     dateStyle: 'medium',
     timeStyle: 'short',
   }).format(new Date(iso));
+}
+
+/**
+ * The one line a customer needs after placing an order: what the store does next.
+ *
+ * Every branch is a statement about a stored state. A cancelled order says nothing about a refund
+ * because a cancellation and a refund are separate facts, and a completed order says nothing about
+ * cash reconciliation because the storefront cannot observe it.
+ */
+function nextStepKey(order: { status: string; codState: string; paymentMethod: string }): TranslationKey {
+  if (order.status === 'cancelled') return 'orders.next.cancelled';
+  if (order.status === 'returned') return 'orders.next.returned';
+  if (order.paymentMethod === 'cod') {
+    if (order.codState === 'cod_pending_approval') return 'orders.next.codAwaitingApproval';
+    if (order.codState === 'cod_failed') return 'orders.next.codFailed';
+  }
+  if (order.status === 'pending') return 'orders.next.reviewing';
+  return 'orders.next.confirmed';
 }
 
 export type OrderDetail = {
@@ -93,6 +112,12 @@ export function OrderDetailView({ order, placed }: { order: OrderDetail; placed:
         <p className={styles.muted}>
           {order.paymentMethod === 'cod' ? t('orders.codNote') : t('orders.legacyPaymentNote')}
         </p>
+        {/*
+          What happens next is read from the stored order state, never from a policy guess. There is no
+          delivery deadline here because the store publishes none, and no cash-collection claim because
+          only the owner's real-world action can establish that.
+        */}
+        <p className={styles.nextStep}>{t(nextStepKey(order))}</p>
       </section>
 
       <section className={styles.card} aria-labelledby="order-items">

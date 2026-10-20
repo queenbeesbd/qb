@@ -217,10 +217,12 @@ describe('COD confirmation (Phase 16A, COD-only in Phase 17)', { skip: toolingAv
     );
 
     const decided = await withTransaction((tx) => codDecidedToday(tx, { search: seeded.orderNumber }));
-    assert.equal(decided.length, 1);
-    assert.equal(decided[0]?.orderId, seeded.orderId);
-    assert.equal(decided[0]?.decision, 'approved');
-    assert.equal(decided[0]?.decidedAt instanceof Date, true);
+    // The list is paginated, so it reports its total alongside the page rather than being the array.
+    assert.equal(decided.total, 1);
+    assert.equal(decided.rows.length, 1);
+    assert.equal(decided.rows[0]?.orderId, seeded.orderId);
+    assert.equal(decided.rows[0]?.decision, 'approved');
+    assert.equal(decided.rows[0]?.decidedAt instanceof Date, true);
 
     const detail = await withTransaction((tx) => codQueue(tx, { search: seeded.orderNumber }));
     assert.deepEqual(detail, [], 'a decided order is no longer in the waiting queue');

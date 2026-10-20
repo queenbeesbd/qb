@@ -231,6 +231,36 @@ npm run db:validate
 A clean environment is reproducible from the repository alone: the schema lives in version control, and
 nothing outside it is needed to build the database.
 
+### The stable development cluster (Phase 20)
+
+The one-liner above is right for a single session. For day-to-day work there is a script, so the cluster
+survives between commands at the port `.env.local` already points at:
+
+```bash
+npm run dev:db            # start (or report) the cluster on 127.0.0.1:55432
+npm run db:migrate
+npm run db:seed           # permission catalogue and the owner role
+npm run db:seed:catalog   # the 22-product catalog
+npm run staff:bootstrap -- you@example.test "Owner"   # one-time token, redeemed at /admin/redeem
+npm run dev
+
+npm run dev:db -- --stop  # stop it; the data directory is kept, nothing is deleted
+```
+
+Its safety properties are the point of it: the data directory is **outside the repository**
+(`$TMPDIR/queenbees-dev-pg`, overridable with `QUEENBEES_DEV_PG_DIR`), `initdb` runs **only when no
+cluster exists** - an existing data directory is started, never re-initialised - the database is created
+**only when absent**, and the server listens on loopback only. It has no code path that can address a
+remote host.
+
+**Scripts and `.env.local` (changed in Phase 20).** `db:migrate`, `db:validate`, `db:status`,
+`db:grants`, `db:rehearsal`, `db:seed`, `db:seed:catalog`, `staff:bootstrap`, `staff:list` and
+`check:catalog` now run with `--env-file-if-exists=.env.local --env-file-if-exists=.env`. Before this,
+the documented workflow (write `DATABASE_URL` into `.env.local`, then `npm run db:migrate`) failed with
+"DATABASE_URL is required", because only the Next.js runtime read that file. An **exported** variable
+still wins over the file, so the disposable-cluster test harness and the verification scripts are
+unaffected.
+
 ---
 
 ## 8. Tests

@@ -26,20 +26,39 @@ A bilingual (Bangla/English) cosmetics storefront for QueenBee's, a Bangladeshi 
 | Package manager | npm 12.2.0, lockfile committed |
 | Styling | CSS Modules + CSS custom-property tokens |
 | Rendering | Server Components by default; Client Components only for cart, locale, filters, drawer, shelf |
-| Data | Local typed fixtures in `src/data/` (no API calls at runtime) |
+| Data | PostgreSQL (Drizzle ORM) for the storefront catalog, orders, customers and admin; the Phase 1 fixture survives only as the local/test `db:seed:catalog` input |
 | Imagery | 22 product photos served locally as WebP + JPEG at 3:4, two widths; reuse rights pending written confirmation |
 | i18n | Central typed dictionaries, `useSyncExternalStore` locale store |
 | Fonts | Inter (Latin, variable) + Noto Sans Bengali, self-hosted via `next/font`; weights limited to 400/500/600/700 |
-| Tests | Zero-dependency integrity scripts + a CDP-driven Chromium suite (64 checks; last reported pass in Phase 5) |
+| Tests | Zero-dependency integrity scripts, `node:test` unit and database suites, HTTP verification scripts, and a CDP-driven Chromium suite (65 storefront checks) |
 
 No database, ORM, auth provider, CMS, state-management library, UI component library or animation library is used. See [ADR 0001](docs/decisions/0001-nextjs-typescript-foundation.md).
 
 ## Getting started
 
+The application needs a PostgreSQL database. Locally that is a **disposable cluster outside the
+repository**, started by a script; nothing is deployed and no cloud resource is involved.
+
 ```bash
 npm install
-npm run dev          # http://localhost:3000
+
+# 1. A local development cluster on 127.0.0.1:55432 (matches .env.local).
+#    It never initialises over an existing data directory and never drops a database.
+npm run dev:db
+
+# 2. Schema, permission catalogue, catalog and the first owner account.
+npm run db:migrate
+npm run db:seed
+npm run db:seed:catalog
+npm run staff:bootstrap -- you@example.test "Owner"   # prints a one-time token for /admin/redeem
+
+# 3. Run it
+npm run dev          # http://localhost:3000   (admin at /admin)
 ```
+
+`npm run db:migrate`, `db:seed`, `db:seed:catalog` and `staff:bootstrap` read `.env.local` (or `.env`) when
+it exists and never override a variable that is already set in the environment. Stop the cluster with
+`npm run dev:db -- --stop`; its data directory is kept, and nothing is deleted.
 
 Production build and serve:
 
@@ -59,7 +78,16 @@ npm run start        # http://localhost:3000
 | `npm run typecheck` | `tsc --noEmit` |
 | `npm run check:catalog` | Content integrity: ids, slugs, prices, categories, image files, provenance, locked demo warning |
 | `npm run check:i18n` | Bangla/English key parity and placeholder-token equality |
-| `npm run verify:browser` | 64-check Chromium journey suite (requires a running server) |
+| `npm run check:secrets` | Refuses tracked environment files and secret-shaped values |
+| `npm run dev:db` | Start (or `-- --stop`) the local development PostgreSQL cluster |
+| `npm run db:migrate` / `db:validate` / `db:status` / `db:grants` | Apply and validate migrations, report status and grants |
+| `npm run db:rehearsal` | Migration rehearsal against a disposable cluster |
+| `npm run db:seed` / `db:seed:catalog` | Permission catalogue and owner role / the 22-product catalog |
+| `npm run staff:bootstrap` / `staff:list` | Create the first owner account (one-time token) / list accounts |
+| `npm run test` / `test:db` | Unit suite / database suite against a disposable cluster |
+| `npm run verify:admin` | Admin HTTP + Chromium verification (needs a production build) |
+| `npm run verify:storefront` | Storefront browser suite plus the HTTP customer-flow checks |
+| `npm run verify:browser` | 65-check Chromium journey suite (requires a running server) |
 
 Browser suite usage:
 
@@ -80,7 +108,16 @@ It drives a local Chromium over the DevTools Protocol using only Node built-ins 
 | `/categories/[slug]` | Server-rendered | Five reviewed categories |
 | `/products/[slug]` | Prerendered (22) | Product photos, price hierarchy, quantity, add to cart, related products |
 | `/cart` | Static | Quantity editing, removal, derived totals, empty state |
-| `/checkout` | Dynamic | Account-gated **Cash on Delivery** checkout: delivery contact and cart lines only, no payment field (D12, ADR 0015) |
+| `/checkout` | Dynamic | Account-gated **Cash on Delivery** checkout: delivery contact, delivery area and cart lines only, no payment field (D12, ADR 0015) |
+| `/account`, `/account/login`, `/account/register` | Dynamic | Customer session, sign-in and registration |
+| `/account/orders`, `/account/orders/[orderNumber]` | Dynamic | The customer's own orders and one order's confirmation. Another customer's order number is a 404, never a 403 |
+| `/admin` | Dynamic | Owner overview: the COD worklist, anything refused, and reference counts |
+| `/admin/orders-cod` | Dynamic | The COD confirmation worklist: call, then approve or cancel |
+| `/admin/orders`, `/admin/orders/[orderNumber]` | Dynamic | Order history (search, status filter, pagination) and one order in full, with its event and audit history |
+| `/admin/catalog`, `/admin/categories` | Dynamic | Products (create, edit, availability, images) and categories |
+| `/admin/customers`, `/admin/customers/[id]` | Dynamic | Customer lookup, order history and the guarded suspension |
+| `/admin/settings/delivery` | Dynamic | The required default delivery charge and the Dhaka/Chattogram overrides |
+| `/admin/audit`, `/admin/owners` | Dynamic | The audit trail and owner-account management |
 | `/_not-found` | Static | Localized not-found |
 
 Search, filter and sort are URL-driven, so every view is linkable, refreshable and back/forward-safe.
@@ -118,6 +155,7 @@ public/catalog/         22 product image sets (local WebP + JPEG variants)
 - **No product descriptions.** The public pages publish none; the product page says so rather than generating copy.
 - **Bangla product names are transliterations** prepared for this demo and require native review.
 - **Stock is a snapshot**, not live inventory. It reflects the public listing on the capture date.
+- **The owner's order operations stop where the business rules stop.** Approving or cancelling a COD order is built, audited and idempotent. **Dispatching, recording a delivery, recording cash collection and reconciling it are NOT built**, because who performs them, how a failed delivery is handled, who bears a failed delivery charge and what reconciliation means operationally are **unresolved owner decisions**. A COD approval is therefore never presented as proof that cash was received. See [admin dashboard scope](docs/admin-dashboard.md).
 - **No backend is deployed.** The merchant platform was audited read-only in Phase 7 and is now a reference only. QueenBee's owns its own backend, database and admin dashboard: the database foundation, owner authentication, catalog management, the database-backed storefront catalog, customer accounts with atomic order creation, the COD owner queue, the redesigned operations dashboard and **three-area delivery pricing** are **implemented locally (Phases 11-19)**. Customers choose Dhaka, Chattogram or Other districts; the owner sets a required default and optional area charges at Settings → Delivery charges, and each order stores the applied charge as an immutable snapshot. **Courier recording, cash collection/reconciliation and the post-dispatch lifecycle are not built.** The **actual delivery amounts are owner inputs**; until the default is saved, checkout refuses orders rather than guessing. The manual bKash/Nagad flow built in Phase 16 was **removed in Phase 17** ([ADR 0015](docs/decisions/0015-cod-only-release.md)). No price, stock, discount, authorization or payment value from the client is trusted anywhere in this codebase.
 - **A plaintext credential sits in the working tree.** An untracked, gitignored `.env` file holds a credential for the withdrawn `merchant.zatiqeasy.com` vendor. No code reads it and it is not committed, but it should be treated as exposed; **rotating it at the provider and removing it from future use is an owner action**. See [docs/security.md](docs/security.md).
 - **Not verified:** real iOS Safari and Android Chrome devices, screen reader output on real assistive technology, and any production security control.

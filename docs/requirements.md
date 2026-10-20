@@ -70,6 +70,26 @@ Demonstration success: find a product, inspect correct information, choose a qua
 | D18 | Mobile category discovery | Done | Homepage category section hidden below 720px; the header drawer lists all five categories on that same breakpoint |
 | D15 | Announcement configuration | Done | Typed local model with message, enabled, variant, per-locale text and a locked demo entry |
 
+### Commerce requirements delivered after the storefront demo
+
+The table above describes the storefront demonstration. The requirements below arrived with the backend
+and are implemented locally - **not deployed** - with the evidence named for each.
+
+| ID | Requirement | Status | Evidence |
+| --- | --- | --- | --- |
+| C1 | Cash on Delivery is the only payment method | Done | No payment field in the checkout form or the order service; the prepaid subsystem was removed (ADR 0015); `verify:storefront` asserts no bKash/Nagad trace and no payment-method choice is served |
+| C2 | Server-authoritative pricing and totals | Done | Every line priced from `product_variant` inside the order transaction; submitted `priceMinor`/`totalMinor` are ignored; delivery resolved from the owner's configuration; `customer-flow` submits forged totals and asserts the stored ones |
+| C3 | Canonical delivery area with a stored snapshot | Done | Three areas matched by stable code; the area and charge are written on the order and never rewritten; historical orders with no area stay readable and say so |
+| C4 | Account-gated checkout (D12) | Done | `/checkout` redirects with the path preserved; a guest cart survives the sign-in step |
+| C5 | Duplicate submissions never create a second order | Done | Idempotency key claimed in the transaction; a replay returns the original, a reused key with a different body is a conflict; asserted over HTTP |
+| C6 | Availability is the only ordering gate | Done | A binary owner state; an out-of-stock, unpublished or archived product refuses the whole order. Phase 20 also states the state on the product card and page and blocks the cart's checkout button - presentation over the unchanged server gate |
+| C7 | The customer can find an order afterwards | Done | `/account/orders` lists the customer's own orders; the detail shows items, subtotal, delivery area and charge, total, and what happens next, read from stored state |
+| C8 | Another customer's order is never disclosed | Done | Every customer read filters on the session's `customer_id`; a foreign order number is a 404, not a 403 |
+| C9 | The owner can review and decide an order | Done | COD queue plus the Phase 20 order detail; approve/reject are guarded, reasoned, audited, idempotent and permission-checked server-side per request |
+| C10 | The owner can find an order later | Done | `/admin/orders`: search by number/name/phone, status filter, pagination with an exact total; a capped list states what it is not showing |
+| C11 | No invented operational states | Done | Dispatch, delivery outcome, cash collection and reconciliation are **not built**; the four owner decisions they need are listed in `docs/admin-dashboard.md` |
+| C12 | Customer suspension is guarded and reasoned | Done | `customer.suspend` re-checked server-side, a required reason, sessions revoked, effect recorded in the audit trail; a COD rejection never bans anyone |
+
 ## Announcement configuration
 
 Defined in `src/data/announcements.ts` and typed in `src/lib/types.ts`.
