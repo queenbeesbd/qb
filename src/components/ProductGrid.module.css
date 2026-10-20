@@ -16,23 +16,69 @@
 }
 
 /*
- * Explicit column counts rather than auto-fill.
+ * Column counts are derived from the **width available to this grid**, not from the viewport,
+ * because the same component renders on a full-width homepage and inside a catalog page whose
+ * filter sidebar takes 240px plus a 48px gap before the grid begins.
  *
- * auto-fill was measured and rejected: the homepage rows are curated at 4 and
- * 8 items, so a 5- or 6-column track left 1-4 trailing holes (at 1920px the
- * 8-item row filled only 4 of 6 columns). Both counts divide evenly by 2, 3
- * and 4, so explicit columns keep every row complete while the container cap
- * - not the track count - is what stops cards growing too wide.
+ * Measured card widths (content 1360px at the 1440px container cap, 24px gaps):
+ *
+ *   viewport  full grid          sidebar grid (240 + 48 removed)
+ *   1024      3 cols -> 293px    3 cols -> 212px
+ *   1280      4 cols -> 280px    4 cols -> 214px
+ *   1440+     5 cols -> 254px    4 cols -> 252px
+ *
+ * A fifth column on the sidebar grid at 1440px would be 197px, and a sixth on either grid at
+ * 1920px would be 208px / 195px. Both were rejected: below ~230px the title wraps to four or
+ * five lines, the price and the availability label start colliding, and the audit already
+ * recorded five columns in a sidebar layout producing ~144px cards as a defect (S-06/R-07).
+ * So each surface uses the most columns that keeps every card at or above ~250px, which is
+ * the reason the two grids part company rather than sharing one rule.
  */
+
+/* Full-width surfaces (homepage, category pages, related products). */
 @media (min-width: 720px) {
   .grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 
-@media (min-width: 1024px) {
+@media (min-width: 1280px) {
   .grid {
     grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: var(--space-5);
+  }
+}
+
+@media (min-width: 1440px) {
+  .grid {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+}
+
+/*
+ * Sidebar-constrained grids (the catalog). Declared with an attribute selector so the
+ * catalog asks for its own density and the rule reads as a deliberate difference in policy
+ * rather than an accident of ordering. Five columns appear only at 1600px, where the capped
+ * container finally makes them 250px wide instead of 197px.
+ */
+.grid[data-density='sidebar'] {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+@media (min-width: 720px) {
+  .grid[data-density='sidebar'] {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1024px) {
+  .grid[data-density='sidebar'] {
+    gap: var(--space-5);
+  }
+}
+
+@media (min-width: 1280px) {
+  .grid[data-density='sidebar'] {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }

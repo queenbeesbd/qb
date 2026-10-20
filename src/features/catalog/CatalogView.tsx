@@ -211,7 +211,7 @@ export function CatalogView({
           </div>
 
           {results.length > 0 ? (
-            <ProductGrid>
+            <ProductGrid density="sidebar">
               {results.map((product) => (
                 <ProductCard key={product.id} product={product} />
               ))}

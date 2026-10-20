@@ -6,18 +6,42 @@ import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from '@/i18n/useTranslation';
 import type { CatalogCategory } from '@/lib/types';
 import { useCart } from '@/features/cart/useCart';
-import { CartIcon, CloseIcon, MenuIcon, SearchIcon } from './icons';
+import { CartIcon, CloseIcon, MenuIcon, SearchIcon, UserIcon } from './icons';
 import { LanguageToggle } from './LanguageToggle';
 import styles from './Header.module.css';
+
+type Customer = { email: string; displayName: string | null } | null;
 
 /**
  * Compact responsive header. The mobile drawer traps focus, closes on Escape and
  * returns focus to its trigger so keyboard users are never stranded.
  *
- * Categories arrive as a server-resolved prop, so navigation can never drift
- * from the catalog the storefront actually serves.
+ * The header is laid out in **three gantries** rather than one elastic grid, because a
+ * single row cannot hold brand, seven navigation links, a search field and three actions
+ * at 1024px without the search collapsing to an untypeable sliver (measured 15px in
+ * Bangla before this change):
+ *
+ *   A  < 1024px          brand row (drawer trigger, brand, actions)
+ *                          + a full-width search row beneath it
+ *   B  1024-1199px       brand row (brand, actions + search trigger)
+ *                          + a second row with the category navigation and the search
+ *   C  >= 1200px         one row: brand, navigation, search, actions
+ *
+ * Search is a real field, not an icon, at every width where it is shown, and the narrow
+ * layout trade is explicit: below 1200px it costs a second header row instead of
+ * shrinking the field below a usable size.
+ *
+ * Categories and the customer arrive as server-resolved props, so navigation can never
+ * drift from the catalog the storefront actually serves and the account control can never
+ * disagree with the session the server read.
  */
-export function Header({ categories }: { categories: readonly CatalogCategory[] }) {
+export function Header({
+  categories,
+  customer,
+}: {
+  categories: readonly CatalogCategory[];
+  customer: Customer;
+}) {
   const { t, pick } = useTranslation();
   const { itemCount } = useCart();
   const pathname = usePathname();
@@ -72,14 +96,55 @@ export function Header({ categories }: { categories: readonly CatalogCategory[] 
 
   const closeMenu = () => setMenuOpen(false);
   const cartLabel = `${t('nav.cart')} (${itemCount})`;
+  /**
+   * The account control states which of the two honest states it is in: signed out
+   * ("My account") or signed in ("My account: <name or email>"). Nothing else about the
+   * customer is exposed here - no id, no session detail - and it is the same link to the
+   * same account page in both states, which is what makes it safe to show at a glance.
+   */
+  const accountIdentity = customer === null ? null : (customer.displayName ?? customer.email);
+  const accountLabel =
+    accountIdentity === null ? t('nav.account') : t('nav.accountSignedInAs', { name: accountIdentity });
+
+  const searchForm = (idPrefix: string, variant: 'inline' | 'row' | 'drawer') => (
+    <form
+      className={
+        variant === 'inline' ? styles.search : variant === 'row' ? styles.searchRow : styles.drawerSearch
+      }
+      role="search"
+      action="/products"
+      method="get"
+    >
+      <label className="sr-only" htmlFor={`${idPrefix}-search`}>
+        {t('search.label')}
+      </label>
+      <input
+        id={`${idPrefix}-search`}
+        type="search"
+        name="q"
+        {...(variant === 'drawer'
+          ? {}
+          : {
+              value: term,
+              onChange: (event: React.ChangeEvent<HTMLInputElement>) => setTerm(event.target.value),
+            })}
+        placeholder={t('search.placeholder')}
+        autoComplete="off"
+        maxLength={80}
+      />
+      <button type="submit" aria-label={t('search.submit')}>
+        <SearchIcon width={18} height={18} />
+      </button>
+    </form>
+  );
 
   return (
     <header className={styles.header}>
       <div className={styles.inner}>
         <button
           ref={triggerRef}
+          className={styles.menuTrigger}
           type="button"
-          className={styles.iconButton}
           aria-expanded={menuOpen}
           aria-controls="site-menu"
           aria-label={menuOpen ? t('nav.closeMenu') : t('nav.openMenu')}
@@ -102,34 +167,28 @@ export function Header({ categories }: { categories: readonly CatalogCategory[] 
                 <Link href={`/categories/${category.slug}`}>{pick(category.name)}</Link>
               </li>
             ))}
-            <li>
-              <Link href="/account">{t('nav.account')}</Link>
-            </li>
           </ul>
         </nav>
 
-        <form className={styles.search} role="search" action="/products" method="get">
-          <label className="sr-only" htmlFor="site-search">
-            {t('search.label')}
-          </label>
-          <input
-            id="site-search"
-            type="search"
-            name="q"
-            value={term}
-            onChange={(event) => setTerm(event.target.value)}
-            placeholder={t('search.placeholder')}
-            autoComplete="off"
-            maxLength={80}
-          />
-          <button type="submit" aria-label={t('search.submit')}>
-            <SearchIcon />
-          </button>
-        </form>
+        <div className={styles.searches}>
+          {searchForm('site', 'row')}
+          {searchForm('inline', 'inline')}
+        </div>
 
         <div className={styles.actions}>
           <LanguageToggle className={styles.languageButton} variant="compact" />
-          <Link href="/cart" className={styles.iconButton} aria-label={cartLabel}>
+          <Link
+            href="/account"
+            className={`${styles.iconButton} ${styles.accountButton}`}
+            aria-label={accountLabel}
+            title={accountLabel}
+            data-signed-in={customer === null ? 'false' : 'true'}
+            aria-current={pathname === '/account' ? 'page' : undefined}
+          >
+            <UserIcon />
+            {customer !== null && <span className={styles.accountDot} aria-hidden="true" />}
+          </Link>
+          <Link href="/cart" className={styles.iconButton} aria-label={cartLabel} title={cartLabel}>
             <CartIcon />
             {itemCount > 0 && (
               <span className={styles.badge} aria-hidden="true">
@@ -141,7 +200,7 @@ export function Header({ categories }: { categories: readonly CatalogCategory[] 
       </div>
 
       {menuOpen && (
-        <div className={styles.drawer} id="site-menu" ref={drawerRef}>
+        <div className={styles.drawer} id="site-menu" ref={drawerRef} role="dialog" aria-label={t('nav.menu')}>
           <div className={styles.drawerInner}>
             <form className={styles.drawerSearch} role="search" action="/products" method="get">
               <label className="sr-only" htmlFor="drawer-search">
@@ -172,10 +231,19 @@ export function Header({ categories }: { categories: readonly CatalogCategory[] 
               <li>
                 <Link href="/checkout" onClick={closeMenu}>{t('cart.checkout')}</Link>
               </li>
-              <li>
-                <Link href="/account" onClick={closeMenu}>{t('nav.account')}</Link>
-              </li>
             </ul>
+
+            {/*
+              The account link lives in the header action cluster at every width, so the
+              drawer does not repeat it as a ninth item. It keeps the account section at the
+              end instead, where the signed-in identity is stated in full.
+            */}
+            <div className={styles.drawerAccount}>
+              <Link href="/account" onClick={closeMenu} className={styles.drawerAccountLink}>
+                <UserIcon width={18} height={18} />
+                <span>{accountLabel}</span>
+              </Link>
+            </div>
           </div>
         </div>
       )}

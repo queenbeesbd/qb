@@ -14,6 +14,12 @@ type Props = {
   className?: string;
   /** Shown when the record has no image at all. */
   fallbackLabel?: string;
+  /**
+   * Cropped aspect ratio of the rendered frame. Catalog photography is 3:4; a product card
+   * shows a shallower 1:1 frame, which is what lets a card be shorter without shrinking any
+   * text. The source files are unchanged - only the crop inside the frame is tighter.
+   */
+  frame?: string;
 };
 
 /**
@@ -32,10 +38,14 @@ export function ProductPhoto({
   priority = false,
   className,
   fallbackLabel,
+  frame,
 }: Props) {
   if (!image) {
     return (
-      <span className={`${styles.fallback} ${className ?? ''}`.trim()}>
+      <span
+        className={`${styles.fallback} ${className ?? ''}`.trim()}
+        style={frame ? { aspectRatio: frame } : undefined}
+      >
         {fallbackLabel ?? ''}
       </span>
     );
@@ -51,6 +61,7 @@ export function ProductPhoto({
       )}
       <img
         className={styles.img}
+        style={frame ? { aspectRatio: frame } : undefined}
         src={placeholder ? sources.fallbackSrc.replace('.jpg', '.svg') : sources.fallbackSrc}
         srcSet={placeholder ? undefined : sources.jpgSrcSet}
         sizes={placeholder ? undefined : sizes}

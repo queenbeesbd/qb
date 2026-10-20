@@ -18,9 +18,12 @@ import styles from './Shell.module.css';
  */
 export function Shell({
   categories,
+  customer,
   children,
 }: {
   categories: readonly CatalogCategory[];
+  /** Resolved on the server once per request; never re-derived in the browser. */
+  customer: { email: string; displayName: string | null } | null;
   children: React.ReactNode;
 }) {
   return (
@@ -29,7 +32,7 @@ export function Shell({
         <SkipLabel />
       </a>
       <AnnouncementBar />
-      <Header categories={categories} />
+      <Header categories={categories} customer={customer} />
       <main id="main-content" className={styles.main} tabIndex={-1}>
         {children}
       </main>

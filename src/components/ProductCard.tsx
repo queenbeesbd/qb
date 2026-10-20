@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { CARD_SIZES } from '@/lib/images';
+import { CARD_SIZES, CARD_FRAME } from '@/lib/images';
 import { discountAmount, discountPercent } from '@/lib/money';
 import { useTranslation } from '@/i18n/useTranslation';
 import type { CatalogItem } from '@/lib/types';
@@ -33,6 +33,7 @@ export function ProductCard({ product }: { product: CatalogItem }) {
           sizes={CARD_SIZES}
           className={styles.photo}
           fallbackLabel={t('product.imagePlaceholder')}
+          frame={CARD_FRAME}
         />
       </Link>
 

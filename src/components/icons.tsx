@@ -34,6 +34,15 @@ export function CartIcon(props: IconProps) {
   );
 }
 
+export function UserIcon(props: IconProps) {
+  return (
+    <svg {...base} {...props}>
+      <circle cx="12" cy="8.5" r="3.75" />
+      <path d="M4.75 20.25c0-3.66 3.25-6.25 7.25-6.25s7.25 2.59 7.25 6.25" />
+    </svg>
+  );
+}
+
 export function MenuIcon(props: IconProps) {
   return (
     <svg {...base} {...props}>

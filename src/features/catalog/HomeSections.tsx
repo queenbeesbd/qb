@@ -30,14 +30,25 @@ const HERO_SLUGS = [
  * one catalog snapshot; this view never selects products itself. Sections are
  * limited to those the verified data can actually support. There is deliberately
  * no "recently added" list: the storefront publishes no reliable date-added
- * field, so ordering products by arrival would be invented. The collection below
- * is presented as what it is - a curated selection - rather than as a recency
- * claim.
+ * field, so ordering products by arrival would be invented (D6 in
+ * docs/requirements.md records that requirement as replaced, not shown). Each
+ * selection below is presented as what it is - a curated shelf or a row derived
+ * from published comparison prices - never as a recency claim.
  *
- * The two selections are id lists supplied by the server (from the catalog's own
+ * The selections are id lists supplied by the server (from the catalog's own
  * curation records); an id that no longer resolves shortens the section instead
  * of breaking the page, and the caps are applied at the source rather than
  * re-derived here.
+ *
+ * **Three product sections became two (Phase 25).** The audit found the homepage carried the
+ * featured shelf, an offer row and a "more to explore" collection - 18 cards across three
+ * stacked rows, ~3,700px tall - and that a shopper could not tell the offer row from the
+ * curated collection by their headings alone. The collection duplicated the shelf's job
+ * (curated products) and the catalog's job (everything else is one click away from every
+ * section header and the header navigation), so it was removed rather than restyled. What
+ * remains has a distinct reason to exist: the shelf is the owner's curation, the offer row is
+ * derived from genuine comparison prices. The collection ids are still curated and still
+ * seeded - they are not lost from the data, only from the homepage.
  */
 export function HomeView({
   products,
@@ -59,6 +70,12 @@ export function HomeView({
       .filter((product): product is CatalogItem => Boolean(product));
 
   const featured = resolve(featuredIds);
+  /**
+   * The collection is resolved even though the homepage no longer renders it: its ids still
+   * matter here, because the offer row must not repeat a product that already appears on the
+   * shelf or in the owner's collection. Dropping the resolution would silently let those two
+   * selections collide on the page.
+   */
   const collection = resolve(collectionIds);
 
   /**
@@ -210,29 +227,6 @@ export function HomeView({
             )}
           </section>
 
-          <section className={styles.section} aria-labelledby="collection-title">
-            <header className={styles.sectionHeader}>
-              <div>
-                <h2 id="collection-title">{t('home.collectionTitle')}</h2>
-                <p className={styles.sectionBody}>{t('home.collectionBody')}</p>
-              </div>
-              <Link className={styles.viewAll} href="/products">
-                {t('home.viewAll')}
-              </Link>
-            </header>
-            {collection.length > 0 ? (
-              <ProductGrid>
-                {collection.map((product) => (
-                  <ProductCard key={product.id} product={product} />
-                ))}
-              </ProductGrid>
-            ) : (
-              <EmptyNote
-                title={t('home.selectionEmptyTitle')}
-                body={t('home.selectionEmptyBody')}
-              />
-            )}
-          </section>
         </>
       )}
     </div>

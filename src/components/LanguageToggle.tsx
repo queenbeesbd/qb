@@ -22,16 +22,23 @@ export function LanguageToggle({ variant = 'full', className }: Props) {
     target === 'en' ? t('nav.switchToEnglish') : t('nav.switchToBangla');
 
   return (
+    /*
+     * One accessible name, not three fragments. The previous markup concatenated the
+     * sr-only "Current language:" with the visible target-language label, so a screen
+     * reader heard "Current language: Englishবাংলা" with no separator (Phase 24 X-05).
+     * The control now announces its action in the reader's own language, and the visible
+     * text is hidden from it so it is never read twice.
+     */
     <button
       type="button"
       className={className}
       onClick={() => setLocale(target)}
       lang={target}
       title={label}
+      aria-label={label}
     >
       <GlobeIcon width={18} height={18} />
-      <span className="sr-only">{t('nav.currentLanguage')}</span>
-      <span aria-hidden={false}>
+      <span aria-hidden="true">
         {variant === 'compact' ? LOCALE_LABELS[target] : label}
       </span>
     </button>

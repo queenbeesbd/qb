@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useEffect, useState } from 'react';
 import { useTranslation } from '@/i18n/useTranslation';
 import { useCart } from './useCart';
 import { QuantityStepper } from '@/components/QuantityStepper';
@@ -21,6 +22,43 @@ function unavailable(product: { availability: string }): boolean {
 }
 
 /**
+ * The item count to announce, or `null` when there is nothing new to say.
+ *
+ * The live region used to print the current count as soon as the cart mounted, so a
+ * screen-reader user heard "cart updated: 2 items" on page load although nothing had
+ * changed (Phase 24 audit S-26).
+ *
+ * "Nothing changed" has two phases, and both must stay silent:
+ *
+ *   1. **First render.** The cart store's server snapshot is empty, so the count starts at 0.
+ *   2. **Hydration.** `useSyncExternalStore` then reports the restored lines, which changes
+ *      the count from 0 to N without the customer doing anything. A naive "announce every
+ *      change" rule announces exactly here - which is the bug, just moved one render later.
+ *
+ * So the values seen before the cart has hydrated are treated as the baseline rather than as
+ * news. `hydrated` flips on the first render that agrees with the store's client snapshot,
+ * and only a change *after* that is announced.
+ */
+function useCartAnnouncement(count: number): string | null {
+  const [state, setState] = useState({ seen: count, armed: false, message: null as string | null });
+
+  // Arming is an event, not a derived value: it flips once, after the first committed paint,
+  // because everything that happens before that is the cart restoring itself from storage.
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => {
+      setState((current) => (current.armed ? current : { ...current, armed: true }));
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, []);
+
+  if (state.seen !== count) {
+    // Adjusting state during render for a changed input, per React's documented pattern.
+    setState({ seen: count, armed: state.armed, message: state.armed ? String(count) : null });
+  }
+  return state.message;
+}
+
+/**
  * Demo cart. All totals are derived in one place (CartProvider) from the local
  * catalog, and nothing is ever sent anywhere. This state is explicitly not
  * authoritative for a future real order.
@@ -29,6 +67,7 @@ export function CartView() {
   const { t, pick, price } = useTranslation();
   const cart = useCart();
   const unavailableCount = cart.entries.filter((entry) => unavailable(entry.product)).length;
+  const announced = useCartAnnouncement(cart.itemCount);
 
   if (cart.isEmpty) {
     return (
@@ -50,7 +89,7 @@ export function CartView() {
       </header>
 
       <p className={styles.liveRegion} role="status" aria-live="polite">
-        {t('cart.updatedAnnouncement', { count: cart.itemCount })}
+        {announced === null ? '' : t('cart.updatedAnnouncement', { count: cart.itemCount })}
       </p>
 
       <div className={styles.layout}>

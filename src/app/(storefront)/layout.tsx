@@ -1,5 +1,6 @@
 import { CartProvider } from '@/features/cart/CartProvider';
 import { getStorefrontCatalog } from '@/server/catalog/storefront';
+import { currentCustomerPrincipal } from '@/server/customer-auth/guard';
 import { Shell } from '../Shell';
 
 /**
@@ -22,10 +23,23 @@ export const dynamic = 'force-dynamic';
 
 export default async function StorefrontLayout({ children }: { children: React.ReactNode }) {
   const catalog = await getStorefrontCatalog();
+  /**
+   * The header states whether a customer is signed in, so the session is resolved here on the
+   * server and only the two fields the header can display cross the boundary. `currentCustomerPrincipal`
+   * is `cache`-wrapped, so a page that needs the same principal a second time reuses this read.
+   */
+  const principal = await currentCustomerPrincipal();
 
   return (
     <CartProvider products={catalog.products}>
-      <Shell categories={catalog.categories}>{children}</Shell>
+      <Shell
+        categories={catalog.categories}
+        customer={
+          principal === null ? null : { email: principal.email, displayName: principal.displayName }
+        }
+      >
+        {children}
+      </Shell>
     </CartProvider>
   );
 }

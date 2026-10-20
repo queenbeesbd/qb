@@ -20,7 +20,18 @@ export const IMAGE_ASPECT = { width: 600, height: 800 } as const;
  * browser downloads a source far larger than the rendered card. Four columns
  * inside a 1440px container top out at ~322px per card.
  */
-export const CARD_SIZES = '(max-width: 719px) 50vw, (max-width: 1023px) 33vw, 330px';
+export const CARD_SIZES =
+  '(max-width: 719px) 50vw, (max-width: 1023px) 33vw, (max-width: 1199px) 33vw, (max-width: 1599px) 25vw, 300px';
+
+/**
+ * The aspect ratio of a product card's photo frame.
+ *
+ * Catalog photography is 3:4 portrait. Rendering the whole frame on every card made each card
+ * ~620px tall and the homepage ~3,700px long (Phase 24 audit S-01/S-03), so the card crops to a
+ * 5:4 landscape-ish frame instead: the product stays the subject, and the card buys back roughly
+ * a fifth of its height without touching a single font size or touch target.
+ */
+export const CARD_FRAME = '5 / 4';
 export const DETAIL_SIZES = '(max-width: 879px) 100vw, 45vw';
 
 export type ImageSources = {

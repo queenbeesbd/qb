@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { DETAIL_SIZES } from '@/lib/images';
 import { discountAmount, discountPercent } from '@/lib/money';
 import { useTranslation } from '@/i18n/useTranslation';
@@ -35,13 +35,12 @@ export function ProductDetailView({
   const { t, pick, price } = useTranslation();
   const cart = useCart();
   const [quantity, setQuantity] = useState(1);
+  /**
+   * The confirmation is state, not a timer. It clears when the customer dismisses it, adds
+   * again, or leaves the page - a panel that vanishes on its own can disappear mid-read and
+   * would leave a keyboard user focused on a control that no longer exists.
+   */
   const [justAdded, setJustAdded] = useState(false);
-
-  useEffect(() => {
-    if (!justAdded) return;
-    const timer = window.setTimeout(() => setJustAdded(false), 2500);
-    return () => window.clearTimeout(timer);
-  }, [justAdded]);
 
   const name = pick(product.name) ?? product.slug;
   const description = pick(product.description);
@@ -61,6 +60,8 @@ export function ProductDetailView({
    * a button that always fails is a worse answer than a stated reason.
    */
   const orderable = product.availability === 'in_stock';
+  /** How many of this product the cart now holds, so the confirmation can state it. */
+  const cartQuantity = cart.entries.find((entry) => entry.product.id === product.id)?.quantity ?? 0;
 
   return (
     <div className={styles.page}>
@@ -155,15 +156,46 @@ export function ProductDetailView({
                 {t('product.addToCart')}
               </button>
             </div>
+
+            {/*
+              The live region is always mounted so a change is announced, and it carries the
+              confirmation's text rather than a second copy of it: one announcement per add, and
+              nothing announced on first paint. The panel below is the visible twin - same words,
+              plus the two next steps the old 22px status line was missing.
+            */}
             <p className={styles.liveRegion} role="status" aria-live="polite">
-              {justAdded ? (
-                <>
-                  <CheckIcon width={16} height={16} /> {t('product.added')}
-                </>
-              ) : (
-                ''
-              )}
+              {justAdded ? t('product.addedDetail', { name }) : ''}
             </p>
+
+            {justAdded && (
+              <div className={styles.confirmation}>
+                <p className={styles.confirmationTitle}>
+                  <CheckIcon width={16} height={16} />
+                  {t('product.added')}
+                </p>
+                <p className={styles.confirmationDetail}>
+                  {t('product.addedDetail', { name })}
+                  {' '}
+                  <span className={styles.confirmationCount}>
+                    {cartQuantity === 1
+                      ? t('cart.itemCountOne')
+                      : t('cart.itemCount', { count: cartQuantity })}
+                  </span>
+                </p>
+                <div className={styles.confirmationActions}>
+                  <Link className={styles.confirmationPrimary} href="/cart">
+                    {t('product.viewCart')}
+                  </Link>
+                  <button
+                    type="button"
+                    className={styles.confirmationSecondary}
+                    onClick={() => setJustAdded(false)}
+                  >
+                    {t('product.continueShopping')}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
           ) : (
             <div className={styles.unavailable} role="status">
