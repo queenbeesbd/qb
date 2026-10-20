@@ -824,6 +824,34 @@ padding the row with invented or repeated cards is forbidden. **Showing more tha
 published requirement (D6) and the section's copy - an owner decision, one constant plus two dictionary
 strings, not a layout tweak.**
 
+## Phase 27 - admin control-scale and feedback consistency, delivered 2026-10-21
+
+**One control scale, and copy that matches behaviour.** Phase 24 measured controls at 32/34/36/40/51px,
+an approve (40px) / reject (34px) pair inside one decision, a 34px submit button beside a 40px search
+field, and an audit note labelled *(optional)* that the server refuses without. None of it needed a
+policy change.
+
+| Piece | Where |
+| --- | --- |
+| Scale tokens | `--admin-control` (40) and `--admin-control-sm` (34) in `admin.module.css` |
+| Destructive trigger | `ConfirmSubmit` now defaults to the standard height |
+| Toolbar row | small buttons inside `.toolbar`, and `.filterTab`, take the standard height |
+| Touch widths | below 720px the small variant grows to 40px |
+| Note field | `admin.cod.noteSummary` says *required, at least 10 characters* in both locales; the field renders open |
+| Storefront press state | `scale(0.97)` on the primary and add-to-cart actions, matching the admin button |
+
+**Verified 2026-10-21:** `verify:admin` **152/152** (two new checks: a computed-height sweep over four
+admin pages that fails on anything but 34/40, and accept/reject parity plus the visible, correctly
+labelled required note), `verify:storefront` **101/101** + **27/27** HTTP, unit **156/156**, `test:db`
+**241/241**, `typecheck`, `eslint` 0 errors, `check:i18n` (849 keys), `check:catalog`, `check:secrets`,
+`next build`. Screenshots inspected: dashboard, delivery settings, order operations.
+
+**Not done, and why:** the 8 status tabs on `/admin/orders` are kept - collapsing them changes which
+filters an owner can reach, and no evidence says which two they use; the `?notice=` parameter still
+survives a reload, because clearing it in the client would race the existing navigation assertions; the
+recovery screen still has no contact route, because the store's phone number is owner-supplied data that
+does not exist in the repository.
+
 ## Current single best next step
 
 **The actual BDT delivery amounts, supplied by the owner (D-item 5).** This is not an implementation task -

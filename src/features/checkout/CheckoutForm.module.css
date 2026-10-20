@@ -168,11 +168,16 @@
   background: var(--color-action);
   color: #fff;
   border: none;
+  transition: background-color 140ms ease, transform 120ms ease-out;
 }
 
 .primaryAction:hover {
   background: var(--color-action-hover);
   color: #fff;
+}
+
+.primaryAction:active {
+  transform: scale(0.97);
 }
 
 .secondaryAction {

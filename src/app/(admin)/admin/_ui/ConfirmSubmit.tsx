@@ -20,7 +20,10 @@ export function ConfirmSubmit({
   fields,
   triggerLabel,
   triggerVariant = 'dangerOutline',
-  small = true,
+  // Default to the standard control height. A destructive trigger sat at 34px while the
+  // approve button next to it was 40px, which read as two different classes of action
+  // (Phase 24 A-01/A-04).
+  small = false,
   disabled = false,
   title,
   body,

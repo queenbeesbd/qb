@@ -155,11 +155,15 @@
   color: #fff;
   font-weight: 600;
   cursor: pointer;
-  transition: background var(--transition-fast);
+  transition: background var(--transition-fast), transform 120ms ease-out;
 }
 
 .addButton:hover {
   background: var(--color-action-hover);
+}
+
+.addButton:active {
+  transform: scale(0.97);
 }
 
 /**

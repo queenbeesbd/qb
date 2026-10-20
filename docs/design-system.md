@@ -148,6 +148,30 @@ No brand colour is used for status. Pending/approved/cancelled/flagged states us
 `--color-warning`, `--color-success`, `--color-danger` pairs, and every pill also carries text and a
 dot, so colour is never the only signal.
 
+### Control scale (Phase 27)
+
+Two heights, from `admin.module.css`:
+
+| Token | Value | Applies to |
+| --- | --- | --- |
+| `--admin-control` | 40px | Buttons, inputs, selects, filter tabs, icon buttons, the account pill, the drawer close control |
+| `--admin-control-sm` | 34px | Small secondary buttons, switches, the note disclosure summary - dense-row controls only |
+
+The Phase 24 audit measured 32/34/36/40/51px controls, including an approve (40px) and reject (34px)
+pair in one decision, and a search field (40px) beside its own 34px submit button. Three rules now
+hold the scale together:
+
+1. **A destructive trigger is not smaller than the action beside it.** `ConfirmSubmit` defaults to the
+   standard height; the only reason to pass `small` is a dense list row.
+2. **Controls that share a row share a height.** A small button inside `.toolbar` takes the standard
+   height, and the filter tabs do too, so the search field and everything beside it read as one row.
+3. **Touch widths get the larger target.** Below 720px the small variant grows to 40px, because the
+   owner approves orders from a phone and 34px is below the project's own touch guidance.
+
+`scripts/verify-admin.ts` sweeps the rendered buttons, inputs and selects on the overview, COD queue,
+catalog and delivery settings, and fails if any control is not 34 or 40px, if the accept/reject pair
+disagree, or if the required audit note is collapsed or labelled optional.
+
 ### Shell and page anatomy
 
 - **Rail (desktop):** brand, then permission-filtered groups - Overview, Commerce (COD orders,

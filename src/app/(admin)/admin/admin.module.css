@@ -13,6 +13,25 @@
  * - Status is never carried by colour alone: every pill and switch has text.
  */
 
+
+/*
+ * Admin control scale (Phase 27).
+ *
+ * Two heights, one decision each, instead of the 32/34/36/40/44/51 mix the Phase 24 audit
+ * measured: a default control at 40px for anything that submits or accepts a value, and a small
+ * variant at 34px for dense-row secondary controls (small buttons, switches, the note disclosure).
+ * Anything that used to invent a third height - icon buttons at 36, filter tabs at 32, the account
+ * pill at 36, a destructive trigger at 34 beside a 40px action - now points at one of these two, so
+ * a page reads as one system.
+ *
+ * On touch widths the small variant grows to the default height, because 34px is below the
+ * project's own 40px touch-target guidance and the admin is used on a phone in the shop.
+ */
+:root {
+  --admin-control-sm: 34px;
+  --admin-control: 40px;
+}
+
 .page {
   min-height: 100vh;
   background: var(--color-page);
@@ -251,7 +270,7 @@ html[lang='bn'] .navGroupLabel {
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
-  min-height: 36px;
+  min-height: var(--admin-control);
   padding: 0 var(--space-2) 0 4px;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-pill);
@@ -379,8 +398,8 @@ html[lang='bn'] .navGroupLabel {
   display: inline-grid;
   visibility: hidden;
   place-items: center;
-  width: 36px;
-  height: 36px;
+  width: var(--admin-control);
+  height: var(--admin-control);
   border-radius: var(--radius-md);
   border: 1px solid rgba(255, 255, 255, 0.18);
   background: none;
@@ -579,7 +598,7 @@ html[lang='bn'] .sectionHead h2 {
   align-items: center;
   justify-content: center;
   gap: var(--space-2);
-  min-height: 40px;
+  min-height: var(--admin-control);
   padding: 0 var(--space-4);
   border: 1px solid transparent;
   border-radius: var(--radius-md);
@@ -653,7 +672,7 @@ html[lang='bn'] .sectionHead h2 {
 }
 
 .buttonSmall {
-  min-height: 34px;
+  min-height: var(--admin-control-sm);
   padding: 0 var(--space-3);
   font-size: var(--text-xs);
 }
@@ -685,8 +704,8 @@ html[lang='bn'] .sectionHead h2 {
 .iconButton {
   display: inline-grid;
   place-items: center;
-  width: 36px;
-  height: 36px;
+  width: var(--admin-control);
+  height: var(--admin-control);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   background: var(--color-surface);
@@ -946,7 +965,7 @@ html[lang='bn'] .sectionHead h2 {
 
 .noteDetails summary {
   cursor: pointer;
-  min-height: 28px;
+  min-height: var(--admin-control-sm);
   display: flex;
   align-items: center;
 }
@@ -962,6 +981,14 @@ html[lang='bn'] .sectionHead h2 {
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-3);
+}
+
+/*
+ * The search field and its submit button are one control, not two sizes. A 34px button beside a
+ * 40px input made the row look broken (Phase 24 A-03).
+ */
+.toolbar .buttonSmall {
+  min-height: var(--admin-control);
 }
 
 .searchForm {
@@ -1004,7 +1031,9 @@ html[lang='bn'] .sectionHead h2 {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  min-height: 32px;
+  /* A segmented filter reads as one control beside the other controls in a toolbar row, and it is
+     the primary way an owner narrows a queue on a phone, so it takes the standard height. */
+  min-height: var(--admin-control);
   padding: 0 var(--space-3);
   border-radius: var(--radius-sm);
   color: var(--color-ink-muted);
@@ -1114,7 +1143,7 @@ html[lang='bn'] .legend {
 .select,
 .textarea {
   width: 100%;
-  min-height: 40px;
+  min-height: var(--admin-control);
   padding: var(--space-2) var(--space-3);
   border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-md);
@@ -1188,7 +1217,7 @@ html[lang='bn'] .legend {
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
-  min-height: 34px;
+  min-height: var(--admin-control-sm);
   padding: 2px 10px 2px 4px;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-pill);
@@ -1928,5 +1957,15 @@ html[dir='rtl'] .switchOn .switchKnob::after {
 .recordVoided {
   text-decoration: line-through;
   opacity: 0.65;
+}
+
+/*
+ * Dense rows are a desktop affordance. On touch widths the small variants take the default
+ * height, so every control on a phone meets the 40px target the project's own audit set.
+ */
+@media (max-width: 719px) {
+  .buttonSmall {
+    min-height: var(--admin-control);
+  }
 }
 

@@ -51,11 +51,17 @@
   background: var(--color-action);
   color: #fff;
   font-weight: 600;
+  transition: background-color 140ms ease, transform 120ms ease-out;
 }
 
 .primaryAction:hover {
   background: var(--color-action-hover);
   color: #fff;
+}
+
+/* A filled action confirms the press. Without it the button feels dead until the next page. */
+.primaryAction:active {
+  transform: scale(0.97);
 }
 
 .secondaryAction {

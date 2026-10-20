@@ -197,6 +197,11 @@
   background: var(--color-action);
   color: #fff;
   font-weight: 600;
+  transition: background-color 140ms ease, transform 120ms ease-out;
+}
+
+.primaryAction:active {
+  transform: scale(0.97);
 }
 
 .primaryAction:hover {

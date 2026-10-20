@@ -1541,6 +1541,61 @@ async function main(): Promise<void> {
               desktop.overflow <= 1,
               `${desktop.overflow}px`,
             );
+
+            /*
+             * Phase 27 - one admin control scale, and a required field that looks required.
+             *
+             * The Phase 24 audit measured controls at 32/34/36/40/51px, an approve/reject pair that
+             * disagreed by 6px, and an audit note labelled "optional" that the server refuses without.
+             * These assertions pin the scale at its two approved heights and pin the decision pair and
+             * the note affordance, so neither regression can come back quietly.
+             */
+            const heightSweep: Array<{ route: string; heights: number[] }> = [];
+            for (const route of ['/admin', '/admin/orders-cod', '/admin/catalog', '/admin/settings/delivery']) {
+              await browser.navigate(route);
+              const heights = await browser.evaluate<number[]>(`(() => [...document.querySelectorAll(
+                'main button, main input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]), main select',
+              )].map((el) => Math.round(el.getBoundingClientRect().height)).filter((h) => h > 0))()`);
+              heightSweep.push({ route, heights });
+            }
+            const offScale = heightSweep.filter((page) => page.heights.some((h) => h !== 34 && h !== 40));
+            record(
+              'every admin control resolves to one of two heights (34 or 40)',
+              heightSweep.every((page) => page.heights.length > 0) && offScale.length === 0,
+              JSON.stringify(
+                offScale.length > 0
+                  ? offScale
+                  : heightSweep.map((page) => ({ route: page.route, heights: [...new Set(page.heights)] })),
+              ),
+            );
+
+            await browser.navigate('/admin');
+            const decision = await browser.evaluate<{
+              approve: number | null;
+              reject: number | null;
+              noteOpen: boolean;
+              noteLabel: string;
+            }>(`(() => {
+              const card = document.querySelector('main article');
+              if (!card) return { approve: null, reject: null, noteOpen: false, noteLabel: '' };
+              const buttons = [...card.querySelectorAll('button')];
+              // The COD decision pair is labelled Accept / Reject in this interface.
+              const approve = buttons.find((b) => /accept|approve/i.test(b.textContent || ''));
+              const reject = buttons.find((b) => /reject|reject order/i.test(b.textContent || ''));
+              const note = card.querySelector('details');
+              return {
+                approve: approve ? Math.round(approve.getBoundingClientRect().height) : null,
+                reject: reject ? Math.round(reject.getBoundingClientRect().height) : null,
+                noteOpen: note ? note.hasAttribute('open') : false,
+                noteLabel: note?.querySelector('summary')?.textContent?.trim() || '',
+              };
+            })()`);
+            record(
+              'the approve/reject pair renders at one height and the required audit note is visible and labelled required',
+              decision.approve === 40 && decision.reject === 40 && decision.noteOpen === true &&
+                /required/i.test(decision.noteLabel),
+              JSON.stringify(decision),
+            );
             await browser.screenshot('/tmp/qb-admin-dashboard-desktop.png');
 
             await browser.viewport(390, 844);

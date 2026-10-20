@@ -179,7 +179,13 @@ export function CodOrderCard({
               <input type="hidden" name="csrf" value={csrfToken} />
               <input type="hidden" name="orderId" value={row.orderId} />
               <input type="hidden" name="decision" value="approve" />
-              <details className={styles.noteDetails}>
+              {/*
+                * Open by default and labelled as required. The field always was `required` with a
+                * 10-character minimum, but the summary said "optional" - so an owner who collapsed it
+                * and cleared the pre-filled value hit a refusal they had been told could not happen
+                * (Phase 24 A-14 / F-05).
+                */}
+              <details className={styles.noteDetails} open>
                 <summary>{t('admin.cod.noteSummary')}</summary>
                 <label className="sr-only" htmlFor={`reason-${row.orderId}`}>
                   {t('admin.cod.approveReason')}

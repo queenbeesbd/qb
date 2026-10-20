@@ -733,7 +733,8 @@ export function AdminOrderDetailView({
                   <input type="hidden" name="csrf" value={csrfToken} />
                   <input type="hidden" name="orderId" value={order.orderId} />
                   <input type="hidden" name="decision" value="approve" />
-                  <details className={styles.noteDetails}>
+                  {/* Open by default: the note is required, and a collapsed required field is a trap. */}
+                  <details className={styles.noteDetails} open>
                     <summary>{t('admin.cod.noteSummary')}</summary>
                     <label className="sr-only" htmlFor="order-approve-reason">
                       {t('admin.cod.approveReason')}

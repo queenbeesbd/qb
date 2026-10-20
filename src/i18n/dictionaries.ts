@@ -375,7 +375,7 @@ export const dictionary = {
     'admin.cod.decision.approved': 'অনুমোদিত',
     'admin.cod.decision.rejected': 'বাতিল',
     'admin.cod.itemsTitle': 'অর্ডারের পণ্য',
-    'admin.cod.noteSummary': 'অডিট নোট (ঐচ্ছিক)',
+    'admin.cod.noteSummary': 'অডিট নোট (আবশ্যক, কমপক্ষে ১০ অক্ষর)',
     'admin.cod.approveReasonDefault': 'ফোনে নিশ্চিত করা হয়েছে',
     'admin.cod.rejectTitle': 'এই অর্ডার বাতিল করবেন?',
     'admin.cod.rejectBody':
@@ -1311,7 +1311,7 @@ export const dictionary = {
     'admin.cod.decision.approved': 'Approved',
     'admin.cod.decision.rejected': 'Cancelled',
     'admin.cod.itemsTitle': 'Items in this order',
-    'admin.cod.noteSummary': 'Audit note (optional)',
+    'admin.cod.noteSummary': 'Audit note (required, at least 10 characters)',
     'admin.cod.approveReasonDefault': 'Confirmed by phone',
     'admin.cod.rejectTitle': 'Cancel this order?',
     'admin.cod.rejectBody':
