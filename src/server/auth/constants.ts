@@ -94,6 +94,16 @@ export const CUSTOMERS_PATH = '/admin/customers';
 export const ORDERS_PATH = '/admin/orders';
 
 /**
+ * The one mutation endpoint for an order's operational transitions (Phase 20).
+ *
+ * One endpoint for dispatch, delivery outcome, return receipt, inspection, collection, completion and
+ * pre-dispatch cancellation, because they share a single validated action set and a single redirect
+ * convention. `orders-cod` stays separate: it is the decision the queue posts to, and it keeps its own
+ * notices so a queue decision is never mistaken for an operation.
+ */
+export const ORDER_TRANSITION_PATH = '/api/admin/orders/transition';
+
+/**
  * Where an authenticated page may send a browser after a successful sign-in. Anything else resolves
  * to the admin root, so the login form cannot be used as an open redirect.
  */

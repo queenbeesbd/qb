@@ -58,14 +58,14 @@ QueenBee's accepts **one** method: **Cash on Delivery**. Ordering still requires
 - **Charges by weight, quantity or postal code.** The approved model is three areas and one amount per
   order. Historical orders keep saying delivery is arranged on confirmation when they carry no area.
 - **Courier and consignment records.** No courier API is authorized and no consignment field is written.
-- **Cash collection and reconciliation below `cod_approved`.** `cod_collected`, `cod_failed` and
-  `cod_reconciled` exist in the schema and have no screen or transition yet. Phase 20 added the owner's
-  order detail and order history, which is where such a transition would live - but **no control was
-  added**, because the policy behind it is not the owner's yet. The detail page states explicitly that
-  **an approved COD order is not proof of cash**, and no view or count describes an order as collected,
-  paid or reconciled. The four questions that would unlock it (who records dispatch; how a failed
-  delivery is handled and who bears its charge; who records cash received and when; what reconciliation
-  means operationally) are listed in `docs/admin-dashboard.md` under **Owner decisions**.
+- **Reconciliation.** `cod_collected` and `cod_failed` are now written by the owner's post-approval
+  workflow (Phase 20b, `docs/admin-dashboard.md`), but **`cod_reconciled` is written by nothing**. Cash
+  collection is a recorded fact; matching it against a courier statement has no defined source, period
+  or discrepancy rule, so no figure in the dashboard is described as reconciled and the order page says
+  so. The open questions are listed in `docs/admin-dashboard.md` under **Owner decisions**.
+- **Delivery-charge liability for a failed delivery.** A failed delivery records `cod_failed` and creates
+  the returns; it **does not** add, apply or waive a charge, and `order`'s immutability trigger refuses
+  any attempt to rewrite the total. Who bears that charge is undecided, and nothing guesses.
 - **Cancellation and refund workflows.** Refunds remain manual and, in this release, are recorded only if
   the owner records them by other means; no refund UI exists.
 - **Any notification.** There is no mail, SMS or push provider; the customer's own order page is the

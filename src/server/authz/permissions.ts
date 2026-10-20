@@ -19,6 +19,7 @@ export const PERMISSIONS = {
   codConfirmCollection: 'cod.confirm_collection',
   financeReconcile: 'finance.reconcile',
   orderRead: 'order.read',
+  orderDispatch: 'order.dispatch',
   orderCancel: 'order.cancel',
   refundRequest: 'refund.request',
   refundConfirm: 'refund.confirm',
@@ -62,6 +63,11 @@ export const PERMISSION_CATALOGUE: readonly PermissionDefinition[] = [
   { code: PERMISSIONS.settingsWrite, description: 'Write store settings', isPrivileged: true },
 
   { code: PERMISSIONS.orderRead, description: 'Read any order', isPrivileged: false },
+  {
+    code: PERMISSIONS.orderDispatch,
+    description: 'Record dispatch, a delivery outcome and order completion',
+    isPrivileged: false,
+  },
   { code: PERMISSIONS.orderCancel, description: 'Record or decide a cancellation request', isPrivileged: false },
   { code: PERMISSIONS.refundRequest, description: 'Record a refund request', isPrivileged: false },
   { code: PERMISSIONS.returnInspect, description: 'Receive and inspect a returned parcel', isPrivileged: false },
@@ -90,6 +96,7 @@ export const PERMISSION_LABELS: Record<string, string> = {
   [PERMISSIONS.codConfirmCollection]: 'Confirm COD collection',
   [PERMISSIONS.financeReconcile]: 'Reconcile COD cash',
   [PERMISSIONS.orderRead]: 'Read orders',
+  [PERMISSIONS.orderDispatch]: 'Dispatch and delivery outcomes',
   [PERMISSIONS.orderCancel]: 'Handle cancellations',
   [PERMISSIONS.refundRequest]: 'Request refunds',
   [PERMISSIONS.refundConfirm]: 'Complete refunds',
@@ -111,6 +118,7 @@ export const PERMISSION_LABELS_BN: Record<string, string> = {
   [PERMISSIONS.codConfirmCollection]: 'সিওডি আদায় নিশ্চিত',
   [PERMISSIONS.financeReconcile]: 'সিওডি নগদ মিলকরণ',
   [PERMISSIONS.orderRead]: 'অর্ডার দেখা',
+  [PERMISSIONS.orderDispatch]: 'ডেলিভারি ও প্রেরণ',
   [PERMISSIONS.orderCancel]: 'বাতিলকরণ পরিচালনা',
   [PERMISSIONS.refundRequest]: 'রিফান্ড অনুরোধ',
   [PERMISSIONS.refundConfirm]: 'রিফান্ড সম্পন্ন',
@@ -161,4 +169,10 @@ export const PERMISSIONS_IMPLEMENTED: readonly PermissionCode[] = [
   PERMISSIONS.customerSuspend,
   // Phase 19: the delivery-charge configuration screen.
   PERMISSIONS.settingsWrite,
+  // Phase 20: the post-approval COD operations - dispatch, delivery outcome, return receipt,
+  // inspection and cash collection. `finance.reconcile` stays out deliberately: reconciliation has
+  // no defined process, so there is no workflow behind that code.
+  PERMISSIONS.orderDispatch,
+  PERMISSIONS.codConfirmCollection,
+  PERMISSIONS.returnInspect,
 ];

@@ -31,6 +31,15 @@ function nextStepKey(order: { status: string; codState: string; paymentMethod: s
     if (order.codState === 'cod_failed') return 'orders.next.codFailed';
   }
   if (order.status === 'pending') return 'orders.next.reviewing';
+  /*
+    Each branch is a fact the order row already holds. A dispatched order is not said to be delivered,
+    and cash is only ever described as received once cod_collected was recorded - never because the
+    parcel moved.
+  */
+  if (order.status === 'shipped') return 'orders.next.dispatched';
+  if (order.status === 'delivered') return 'orders.next.delivered';
+  if (order.status === 'completed') return 'orders.next.completed';
+  if (order.codState === 'cod_collected') return 'orders.next.cashReceived';
   return 'orders.next.confirmed';
 }
 

@@ -87,7 +87,17 @@ and are implemented locally - **not deployed** - with the evidence named for eac
 | C8 | Another customer's order is never disclosed | Done | Every customer read filters on the session's `customer_id`; a foreign order number is a 404, not a 403 |
 | C9 | The owner can review and decide an order | Done | COD queue plus the Phase 20 order detail; approve/reject are guarded, reasoned, audited, idempotent and permission-checked server-side per request |
 | C10 | The owner can find an order later | Done | `/admin/orders`: search by number/name/phone, status filter, pagination with an exact total; a capped list states what it is not showing |
-| C11 | No invented operational states | Done | Dispatch, delivery outcome, cash collection and reconciliation are **not built**; the four owner decisions they need are listed in `docs/admin-dashboard.md` |
+| C11 | No invented operational states | Done | Every transition is one the state model already defined; reconciliation (`cod_reconciled`) is still written by nothing and nothing applies a failed-delivery charge. See `docs/admin-dashboard.md` |
+| C13 | Dispatch only after approval | Done | `dispatchOrder` guards on `cod_approved` (or a verified legacy payment); a test asserts a pending COD order is refused and writes no event |
+| C14 | Cancellation only before dispatch | Done | `cancelOrderBeforeDispatch` guards on `pending`/`confirmed`/`processing`; after dispatch the case is a return. Reason required and audited |
+| C15 | A failed delivery returns the goods | Done | `cod_state = cod_failed` plus one `customer_return` per line; the order is not called `returned` until the parcel is physically back |
+| C16 | Returned goods need physical receipt and inspection | Done | Returns move `requested → received → inspected_accepted/inspected_rejected` with actor and timestamp; a rejection requires a note |
+| C17 | Inspection never makes stock sellable by itself | Done | No movement, no balance change, no availability flip - asserted by test. The owner sets In Stock by hand |
+| C18 | Cash is collected only when received | Done | `recordCashCollected` is its own permission and its own event, never implied by approval, dispatch or delivery; a duplicate is a conflict |
+| C19 | Delivery, collection and reconciliation stay separate | Done | Three separate columns/events; delivered leaves `cod_state = cod_approved`, and `cod_reconciled` is unreachable |
+| C20 | Totals and delivery snapshots never change | Done | No transition writes an amount; the `order_immutable_columns` trigger enforces it; tests re-assert the totals after failure, receipt and collection |
+| C21 | Every mutation re-authorized server-side | Done | Each service function checks its own permission; an actor with none is refused and the refusal is recorded durably |
+| C22 | Customers see only true operational states | Done | Customer wording is derived from the stored order row: awaiting approval, approved, dispatched, delivered, returned, cancelled, cash received. Never a delivered claim without the event |
 | C12 | Customer suspension is guarded and reasoned | Done | `customer.suspend` re-checked server-side, a required reason, sessions revoked, effect recorded in the audit trail; a COD rejection never bans anyone |
 
 ## Announcement configuration

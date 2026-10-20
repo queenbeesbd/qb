@@ -12,7 +12,21 @@ export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = { title: 'Order', robots: { index: false, follow: false } };
 
-const NOTICES: readonly AdminOrderNotice[] = ['approved', 'rejected', 'denied', 'conflict', 'invalid'];
+const NOTICES: readonly AdminOrderNotice[] = [
+  'approved',
+  'rejected',
+  'dispatched',
+  'delivered',
+  'failed',
+  'returned',
+  'collected',
+  'completed',
+  'cancelled',
+  'inspected',
+  'denied',
+  'conflict',
+  'invalid',
+];
 
 function single(value: string | string[] | undefined): string {
   const candidate = Array.isArray(value) ? value[0] : value;
@@ -70,6 +84,7 @@ export default async function AdminOrderDetailPage({
         orderId: detail.orderId,
         orderNumber: detail.orderNumber,
         placedAt: detail.placedAt.toISOString(),
+        ageHours: detail.ageHours,
         status: detail.status,
         paymentMethod: detail.paymentMethod,
         paymentState: detail.paymentState,
@@ -78,6 +93,9 @@ export default async function AdminOrderDetailPage({
         shippingMinor: detail.shippingMinor,
         totalMinor: detail.totalMinor,
         confirmedAt: detail.confirmedAt === null ? null : detail.confirmedAt.toISOString(),
+        shippedAt: detail.shippedAt === null ? null : detail.shippedAt.toISOString(),
+        deliveredAt: detail.deliveredAt === null ? null : detail.deliveredAt.toISOString(),
+        completedAt: detail.completedAt === null ? null : detail.completedAt.toISOString(),
         cancelledAt: detail.cancelledAt === null ? null : detail.cancelledAt.toISOString(),
         cancelledReason: detail.cancelledReason,
         customer: {
@@ -101,6 +119,20 @@ export default async function AdminOrderDetailPage({
           unitPriceMinor: item.unitPriceMinor,
           quantity: item.quantity,
           lineTotalMinor: item.lineTotalMinor,
+        })),
+        returns: detail.returns.map((entry) => ({
+          id: entry.id,
+          orderItemId: entry.orderItemId,
+          sku: entry.sku,
+          nameBn: entry.nameBn,
+          nameEn: entry.nameEn,
+          quantity: entry.quantity,
+          reason: entry.reason,
+          state: entry.state,
+          requestedAt: entry.requestedAt.toISOString(),
+          receivedAt: entry.receivedAt === null ? null : entry.receivedAt.toISOString(),
+          inspectedAt: entry.inspectedAt === null ? null : entry.inspectedAt.toISOString(),
+          inspectionNote: entry.inspectionNote,
         })),
         events: detail.events.map((event) => ({
           id: event.id,
@@ -129,6 +161,9 @@ export default async function AdminOrderDetailPage({
       csrfToken={principal.csrfToken}
       canApprove={hasPermission(principal, PERMISSIONS.codApprove)}
       canCancel={hasPermission(principal, PERMISSIONS.orderCancel)}
+      canFulfil={hasPermission(principal, PERMISSIONS.orderDispatch)}
+      canCollect={hasPermission(principal, PERMISSIONS.codConfirmCollection)}
+      canInspect={hasPermission(principal, PERMISSIONS.returnInspect)}
       canReadCustomers={canReadCustomers}
       canReadAudit={hasPermission(principal, PERMISSIONS.auditRead)}
       returnTo={returnTo}

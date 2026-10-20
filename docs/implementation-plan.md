@@ -592,26 +592,54 @@ Delivered:
 
 **No migration. No new order state, transition or business policy.** The schema stays at 42 tables.
 
+## Phase 20, second slice - delivered 2026-10-20
+
+**The post-approval COD lifecycle is implemented locally.** The order detail is now a workspace, not
+just a record:
+
+| Step | From | To | Guard | Event |
+| --- | --- | --- | --- | --- |
+| Dispatch | `confirmed`/`processing` + `cod_approved` | `shipped` | Owner has approved; payment verified for legacy prepaid | `order_shipped` |
+| Delivered | `shipped` + `cod_approved` | `delivered` | Dispatched, cash still owed | `order_delivered` |
+| Failed delivery | `shipped` + `cod_approved` | `cod_failed` (status stays `shipped`) | Dispatched; reason required; creates one `customer_return` per line | `cod_failed` |
+| Parcel received | `shipped` + `cod_failed` | `returned`; returns → `received` | A return is live for the order | `return_received` |
+| Inspect | `received` | `inspected_accepted` / `inspected_rejected` | Note required to reject; **no movement, no availability change** | `return_inspected` |
+| Cash collected | `cod_approved` + `confirmed`/`processing`/`shipped`/`delivered` | `cod_collected` | Owner's explicit act, never inferred | `cod_collected` |
+| Complete | `delivered` + `cod_collected`/`cod_failed` | `completed` | A recorded outcome exists | `order_completed` |
+| Cancel | `pending`/`confirmed`/`processing` | `cancelled` | Not yet dispatched; reason required | `order_cancelled` |
+
+Every row is one guarded `UPDATE ... WHERE <current state>`, so a repeat is a conflict rather than a
+second effect; each writes its order event (unique key) and audit record in the caller's transaction;
+each re-checks its own permission in the service, not only in the route. `order.dispatch` is new;
+`cod.confirm_collection` and `return.inspect` gained the workflows they were catalogued for.
+
+**Deliberately absent:** reconciliation (`cod_reconciled` is written by nothing), failed-delivery charge
+liability, any automatic retry/cancel/refund/reship, and any stock effect from inspection. **No
+migration:** the schema already held every column, state and return table this needed.
+
 ## Current single best next step
 
-**The owner's post-approval COD workflow** remains the single largest gap, and it is unchanged by Phase
-20's first slice: the owner's order detail exists to hold it, but **recording dispatch, a delivery
-outcome, cash collection and reconciliation is still not built** - because the policy behind it is not
-the owner's yet.
+**Reconciliation, and the failed-delivery charge decision** - the last two pieces of the COD money
+story, and the only ones still blocked on the owner rather than on engineering.
 
-**Prerequisites (owner decisions, not engineering work):**
+As built, an order reaches `cod_collected` but never `cod_reconciled`, so cash that left a courier and
+cash the store recorded can drift apart with nothing comparing them. **Prerequisites:**
 
-1. Who records dispatch, and in which interface? The schema already holds `order.status` values
-   `shipped`/`delivered` and `cod_state` values `cod_collected`/`cod_failed`/`cod_reconciled`; it holds
-   no policy for who may write them or when.
-2. Failed delivery: retried, cancelled or returned - and who bears the charge when it fails?
-3. Who records that courier cash was actually received, and when? (`cod.confirm_collection` is in the
-   catalogue with no route behind it.)
-4. What does reconciliation mean operationally, over what period, against what statement?
+1. **What does reconciliation compare?** A courier statement (which one, received when), a cash count,
+   or the owner's own daily total? Without a source there is nothing to match against.
+2. **Over which period?** Per courier trip, per day, per week?
+3. **What is a discrepancy?** A missing order, an amount mismatch, or a late statement - and what may the
+   owner record when one is found? (`operational_exception` already carries an `unreconciled_collection`
+   type, so the finding has a home; the policy does not.)
+4. **Who bears the delivery charge when a delivery fails?** Every transition today leaves the charged
+   total untouched, and `order`'s immutability trigger refuses any attempt to rewrite it, so the
+   question is currently unanswered rather than answered wrongly.
 
-**Acceptance:** an approved order can be marked dispatched, collected and reconciled with actor,
-timestamp and reason; no step marks cash collected before it is; failed delivery has a defined outcome;
-customer and owner views remain separate; tests cover each guarded transition and its refusal.
+**Acceptance:** an owner can record a reconciled batch from a named source over a stated period; each
+reconciled order keeps its own collection event; a discrepancy is recorded as an exception that requires
+a reason and cannot resolve itself; no order is ever marked reconciled by delivery, collection or a
+timer; the delivery-charge liability rule (if the owner sets one) is applied from a decision, never
+computed from a guess; tests cover each guard and its refusal.
 
 **Not authorized by this recommendation:** deployment, provisioning, DNS, credentials, gateway work,
 inventory reservation, or any new price, delivery, refund or cancellation policy.

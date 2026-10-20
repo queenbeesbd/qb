@@ -1,12 +1,7 @@
 import { withTransaction } from '@/db/client';
 import { requireAdminPage } from '@/server/auth/guard';
 import { PERMISSIONS } from '@/server/authz/permissions';
-import {
-  listOrdersForAdmin,
-  ORDER_PAGE_SIZE,
-  ORDER_STATUS_FILTERS,
-  type OrderStatusFilter,
-} from '@/server/orders/admin-order';
+import { listOrdersForAdmin, ORDER_PAGE_SIZE, ORDER_STATUS_FILTERS } from '@/server/orders/admin-order';
 import { AdminOrdersView, type OrdersFilter } from './OrdersView';
 
 export const dynamic = 'force-dynamic';
@@ -23,7 +18,7 @@ function pageNumber(value: string): number {
 }
 
 function readFilter(value: string): OrdersFilter {
-  return (ORDER_STATUS_FILTERS as readonly string[]).includes(value) ? (value as OrderStatusFilter) : 'all';
+  return (ORDER_STATUS_FILTERS as readonly string[]).includes(value) ? (value as OrdersFilter) : 'all';
 }
 
 /**

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import type { TranslationKey } from '@/i18n/dictionaries';
 import { useTranslation } from '@/i18n/useTranslation';
 import { deliveryAreaName } from '@/lib/delivery-areas';
+import { ORDER_TRANSITION_PATH } from '@/server/auth/constants';
 import { paymentLabel, statusLabel } from '@/features/account/order-labels';
 import { ConfirmSubmit } from '../../../_ui/ConfirmSubmit';
 import { EmptyState } from '../../../_ui/EmptyState';
@@ -14,13 +15,43 @@ import { StatusPill, type PillTone } from '../../../_ui/StatusPill';
 import { SubmitButton } from '../../../_ui/SubmitButton';
 import styles from '../../../admin.module.css';
 
-export type AdminOrderNotice = 'approved' | 'rejected' | 'denied' | 'conflict' | 'invalid';
+export type AdminOrderNotice =
+  | 'approved'
+  | 'rejected'
+  | 'dispatched'
+  | 'delivered'
+  | 'failed'
+  | 'returned'
+  | 'collected'
+  | 'completed'
+  | 'cancelled'
+  | 'inspected'
+  | 'denied'
+  | 'conflict'
+  | 'invalid';
+
+export type AdminOrderReturnModel = {
+  id: number;
+  orderItemId: number;
+  sku: string;
+  nameBn: string;
+  nameEn: string;
+  quantity: number;
+  reason: string;
+  state: string;
+  requestedAt: string;
+  receivedAt: string | null;
+  inspectedAt: string | null;
+  inspectionNote: string | null;
+};
 
 export type AdminOrderDetailModel = {
-  /** Internal identity, needed only by the decision form the server re-authorizes. */
+  /** Internal identity, needed only by the forms the server re-authorizes. */
   orderId: number;
   orderNumber: string;
   placedAt: string;
+  /** Whole hours since placement, computed by the server so the render stays pure. */
+  ageHours: number;
   status: string;
   paymentMethod: string;
   paymentState: string;
@@ -29,9 +60,12 @@ export type AdminOrderDetailModel = {
   shippingMinor: number;
   totalMinor: number;
   confirmedAt: string | null;
+  shippedAt: string | null;
+  deliveredAt: string | null;
+  completedAt: string | null;
   cancelledAt: string | null;
   cancelledReason: string | null;
-  /** `email` is null when the viewer may not read customer profiles; it is not sent at all. */
+  /** email is null when the viewer may not read customer profiles; it is not sent at all. */
   customer: { id: number; email: string | null; displayName: string | null; status: string };
   contact: {
     recipientName: string;
@@ -53,6 +87,7 @@ export type AdminOrderDetailModel = {
     quantity: number;
     lineTotalMinor: number;
   }[];
+  returns: readonly AdminOrderReturnModel[];
   events: readonly {
     id: number;
     eventType: string;
@@ -63,7 +98,7 @@ export type AdminOrderDetailModel = {
     reason: string | null;
     occurredAt: string;
   }[];
-  /** Only present when the principal holds `audit.read`. */
+  /** Only present when the principal holds audit.read. */
   audit: readonly {
     id: number;
     action: string;
@@ -78,6 +113,14 @@ export type AdminOrderDetailModel = {
 const NOTICE_KEYS: Record<AdminOrderNotice, TranslationKey> = {
   approved: 'admin.cod.notice.approved',
   rejected: 'admin.cod.notice.rejected',
+  dispatched: 'admin.order.notice.dispatched',
+  delivered: 'admin.order.notice.delivered',
+  failed: 'admin.order.notice.failed',
+  returned: 'admin.order.notice.returned',
+  collected: 'admin.order.notice.collected',
+  completed: 'admin.order.notice.completed',
+  cancelled: 'admin.order.notice.cancelled',
+  inspected: 'admin.order.notice.inspected',
   denied: 'admin.cod.notice.denied',
   conflict: 'admin.cod.notice.conflict',
   invalid: 'admin.cod.notice.invalid',
@@ -92,6 +135,13 @@ const ERROR_NOTICES: readonly AdminOrderNotice[] = ['denied', 'conflict', 'inval
 const EVENT_KEYS: Record<string, TranslationKey> = {
   order_placed: 'admin.order.event.order_placed',
   cod_approved: 'admin.order.event.cod_approved',
+  order_shipped: 'admin.order.event.order_shipped',
+  order_delivered: 'admin.order.event.order_delivered',
+  cod_failed: 'admin.order.event.cod_failed',
+  return_received: 'admin.order.event.return_received',
+  return_inspected: 'admin.order.event.return_inspected',
+  cod_collected: 'admin.order.event.cod_collected',
+  order_completed: 'admin.order.event.order_completed',
   order_cancelled: 'admin.order.event.order_cancelled',
 };
 
@@ -101,15 +151,47 @@ const ACTOR_KEYS: Record<string, TranslationKey> = {
   system: 'admin.order.actor.system',
 };
 
+/** Return states, translated. An unknown state falls back to its stored code. */
+const RETURN_STATE_KEYS: Record<string, TranslationKey> = {
+  requested: 'admin.order.return.requested',
+  approved: 'admin.order.return.approved',
+  in_transit: 'admin.order.return.in_transit',
+  received: 'admin.order.return.received',
+  inspected_accepted: 'admin.order.return.inspected_accepted',
+  inspected_rejected: 'admin.order.return.inspected_rejected',
+  closed: 'admin.order.return.closed',
+};
+
+function returnTone(state: string): PillTone {
+  if (state === 'inspected_rejected') return 'danger';
+  if (state === 'inspected_accepted') return 'success';
+  if (state === 'received') return 'warning';
+  return 'info';
+}
+
+const STATUS_TONES: Record<string, PillTone> = {
+  cancelled: 'danger',
+  returned: 'danger',
+  pending: 'warning',
+  confirmed: 'info',
+  processing: 'info',
+  shipped: 'info',
+  delivered: 'success',
+  completed: 'success',
+};
+
 /**
- * One order, in full, for the owner.
+ * One order, in full, for the owner - the operational workspace.
  *
- * The page is the operational record: what was ordered, for whom, at what price, what happened to it,
- * and what may be done now. The decision controls are the same guarded forms as the COD queue, so
- * there is one implementation of the approval and the rejection - not a second one that could drift.
+ * The page is the record: what was ordered, for whom, at what price, what happened to it, and what may
+ * be done now. Every action it offers is a state the model actually defines, posts to the one guarded
+ * transition endpoint, and is re-authorized in the service by the permission that action needs - so a
+ * control is never the control.
  *
- * There is deliberately no "mark dispatched", "mark delivered" or "record cash" control: those are
- * operations the current state model does not define, and inventing them here would fabricate policy.
+ * Two things are deliberately absent. **No reconciliation control**: the owner has not defined what
+ * matching a courier statement means, so cod_reconciled is unreachable. **No stock control**: a returned
+ * parcel is inspected and its finding recorded, but making the product orderable again is a separate,
+ * deliberate act on the product screen (ADR 0013).
  */
 export function AdminOrderDetailView({
   order,
@@ -117,6 +199,9 @@ export function AdminOrderDetailView({
   csrfToken,
   canApprove,
   canCancel,
+  canFulfil,
+  canCollect,
+  canInspect,
   canReadCustomers,
   canReadAudit,
   returnTo,
@@ -126,6 +211,9 @@ export function AdminOrderDetailView({
   csrfToken: string;
   canApprove: boolean;
   canCancel: boolean;
+  canFulfil: boolean;
+  canCollect: boolean;
+  canInspect: boolean;
   canReadCustomers: boolean;
   canReadAudit: boolean;
   /** Where "back" goes: the queue or the order list, with its filters preserved. */
@@ -138,9 +226,39 @@ export function AdminOrderDetailView({
   });
 
   const waiting = order.codState === 'cod_pending_approval' && order.status === 'pending';
-  const statusTone: PillTone =
-    order.status === 'cancelled' ? 'danger' : order.status === 'pending' ? 'warning' : 'success';
+  const statusTone = STATUS_TONES[order.status] ?? 'neutral';
   const noticeTone: NoticeTone = notice !== null && ERROR_NOTICES.includes(notice) ? 'error' : 'success';
+
+  // The same eligibility rules the service guards on, so a control appears exactly when the write
+  // would succeed. Presentation only: the scope that matters is the WHERE clause in the service.
+  const approvedForDispatch =
+    (order.paymentMethod === 'cod' && order.codState === 'cod_approved') ||
+    (order.paymentMethod !== 'cod' && order.paymentState === 'verified');
+  const dispatchable = approvedForDispatch && (order.status === 'confirmed' || order.status === 'processing');
+  const awaitingDeliveryOutcome = order.status === 'shipped' && order.codState === 'cod_approved';
+  const returnAwaitingReceipt =
+    order.status === 'shipped' &&
+    order.codState === 'cod_failed' &&
+    order.returns.some((entry) => entry.state === 'requested' || entry.state === 'approved' || entry.state === 'in_transit');
+  const collectable =
+    order.codState === 'cod_approved' &&
+    (order.status === 'confirmed' ||
+      order.status === 'processing' ||
+      order.status === 'shipped' ||
+      order.status === 'delivered');
+  const completable =
+    order.status === 'delivered' && (order.codState === 'cod_collected' || order.codState === 'cod_failed');
+  const cancellable = order.status === 'pending' || order.status === 'confirmed' || order.status === 'processing';
+
+  const ageText = ((): string => {
+    const format = new Intl.RelativeTimeFormat(locale === 'bn' ? 'bn' : 'en', { numeric: 'auto' });
+    return order.ageHours >= 24
+      ? format.format(-Math.floor(order.ageHours / 24), 'day')
+      : format.format(-order.ageHours, 'hour');
+  })();
+
+  const hasOperations =
+    canFulfil || canCollect || canInspect || canCancel ? true : cancellable || collectable || dispatchable;
 
   return (
     <>
@@ -149,7 +267,7 @@ export function AdminOrderDetailView({
         title={order.orderNumber}
         description={t('admin.cod.placedAt', { time: dateTime.format(new Date(order.placedAt)) })}
         actions={
-          <Link className={`${styles.button} ${styles.buttonSecondary}`} href={returnTo.href}>
+          <Link className={[styles.button, styles.buttonSecondary].join(' ')} href={returnTo.href}>
             {t(returnTo.labelKey)}
           </Link>
         }
@@ -173,7 +291,7 @@ export function AdminOrderDetailView({
                   <span className={styles.recordMeta}>
                     <span className={styles.mono}>{item.sku}</span>
                     <span>
-                      {price(item.unitPriceMinor)} × {item.quantity}
+                      {price(item.unitPriceMinor)} x {item.quantity}
                     </span>
                   </span>
                 </div>
@@ -200,6 +318,103 @@ export function AdminOrderDetailView({
           </dl>
           {order.contact.districtCode === null && <p className={styles.note}>{t('admin.order.legacyDeliveryNote')}</p>}
 
+          {order.returns.length > 0 && (
+            <>
+              <div className={styles.sectionHead}>
+                <div>
+                  <h2>{t('admin.order.returnsTitle')}</h2>
+                  <p>{t('admin.order.returnsBody')}</p>
+                </div>
+              </div>
+              <ul className={styles.recordList}>
+                {order.returns.map((entry) => (
+                  <li className={styles.record} key={entry.id}>
+                    <div className={styles.recordMain}>
+                      <span className={styles.recordTitle}>
+                        {pick({ bn: entry.nameBn, en: entry.nameEn }) ?? entry.nameEn}
+                      </span>
+                      <span className={styles.recordMeta}>
+                        <span className={styles.mono}>{entry.sku}</span>
+                        <span>
+                          {t('admin.order.returnQuantity', { count: entry.quantity })}
+                        </span>
+                        <StatusPill tone={returnTone(entry.state)}>
+                          {RETURN_STATE_KEYS[entry.state] === undefined
+                            ? entry.state
+                            : t(RETURN_STATE_KEYS[entry.state] as TranslationKey)}
+                        </StatusPill>
+                      </span>
+                      {entry.receivedAt !== null && (
+                        <span className={styles.recordMeta}>
+                          {t('admin.order.returnReceivedAt', { time: dateTime.format(new Date(entry.receivedAt)) })}
+                        </span>
+                      )}
+                      {entry.inspectedAt !== null && (
+                        <span className={styles.recordMeta}>
+                          {t('admin.order.returnInspectedAt', { time: dateTime.format(new Date(entry.inspectedAt)) })}
+                        </span>
+                      )}
+                      {entry.inspectionNote !== null && (
+                        <span className={styles.recordMeta}>{t('admin.order.returnNote', { note: entry.inspectionNote })}</span>
+                      )}
+
+                      {entry.state === 'received' && (
+                        <div className={styles.orderActions}>
+                          <form action={ORDER_TRANSITION_PATH} method="post" className={styles.approveForm}>
+                            <input type="hidden" name="csrf" value={csrfToken} />
+                            <input type="hidden" name="action" value="inspect_accepted" />
+                            <input type="hidden" name="returnId" value={entry.id} />
+                            <details className={styles.noteDetails}>
+                              <summary>{t('admin.order.inspectAcceptedSummary')}</summary>
+                              <label className="sr-only" htmlFor={'accept-note-' + entry.id}>
+                                {t('admin.order.inspectAcceptedNote')}
+                              </label>
+                              <textarea
+                                id={'accept-note-' + entry.id}
+                                name="note"
+                                className={styles.textarea}
+                                rows={2}
+                                maxLength={300}
+                              />
+                            </details>
+                            <SubmitButton
+                              label={t('admin.order.inspectAccepted')}
+                              pendingLabel={t('admin.common.working')}
+                              variant="secondary"
+                              small
+                              disabled={!canInspect}
+                            />
+                          </form>
+                          {canInspect ? (
+                            <ConfirmSubmit
+                              action={ORDER_TRANSITION_PATH}
+                              csrfToken={csrfToken}
+                              fields={{ returnId: entry.id, action: 'inspect_rejected' }}
+                              triggerLabel={t('admin.order.inspectRejected')}
+                              title={t('admin.order.inspectRejectedTitle')}
+                              body={t('admin.order.inspectRejectedBody')}
+                              confirmLabel={t('admin.order.inspectRejectedConfirm')}
+                              cancelLabel={t('admin.common.cancel')}
+                              pendingLabel={t('admin.common.working')}
+                              reason={{
+                                label: t('admin.order.inspectRejectedNote'),
+                                placeholder: t('admin.order.inspectRejectedPlaceholder'),
+                                minLength: 3,
+                                maxLength: 300,
+                                required: true,
+                              }}
+                            />
+                          ) : null}
+                        </div>
+                      )}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+              <p className={styles.note}>{t('admin.order.returnsStockNote')}</p>
+            </>
+          )}
+
           <div className={styles.sectionHead}>
             <div>
               <h2>{t('admin.order.deliveryTitle')}</h2>
@@ -208,14 +423,16 @@ export function AdminOrderDetailView({
           </div>
           <div className={styles.panel}>
             <p className={styles.orderName}>{order.contact.recipientName}</p>
-            <a className={styles.orderPhone} href={`tel:${order.contact.recipientPhone}`}>
+            <a className={styles.orderPhone} href={'tel:' + order.contact.recipientPhone}>
               {order.contact.recipientPhone}
             </a>
             <p className={styles.orderAddress}>
               {order.contact.addressLine}
-              {order.contact.districtCode === null ? '' : `, ${deliveryAreaName(order.contact.districtCode, locale)}`}
+              {order.contact.districtCode === null
+                ? ''
+                : ', ' + deliveryAreaName(order.contact.districtCode, locale)}
               , {order.contact.area}, {order.contact.city}
-              {order.contact.postcode === null ? '' : ` ${order.contact.postcode}`}
+              {order.contact.postcode === null ? '' : ' ' + order.contact.postcode}
             </p>
             {order.contact.deliveryNote !== null && (
               <p className={styles.note}>{t('admin.order.deliveryNote', { note: order.contact.deliveryNote })}</p>
@@ -244,7 +461,7 @@ export function AdminOrderDetailView({
                   </span>
                   <span className={styles.recordMeta}>
                     {dateTime.format(new Date(event.occurredAt))}
-                    {event.toValue === null ? '' : ` · ${event.toValue}`}
+                    {event.toValue === null ? '' : ' - ' + event.toValue}
                   </span>
                   {event.reason !== null && <span className={styles.recordMeta}>{event.reason}</span>}
                 </li>
@@ -268,11 +485,13 @@ export function AdminOrderDetailView({
                 <li className={styles.dividerItem} key={entry.id}>
                   <span className={styles.recordTitle}>
                     <span className={styles.tag}>{entry.action}</span>{' '}
-                    {entry.actorType === 'system' ? t('admin.audit.system') : `${t('admin.order.actor.staff')} #${entry.actorStaffId ?? '—'}`}
+                    {entry.actorType === 'system'
+                      ? t('admin.audit.system')
+                      : t('admin.order.actor.staff') + ' #' + (entry.actorStaffId ?? '-')}
                   </span>
                   <span className={styles.recordMeta}>
                     {dateTime.format(new Date(entry.occurredAt))}
-                    {entry.actorRoleCodes.length > 0 ? ` · ${entry.actorRoleCodes.join(', ')}` : ''}
+                    {entry.actorRoleCodes.length > 0 ? ' - ' + entry.actorRoleCodes.join(', ') : ''}
                   </span>
                   {entry.reason !== null && <span className={styles.recordMeta}>{entry.reason}</span>}
                 </li>
@@ -298,12 +517,36 @@ export function AdminOrderDetailView({
               </div>
               <div className={styles.fact}>
                 <span className={styles.factLabel}>{t('orders.method')}</span>
-                <span className={styles.factValue}>{t(order.paymentMethod === 'cod' ? 'orders.method.cod' : 'orders.method.unknown')}</span>
+                <span className={styles.factValue}>
+                  {t(order.paymentMethod === 'cod' ? 'orders.method.cod' : 'orders.method.unknown')}
+                </span>
+              </div>
+              <div className={styles.fact}>
+                <span className={styles.factLabel}>{t('admin.order.age')}</span>
+                <span className={styles.factValue}>{ageText}</span>
               </div>
               {order.confirmedAt !== null && (
                 <div className={styles.fact}>
                   <span className={styles.factLabel}>{t('admin.order.confirmedAt')}</span>
                   <span className={styles.factValue}>{dateTime.format(new Date(order.confirmedAt))}</span>
+                </div>
+              )}
+              {order.shippedAt !== null && (
+                <div className={styles.fact}>
+                  <span className={styles.factLabel}>{t('admin.order.shippedAt')}</span>
+                  <span className={styles.factValue}>{dateTime.format(new Date(order.shippedAt))}</span>
+                </div>
+              )}
+              {order.deliveredAt !== null && (
+                <div className={styles.fact}>
+                  <span className={styles.factLabel}>{t('admin.order.deliveredAt')}</span>
+                  <span className={styles.factValue}>{dateTime.format(new Date(order.deliveredAt))}</span>
+                </div>
+              )}
+              {order.completedAt !== null && (
+                <div className={styles.fact}>
+                  <span className={styles.factLabel}>{t('admin.order.completedAt')}</span>
+                  <span className={styles.factValue}>{dateTime.format(new Date(order.completedAt))}</span>
                 </div>
               )}
               {order.cancelledAt !== null && (
@@ -317,16 +560,11 @@ export function AdminOrderDetailView({
               <p className={styles.note}>{t('admin.order.cancelledReason', { reason: order.cancelledReason })}</p>
             )}
             <p className={styles.note}>{t('admin.order.cashNote')}</p>
+            <p className={styles.note}>{t('admin.order.reconcileNote')}</p>
           </div>
 
           <div className={styles.panel}>
             <h2 className={styles.panelTitle}>{t('admin.order.customerTitle')}</h2>
-            {/*
-              The order itself carries the delivery contact the owner needs to fulfil it. The *account*
-              email is customer-profile data and requires `customer.read`, so it is shown only to a
-              principal that holds it - reading an order is a different permission from reading a
-              customer.
-            */}
             <p className={styles.factValue}>{order.customer.displayName ?? t('admin.order.customerUnnamed')}</p>
             {canReadCustomers && order.customer.email !== null ? (
               <p className={styles.note}>{order.customer.email}</p>
@@ -347,8 +585,8 @@ export function AdminOrderDetailView({
             </div>
             {canReadCustomers && (
               <Link
-                className={`${styles.button} ${styles.buttonSecondary} ${styles.buttonSmall}`}
-                href={`/admin/customers/${order.customer.id}`}
+                className={styles.button + ' ' + styles.buttonSecondary + ' ' + styles.buttonSmall}
+                href={'/admin/customers/' + order.customer.id}
               >
                 {t('admin.order.viewCustomer')}
               </Link>
@@ -402,6 +640,156 @@ export function AdminOrderDetailView({
                     reason={{
                       label: t('admin.cod.rejectReason'),
                       placeholder: t('admin.cod.rejectReasonPlaceholder'),
+                      minLength: 10,
+                      maxLength: 500,
+                      required: true,
+                    }}
+                  />
+                ) : null}
+              </div>
+            </div>
+          )}
+
+          {!waiting && hasOperations && (
+            <div className={styles.panel}>
+              <h2 className={styles.panelTitle}>{t('admin.order.operationsTitle')}</h2>
+              <p className={styles.note}>{t('admin.order.operationsBody')}</p>
+              <div className={styles.orderActions}>
+                {dispatchable && (
+                  <form action={ORDER_TRANSITION_PATH} method="post" className={styles.approveForm}>
+                    <input type="hidden" name="csrf" value={csrfToken} />
+                    <input type="hidden" name="action" value="dispatch" />
+                    <input type="hidden" name="orderId" value={order.orderId} />
+                    <details className={styles.noteDetails}>
+                      <summary>{t('admin.order.noteSummary')}</summary>
+                      <label className="sr-only" htmlFor="dispatch-note">
+                        {t('admin.order.dispatchNote')}
+                      </label>
+                      <input id="dispatch-note" name="note" className={styles.input} maxLength={300} />
+                    </details>
+                    <SubmitButton
+                      label={t('admin.order.dispatch')}
+                      pendingLabel={t('admin.common.working')}
+                      disabled={!canFulfil}
+                      wide
+                    />
+                  </form>
+                )}
+
+                {awaitingDeliveryOutcome && (
+                  <form action={ORDER_TRANSITION_PATH} method="post" className={styles.approveForm}>
+                    <input type="hidden" name="csrf" value={csrfToken} />
+                    <input type="hidden" name="action" value="delivered" />
+                    <input type="hidden" name="orderId" value={order.orderId} />
+                    <details className={styles.noteDetails}>
+                      <summary>{t('admin.order.noteSummary')}</summary>
+                      <label className="sr-only" htmlFor="delivered-note">
+                        {t('admin.order.deliveredNote')}
+                      </label>
+                      <input id="delivered-note" name="note" className={styles.input} maxLength={300} />
+                    </details>
+                    <SubmitButton
+                      label={t('admin.order.delivered')}
+                      pendingLabel={t('admin.common.working')}
+                      variant="secondary"
+                      disabled={!canFulfil}
+                      wide
+                    />
+                  </form>
+                )}
+
+                {collectable && (
+                  <form action={ORDER_TRANSITION_PATH} method="post" className={styles.approveForm}>
+                    <input type="hidden" name="csrf" value={csrfToken} />
+                    <input type="hidden" name="action" value="collect" />
+                    <input type="hidden" name="orderId" value={order.orderId} />
+                    <details className={styles.noteDetails}>
+                      <summary>{t('admin.order.noteSummary')}</summary>
+                      <label className="sr-only" htmlFor="collect-note">
+                        {t('admin.order.collectNote')}
+                      </label>
+                      <input id="collect-note" name="note" className={styles.input} maxLength={300} />
+                    </details>
+                    <SubmitButton
+                      label={t('admin.order.collect')}
+                      pendingLabel={t('admin.common.working')}
+                      disabled={!canCollect}
+                      wide
+                    />
+                  </form>
+                )}
+
+                {returnAwaitingReceipt && (
+                  <form action={ORDER_TRANSITION_PATH} method="post" className={styles.approveForm}>
+                    <input type="hidden" name="csrf" value={csrfToken} />
+                    <input type="hidden" name="action" value="return_received" />
+                    <input type="hidden" name="orderId" value={order.orderId} />
+                    <details className={styles.noteDetails}>
+                      <summary>{t('admin.order.noteSummary')}</summary>
+                      <label className="sr-only" htmlFor="return-note">
+                        {t('admin.order.returnReceivedNote')}
+                      </label>
+                      <input id="return-note" name="note" className={styles.input} maxLength={300} />
+                    </details>
+                    <SubmitButton
+                      label={t('admin.order.returnReceived')}
+                      pendingLabel={t('admin.common.working')}
+                      disabled={!canInspect}
+                      wide
+                    />
+                  </form>
+                )}
+
+                {completable && (
+                  <form action={ORDER_TRANSITION_PATH} method="post" className={styles.approveForm}>
+                    <input type="hidden" name="csrf" value={csrfToken} />
+                    <input type="hidden" name="action" value="complete" />
+                    <input type="hidden" name="orderId" value={order.orderId} />
+                    <SubmitButton
+                      label={t('admin.order.complete')}
+                      pendingLabel={t('admin.common.working')}
+                      variant="secondary"
+                      disabled={!canFulfil}
+                      wide
+                    />
+                  </form>
+                )}
+
+                {awaitingDeliveryOutcome && canFulfil ? (
+                  <ConfirmSubmit
+                    action={ORDER_TRANSITION_PATH}
+                    csrfToken={csrfToken}
+                    fields={{ orderId: order.orderId, action: 'failed' }}
+                    triggerLabel={t('admin.order.failed')}
+                    title={t('admin.order.failedTitle')}
+                    body={t('admin.order.failedBody')}
+                    confirmLabel={t('admin.order.failedConfirm')}
+                    cancelLabel={t('admin.common.cancel')}
+                    pendingLabel={t('admin.common.working')}
+                    reason={{
+                      label: t('admin.order.failedReason'),
+                      placeholder: t('admin.order.failedReasonPlaceholder'),
+                      minLength: 10,
+                      maxLength: 500,
+                      required: true,
+                    }}
+                  />
+                ) : null}
+
+                {cancellable && canCancel ? (
+                  <ConfirmSubmit
+                    action={ORDER_TRANSITION_PATH}
+                    csrfToken={csrfToken}
+                    fields={{ orderId: order.orderId, action: 'cancel' }}
+                    triggerLabel={t('admin.order.cancel')}
+                    title={t('admin.order.cancelTitle')}
+                    body={t('admin.order.cancelBody')}
+                    confirmLabel={t('admin.order.cancelConfirm')}
+                    cancelLabel={t('admin.common.cancel')}
+                    pendingLabel={t('admin.common.working')}
+                    reason={{
+                      label: t('admin.order.cancelReason'),
+                      placeholder: t('admin.order.cancelReasonPlaceholder'),
                       minLength: 10,
                       maxLength: 500,
                       required: true,

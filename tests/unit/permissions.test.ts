@@ -65,6 +65,7 @@ describe('permission catalogue', () => {
     );
     for (const code of [
       PERMISSIONS.orderRead,
+      PERMISSIONS.orderDispatch,
       PERMISSIONS.orderCancel,
       PERMISSIONS.refundRequest,
       PERMISSIONS.returnInspect,
@@ -106,6 +107,10 @@ describe('permission catalogue', () => {
         PERMISSIONS.orderRead,
         // Phase 19: delivery-charge configuration.
         PERMISSIONS.settingsWrite,
+        // Phase 20: post-approval dispatch, delivery outcome, return receipt, inspection, collection.
+        PERMISSIONS.codConfirmCollection,
+        PERMISSIONS.orderDispatch,
+        PERMISSIONS.returnInspect,
       ].sort(),
     );
   });

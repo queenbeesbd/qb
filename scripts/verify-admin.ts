@@ -1658,6 +1658,12 @@ async function main(): Promise<void> {
               `${detailMobile.overflow}px`,
             );
 
+            // ---- Phase 20: the post-approval operations, driven in a real browser ----
+            //
+            // The data-layer tests prove the service refuses the wrong state. This proves the interface the
+            // owner actually uses reaches that service: the control exists only while it is legal, one click
+            // records the dispatch, and the page that comes back offers the next legal step instead of the
+            // one just taken.
             await browser.viewport(1440, 900);
             await browser.navigate('/admin/orders');
             const historyUi = await browser.evaluate<{ link: boolean; search: boolean; filters: boolean }>(`(() => ({
@@ -1710,6 +1716,59 @@ async function main(): Promise<void> {
                 afterApprove[0]?.status === 'confirmed',
               `${beforeApprove[0]?.codState} → ${afterApprove[0]?.codState}`,
             );
+
+            // ---- Phase 20: the post-approval operations, driven in a real browser ----
+            //
+            // The data-layer tests prove the service refuses the wrong state. This proves the interface the
+            // owner actually uses reaches that service: dispatch appears only now that the order is approved,
+            // one click records it, and the page that comes back offers the next legal step instead of the
+            // one just taken.
+            await browser.navigate('/admin/orders/' + secondCod.orderNumber);
+            const dispatchForm = 'form:has(input[name="action"][value="dispatch"])';
+            const deliverForm = 'form:has(input[name="action"][value="delivered"])';
+            const collectForm = 'form:has(input[name="action"][value="collect"])';
+            const failedForm = 'form:has(input[name="action"][value="failed"])';
+            const approvedUi = await browser.evaluate<{ dispatch: boolean; deliver: boolean }>(`(() => ({
+              dispatch: document.querySelector(${JSON.stringify(dispatchForm)}) !== null,
+              deliver: document.querySelector(${JSON.stringify(deliverForm)}) !== null,
+            }))()`);
+            record(
+              'an approved COD order offers dispatch, and not the steps that need a dispatched order',
+              approvedUi.dispatch === true && approvedUi.deliver === false,
+              JSON.stringify(approvedUi),
+            );
+            await browser.click(dispatchForm + ' button[type="submit"]');
+            const dispatched = await browser.waitFor(
+              'document.body.textContent.includes(' + JSON.stringify('Recorded as dispatched.') + ')',
+            );
+            const afterDispatch = await withTransaction((tx) =>
+              tx
+                .select({ status: order.status, codState: order.codState })
+                .from(order)
+                .where(sql`${order.id} = ${secondCod.orderId}`),
+            );
+            record(
+              'clicking dispatch records it, and the order reads back as shipped with its cash still uncollected',
+              dispatched === true &&
+                afterDispatch[0]?.status === 'shipped' &&
+                afterDispatch[0]?.codState === 'cod_approved',
+              `notice ${dispatched}, status ${afterDispatch[0]?.status}, cod_state ${afterDispatch[0]?.codState}`,
+            );
+            const afterDispatchUi = await browser.evaluate<{ dispatch: boolean; deliver: boolean; collect: boolean; failed: boolean }>(`(() => ({
+              dispatch: document.querySelector(${JSON.stringify(dispatchForm)}) !== null,
+              deliver: document.querySelector(${JSON.stringify(deliverForm)}) !== null,
+              collect: document.querySelector(${JSON.stringify(collectForm)}) !== null,
+              failed: document.querySelector(${JSON.stringify(failedForm)}) !== null,
+            }))()`);
+            record(
+              'once dispatched, the page offers delivery, failed delivery and cash collection instead of dispatch again',
+              afterDispatchUi.dispatch === false &&
+                afterDispatchUi.deliver === true &&
+                afterDispatchUi.collect === true &&
+                afterDispatchUi.failed === true,
+              JSON.stringify(afterDispatchUi),
+            );
+            await browser.screenshot('/tmp/qb-admin-order-operations.png');
 
             await browser.navigate('/admin/catalog');
             const catalogUi = await browser.evaluate<{ switches: number; search: boolean; create: boolean }>(`(() => ({

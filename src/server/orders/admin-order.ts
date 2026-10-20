@@ -16,7 +16,7 @@
 import { sql } from 'drizzle-orm';
 
 import type { Transaction } from '@/db/client';
-import { auditEvent, customer, order, orderContact, orderEvent, orderItem } from '@/db/schema';
+import { auditEvent, customer, customerReturn, order, orderContact, orderEvent, orderItem } from '@/db/schema';
 import { likeTerm } from '@/lib/search';
 
 export type AdminOrderItem = {
@@ -40,6 +40,21 @@ export type AdminOrderEvent = {
   readonly actorStaffId: number | null;
   readonly reason: string | null;
   readonly occurredAt: Date;
+};
+
+export type AdminOrderReturn = {
+  readonly id: number;
+  readonly orderItemId: number;
+  readonly sku: string;
+  readonly nameBn: string;
+  readonly nameEn: string;
+  readonly quantity: number;
+  readonly reason: string;
+  readonly state: string;
+  readonly requestedAt: Date;
+  readonly receivedAt: Date | null;
+  readonly inspectedAt: Date | null;
+  readonly inspectionNote: string | null;
 };
 
 export type AdminOrderAudit = {
@@ -81,7 +96,20 @@ export type AdminOrderDetail = {
     readonly deliveryNote: string | null;
   };
   readonly items: readonly AdminOrderItem[];
+  /** Returned lines, once a parcel is coming back. Empty on an order that never failed delivery. */
+  readonly returns: readonly AdminOrderReturn[];
   readonly events: readonly AdminOrderEvent[];
+  readonly shippedAt: Date | null;
+  readonly deliveredAt: Date | null;
+  readonly completedAt: Date | null;
+  /**
+   * Whole hours since placement, read here rather than in the view.
+   *
+   * The store has no 'how long has this been waiting' column and should not get one - age is derived
+   * from `placed_at` and the current time. It is computed in this read so the page stays a pure
+   * function of its data (a clock read during render is not).
+   */
+  readonly ageHours: number;
 };
 
 /**
@@ -108,6 +136,9 @@ export async function adminOrderDetail(
       shippingMinor: order.shippingMinor,
       totalMinor: order.totalMinor,
       confirmedAt: order.confirmedAt,
+      shippedAt: order.shippedAt,
+      deliveredAt: order.deliveredAt,
+      completedAt: order.completedAt,
       cancelledAt: order.cancelledAt,
       cancelledReason: order.cancelledReason,
       customerId: customer.id,
@@ -148,6 +179,30 @@ export async function adminOrderDetail(
     .where(sql`${orderItem.orderId} = ${row.orderId}`)
     .orderBy(orderItem.id);
 
+  /**
+   * The returned lines. Read even when empty, because the order detail shows whether a return exists
+   * (and offers the receipt and inspection actions) only from the stored rows.
+   */
+  const returns = await tx
+    .select({
+      id: customerReturn.id,
+      orderItemId: customerReturn.orderItemId,
+      sku: orderItem.sku,
+      nameBn: orderItem.productNameBn,
+      nameEn: orderItem.productNameEn,
+      quantity: customerReturn.quantity,
+      reason: customerReturn.reason,
+      state: customerReturn.state,
+      requestedAt: customerReturn.requestedAt,
+      receivedAt: customerReturn.receivedAt,
+      inspectedAt: customerReturn.inspectedAt,
+      inspectionNote: customerReturn.inspectionNote,
+    })
+    .from(customerReturn)
+    .innerJoin(orderItem, sql`${orderItem.id} = ${customerReturn.orderItemId}`)
+    .where(sql`${customerReturn.orderId} = ${row.orderId}`)
+    .orderBy(customerReturn.id);
+
   const events = await tx
     .select({
       id: orderEvent.id,
@@ -175,6 +230,10 @@ export async function adminOrderDetail(
     shippingMinor: row.shippingMinor,
     totalMinor: row.totalMinor,
     confirmedAt: row.confirmedAt,
+    shippedAt: row.shippedAt,
+    deliveredAt: row.deliveredAt,
+    completedAt: row.completedAt,
+    ageHours: Math.max(0, Math.floor((Date.now() - row.placedAt.getTime()) / 3_600_000)),
     cancelledAt: row.cancelledAt,
     cancelledReason: row.cancelledReason,
     customerId: row.customerId,
@@ -192,6 +251,7 @@ export async function adminOrderDetail(
       deliveryNote: row.deliveryNote,
     },
     items,
+    returns,
     events,
   };
 }
@@ -225,7 +285,15 @@ export async function adminOrderAudit(
 }
 
 /** Statuses the order list can filter on. Anything else is treated as "all". */
-export const ORDER_STATUS_FILTERS = ['pending', 'confirmed', 'cancelled'] as const;
+export const ORDER_STATUS_FILTERS = [
+  'pending',
+  'confirmed',
+  'shipped',
+  'delivered',
+  'completed',
+  'cancelled',
+  'returned',
+] as const;
 export type OrderStatusFilter = (typeof ORDER_STATUS_FILTERS)[number];
 
 export type AdminOrderRow = {

@@ -126,12 +126,41 @@ other's policy:
 - Customer detail lists that customer's orders as links into the same page, and says when the list is
   capped rather than ending silently.
 
+### The post-approval operations (Phase 20b)
+
+The order detail is the workspace for the life of an order. Each control appears **only while its
+transition is legal**, and every one posts to a single guarded endpoint (`/api/admin/orders/transition`)
+that calls a service which re-checks the action's own permission and the order's current state.
+
+| Control | Appears when | Records |
+| --- | --- | --- |
+| Mark dispatched | Approved (or legacy verified) and not yet dispatched | `status = shipped`, `shipped_at`, `order_shipped` |
+| Mark delivered | Dispatched, cash still owed | `status = delivered`, `delivered_at`, `order_delivered`. **Never** cash |
+| Delivery failed (reason required) | Dispatched, cash still owed | `cod_state = cod_failed` + one `customer_return` per line, `cod_failed` |
+| Record the parcel back at the store | Delivery failed, a return is live | `status = returned`, returns `received`, `return_received` |
+| Accept / reject after inspection | A line is `received` | `inspected_accepted` / `inspected_rejected` (+ a required note to reject), `return_inspected` |
+| Record cash collected | Approved, awaiting cash | `cod_state = cod_collected`, `cod_collected`, amount due from the order row |
+| Complete the order | Delivered, with cash collected or the parcel returned | `status = completed`, `completed_at`, `order_completed` |
+| Cancel the order (reason required) | Not yet dispatched | `status = cancelled`, `cancelled_reason`, `order_cancelled` |
+
+**Three things the screen states rather than does:** approval is not cash; collection is not
+reconciliation; and an inspection does not make anything sellable. Returned goods become orderable again
+only when the owner sets the product **In Stock** by hand, because nothing was ever deducted from a
+count (ADR 0013) - so a returned parcel cannot silently reappear for sale.
+
+**Every transition is atomic and idempotent:** the state change, its `order_event` (whose unique key
+makes a second copy impossible) and its audit record commit together or not at all; a stale page or a
+double click updates zero rows and reads `conflict`; a racing pair lets exactly one win.
+
 ### What the COD module does not do yet
 
-- **No dispatch, consignment or courier record; no `cod_collected` / `cod_failed` /
-  `cod_reconciled` transition; no cash reconciliation.** The order detail deliberately offers **no such
-  control**, and **approving a COD order is never presented as cash received**. The four owner decisions
-  that would unlock it are listed under [Owner decisions](#owner-decisions).
+- **No courier consignment or tracking record.** Dispatch is a state the owner records, not an API call to
+  a courier, and no delivery estimate or promise is made.
+- **No reconciliation.** `cod_reconciled` is written by nothing: without a defined source, period and
+  discrepancy rule there is nothing to match, so the screen says so instead of inventing a settlement
+  figure. Collection is never presented as reconciled.
+- **No failed-delivery charge liability**, no automatic retry, reship, cancel or refund. A failed delivery
+  records the outcome and creates the returns; every decision after that is the owner's.
 - No cancellation or refund workflow beyond the COD rejection, which cancels a still-pending order.
 - No customer notification: the owner telephones, and the customer's own order page is the record.
 - No expiry: `expires_at` is `NULL` for a COD order and no expiry writer exists.
@@ -367,10 +396,9 @@ These block specific, named features. None was guessed; the features they block 
 
 | # | Question | What it blocks |
 | --- | --- | --- |
-| 1 | **Who records dispatch, and in which interface?** Is it the owner, a member of staff, or the courier's own app that is later imported? | Any dispatch control on the order detail, and therefore any recorded operational life for an approved order |
-| 2 | **How is a failed delivery handled** - retried, cancelled or returned - and **who bears the delivery charge when it fails**? | Any `cod_failed` state, any return flow, and any statement about what a failed delivery costs |
-| 3 | **Who records that the courier's cash was actually received, and when?** Is it the owner on the day, or after the courier's statement? | Any cash-collection control. `cod.confirm_collection` exists in the permission catalogue with no route behind it, and **approval is never shown as cash received** |
-| 4 | **What does reconciliation mean operationally**, over what period, and against what statement? | Any reconciliation figure or screen. No number in the dashboard is described as reconciled |
+| 1 | **Who bears the delivery charge when a delivery fails?** | Any charge liability rule. Every transition leaves the charged total untouched and refuses to rewrite it |
+| 2 | **What does reconciliation compare** - which courier statement or cash count - **over what period**, and **what counts as a discrepancy**? | Any reconciliation screen or figure. `cod_reconciled` is written by nothing and no number is described as reconciled |
+| 3 | **When does the owner record cash?** At the door, or after the courier's statement? | Nothing today - collection is recorded whenever cash is in hand - but the answer decides whether a per-trip settlement is even needed |
 | 5 | **The delivery amounts** for Other districts, Dhaka and Chattogram | Every order: checkout correctly refuses until the required default is saved |
 | 6 | **Photography rights** in writing | Public launch. The images are tagged pending confirmation and are not cleared |
 

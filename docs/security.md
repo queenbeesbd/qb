@@ -382,6 +382,22 @@ reaches a client component**, because gating it in the view is gating the render
 | Error detail | Refusals remain fixed notice codes and empty bodies; no internal message reaches the browser |
 | Secrets | `check:secrets` passes; `.env.local` is gitignored and never staged; the new local-database script writes its data directory outside the repository |
 
+### Phase 20b: the post-approval operations
+
+Nine new order transitions (dispatch, delivered, failed delivery, parcel receipt, two inspection outcomes,
+collection, completion, pre-dispatch cancellation) through one endpoint.
+
+| Concern | Result |
+| --- | --- |
+| Authorization | The route gate is `order.read`; **each service function re-checks its own permission** (`order.dispatch`, `cod.confirm_collection`, `return.inspect`, `order.cancel`), so reading an order never implies operating on it. A principal holding nothing is refused before any row is touched, and the refusal is recorded durably by the denial log |
+| State guards | Every transition is one `UPDATE ... WHERE <current state>`; a stale page, a double submit or a racing pair updates zero rows and reads `conflict`. A test drives two concurrent dispatches and asserts exactly one wins |
+| Duplicate facts | `order_event.event_key` is unique per order per event, so a second event of the same kind cannot be written even if a guard were bypassed |
+| Redirect safety | The post-transition redirect resolves the order number **from the database**, never from the submitted form, so a refusal or success cannot be used to navigate a signed-in owner to an arbitrary path |
+| Input validation | The action is a closed set, ids are parsed, a reason is required (≥10 chars, collapsed whitespace, ≤500) for a failed delivery and a cancellation, and a rejection note is required for an inspection. Nothing is taken on trust from the button |
+| Money integrity | Collection records the **amount due from the order row** and never a submitted figure. No transition writes `items_subtotal_minor`, `shipping_minor` or `total_minor`; the `order_immutable_columns` trigger refuses the attempt, which was re-confirmed in this sprint |
+| Stock integrity | Inspection writes **no** `inventory_movement` and changes no balance or `product.availability`; tests assert the movement count and the availability value are unchanged. A returned parcel cannot silently become sellable |
+| Customer isolation | Customers see only the derived wording from their own order's stored state. No internal note, inspection result, actor id or audit record is exposed on any customer route |
+
 ### Deliberately not changed
 
 - **No CSP was added.** It needs a nonce or hash inventory for the Next runtime and the CSS Modules build,

@@ -12,13 +12,25 @@ import { Pagination } from '../../_ui/Pagination';
 import { StatusPill, type PillTone } from '../../_ui/StatusPill';
 import styles from '../../admin.module.css';
 
-export type OrdersFilter = 'all' | 'pending' | 'confirmed' | 'cancelled';
+export type OrdersFilter =
+  | 'all'
+  | 'pending'
+  | 'confirmed'
+  | 'shipped'
+  | 'delivered'
+  | 'completed'
+  | 'cancelled'
+  | 'returned';
 
 const FILTER_KEYS: Record<OrdersFilter, TranslationKey> = {
   all: 'admin.orders.filter.all',
   pending: 'admin.orders.filter.pending',
   confirmed: 'admin.orders.filter.confirmed',
+  shipped: 'admin.orders.filter.shipped',
+  delivered: 'admin.orders.filter.delivered',
+  completed: 'admin.orders.filter.completed',
   cancelled: 'admin.orders.filter.cancelled',
+  returned: 'admin.orders.filter.returned',
 };
 
 export type AdminOrderListRow = {
@@ -34,8 +46,9 @@ export type AdminOrderListRow = {
 };
 
 function tone(status: string): PillTone {
-  if (status === 'cancelled') return 'danger';
+  if (status === 'cancelled' || status === 'returned') return 'danger';
   if (status === 'pending') return 'warning';
+  if (status === 'confirmed' || status === 'shipped') return 'info';
   return 'success';
 }
 

@@ -1536,6 +1536,18 @@ unapproved COD order is never dispatched); **any automatic COD approval** (ADR 0
 (`delivered`), cash collection on `cod_state`, and reconciliation on `cod_state` plus
 `operational_exception` for any mismatch. Collapsing them is exactly the error D9 forbids.
 
+**Implementation status (Phase 20b).** `dispatch`, `delivered`, `cod_failed`, `return_received`,
+`return_inspected`, `cod_collected` and `order_completed` now exist in
+`src/server/orders/fulfilment.ts`, each as one guarded `UPDATE ... WHERE <current state>` that writes its
+`order_event` and audit record in the caller's transaction. Two rules the table above states are
+**enforced literally**: dispatch refuses any `cod_state` other than `cod_approved`, and every transition
+into `cod_collected` requires the owner's own `cod.confirm_collection` act - never approval, dispatch or a
+delivery status. **`cod_reconciled` remains unwritten**: the transition exists in the design and the
+column accepts it, but no screen, service or test writes it, because the matching rule is not the
+owner's yet. A failed delivery creates the `customer_return` rows the row above requires (one per line,
+reason `failed_delivery`, state `requested`) and leaves the order `shipped` until the parcel is
+physically received - a failed attempt is not a receipt.
+
 ### 11.7 Cancellation and return workflows
 
 **Cancellation (`cancellation_request.state`).**
