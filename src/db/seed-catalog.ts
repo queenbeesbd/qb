@@ -56,8 +56,36 @@ import {
 } from './schema';
 import { UNBRANDED_BRAND_SLUG } from './schema/values';
 
-/** The single fixed instant every seeded row records. Never `Date.now()`. */
+/** The single fixed instant shared by every seeded row that is not a product. Never `Date.now()`. */
 const SEEDED_AT = new Date('2026-10-11T00:00:00Z');
+
+/**
+ * The instant the *first* fixture product is recorded as having been added.
+ *
+ * Every other product is offset one hour later per position in the fixture, so the seed produces 22
+ * distinct, strictly increasing `product.created_at` values one day after `SEEDED_AT`.
+ *
+ * **What this date is, and is not.** It is the local seed's own ordering, derived from the fixture's
+ * declaration order - it is *not* a capture date, a supplier date or a claimed arrival date, because
+ * no such field exists in the captured data. Using a date tied to declaration order keeps the seed
+ * deterministic and lets the "recently added" homepage (D6) be exercised against real, distinct
+ * timestamps instead of 22 rows sharing one instant. It makes no claim about the real world, and no
+ * production record is ever backdated by it: the seed refuses a non-local target.
+ */
+const SEEDED_PRODUCT_BASE_AT = new Date('2026-10-12T00:00:00Z');
+
+/** One hour, in milliseconds. The spacing between consecutive seeded products. */
+const SEEDED_PRODUCT_INTERVAL_MS = 60 * 60 * 1000;
+
+/**
+ * The creation instant recorded for the product at `index` in the fixture.
+ *
+ * Strictly increasing in declaration order, so the fixture's last entries are the newest. Distinct
+ * for every index, which is what makes the recency selection testable without relying on tie-breaks.
+ */
+export function seededProductTimestamp(index: number): Date {
+  return new Date(SEEDED_PRODUCT_BASE_AT.getTime() + index * SEEDED_PRODUCT_INTERVAL_MS);
+}
 
 /**
  * The documented placeholder brand for a catalog product that publishes no brand. Defined once in
@@ -261,7 +289,7 @@ async function seedCatalogIn(
   // -------------------------------------------------------------------------------------------
   const variantIdBySlug = new Map<string, number>();
 
-  for (const item of products) {
+  for (const [productIndex, item] of products.entries()) {
     const categoryId = categoryIdBySlug.get(item.categoryId);
     if (categoryId === undefined) {
       throw new Error(`fixture product ${item.slug} names an unknown category ${item.categoryId}`);
@@ -301,7 +329,10 @@ async function seedCatalogIn(
           isPublished: true,
           // `product_published_needs_timestamp` requires a timestamp whenever a product is published.
           publishedAt: SEEDED_AT,
-          createdAt: SEEDED_AT,
+          // Distinct per product, in fixture order, so the "recently added" homepage has a real
+          // ordering to publish instead of 22 rows sharing one instant. See
+          // `SEEDED_PRODUCT_BASE_AT` for what this date is and is not.
+          createdAt: seededProductTimestamp(productIndex),
           updatedAt: SEEDED_AT,
         })
         .returning({ id: product.id });

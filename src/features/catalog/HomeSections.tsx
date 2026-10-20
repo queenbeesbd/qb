@@ -7,6 +7,7 @@ import type { CatalogCategory, CatalogItem } from '@/lib/types';
 import { CategoryIcon, InfoIcon } from '@/components/icons';
 import { ProductCard } from '@/components/ProductCard';
 import { ProductGrid } from '@/components/ProductGrid';
+import { RECENT_LIMIT, selectRecentlyAdded } from './recent';
 import { ProductPhoto } from '@/components/ProductPhoto';
 import { FeaturedShelf } from './FeaturedShelf';
 import styles from '@/app/home.module.css';
@@ -70,6 +71,7 @@ export function HomeView({
       .filter((product): product is CatalogItem => Boolean(product));
 
   const featured = resolve(featuredIds);
+  const recentlyAdded = selectRecentlyAdded(products);
   /**
    * The collection is resolved even though the homepage no longer renders it: its ids still
    * matter here, because the offer row must not repeat a product that already appears on the
@@ -208,6 +210,37 @@ export function HomeView({
            * doing the same job less precisely.
            */}
           <FeaturedShelf products={featured} />
+
+          {/*
+           * "Recently added" (D6, Phase 26). Ordered by the stored creation timestamp, not by list
+           * position, so the claim in the heading is backed by data rather than by layout.
+           *
+           * The section is omitted entirely when the source cannot date its products, and states a
+           * shorter gap when only one or two can be dated - it never pads the row to three with a
+           * repeated card or an invented entry.
+           */}
+          {recentlyAdded.length > 0 && (
+            <section className={styles.section} aria-labelledby="recently-added-title">
+              <header className={styles.sectionHeader}>
+                <div>
+                  <h2 id="recently-added-title">{t('home.recentTitle')}</h2>
+                  <p className={styles.sectionBody}>
+                    {recentlyAdded.length < RECENT_LIMIT
+                      ? t('home.recentBodyPartial', { count: recentlyAdded.length })
+                      : t('home.recentBody')}
+                  </p>
+                </div>
+                <Link className={styles.viewAll} href="/products">
+                  {t('home.viewAll')}
+                </Link>
+              </header>
+              <ProductGrid density="trio">
+                {recentlyAdded.map((product) => (
+                  <ProductCard key={product.id} product={product} />
+                ))}
+              </ProductGrid>
+            </section>
+          )}
 
           <section className={styles.section} aria-labelledby="deals-title">
             <header className={styles.sectionHeader}>

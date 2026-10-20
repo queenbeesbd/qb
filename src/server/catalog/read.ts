@@ -22,7 +22,7 @@
  * there is nothing to round.
  */
 
-import { sql } from 'drizzle-orm';
+import { desc, sql } from 'drizzle-orm';
 
 import type { Transaction } from '@/db/client';
 import { IMAGE_RIGHTS_STATUS, UNBRANDED_BRAND_SLUG } from '@/db/schema/values';
@@ -57,6 +57,16 @@ export type CatalogProduct = {
     /** Database rights status; never treated as cleared unless the row says so. */
     rights: ImageRightsStatus;
   }[];
+  /**
+   * When the product row was created, in UTC.
+   *
+   * This is the `product.created_at` column - a real database timestamp that already existed for
+   * auditing (`defaultNow()`), now also exposed because the homepage publishes a "recently added"
+   * selection (D6, Phase 26). It is **not** `published_at`: publishing is a separate, repeatable
+   * action, so a product staged months earlier and published today would jump to the front of a
+   * "newest" list it does not belong in. Creation is the moment the owner added the product.
+   */
+  readonly createdAt: Date;
   /** Always `false` here: this record comes from the database, not from the captured fixture. */
   readonly isDemo: false;
   /** Where the record came from, so a consumer cannot mistake one source for the other. */
@@ -72,10 +82,19 @@ export type CatalogCategory = {
 };
 
 /**
- * Published, non-deleted products with an active default variant.
+ * Published, non-deleted products with an active default variant, newest first.
  *
  * A product with no default variant is omitted rather than returned with a null price: there is no
  * authoritative amount to show, and inventing one is what the money rules forbid.
+ *
+ * **Ordering (D6, Phase 26).** `created_at desc` with `id desc` as the tie-breaker. The secondary key
+ * is not decoration: two products created in the same transaction, or seeded together, can share a
+ * microsecond, and without a total order the "three newest" would depend on whatever order the planner
+ * happened to return and could change between identical requests. `id` is the identity sequence, so
+ * it is unique and correlates with insert order.
+ *
+ * The catalog listing keeps its own name ordering by re-sorting; this order is the load-bearing one
+ * for recency, so it must not be re-derived in a view.
  */
 export async function listPublishedProducts(tx: Transaction): Promise<CatalogProduct[]> {
   const rows = await tx
@@ -94,6 +113,7 @@ export async function listPublishedProducts(tx: Transaction): Promise<CatalogPro
       brandSlug: brand.slug,
       priceMinor: productVariant.priceMinor,
       compareAtPriceMinor: productVariant.compareAtPriceMinor,
+      createdAt: product.createdAt,
     })
     .from(product)
     .innerJoin(category, sql`${category.id} = ${product.categoryId}`)
@@ -104,7 +124,7 @@ export async function listPublishedProducts(tx: Transaction): Promise<CatalogPro
           and ${productVariant.isDefault} and ${productVariant.isActive}`,
     )
     .where(sql`${product.deletedAt} is null and ${product.isPublished}`)
-    .orderBy(product.nameEn);
+    .orderBy(desc(product.createdAt), desc(product.id));
 
   return Promise.all(rows.map((row) => projectProduct(tx, row)));
 }
@@ -130,6 +150,7 @@ export async function getPublishedProductBySlug(
       brandSlug: brand.slug,
       priceMinor: productVariant.priceMinor,
       compareAtPriceMinor: productVariant.compareAtPriceMinor,
+      createdAt: product.createdAt,
     })
     .from(product)
     .innerJoin(category, sql`${category.id} = ${product.categoryId}`)
@@ -306,6 +327,7 @@ async function projectProduct(
     brandSlug: string;
     priceMinor: number;
     compareAtPriceMinor: number | null;
+    createdAt: Date;
   },
 ): Promise<CatalogProduct> {
   const images = await tx
@@ -334,6 +356,7 @@ async function projectProduct(
     compareAtPriceMinor: row.compareAtPriceMinor,
     // The schema's CHECK constraint is the guarantee; this narrows the string the driver returns.
     availability: row.availability === 'in_stock' ? 'in_stock' : 'out_of_stock',
+    createdAt: row.createdAt,
     images: images.map((image) => ({
       key: image.key,
       alt: { bn: image.altBn, en: image.altEn },

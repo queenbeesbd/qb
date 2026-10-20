@@ -69,6 +69,9 @@ export function fixtureToCatalogItem(product: Product): CatalogItem {
       rights: image.rights,
     })),
     source: 'fixture',
+    // The fixture publishes no date-added field, so none is invented here. A recency claim built on
+    // a fabricated constant would be exactly the kind of invented data the honesty rules forbid.
+    createdAt: null,
   };
 }
 

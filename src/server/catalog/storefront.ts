@@ -93,6 +93,8 @@ function toCatalogItem(record: CatalogProduct): CatalogItem {
       rights: image.rights,
     })),
     source: 'database',
+    // A database row always carries a real creation instant; the column is NOT NULL.
+    createdAt: record.createdAt.toISOString(),
   };
 }
 
@@ -108,6 +110,12 @@ function toCatalogCategory(record: CatalogCategoryRecord): CatalogCategory {
 }
 
 function readFixtureCatalog(): StorefrontCatalog {
+  /**
+   * The fixture records carry **no capture dates** - they were transcribed from a public storefront
+   * that publishes no date-added field - so `createdAt` stays `null` here rather than being filled
+   * with a plausible-looking constant. A fixture-backed homepage therefore shows its honest
+   * "recently added" gap instead of presenting a made-up arrival order.
+   */
   const products = fixtureProducts.map(fixtureToCatalogItem);
   const ids = new Set(products.map((product) => product.id));
   const resolve = (selection: readonly string[]): string[] =>

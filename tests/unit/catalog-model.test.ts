@@ -53,6 +53,7 @@ test('fixtureToCatalogItem carries only view facts and is marked fixture-sourced
       'categoryId',
       'categorySlug',
       'compareAtPriceMinor',
+      'createdAt',
       'description',
       'id',
       'images',

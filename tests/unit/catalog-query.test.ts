@@ -50,6 +50,7 @@ const products: CatalogItem[] = [
     availability: 'in_stock',
     images: [],
     source: 'database',
+    createdAt: null,
   },
   {
     id: '2',
@@ -65,6 +66,7 @@ const products: CatalogItem[] = [
     availability: 'in_stock',
     images: [],
     source: 'database',
+    createdAt: null,
   },
 ];
 

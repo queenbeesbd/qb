@@ -82,3 +82,28 @@
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }
+
+/*
+ * A row that publishes exactly three products ("Recently added", Phase 26).
+ *
+ * It must never reserve columns it will not fill, and it must not stretch its cards to swallow the
+ * space either - both make the row look broken next to the shelf and offer row above it. So the
+ * column count is three from the first breakpoint that can fit three usable cards, and the track
+ * gap follows the same steps as the full grid. Two columns below 720px is deliberate: three at
+ * phone width would be ~90px cards.
+ */
+.grid[data-density='trio'] {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+@media (min-width: 720px) {
+  .grid[data-density='trio'] {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1280px) {
+  .grid[data-density='trio'] {
+    gap: var(--space-5);
+  }
+}

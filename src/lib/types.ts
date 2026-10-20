@@ -149,6 +149,16 @@ export type CatalogItem = {
   availability: Availability;
   images: CatalogImage[];
   source: CatalogSource;
+  /**
+   * When the product was added to the catalog, as an ISO-8601 UTC instant.
+   *
+   * Present because the homepage publishes a "recently added" selection (D6, Phase 26) and that
+   * claim must be backed by a real stored timestamp rather than an id or list position that only
+   * resembles one. `null` means the source cannot state when the product was added - the fixture
+   * carries no capture dates - and the homepage then shows fewer than three products rather than
+   * inventing an order.
+   */
+  createdAt: string | null;
 };
 
 /** A storefront category, with its icon already resolved from the slug. */

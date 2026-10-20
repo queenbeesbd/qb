@@ -735,6 +735,47 @@ same `path`**. The Chromium check that reloads after dismissal is what caught it
 **Not built:** no email, SMS, OAuth or external provider; no customer-triggered recovery request; no
 password-history or force-expiry policy; no refund work (deferred).
 
+## Phase 26 - three recently added products on the homepage, delivered 2026-10-20
+
+**The owner reversed the earlier "no recency" direction.** D6 previously read "Replaced, not shown" because
+no reliable date field was believed to exist. That belief was wrong about the schema: `product.created_at`
+has been a `NOT NULL` column with `defaultNow()` since Phase 11, and `product_category_published_idx`
+already indexes `created_at desc`. What was actually missing was (a) exposure through the catalog contract,
+(b) any ordering that used it, and (c) distinct seed timestamps. **No migration was required and none was
+created.**
+
+| Piece | Where |
+| --- | --- |
+| Timestamp on the contract | `CatalogProduct.createdAt` (`src/server/catalog/read.ts`), `CatalogItem.createdAt` (`src/lib/types.ts`) |
+| Ordering | `listPublishedProducts`: `created_at desc, id desc` |
+| Selection | `selectRecentlyAdded` in `HomeSections.tsx`, cap `RECENT_LIMIT = 3` |
+| Seed timestamps | `seededProductTimestamp(index)` - distinct, one hour apart, in fixture order |
+| Copy | `home.recentTitle` / `home.recentBody` / `home.recentBodyPartial` in both locales |
+
+**The ordering is `product.created_at desc` with `product.id desc` as the tie-breaker.** The secondary key
+is load-bearing: products created in one transaction can share a microsecond, and without a total order the
+"three newest" would depend on planner output and could change between identical requests. `created_at` is
+deliberately **not** `published_at` - publishing is repeatable, so a long-staged product published today would
+jump to the front of a list it does not belong in.
+
+**Partial and empty states are honest.** `createdAt` is `null` for the fixture, which carries no capture
+dates, so a fixture-backed catalog shows its gap rather than an invented order. Below three dated products the
+body text states the real count; at zero the section is omitted entirely. The row is never padded with a
+repeated or fabricated card. The selection is re-sorted in the view rather than trusting query order, so an
+unordered caller still gets a correct result.
+
+**Unchanged:** catalog listing order and behaviour (the catalog view sorts for itself), cart behaviour, the
+featured shelf and offer row, and the visual identity. The section reuses `ProductGrid`/`ProductCard`, the
+tokens, and `ProductPhoto` for imagery.
+
+**Verified 2026-10-20:** unit `140/140`, db `234/234` plus the new recency cases, `verify:storefront`
+browser + HTTP flow, `verify:admin`, `typecheck`, `lint`, `check:i18n` (849 keys), `check:catalog`,
+`check:secrets`, `next build`. Screenshots inspected in both locales at desktop and mobile widths.
+
+**Not built:** no `published_at`-based "new arrivals", no date shown on the card or product page (the
+timestamp orders the section; it is not published as a date), no admin control for recency, and no change to
+curated selections.
+
 ## Current single best next step
 
 **The actual BDT delivery amounts, supplied by the owner (D-item 5).** This is not an implementation task -

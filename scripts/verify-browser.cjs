@@ -23,6 +23,20 @@ const { spawn } = require('node:child_process');
 const APP = process.env.QUEENBEES_BASE_URL || process.argv[2] || 'http://localhost:3000';
 const CDP = 9228;
 const results = [];
+
+/**
+ * The three products the seed's "recently added" selection must publish (D6, Phase 26).
+ *
+ * The seed records a creation instant per product that increases with fixture declaration order, so
+ * the newest three are the fixture's last three, in reverse. Hard-coded slugs rather than a computed
+ * expectation on purpose: this is the independent value the rendered page is checked against, so a
+ * bug that re-ordered both the seed and the page could not cancel itself out.
+ */
+const SEEDED_RECENT_SLUGS = [
+  'earth-beauty-anti-hairfall-shampoo-with-biotin-caffeine-350-ml',
+  'earth-beauty-glosse-shampoo-with-argan-oil-amla-keratin-350-ml',
+  'mamaearth-vitamin-c-daily-glow-face-wash-100ml',
+];
 const consoleErrors = [];
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -677,11 +691,17 @@ async function main() {
       shelfHeader.noOverlap && !!shelfHeader.groupLabel,
       shelfHeader);
 
-    // 27d - other homepage sections keep their "View all" links
-    // Phase 25: the third section is gone, so the remaining homepage section that needs a route
-    // to the catalog is the offer row - the shelf uses its own previous/next controls.
-    const viewAllCount = await evaluate(client, `[...document.querySelectorAll('main section')].filter((s) => /View all|সব দেখুন/.test(s.innerText)).length`);
-    record('27d. the remaining homepage product section keeps its "View all" route', viewAllCount === 1, { viewAllCount });
+    // 27d - the homepage sections that intend a route into the catalog keep exactly one each
+    // The featured shelf uses its own previous/next controls instead of a link, and the offer row
+    // deliberately carries no "View all" - it is a four-card derived row, not a listing. So the
+    // categories section and "Recently added" (Phase 26) are the two that render one. Asserting the
+    // section ids rather than a bare count means a second link added to either is still caught.
+    const viewAllSections = await evaluate(client, `[...document.querySelectorAll('main section')]
+      .filter((s) => /View all|সব দেখুন/.test(s.innerText))
+      .map((s) => { const h = s.querySelector('h1, h2'); return h ? h.id : 'unknown'; })`);
+    record('27d. the categories and "Recently added" sections each keep their "View all" route',
+      JSON.stringify(viewAllSections) === JSON.stringify(['categories-title', 'recently-added-title']),
+      { sections: viewAllSections });
 
     // 28 - hero has a purposeful product composition
     const hero = await evaluate(client, `(() => {
@@ -827,17 +847,25 @@ async function main() {
     // 35 - homepage sections complement each other instead of repeating cards
     await nav(client, '/');
     const featuredHrefs = await evaluate(client, `window.__qb.sectionHrefs('featured-title')`);
+    const recentHrefs = await evaluate(client, `window.__qb.sectionHrefs('recently-added-title')`);
     const dealsHrefs = await evaluate(client, `window.__qb.sectionHrefs('deals-title')`);
     const collectionHrefs = await evaluate(client, `window.__qb.sectionHrefs('collection-title')`);
     const shared = (a, b) => a.filter((href) => b.includes(href));
-    // Phase 25 removed the third ("more to explore") section as redundant with the shelf and the
-    // catalog, so the assertion now pins the two sections that remain and proves they still never
-    // repeat a product between them.
-    record('35. homepage shows two product sections with no repeated card',
-      featuredHrefs.length === 6 && dealsHrefs.length === 4 &&
+    // Phase 25 removed the redundant "more to explore" section; Phase 26 added "Recently added".
+    // The assertion pins the three sections that now exist and proves none of them repeats a card
+    // from another. "Recently added" is not curated, so it may legitimately overlap the *catalog*,
+    // but a duplicate between two homepage sections would still be a defect.
+    record('35. homepage shows three product sections with no card repeated between them',
+      featuredHrefs.length === 6 && recentHrefs.length === 3 && dealsHrefs.length === 4 &&
       collectionHrefs === null &&
-      shared(featuredHrefs, dealsHrefs).length === 0,
-      { featured: featuredHrefs.length, offers: dealsHrefs.length, thirdSection: collectionHrefs });
+      shared(featuredHrefs, recentHrefs).length === 0 &&
+      shared(featuredHrefs, dealsHrefs).length === 0 &&
+      shared(recentHrefs, dealsHrefs).length === 0,
+      { featured: featuredHrefs.length, recent: recentHrefs.length, offers: dealsHrefs.length,
+        thirdSection: collectionHrefs,
+        overlaps: { featuredRecent: shared(featuredHrefs, recentHrefs),
+                    featuredOffers: shared(featuredHrefs, dealsHrefs),
+                    recentOffers: shared(recentHrefs, dealsHrefs) } });
 
 
     /*
@@ -1407,6 +1435,161 @@ async function main() {
       headerSwap.filter((r) => r.w >= 1200).every((r) => r.headerH <= 65 && r.overlap <= 0),
       headerSwap);
 
+
+
+    /*
+     * ---------- Phase 26: three recently added products (D6) ----------
+     *
+     * The homepage now publishes a recency claim, so the browser suite checks the claim itself and
+     * not merely that three cards rendered: the three shown must be the three newest by the stored
+     * `created_at`, agreed with the seeded timestamps rather than with visual order.
+     */
+
+    // 42 - exactly three distinct products, and they are the three newest
+    await client.send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false });
+    await nav(client, '/');
+    const recent = await evaluate(client, `(() => {
+      const heading = document.getElementById('recently-added-title');
+      if (!heading) return { section: false };
+      const section = heading.closest('section');
+      const cards = [...section.querySelectorAll('article')];
+      const hrefs = [...new Set([...section.querySelectorAll('article a')]
+        .map((a) => a.getAttribute('href'))
+        .filter((h) => h && h.indexOf('/products/') === 0))];
+      const names = cards.map((c) => {
+        const n = c.querySelector('h3, [class$="_name"]');
+        return n ? n.innerText.trim() : null;
+      });
+      const imgs = cards.map((c) => {
+        const img = c.querySelector('img');
+        return img ? { src: img.getAttribute('src'), alt: img.getAttribute('alt'),
+                       complete: img.complete, w: img.naturalWidth } : null;
+      });
+      return { section: true, heading: heading.innerText.trim(), headingId: heading.id,
+               cards: cards.length, hrefs, names, imgs,
+               body: (section.querySelector('p') || {}).innerText || '' };
+    })()`);
+
+    // The server-rendered order is the authority; the expected three are the last three seeded
+    // products, because the seed's instants increase with fixture order.
+    const expectedRecent = SEEDED_RECENT_SLUGS.map((s) => '/products/' + s);
+    record('42. "Recently added" shows exactly three distinct products, newest first',
+      recent.section === true && recent.cards === 3 && recent.hrefs.length === 3 &&
+      JSON.stringify(recent.hrefs) === JSON.stringify(expectedRecent),
+      { shown: recent.hrefs, expected: expectedRecent, cards: recent.cards });
+
+    record('42b. the three cards carry real images, names and product links',
+      recent.imgs.length === 3 &&
+      recent.imgs.every((i) => i && i.src && i.src.indexOf('/catalog/') !== -1 && i.w > 0) &&
+      recent.names.every((n) => typeof n === 'string' && n.length > 0),
+      { images: recent.imgs, names: recent.names });
+
+    record('42c. the section is worded as recency and states the count honestly',
+      /three products most recently added/i.test(recent.body),
+      { body: recent.body, heading: recent.heading });
+
+    // 43 - the same three survive a reload (deterministic, not incidental)
+    await nav(client, '/');
+    const recentAgain = await evaluate(client, `(() => {
+      const heading = document.getElementById('recently-added-title');
+      if (!heading) return null;
+      const section = heading.closest('section');
+      return [...new Set([...section.querySelectorAll('article a')]
+        .map((a) => a.getAttribute('href'))
+        .filter((h) => h && h.indexOf('/products/') === 0))];
+    })()`);
+    record('43. the selection is identical after a reload',
+      JSON.stringify(recentAgain) === JSON.stringify(recent.hrefs), { first: recent.hrefs, second: recentAgain });
+
+    // 44 - Bangla renders the section with the same products
+    await evaluate(client, `localStorage.setItem('queenbees.locale.v1', 'bn')`);
+    await nav(client, '/');
+    const recentBn = await evaluate(client, `(() => {
+      const heading = document.getElementById('recently-added-title');
+      if (!heading) return null;
+      const section = heading.closest('section');
+      return { heading: heading.innerText.trim(),
+               hrefs: [...new Set([...section.querySelectorAll('article a')]
+                 .map((a) => a.getAttribute('href'))
+                 .filter((h) => h && h.indexOf('/products/') === 0))],
+               cards: section.querySelectorAll('article').length,
+               lang: document.documentElement.lang };
+    })()`);
+    record('44. the section renders in Bangla with the same three products',
+      recentBn && recentBn.cards === 3 && recentBn.lang === 'bn' &&
+      /[\u0980-\u09FF]/.test(recentBn.heading) &&
+      JSON.stringify(recentBn.hrefs) === JSON.stringify(recent.hrefs),
+      recentBn);
+
+    // 45 - layout and overflow at every required width, both locales
+    const recentShapes = [];
+    for (const locale of ['en', 'bn']) {
+      await evaluate(client, `localStorage.setItem('queenbees.locale.v1', '${locale}')`);
+      for (const w of [320, 390, 768, 1024, 1440, 1920]) {
+        await client.send('Emulation.setDeviceMetricsOverride', { width: w, height: 900, deviceScaleFactor: 1, mobile: w < 720 });
+        await nav(client, '/');
+        const shape = await evaluate(client, `(() => {
+          const heading = document.getElementById('recently-added-title');
+          if (!heading) return { missing: true };
+          const section = heading.closest('section');
+          const grid = section.querySelector('ul') || section.querySelector('div');
+          const cards = [...section.querySelectorAll('article')];
+          const r = section.getBoundingClientRect();
+          return {
+            cards: cards.length,
+            pageOverflow: document.documentElement.scrollWidth - window.innerWidth,
+            sectionOverflow: Math.round(grid.scrollWidth - grid.clientWidth),
+            width: Math.round(r.width),
+            rows: new Set(cards.map((c) => Math.round(c.getBoundingClientRect().top))).size,
+          };
+        })()`);
+        recentShapes.push({ locale, w, ...shape });
+      }
+    }
+    record('45. the section has no horizontal overflow at 320-1920px in both locales',
+      recentShapes.every((r) => !r.missing && r.cards === 3 && r.pageOverflow <= 1 && r.sectionOverflow <= 1),
+      recentShapes.filter((r) => r.missing || r.cards !== 3 || r.pageOverflow > 1 || r.sectionOverflow > 1));
+
+    // 46 - recency did not disturb the catalog listing or the cart
+    await evaluate(client, `localStorage.setItem('queenbees.locale.v1', 'en')`);
+    await client.send('Emulation.clearDeviceMetricsOverride');
+    await nav(client, '/products');
+    const catalogOrder = await evaluate(client, `(() => {
+      const links = [...document.querySelectorAll('main a[href^="/products/"]')]
+        .map((a) => a.getAttribute('href'));
+      return { first: links[0], last: links[links.length - 1],
+               count: new Set(links).size,
+               descending: JSON.stringify(links) === JSON.stringify([...links].sort().reverse()),
+               containsRecent: links.includes('/products/${SEEDED_RECENT_SLUGS[0]}') };
+    })()`);
+    // The catalog's default sort is "relevance", which is the record id ascending - deliberately not
+    // creation order. If recency had leaked into the listing, the last product in creation order
+    // would lead the list and this ordering would come out descending instead.
+    record('46. the catalog listing keeps its own id ascending order and is not re-ordered by recency',
+      catalogOrder.count === 22 && catalogOrder.descending === false &&
+      catalogOrder.first === '/products/lilac-5-niacinamide-serum-30-ml' &&
+      catalogOrder.containsRecent === true,
+      catalogOrder);
+
+    // 47 - a recently added product can be added to the cart
+    const recentTarget = SEEDED_RECENT_SLUGS[0];
+    // Start from an empty cart: earlier journeys leave items in storage, and the badge would then
+    // report someone else's total rather than this add.
+    await evaluate(client, `localStorage.removeItem('queenbees.cart.v1')`);
+    await nav(client, '/products/' + recentTarget);
+    const added = await evaluate(client, `(async () => {
+      const btn = [...document.querySelectorAll('main button')].find((b) => /Add to cart/i.test(b.textContent));
+      if (!btn) return { error: 'no add button' };
+      btn.scrollIntoView({ block: 'center' });
+      btn.click();
+      await new Promise((r) => setTimeout(r, 600));
+      const stored = JSON.parse(localStorage.getItem('queenbees.cart.v1') || '[]');
+      return { clicked: true, stored, lines: stored.length,
+               slug: stored.length === 1 ? stored[0].productId : null };
+    })()`);
+    record('47. a recently added product still adds to the cart as a single line',
+      added && added.clicked === true && added.lines === 1 &&
+      added.stored[0].quantity === 1, added);
 
     // 39 - no console errors
     record('39. no console errors or uncaught exceptions across all journeys', consoleErrors.length === 0, consoleErrors.slice(0, 5));
