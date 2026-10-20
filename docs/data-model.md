@@ -1398,7 +1398,8 @@ Fulfilment position only.
 | `confirmed` | `processing` | Owner | Order confirmed | `order_processing` |
 | `processing` | `shipped` | Owner | Prepaid: `payment_state='verified'`. COD: `cod_state='cod_approved'`. **No reservation is consumed - none is written (ADR 0013)** | `order_shipped` |
 | `shipped` | `delivered` | Owner | Order shipped. **Does not touch money** | `order_delivered` |
-| `delivered` | `completed` | Owner | Delivered. For COD, `cod_state` must be `cod_collected` or `cod_failed` | `order_completed` |
+| `delivered` / `shipped` | `completed` | Owner (`cod.confirm_collection` via **payment received**, or `order.dispatch` for a returned parcel) | Delivered, **or dispatched with the payment confirmed received** (ADR 0017); for COD, `cod_state` must be `cod_collected` or `cod_failed` | `order_completed` |
+| `returned` | `completed` | Owner (`order.dispatch`) | A returned parcel is closed out; `cod_state` is `cod_failed`, so it counts no revenue (ADR 0017) | `order_completed` |
 | `pending` / `confirmed` / `processing` | `cancelled` | Owner (`order.cancel`) | Approved cancellation, reason required. **No reservation is released - none is written (ADR 0013)** | `order_cancelled` |
 | `shipped` / `delivered` | `returned` | Owner | A `customer_return` reached `received` | `return_received` |
 
@@ -1521,10 +1522,10 @@ It has no sender number, no transaction reference and no verification step.
 | - | `cod_pending_approval` | System | Order created with `payment_method='cod'` | `payment_state='not_applicable'`; **not** in the verification queue; **no reservation is held (ADR 0013)** |
 | `cod_pending_approval` | `cod_approved` | **Owner (`cod.approve`)** | **The owner has called the customer and accepted the order** (ADR 0014 decision 2), with the reason/decision recorded | Order may be dispatched; no reservation expiry to clear |
 | `cod_pending_approval` | `not_applicable` | Owner (`order.cancel`) | Cancellation or rejection before approval, reason recorded | `order.status -> cancelled`; no reservation to release |
-| `cod_approved` | `cod_collected` | Owner (`cod.confirm_collection`) | **Cash physically collected.** Courier or delivery evidence recorded | Money fact: cash received |
+| `cod_approved` | `cod_collected` | Owner (`cod.confirm_collection`) | **The owner confirms the payment was received**, from `shipped` or `delivered` (ADR 0017) | Money fact: cash received; the same owner action also moves `order.status` to `completed` |
 | `cod_approved` | `cod_failed` | Owner | Delivery failed or the parcel was refused | A `customer_return` is created (reason `refused_on_delivery` or `failed_delivery`); **no reservation state changes** |
-| `cod_collected` | `cod_reconciled` | Owner (`finance.reconcile`) | The courier statement has been matched | Reconciliation is a separate event from collection |
-| `cod_failed` | `cod_reconciled` | Owner (`finance.reconcile`) | The failed or returned parcel is closed out | |
+| `cod_collected` | `cod_reconciled` | - | **Unreachable by design (ADR 0017):** there is no courier statement in this business, so nothing matches anything | The value stays in the column for compatibility; no screen, service or test writes it |
+| `cod_failed` | `cod_reconciled` | - | **Unreachable by design (ADR 0017)**, for the same reason | A failed parcel is closed out by completing the order |
 
 **Forbidden.** Any transition to `cod_collected` before actual collection - **not on approval, not
 on dispatch, and not on a delivery attempt**; `cod_approved` without an owner actor; any COD transition by a
@@ -1532,9 +1533,10 @@ customer; dispatch (`order.status -> shipped`) while `cod_state = 'cod_pending_a
 unapproved COD order is never dispatched); **any automatic COD approval** (ADR 0014 decision 2);
 **routing a COD order through the prepaid verification queue**.
 
-**Three separate events, three separate timestamps.** Delivery completion lives on `order.status`
-(`delivered`), cash collection on `cod_state`, and reconciliation on `cod_state` plus
-`operational_exception` for any mismatch. Collapsing them is exactly the error D9 forbids.
+**Two separate events, two separate timestamps.** Delivery completion lives on `order.status`
+(`delivered`), and the money fact on `cod_state`. **No reconciliation event exists (ADR 0017):** the
+owner confirms receipt personally, and there is no courier statement to match against. Recording a
+delivery must never imply payment, and recording payment must never imply a delivery.
 
 **Implementation status (Phase 20b).** `dispatch`, `delivered`, `cod_failed`, `return_received`,
 `return_inspected`, `cod_collected` and `order_completed` now exist in
@@ -1542,11 +1544,13 @@ unapproved COD order is never dispatched); **any automatic COD approval** (ADR 0
 `order_event` and audit record in the caller's transaction. Two rules the table above states are
 **enforced literally**: dispatch refuses any `cod_state` other than `cod_approved`, and every transition
 into `cod_collected` requires the owner's own `cod.confirm_collection` act - never approval, dispatch or a
-delivery status. **`cod_reconciled` remains unwritten**: the transition exists in the design and the
-column accepts it, but no screen, service or test writes it, because the matching rule is not the
-owner's yet. A failed delivery creates the `customer_return` rows the row above requires (one per line,
-reason `failed_delivery`, state `requested`) and leaves the order `shipped` until the parcel is
-physically received - a failed attempt is not a receipt.
+delivery status. **`cod_reconciled` remains unwritten** and is now unreachable **by decision**
+(ADR 0017), not pending an answer: there is no courier statement in this business. A failed delivery
+creates the `customer_return` rows the row above requires (one per line, reason `failed_delivery`,
+state `requested`) and leaves the order `shipped` until the parcel is physically received - a failed
+attempt is not a receipt. **Phase 21** made payment receipt and completion one owner action
+(`markPaymentReceived`), and completion also accepts a `returned` order so a returned parcel can be
+closed out without any money being claimed.
 
 ### 11.7 Cancellation and return workflows
 

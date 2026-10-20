@@ -19,7 +19,7 @@ const NOTICES: readonly AdminOrderNotice[] = [
   'delivered',
   'failed',
   'returned',
-  'collected',
+  'paid',
   'completed',
   'cancelled',
   'inspected',

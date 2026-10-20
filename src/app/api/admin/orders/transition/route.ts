@@ -26,7 +26,7 @@ import {
   completeOrder,
   dispatchOrder,
   inspectReturn,
-  recordCashCollected,
+  markPaymentReceived,
   recordDelivered,
   recordDeliveryFailed,
   recordParcelReceived,
@@ -44,7 +44,7 @@ const ACTIONS = [
   'return_received',
   'inspect_accepted',
   'inspect_rejected',
-  'collect',
+  'paid',
   'complete',
   'cancel',
 ] as const;
@@ -58,7 +58,8 @@ const NOTICES: Record<Action, string> = {
   return_received: 'returned',
   inspect_accepted: 'inspected',
   inspect_rejected: 'inspected',
-  collect: 'collected',
+  // "Payment received" is the owner's own act; it records the receipt and completes the order.
+  paid: 'paid',
   complete: 'completed',
   cancel: 'cancelled',
 };
@@ -147,8 +148,8 @@ export async function POST(request: Request): Promise<Response> {
         case 'return_received':
           await recordParcelReceived(tx, actor, { orderId: id, note });
           break;
-        case 'collect':
-          await recordCashCollected(tx, actor, { orderId: id, note });
+        case 'paid':
+          await markPaymentReceived(tx, actor, { orderId: id, note });
           break;
         case 'complete':
           await completeOrder(tx, actor, { orderId: id, note });

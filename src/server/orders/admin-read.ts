@@ -18,6 +18,48 @@ import {
   type CustomerQueueRow,
 } from './manage';
 
+/**
+ * Revenue, derived from the money facts the app already records.
+ *
+ * Two rules make it correct rather than merely plausible:
+ *
+ * 1. **It is derived, never stored.** No counter is incremented anywhere, so there is nothing to
+ *    double-count: the figure is recomputed from the orders that qualify on every read. Repeating
+ *    "payment received" cannot move it, because the order it would move is already complete.
+ * 2. **An order counts once, from its own immutable row.** `order.total_minor` is written at
+ *    placement and refused by the `order` immutability trigger afterwards, so the amount attributed
+ *    to an order can never be restated or added twice.
+ *
+ * What qualifies is an order with recorded payment receipt (`cod_state = 'cod_collected'`) that was
+ * completed. A completed order whose parcel came back (`cod_failed`) collected nothing, so it is not
+ * revenue. Delivery and dispatch are excluded by construction: they never write either condition.
+ */
+export type RevenueSummary = {
+  readonly orderCount: number;
+  readonly revenueMinor: number;
+  readonly shippingMinor: number;
+  readonly itemsSubtotalMinor: number;
+};
+
+export async function revenueSummary(tx: Transaction): Promise<RevenueSummary> {
+  const rows = await tx
+    .select({
+      totals: sql<number>`coalesce(sum(${order.totalMinor}), 0)::int`,
+      shipping: sql<number>`coalesce(sum(${order.shippingMinor}), 0)::int`,
+      items: sql<number>`coalesce(sum(${order.itemsSubtotalMinor}), 0)::int`,
+      count: sql<number>`count(*)::int`,
+    })
+    .from(order)
+    .where(sql`${order.status} = 'completed' and ${order.codState} = 'cod_collected'`);
+  const row = rows[0];
+  return {
+    orderCount: row?.count ?? 0,
+    revenueMinor: row?.totals ?? 0,
+    shippingMinor: row?.shipping ?? 0,
+    itemsSubtotalMinor: row?.items ?? 0,
+  };
+}
+
 export type CodOrderItem = {
   readonly nameBn: string;
   readonly nameEn: string;

@@ -156,11 +156,12 @@ double click updates zero rows and reads `conflict`; a racing pair lets exactly 
 
 - **No courier consignment or tracking record.** Dispatch is a state the owner records, not an API call to
   a courier, and no delivery estimate or promise is made.
-- **No reconciliation.** `cod_reconciled` is written by nothing: without a defined source, period and
-  discrepancy rule there is nothing to match, so the screen says so instead of inventing a settlement
-  figure. Collection is never presented as reconciled.
-- **No failed-delivery charge liability**, no automatic retry, reship, cancel or refund. A failed delivery
-  records the outcome and creates the returns; every decision after that is the owner's.
+- **No courier reconciliation, by design.** QueenBee's has no courier statement, so there is nothing to
+  match: the owner records payment receipt personally and that is the money fact (Phase 21).
+  `cod_reconciled` is written by nothing and no figure is described as reconciled.
+- **No automatic retry, reship, cancel or refund.** A failed delivery records the outcome and creates the
+  returns; every decision after that is the owner's. The failed delivery's charge is the **owner's cost**
+  (owner decision, 2026-10-20) and is never added to the customer's total.
 - No cancellation or refund workflow beyond the COD rejection, which cancels a still-pending order.
 - No customer notification: the owner telephones, and the customer's own order page is the record.
 - No expiry: `expires_at` is `NULL` for a COD order and no expiry writer exists.
@@ -396,9 +397,9 @@ These block specific, named features. None was guessed; the features they block 
 
 | # | Question | What it blocks |
 | --- | --- | --- |
-| 1 | **Who bears the delivery charge when a delivery fails?** | Any charge liability rule. Every transition leaves the charged total untouched and refuses to rewrite it |
-| 2 | **What does reconciliation compare** - which courier statement or cash count - **over what period**, and **what counts as a discrepancy**? | Any reconciliation screen or figure. `cod_reconciled` is written by nothing and no number is described as reconciled |
-| 3 | **When does the owner record cash?** At the door, or after the courier's statement? | Nothing today - collection is recorded whenever cash is in hand - but the answer decides whether a per-trip settlement is even needed |
+| 1 | ~~**Who bears the delivery charge when a delivery fails?**~~ **Settled 2026-10-20: the owner bears it**, and no failed-delivery fee is added to the customer | Nothing - the implementation follows the decision: no charge is added or waived on the order |
+| 2 | ~~**What does reconciliation compare?**~~ **Withdrawn:** there is no courier statement and no settlement matching in this business | Nothing - the workflow does not exist, and none should be built |
+| 3 | ~~**When does the owner record cash?**~~ **Settled 2026-10-20:** when the payment is actually received, and that same action completes the order | Nothing - implemented as one owner action behind `cod.confirm_collection` |
 | 5 | **The delivery amounts** for Other districts, Dhaka and Chattogram | Every order: checkout correctly refuses until the required default is saved |
 | 6 | **Photography rights** in writing | Public launch. The images are tagged pending confirmation and are not cleared |
 

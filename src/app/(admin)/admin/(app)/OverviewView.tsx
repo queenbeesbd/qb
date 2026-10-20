@@ -12,6 +12,9 @@ import styles from '../admin.module.css';
 
 type FlagRow = { customerId: number; email: string; displayName: string | null; reason: string };
 
+/** Recorded revenue, derived from completed orders with recorded payment receipt. */
+type RevenueTotals = { orderCount: number; revenueMinor: number; itemsSubtotalMinor: number; shippingMinor: number };
+
 type CatalogCounts = {
   products: number;
   productsPublished: number;
@@ -35,6 +38,7 @@ export function OverviewView({
   flagged,
   denials,
   catalog,
+  revenue,
   csrfToken,
   canApprove,
   canCancel,
@@ -51,6 +55,7 @@ export function OverviewView({
   flagged: readonly FlagRow[];
   denials: number | null;
   catalog: CatalogCounts | null;
+  revenue: RevenueTotals | null;
   csrfToken: string;
   canApprove: boolean;
   canCancel: boolean;
@@ -59,7 +64,7 @@ export function OverviewView({
   canReadAudit: boolean;
   canReadCatalog: boolean;
 }) {
-  const { t, locale } = useTranslation();
+  const { t, locale, price } = useTranslation();
   const now = new Date(nowIso);
   const dateFormat = new Intl.DateTimeFormat(locale === 'bn' ? 'bn-BD' : 'en-US', { dateStyle: 'full' });
   const timeFormat = new Intl.DateTimeFormat(locale === 'bn' ? 'bn-BD' : 'en-US', {
@@ -257,6 +262,39 @@ export function OverviewView({
           )}
         </div>
       </section>
+
+      {canReadOrders && revenue !== null && (
+        <section className={styles.section} aria-labelledby="revenue-heading">
+          <div className={styles.sectionHead}>
+            <div>
+              <h2 id="revenue-heading">{t('admin.overview.revenueTitle')}</h2>
+              <p>{t('admin.overview.revenueBody')}</p>
+            </div>
+            <Link className={styles.sectionLink} href="/admin/orders">
+              {t('admin.overview.revenueLink')} →
+            </Link>
+          </div>
+          <div className={styles.statRow}>
+            <div className={styles.stat}>
+              <span className={styles.statValue}>{price(revenue.revenueMinor)}</span>
+              <span className={styles.statLabel}>{t('admin.overview.revenueTotal')}</span>
+            </div>
+            <div className={styles.stat}>
+              <span className={styles.statValue}>{revenue.orderCount}</span>
+              <span className={styles.statLabel}>{t('admin.overview.revenueOrders')}</span>
+            </div>
+            <div className={styles.stat}>
+              <span className={styles.statValue}>{price(revenue.itemsSubtotalMinor)}</span>
+              <span className={styles.statLabel}>{t('admin.overview.revenueItems')}</span>
+            </div>
+            <div className={styles.stat}>
+              <span className={styles.statValue}>{price(revenue.shippingMinor)}</span>
+              <span className={styles.statLabel}>{t('admin.overview.revenueShipping')}</span>
+            </div>
+          </div>
+          <p className={styles.note}>{t('admin.overview.revenueNote')}</p>
+        </section>
+      )}
 
       {canReadCatalog && catalog !== null && (
         <section className={styles.section} aria-labelledby="catalog-state-heading">

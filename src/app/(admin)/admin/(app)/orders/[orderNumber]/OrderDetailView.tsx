@@ -22,7 +22,7 @@ export type AdminOrderNotice =
   | 'delivered'
   | 'failed'
   | 'returned'
-  | 'collected'
+  | 'paid'
   | 'completed'
   | 'cancelled'
   | 'inspected'
@@ -117,7 +117,7 @@ const NOTICE_KEYS: Record<AdminOrderNotice, TranslationKey> = {
   delivered: 'admin.order.notice.delivered',
   failed: 'admin.order.notice.failed',
   returned: 'admin.order.notice.returned',
-  collected: 'admin.order.notice.collected',
+  paid: 'admin.order.notice.paid',
   completed: 'admin.order.notice.completed',
   cancelled: 'admin.order.notice.cancelled',
   inspected: 'admin.order.notice.inspected',
@@ -240,12 +240,10 @@ export function AdminOrderDetailView({
     order.status === 'shipped' &&
     order.codState === 'cod_failed' &&
     order.returns.some((entry) => entry.state === 'requested' || entry.state === 'approved' || entry.state === 'in_transit');
-  const collectable =
-    order.codState === 'cod_approved' &&
-    (order.status === 'confirmed' ||
-      order.status === 'processing' ||
-      order.status === 'shipped' ||
-      order.status === 'delivered');
+  // Payment is received once the parcel is out or has arrived: before that there is no money to
+  // confirm, and after it the order is already complete.
+  const receivable =
+    order.codState === 'cod_approved' && (order.status === 'shipped' || order.status === 'delivered');
   const completable =
     order.status === 'delivered' && (order.codState === 'cod_collected' || order.codState === 'cod_failed');
   const cancellable = order.status === 'pending' || order.status === 'confirmed' || order.status === 'processing';
@@ -258,7 +256,7 @@ export function AdminOrderDetailView({
   })();
 
   const hasOperations =
-    canFulfil || canCollect || canInspect || canCancel ? true : cancellable || collectable || dispatchable;
+    canFulfil || canCollect || canInspect || canCancel ? true : cancellable || receivable || dispatchable;
 
   return (
     <>
@@ -698,20 +696,20 @@ export function AdminOrderDetailView({
                   </form>
                 )}
 
-                {collectable && (
+                {receivable && (
                   <form action={ORDER_TRANSITION_PATH} method="post" className={styles.approveForm}>
                     <input type="hidden" name="csrf" value={csrfToken} />
-                    <input type="hidden" name="action" value="collect" />
+                    <input type="hidden" name="action" value="paid" />
                     <input type="hidden" name="orderId" value={order.orderId} />
                     <details className={styles.noteDetails}>
                       <summary>{t('admin.order.noteSummary')}</summary>
                       <label className="sr-only" htmlFor="collect-note">
-                        {t('admin.order.collectNote')}
+                        {t('admin.order.paidNote')}
                       </label>
                       <input id="collect-note" name="note" className={styles.input} maxLength={300} />
                     </details>
                     <SubmitButton
-                      label={t('admin.order.collect')}
+                      label={t('admin.order.paid')}
                       pendingLabel={t('admin.common.working')}
                       disabled={!canCollect}
                       wide

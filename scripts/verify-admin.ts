@@ -32,6 +32,7 @@ import {
   deliverySetting,
   order,
   orderContact,
+  orderEvent,
   orderItem,
   permission,
   product,
@@ -52,6 +53,7 @@ import { OWNER_ROLE, PERMISSIONS } from '../src/server/authz/permissions';
 import { listAssetKeys } from '../src/server/catalog/assets';
 import { checkOrderability } from '../src/server/catalog/orderability';
 import { resetServerEnvCache } from '../src/server/env';
+import { revenueSummary } from '../src/server/orders/admin-read';
 
 const OWNER_EMAIL = 'owner@verify.test';
 const OWNER_PASSWORD = 'verify-owner-password-1';
@@ -1726,7 +1728,7 @@ async function main(): Promise<void> {
             await browser.navigate('/admin/orders/' + secondCod.orderNumber);
             const dispatchForm = 'form:has(input[name="action"][value="dispatch"])';
             const deliverForm = 'form:has(input[name="action"][value="delivered"])';
-            const collectForm = 'form:has(input[name="action"][value="collect"])';
+            const paidForm = 'form:has(input[name="action"][value="paid"])';
             const failedForm = 'form:has(input[name="action"][value="failed"])';
             const approvedUi = await browser.evaluate<{ dispatch: boolean; deliver: boolean }>(`(() => ({
               dispatch: document.querySelector(${JSON.stringify(dispatchForm)}) !== null,
@@ -1754,21 +1756,92 @@ async function main(): Promise<void> {
                 afterDispatch[0]?.codState === 'cod_approved',
               `notice ${dispatched}, status ${afterDispatch[0]?.status}, cod_state ${afterDispatch[0]?.codState}`,
             );
-            const afterDispatchUi = await browser.evaluate<{ dispatch: boolean; deliver: boolean; collect: boolean; failed: boolean }>(`(() => ({
+            const afterDispatchUi = await browser.evaluate<{ dispatch: boolean; deliver: boolean; paid: boolean; failed: boolean }>(`(() => ({
               dispatch: document.querySelector(${JSON.stringify(dispatchForm)}) !== null,
               deliver: document.querySelector(${JSON.stringify(deliverForm)}) !== null,
-              collect: document.querySelector(${JSON.stringify(collectForm)}) !== null,
+              paid: document.querySelector(${JSON.stringify(paidForm)}) !== null,
               failed: document.querySelector(${JSON.stringify(failedForm)}) !== null,
             }))()`);
             record(
-              'once dispatched, the page offers delivery, failed delivery and cash collection instead of dispatch again',
+              'once dispatched, the page offers delivery, failed delivery and payment received instead of dispatch again',
               afterDispatchUi.dispatch === false &&
                 afterDispatchUi.deliver === true &&
-                afterDispatchUi.collect === true &&
+                afterDispatchUi.paid === true &&
                 afterDispatchUi.failed === true,
               JSON.stringify(afterDispatchUi),
             );
             await browser.screenshot('/tmp/qb-admin-order-operations.png');
+
+            // ---- Phase 21: payment received is one act that also completes the order ----
+            //
+            // Dispatched, not delivered: cash usually reaches the owner while the parcel is still with the
+            // courier, so the button must be available here. Clicking it records the receipt AND completes
+            // the order, and the revenue figure moves by exactly that order's total - once.
+            const revenueBefore = await withTransaction((tx) => revenueSummary(tx));
+            await browser.click(paidForm + ' button[type="submit"]');
+            const paidNotice = await browser.waitFor(
+              'document.body.textContent.includes(' + JSON.stringify('Payment receipt recorded and the order completed.') + ')',
+            );
+            const paidRow = await withTransaction((tx) =>
+              tx
+                .select({ status: order.status, codState: order.codState, completedAt: order.completedAt, total: order.totalMinor })
+                .from(order)
+                .where(sql`${order.id} = ${secondCod.orderId}`),
+            );
+            record(
+              'clicking payment received records the receipt and completes the order',
+              paidNotice === true &&
+                paidRow[0]?.codState === 'cod_collected' &&
+                paidRow[0]?.status === 'completed' &&
+                paidRow[0]?.completedAt !== null,
+              `notice ${paidNotice}, ${paidRow[0]?.status}/${paidRow[0]?.codState}`,
+            );
+
+            const revenueAfter = await withTransaction((tx) => revenueSummary(tx));
+            record(
+              'the dashboard revenue moves by exactly that order total, once',
+              revenueAfter.revenueMinor === revenueBefore.revenueMinor + (paidRow[0]?.total ?? 0) &&
+                revenueAfter.orderCount === revenueBefore.orderCount + 1,
+              `${revenueBefore.revenueMinor} -> ${revenueAfter.revenueMinor} (${revenueBefore.orderCount} -> ${revenueAfter.orderCount} orders)`,
+            );
+
+            // Re-submitting the same form cannot record a second receipt or count the order twice.
+            await browser.evaluate(`(() => {
+              const form = document.querySelector('form[action="/api/admin/orders/transition"]');
+              if (form === null) return false;
+              form.requestSubmit();
+              return true;
+            })()`);
+            await new Promise((resolve) => setTimeout(resolve, 750));
+            const revenueRepeated = await withTransaction((tx) => revenueSummary(tx));
+            const eventsAfterRepeat = await withTransaction((tx) =>
+              tx
+                .select({ eventType: orderEvent.eventType })
+                .from(orderEvent)
+                .where(sql`${orderEvent.orderId} = ${secondCod.orderId} and ${orderEvent.eventType} in ('cod_collected', 'order_completed')`),
+            );
+            record(
+              'a repeated submission cannot record a second receipt or double the revenue',
+              revenueRepeated.revenueMinor === revenueAfter.revenueMinor &&
+                revenueRepeated.orderCount === revenueAfter.orderCount &&
+                eventsAfterRepeat.length === 2,
+              `revenue ${revenueAfter.revenueMinor} -> ${revenueRepeated.revenueMinor}, ${eventsAfterRepeat.length} money events`,
+            );
+
+            await browser.navigate('/admin');
+            const revenueUi = await browser.evaluate<{ shown: string | null; note: boolean }>(`(() => {
+              const text = document.body.textContent ?? '';
+              return {
+                shown: text.includes('Recorded revenue'),
+                note: text.includes('cannot be counted twice') || text.includes('whose payment was never recorded'),
+              };
+            })()`);
+            record(
+              'the dashboard shows recorded revenue and states what it counts',
+              revenueUi.shown !== null && revenueUi.note === true,
+              JSON.stringify(revenueUi),
+            );
+            await browser.screenshot('/tmp/qb-admin-revenue.png');
 
             await browser.navigate('/admin/catalog');
             const catalogUi = await browser.evaluate<{ switches: number; search: boolean; create: boolean }>(`(() => ({

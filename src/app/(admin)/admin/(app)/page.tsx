@@ -8,6 +8,7 @@ import {
   codQueue,
   countRecentDenials,
   flaggedCustomers,
+  revenueSummary,
   type CodQueueItem,
   type FlaggedCustomer,
 } from '@/server/orders/admin-read';
@@ -24,9 +25,12 @@ const OVERVIEW_LIMIT = 5;
  *
  * The old facts grid counted rows whether or not anything was waiting, so it answered "how much is
  * there". This page leads with the COD worklist - the only queue that waits on a person - then
- * everything that is blocked or refused, then reference counts. Every figure is a count of rows
- * that exist; there is no revenue, conversion or growth metric because the application cannot
- * substantiate one.
+ * everything that is blocked or refused, then recorded revenue, then reference counts.
+ *
+ * Revenue is the one money figure the application can substantiate: it is `order.total_minor`
+ * summed over orders that were completed **and** whose payment the owner confirmed received. It is
+ * derived on every read from immutable order rows, so no counter exists to double-count, and an order
+ * that was dispatched or delivered but never paid contributes nothing.
  *
  * Requires `staff.read`, which every owner-level account holds. The sections inside are gated by the
  * permission their destination requires, so the page never links to a refusal.
@@ -43,7 +47,9 @@ export default async function AdminOverviewPage() {
     const flagged = canReadCustomers ? await flaggedCustomers(tx) : [];
     const denials = canReadAudit ? await countRecentDenials(tx) : null;
     const catalog = canReadCatalog ? await countCatalog(tx) : null;
-    return { pending, flagged, denials, catalog };
+    // Revenue is an order money fact, so it is gated by the permission that reads orders.
+    const revenue = canReadOrders ? await revenueSummary(tx) : null;
+    return { pending, flagged, denials, catalog, revenue };
   });
 
   const pending = data.pending;
@@ -59,6 +65,16 @@ export default async function AdminOverviewPage() {
       flagged={data.flagged.map(serializeFlag)}
       denials={data.denials}
       catalog={data.catalog}
+      revenue={
+        canReadOrders
+          ? {
+              orderCount: data.revenue?.orderCount ?? 0,
+              revenueMinor: data.revenue?.revenueMinor ?? 0,
+              itemsSubtotalMinor: data.revenue?.itemsSubtotalMinor ?? 0,
+              shippingMinor: data.revenue?.shippingMinor ?? 0,
+            }
+          : null
+      }
       csrfToken={principal.csrfToken}
       canApprove={hasPermission(principal, PERMISSIONS.codApprove)}
       canCancel={hasPermission(principal, PERMISSIONS.orderCancel)}

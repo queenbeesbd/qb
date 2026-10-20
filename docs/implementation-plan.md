@@ -617,29 +617,50 @@ each re-checks its own permission in the service, not only in the route. `order.
 liability, any automatic retry/cancel/refund/reship, and any stock effect from inspection. **No
 migration:** the schema already held every column, state and return table this needed.
 
+## Phase 21 - COD workflow corrected, delivered 2026-10-20
+
+**A courier-statement reconciliation phase was proposed and is withdrawn.** It rested on an
+assumption the owner corrected: QueenBee's has **no courier statement, no settlement period, no
+statement import or matching and no courier reconciliation**. The confirmed workflow is shorter than
+what had been built:
+
+> customer places a COD order → owner approves → dispatch → delivery → **the owner manually marks the
+> order Payment Received** → the order is **Completed** and its revenue reaches the dashboard.
+
+Two things were wrong against that workflow, and both are now fixed:
+
+1. **Payment receipt and completion were two separate owner actions**, and receipt was allowed before
+   dispatch. They are one action now: `markPaymentReceived` records `cod_state = cod_collected` and
+   `status = completed` in one transaction, reachable only from `shipped` or `delivered`.
+2. **The dashboard reported no revenue at all**, because no figure had been substantiated. Revenue is
+   now derived from `order.total_minor` over orders that are **completed and paid**, summed on every
+   read from immutable rows - so there is no counter to double-count and a repeat submission cannot
+   move it.
+
+**Unchanged:** no schema change, no migration, no new table. `cod_reconciled` stays written by
+nothing. Delivery and dispatch still record position only, never money. A failed delivery adds no
+charge to the customer's total - the owner bears it, and the order keeps exactly the amounts it was
+placed with.
+
+**Removed from the roadmap:** the courier-statement reconciliation phase, its settlement-period,
+statement-matching and discrepancy rules, and the `0005` migration that was proposed for it. The
+`operational_exception` table keeps its `unreconciled_collection` type as unused schema, exactly as
+the reservation tables are retained.
+
 ## Current single best next step
 
-**Reconciliation, and the failed-delivery charge decision** - the last two pieces of the COD money
-story, and the only ones still blocked on the owner rather than on engineering.
+**Dispatch and cash-collection operating screens, then analytics - or an owner-operated customer
+credential reset.** The COD money story is now closed end to end (approve, dispatch, deliver or fail
+and return, payment received, completed, counted once), so what remains is operational convenience
+rather than a missing money fact.
 
-As built, an order reaches `cod_collected` but never `cod_reconciled`, so cash that left a courier and
-cash the store recorded can drift apart with nothing comparing them. **Prerequisites:**
+The highest-value remaining gap is **the courier relationship while the parcel is in transit**: there
+is no consignment or tracking reference and no failed-delivery retry, so the owner tracks it outside
+the app. **Prerequisites:** the owner names the couriers actually used and whether any tracking
+reference is worth storing; that is a data question with an owner answer, not an engineering guess.
+**Acceptance:** an order carries an optional consignment reference, recording it is audited, and no
+delivery promise, restock or automatic action follows from it.
 
-1. **What does reconciliation compare?** A courier statement (which one, received when), a cash count,
-   or the owner's own daily total? Without a source there is nothing to match against.
-2. **Over which period?** Per courier trip, per day, per week?
-3. **What is a discrepancy?** A missing order, an amount mismatch, or a late statement - and what may the
-   owner record when one is found? (`operational_exception` already carries an `unreconciled_collection`
-   type, so the finding has a home; the policy does not.)
-4. **Who bears the delivery charge when a delivery fails?** Every transition today leaves the charged
-   total untouched, and `order`'s immutability trigger refuses any attempt to rewrite it, so the
-   question is currently unanswered rather than answered wrongly.
-
-**Acceptance:** an owner can record a reconciled batch from a named source over a stated period; each
-reconciled order keeps its own collection event; a discrepancy is recorded as an exception that requires
-a reason and cannot resolve itself; no order is ever marked reconciled by delivery, collection or a
-timer; the delivery-charge liability rule (if the owner sets one) is applied from a decision, never
-computed from a guess; tests cover each guard and its refusal.
-
-**Not authorized by this recommendation:** deployment, provisioning, DNS, credentials, gateway work,
-inventory reservation, or any new price, delivery, refund or cancellation policy.
+**Not authorized by this recommendation:** deployment, provisioning, DNS, credentials, gateway or
+online payment work, inventory reservation, courier reconciliation, or any new price, delivery,
+refund or cancellation policy.

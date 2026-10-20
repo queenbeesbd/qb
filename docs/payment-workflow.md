@@ -58,14 +58,20 @@ QueenBee's accepts **one** method: **Cash on Delivery**. Ordering still requires
 - **Charges by weight, quantity or postal code.** The approved model is three areas and one amount per
   order. Historical orders keep saying delivery is arranged on confirmation when they carry no area.
 - **Courier and consignment records.** No courier API is authorized and no consignment field is written.
-- **Reconciliation.** `cod_collected` and `cod_failed` are now written by the owner's post-approval
-  workflow (Phase 20b, `docs/admin-dashboard.md`), but **`cod_reconciled` is written by nothing**. Cash
-  collection is a recorded fact; matching it against a courier statement has no defined source, period
-  or discrepancy rule, so no figure in the dashboard is described as reconciled and the order page says
-  so. The open questions are listed in `docs/admin-dashboard.md` under **Owner decisions**.
-- **Delivery-charge liability for a failed delivery.** A failed delivery records `cod_failed` and creates
-  the returns; it **does not** add, apply or waive a charge, and `order`'s immutability trigger refuses
-  any attempt to rewrite the total. Who bears that charge is undecided, and nothing guesses.
+- **Courier reconciliation.** **Withdrawn - it was never our process.** The owner confirmed there is
+  no courier statement, no settlement period and no statement matching: the owner records payment
+  receipt personally when the money is in hand. `cod_reconciled` stays written by nothing, and no
+  figure in the dashboard is described as reconciled.
+- **Payment receipt and completion are one owner action (Phase 21).** `markPaymentReceived` records
+  `cod_state = 'cod_collected'` and `status = 'completed'` together, from `shipped` or `delivered`,
+  behind `cod.confirm_collection`. It is the money fact and the completion in one transaction, so
+  revenue can never be counted for an order whose receipt rolled back. Delivery and dispatch record
+  position only and never touch either column.
+- **Failed-delivery charge liability is settled (owner decision, 2026-10-20).** The **owner bears** the
+  delivery charge when a delivery fails despite the pre-dispatch confirmation calls, and **no
+  failed-delivery fee is charged to the customer**. The implementation follows from that: nothing adds,
+  applies or waives a charge on the order, and `order`'s immutability trigger refuses any attempt to
+  rewrite the total. The owner's cost is not recorded as an order line or a ledger entry.
 - **Cancellation and refund workflows.** Refunds remain manual and, in this release, are recorded only if
   the owner records them by other means; no refund UI exists.
 - **Any notification.** There is no mail, SMS or push provider; the customer's own order page is the
@@ -453,9 +459,10 @@ Expiry, when scheduled, applies **only** to an order whose customer has **never 
 - **Owner approval is required before dispatch** (13.7). An unapproved COD order is never dispatched.
 - **Before dispatch**, cancellation goes through support, exactly as for a prepaid order.
 - **After dispatch**, the case follows the **delivery cancellation / return workflow**, not ordinary cancellation.
+- **A failed delivery is the owner's cost.** The delivery charge stands against the shop, not the customer, and **no failed-delivery fee is ever added** to the customer's total (owner decision, 2026-10-20).
 - **Failed delivery or customer refusal** leads to **return-to-store handling**. The parcel is not treated as sellable product until it is physically back at the store and inspected.
 - **Returned products become sellable only after physical receipt and inspection.** Goods that fail inspection are written off rather than restored (13.10.10).
-- **Delivery completion, cash collection and cash reconciliation are separate states and events.** `cod_collected` is set only when cash is **actually collected** - never on approval, dispatch or a delivery attempt. Cash is reconciled against the courier statement, never assumed.
+- **Delivery completion and payment receipt are separate states and events.** `cod_collected` is set only when the owner **confirms the payment arrived** - never on approval, dispatch or a delivery attempt. There is no courier statement and no reconciliation step: the owner's own confirmation is the money fact, and marking it also completes the order (Phase 21).
 
 ### 13.10 D11 - inventory reservation and release (APPROVED)
 

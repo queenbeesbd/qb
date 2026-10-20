@@ -23,9 +23,9 @@
  * - **No money is invented.** There is no collected-amount column and no adjustment, so collection
  *   records the event and the actor, and the order's saved total is never rewritten - the `order`
  *   immutability trigger refuses the attempt anyway.
- * - **No reconciliation.** `cod_reconciled` is intentionally unreachable here: the owner has not
- *   defined the period, the comparison source or what a discrepancy means, and a screen that invented
- *   them would be a fabricated accounting policy.
+ * - **No courier reconciliation.** QueenBee's has no courier statement and no settlement-matching
+ *   workflow, so `cod_reconciled` is written by nothing. Payment receipt is the owner's own recorded
+ *   confirmation; it is not a bank or courier statement match, and nothing here compares two sources.
  * - **No automatic anything.** A failed delivery is not retried, cancelled, refunded or reshipped, and
  *   no delivery-charge liability is applied to it.
  */
@@ -467,15 +467,16 @@ export async function inspectReturn(
 // ------------------------------------------------------------------
 
 /**
- * `cod_approved` -> `cod_collected`. **Cash is physically in hand.**
+ * `cod_approved` -> `cod_collected`. **The owner has confirmed the payment arrived.**
  *
- * The owner's own act, never a consequence of approval, dispatch or a delivery status: those record
- * where the parcel is, not whether money arrived. The order's total is the amount due and is never
- * rewritten - the model has no collected-amount column, no partial-payment state and no adjustment,
- * so none is implied here.
+ * This is the recorded money fact, and it is written **only** by `markPaymentReceived` - the owner's
+ * own act, never a consequence of approval, dispatch or a delivery status, because those record where
+ * the parcel is, not whether money arrived. The order's total is the amount due and is never
+ * rewritten: the model has no collected-amount column, no partial-payment state and no adjustment, so
+ * none is implied here. The event's `amountDueMinor` is read from the order row, never from a request.
  *
- * Collection does **not** reconcile anything. `cod_reconciled` stays unreachable until the owner
- * defines what matching a courier statement means, over what period.
+ * Collection is not a statement match. There is no courier statement, no settlement period and no
+ * comparison of two sources; `cod_reconciled` is written by nothing.
  */
 export async function recordCashCollected(
   tx: Transaction,
@@ -529,10 +530,15 @@ export async function recordCashCollected(
 // ------------------------------------------------------------------
 
 /**
- * `delivered` -> `completed`, once money or the failed-parcel question has a recorded answer.
+ * `delivered`/`returned` -> `completed`, once money or the failed-parcel question has an answer.
  *
- * Completion is a fulfilment state, not a money fact: an order whose cash was collected and an order
- * whose parcel came back both reach it. Reconciliation is still not implied.
+ * Completion is a fulfilment state, not a money fact: an order whose payment was received and an
+ * order whose parcel came back both reach it. It is reached directly by `markPaymentReceived` (the
+ * owner's normal path, from `shipped` or `delivered`) and by this function for a parcel that came
+ * back - receipt already moved the order to `returned`, so that is the state to close out.
+ *
+ * A returned order is **not** revenue: it recorded no payment. Closing it out without money is the
+ * owner's explicit act after inspection, never a timer's.
  */
 export async function completeOrder(
   tx: Transaction,
@@ -549,13 +555,13 @@ export async function completeOrder(
     .set({ status: 'completed', completedAt: at, updatedAt: at })
     .where(
       sql`${order.id} = ${input.orderId}
-        and ${order.status} = 'delivered'
+        and ${order.status} in ('delivered', 'returned')
         and ${order.codState} in ('cod_collected', 'cod_failed')`,
     )
     .returning({ id: order.id });
   if (updated.length === 0) {
     throw new ConflictError(
-      `only a delivered order with a recorded delivery outcome can be completed (this one is ${current.status}/${current.codState})`,
+      `only a delivered or returned order with a recorded outcome can be completed (this one is ${current.status}/${current.codState})`,
     );
   }
 
@@ -564,7 +570,7 @@ export async function completeOrder(
     orderNumber: current.orderNumber,
     key: 'completed',
     eventType: 'order_completed',
-    fromValue: 'delivered',
+    fromValue: current.status,
     toValue: 'completed',
     actorStaffId: actor.staffUserId,
     reason: note,
@@ -572,7 +578,7 @@ export async function completeOrder(
   await writeAudit(tx, actor, {
     action: 'order.completed',
     orderId: current.id,
-    before: { status: 'delivered', codState: current.codState },
+    before: { status: current.status, codState: current.codState },
     after: { status: 'completed', codState: current.codState },
     reason: note,
   });
@@ -634,3 +640,107 @@ export async function cancelOrderBeforeDispatch(
     reason,
   });
 }
+
+
+// ------------------------------------------------------------------
+// Payment received (the owner's own money confirmation)
+// ------------------------------------------------------------------
+
+/**
+ * The owner confirms the payment arrived: **record receipt, then complete the order, as one act.**
+ *
+ * This is the confirmed business workflow - approve, dispatch, deliver, and when the money is in the
+ * owner's hands the owner marks payment received, which completes the order and makes its revenue
+ * count. Both writes happen in the caller's transaction, so a completed order either has its
+ * `cod_collected` fact and its trail or has nothing at all; there is no window in which revenue is
+ * counted for an order whose receipt was rolled back.
+ *
+ * **Exactly once.** Each step is a guarded `UPDATE ... WHERE <state>`, so a double click, a repeated
+ * submission or two concurrent requests update zero rows on the loser and answer `conflict` instead
+ * of writing a second receipt or a second completion. The order event keys are unique per order, so
+ * even a retry that slipped past a guard cannot record the same fact twice.
+ *
+ * **The customer's total is never touched.** In particular a failed delivery bears no charge: nothing
+ * here adds a fee, adjusts the total or rewrites the snapshot, and the `order` immutability trigger
+ * would refuse it. A failed-delivery charge is the owner's cost, not an order line.
+ *
+ * Reachable from `delivered`, and from `shipped` because the cash often arrives while the parcel is
+ * still out with the courier - the owner's confirmation is the money fact, not a delivery status.
+ */
+export async function markPaymentReceived(
+  tx: Transaction,
+  actor: ActorContext,
+  input: { readonly orderId: number; readonly note?: string },
+): Promise<void> {
+  await requirePermission(actor, PERMISSIONS.codConfirmCollection, 'order', input.orderId);
+  const note = optionalNote(input.note);
+  const current = await loadOrder(tx, input.orderId);
+
+  const at = new Date();
+  const receipted = await tx
+    .update(order)
+    .set({ codState: 'cod_collected', updatedAt: at })
+    .where(
+      sql`${order.id} = ${input.orderId}
+        and ${order.codState} = 'cod_approved'
+        and ${order.status} in ('shipped', 'delivered')`,
+    )
+    .returning({ id: order.id });
+  if (receipted.length === 0) {
+    throw new ConflictError(
+      `only a dispatched order awaiting payment can record receipt (this one is ${current.status}/${current.codState})`,
+    );
+  }
+
+  await writeEvent(tx, {
+    orderId: current.id,
+    orderNumber: current.orderNumber,
+    key: 'cod-collected',
+    eventType: 'cod_collected',
+    fromValue: 'cod_approved',
+    toValue: 'cod_collected',
+    actorStaffId: actor.staffUserId,
+    reason: note,
+    // The order's own saved total, read from the row - never a figure from the request.
+    payload: { amountDueMinor: current.totalMinor },
+  });
+  await writeAudit(tx, actor, {
+    action: 'cod.collected',
+    orderId: current.id,
+    before: { status: current.status, codState: 'cod_approved' },
+    after: { status: current.status, codState: 'cod_collected' },
+    reason: note,
+  });
+
+  const completed = await tx
+    .update(order)
+    .set({ status: 'completed', completedAt: at, updatedAt: at })
+    .where(
+      sql`${order.id} = ${input.orderId}
+        and ${order.status} in ('shipped', 'delivered')
+        and ${order.codState} = 'cod_collected'`,
+    )
+    .returning({ id: order.id });
+  if (completed.length === 0) {
+    throw new ConflictError('payment receipt was recorded but the order could not be completed');
+  }
+
+  await writeEvent(tx, {
+    orderId: current.id,
+    orderNumber: current.orderNumber,
+    key: 'completed',
+    eventType: 'order_completed',
+    fromValue: current.status,
+    toValue: 'completed',
+    actorStaffId: actor.staffUserId,
+    reason: note,
+  });
+  await writeAudit(tx, actor, {
+    action: 'order.completed',
+    orderId: current.id,
+    before: { status: current.status, codState: 'cod_collected' },
+    after: { status: 'completed', codState: 'cod_collected' },
+    reason: note,
+  });
+}
+

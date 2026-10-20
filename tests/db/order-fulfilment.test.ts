@@ -9,13 +9,14 @@ import {
   completeOrder,
   dispatchOrder,
   inspectReturn,
-  recordCashCollected,
+  markPaymentReceived,
   recordDelivered,
   recordDeliveryFailed,
   recordParcelReceived,
 } from '../../src/server/orders/fulfilment';
 import { AuthorizationError, ConflictError, ValidationError } from '../../src/server/authz/authorize';
 import { adminOrderDetail } from '../../src/server/orders/admin-order';
+import { revenueSummary } from '../../src/server/orders/admin-read';
 
 /**
  * The owner's post-approval COD operations (Phase 20).
@@ -121,7 +122,10 @@ async function returnsOf(fixture: DbFixture, orderId: number) {
 }
 
 /** Drives one order all the way to a failed delivery, returning its order id, return id and lines. */
-async function failedDelivery(fixture: DbFixture, options: { quantity?: number } = {}) {
+async function failedDelivery(
+  fixture: DbFixture,
+  options: { quantity?: number; shippingMinor?: number } = {},
+) {
   const seeded = await seedCod(fixture, options);
   await approve(fixture, seeded.orderId);
   await withTransaction((tx) => dispatchOrder(tx, OWNER, { orderId: seeded.orderId, note: 'Handed to the courier' }));
@@ -256,9 +260,13 @@ describe('order fulfilment transitions (Phase 20)', { skip: toolingAvailable ? f
     assert.equal(delivered.cod_state, 'cod_approved');
     assert.equal(await eventCount(fixture, seeded.orderId, 'cod_collected'), 0);
 
-    await withTransaction((tx) => recordCashCollected(tx, OWNER, { orderId: seeded.orderId, note: 'Cash in hand' }));
+    await withTransaction((tx) => markPaymentReceived(tx, OWNER, { orderId: seeded.orderId, note: 'Cash in hand' }));
     const collected = await state(fixture, seeded.orderId);
     assert.equal(collected.cod_state, 'cod_collected');
+    // The owner's confirmation is also the completion: the business workflow has one money step.
+    assert.equal(collected.status, 'completed');
+    assert.notEqual(collected.completed_at, null);
+    assert.equal(await eventCount(fixture, seeded.orderId, 'order_completed'), 1);
     assert.equal(await eventCount(fixture, seeded.orderId, 'cod_collected'), 1);
     assert.equal(await auditCount(fixture, seeded.orderId, 'cod.collected'), 1);
 
@@ -275,13 +283,15 @@ describe('order fulfilment transitions (Phase 20)', { skip: toolingAvailable ? f
   it('refuses a duplicate collection and never reconciles on its own', async () => {
     const seeded = await seedCod(fixture);
     await approve(fixture, seeded.orderId);
-    await withTransaction((tx) => recordCashCollected(tx, OWNER, { orderId: seeded.orderId }));
+    await withTransaction((tx) => dispatchOrder(tx, OWNER, { orderId: seeded.orderId }));
+    await withTransaction((tx) => markPaymentReceived(tx, OWNER, { orderId: seeded.orderId }));
 
     await assert.rejects(
-      withTransaction((tx) => recordCashCollected(tx, OWNER, { orderId: seeded.orderId })),
+      withTransaction((tx) => markPaymentReceived(tx, OWNER, { orderId: seeded.orderId })),
       ConflictError,
     );
     assert.equal(await eventCount(fixture, seeded.orderId, 'cod_collected'), 1);
+    assert.equal(await eventCount(fixture, seeded.orderId, 'order_completed'), 1);
 
     // Collection is not reconciliation, and nothing in this release writes cod_reconciled.
     const after = await state(fixture, seeded.orderId);
@@ -324,9 +334,9 @@ describe('order fulfilment transitions (Phase 20)', { skip: toolingAvailable ? f
     assert.equal(failed.shipping_minor, 15000);
     assert.equal(await movementCount(fixture), movementsBefore);
 
-    // Cash cannot be recorded after the delivery failed.
+    // Payment cannot be recorded after the delivery failed.
     await assert.rejects(
-      withTransaction((tx) => recordCashCollected(tx, OWNER, { orderId: seeded.orderId })),
+      withTransaction((tx) => markPaymentReceived(tx, OWNER, { orderId: seeded.orderId })),
       ConflictError,
     );
     assert.equal((await state(fixture, seeded.orderId)).cod_state, 'cod_failed');
@@ -432,17 +442,121 @@ describe('order fulfilment transitions (Phase 20)', { skip: toolingAvailable ? f
 
     await withTransaction((tx) => dispatchOrder(tx, OWNER, { orderId: seeded.orderId }));
     await withTransaction((tx) => recordDelivered(tx, OWNER, { orderId: seeded.orderId }));
+    // Delivered is not completed: the parcel arriving is not money, and it is not a return either.
     await assert.rejects(
       withTransaction((tx) => completeOrder(tx, OWNER, { orderId: seeded.orderId })),
       ConflictError,
     );
 
-    await withTransaction((tx) => recordCashCollected(tx, OWNER, { orderId: seeded.orderId }));
-    await withTransaction((tx) => completeOrder(tx, OWNER, { orderId: seeded.orderId }));
+    // The ordinary path now completes through the owner's payment confirmation.
+    await withTransaction((tx) => markPaymentReceived(tx, OWNER, { orderId: seeded.orderId }));
     const completed = await state(fixture, seeded.orderId);
     assert.equal(completed.status, 'completed');
     assert.notEqual(completed.completed_at, null);
     assert.equal(await eventCount(fixture, seeded.orderId, 'order_completed'), 1);
+  });
+
+  it('completes a returned order through the outcome path, counting no revenue', async () => {
+    const revenueBefore = await withTransaction((tx) => revenueSummary(tx));
+    const { seeded } = await failedDelivery(fixture);
+    await withTransaction((tx) => recordParcelReceived(tx, OWNER, { orderId: seeded.orderId }));
+    await withTransaction((tx) => completeOrder(tx, OWNER, { orderId: seeded.orderId }));
+    const done = await state(fixture, seeded.orderId);
+    assert.equal(done.status, 'completed');
+    assert.equal(done.cod_state, 'cod_failed');
+    // A completed order whose parcel came back collected nothing, so its total is not revenue.
+    // Measured against the figure before this test ran, because the suite shares one database.
+    const summary = await withTransaction((tx) => revenueSummary(tx));
+    assert.equal(summary.revenueMinor, revenueBefore.revenueMinor);
+    assert.equal(summary.orderCount, revenueBefore.orderCount);
+  });
+
+  it('records payment received as one act: dispatch and delivery alone never complete it', async () => {
+    const seeded = await seedCod(fixture);
+    await approve(fixture, seeded.orderId);
+
+    // Payment cannot be marked before the parcel is out: there is nothing to receive yet.
+    await assert.rejects(
+      withTransaction((tx) => markPaymentReceived(tx, OWNER, { orderId: seeded.orderId })),
+      ConflictError,
+    );
+    assert.equal((await state(fixture, seeded.orderId)).cod_state, 'cod_approved');
+
+    await withTransaction((tx) => dispatchOrder(tx, OWNER, { orderId: seeded.orderId }));
+    const shipped = await state(fixture, seeded.orderId);
+    assert.equal(shipped.status, 'shipped');
+    assert.equal(shipped.cod_state, 'cod_approved');
+    assert.equal(await eventCount(fixture, seeded.orderId, 'cod_collected'), 0);
+    assert.equal(await eventCount(fixture, seeded.orderId, 'order_completed'), 0);
+
+    await withTransaction((tx) => recordDelivered(tx, OWNER, { orderId: seeded.orderId }));
+    const delivered = await state(fixture, seeded.orderId);
+    assert.equal(delivered.status, 'delivered');
+    assert.equal(delivered.cod_state, 'cod_approved');
+    assert.equal(await eventCount(fixture, seeded.orderId, 'cod_collected'), 0);
+    assert.equal(await eventCount(fixture, seeded.orderId, 'order_completed'), 0);
+
+    // Cash arrives while the parcel is still with the courier - the usual case - and the owner's
+    // confirmation both records the money and completes the order.
+    const other = await seedCod(fixture);
+    await approve(fixture, other.orderId);
+    await withTransaction((tx) => dispatchOrder(tx, OWNER, { orderId: other.orderId }));
+    await withTransaction((tx) => markPaymentReceived(tx, OWNER, { orderId: other.orderId }));
+    const paid = await state(fixture, other.orderId);
+    assert.equal(paid.status, 'completed');
+    assert.equal(paid.cod_state, 'cod_collected');
+    assert.notEqual(paid.completed_at, null);
+  });
+
+  it('counts each order\'s revenue exactly once, even when payment is marked twice or concurrently', async () => {
+    const seeded = await seedCod(fixture, { quantity: 2, shippingMinor: 12000 });
+    await approve(fixture, seeded.orderId);
+    await withTransaction((tx) => dispatchOrder(tx, OWNER, { orderId: seeded.orderId }));
+
+    const before = await withTransaction((tx) => revenueSummary(tx));
+
+    // Two concurrent confirmations: exactly one records the receipt.
+    const results = await Promise.allSettled([
+      withTransaction((tx) => markPaymentReceived(tx, OWNER, { orderId: seeded.orderId })),
+      withTransaction((tx) => markPaymentReceived(tx, OWNER, { orderId: seeded.orderId })),
+    ]);
+    assert.equal(results.filter((entry) => entry.status === 'fulfilled').length, 1);
+    assert.ok((results.find((entry) => entry.status === 'rejected') as PromiseRejectedResult).reason instanceof ConflictError);
+
+    // A third, later attempt is refused too.
+    await assert.rejects(
+      withTransaction((tx) => markPaymentReceived(tx, OWNER, { orderId: seeded.orderId })),
+      ConflictError,
+    );
+
+    const after = await withTransaction((tx) => revenueSummary(tx));
+    const order_ = await state(fixture, seeded.orderId);
+    // Exactly one order was added, and it is this one - counted from its own recorded total.
+    assert.equal(after.orderCount, before.orderCount + 1);
+    assert.equal(after.revenueMinor, before.revenueMinor + order_.total_minor);
+    assert.equal(after.itemsSubtotalMinor + after.shippingMinor, after.revenueMinor);
+    assert.equal(await eventCount(fixture, seeded.orderId, 'cod_collected'), 1);
+    assert.equal(await eventCount(fixture, seeded.orderId, 'order_completed'), 1);
+
+    // The charged total is exactly what was placed - no failed-delivery fee, no adjustment.
+    assert.equal(order_.shipping_minor, 12000);
+    assert.equal(order_.total_minor, order_.items_subtotal_minor + 12000);
+    // The one counted order is this one, and it contributed its own total - not twice its total.
+    assert.equal(after.revenueMinor - before.revenueMinor, order_.total_minor);
+  });
+
+  it('never adds a failed-delivery charge to the customer total', async () => {
+    const { seeded } = await failedDelivery(fixture, { shippingMinor: 9000, quantity: 1 });
+    const revenueBefore = await withTransaction((tx) => revenueSummary(tx));
+    const failed = await state(fixture, seeded.orderId);
+    assert.equal(failed.status, 'shipped');
+    assert.equal(failed.cod_state, 'cod_failed');
+    // The order keeps exactly the amounts it was placed with; the owner bears the delivery cost.
+    assert.equal(failed.shipping_minor, 9000);
+    assert.equal(failed.total_minor, failed.items_subtotal_minor + failed.shipping_minor);
+    // A failed delivery adds nothing to revenue: no money was received.
+    const summary = await withTransaction((tx) => revenueSummary(tx));
+    assert.equal(summary.revenueMinor, revenueBefore.revenueMinor);
   });
 
   it('authorizes every transition in the service, not only in the route', async () => {
@@ -454,7 +568,7 @@ describe('order fulfilment transitions (Phase 20)', { skip: toolingAvailable ? f
       AuthorizationError,
     );
     await assert.rejects(
-      withTransaction((tx) => recordCashCollected(tx, NOBODY, { orderId: seeded.orderId })),
+      withTransaction((tx) => markPaymentReceived(tx, NOBODY, { orderId: seeded.orderId })),
       AuthorizationError,
     );
     await assert.rejects(
