@@ -494,7 +494,8 @@ not a speculative abstraction built in advance.
   1. **Delivery-charge configuration** - blocked on owner values and one new migration (areas plus a
      site-wide default, snapshotted onto `order.shipping_minor`).
   2. **Order and customer management depth** - an owner-visible order detail surface beyond the COD
-     queue, cancellation and refund recording, and the owner-operated customer credential reset.
+     queue, cancellation recording, and the owner-operated customer credential reset. **Refund recording
+     is deferred by owner decision (2026-10-20) and is not in scope.**
   3. **Catalog completeness** - multiple images per product, variant editing only if the real catalog
      needs it, and a documented answer on image rights.
   4. **Storefront polish** - empty/loading/error states, mobile usability, and honest copy audits.
@@ -551,8 +552,9 @@ architecture.
 **Risks:** COD refusal at the door is now the only payment failure mode and is handled operationally;
 overselling is accepted (ADR 0013); the retained payment tables carry history that a future cleanup must
 not silently destroy. The admin surface is a coherent operations panel and the checkout prices delivery;
-what it still lacks is operational depth (dispatch, cash collection/reconciliation, refunds), which is
-the rest of Phase 19.
+what it still lacks is operational depth (dispatch, cash collection/reconciliation), which is the rest
+of Phase 19. **Refunds are out of scope for this launch by owner decision (2026-10-20)** and are not part
+of Phase 19.
 
 **No production launch date is promised.**
 
@@ -614,7 +616,8 @@ each re-checks its own permission in the service, not only in the route. `order.
 `cod.confirm_collection` and `return.inspect` gained the workflows they were catalogued for.
 
 **Deliberately absent:** reconciliation (`cod_reconciled` is written by nothing), failed-delivery charge
-liability, any automatic retry/cancel/refund/reship, and any stock effect from inspection. **No
+liability, refund recording (**deferred by owner decision, 2026-10-20**), any automatic
+retry/cancel/reship, and any stock effect from inspection. **No
 migration:** the schema already held every column, state and return table this needed.
 
 ## Phase 21 - COD workflow corrected, delivered 2026-10-20
@@ -670,31 +673,74 @@ additional costs are subtracted after it; the net figure reads **Unavailable** w
 substantiate the split. Nothing is incremented - every figure is derived on read.
 
 **Unchanged:** no courier integration, consignment reference, tracking, statement import or automated
-reconciliation; no refund, inventory or delivery-policy change; the customer's charged total cannot be
-altered by a cost, and `order_immutable_columns` would refuse it.
+reconciliation; no inventory or delivery-policy change; the customer's charged total cannot be altered by
+a cost, and `order_immutable_columns` would refuse it. **Refunds were proposed as the next phase here and
+are deferred by owner decision** - see the section below.
+
+**Superseded:** the recommendation that closed this phase named refund recording as the next best step.
+**The owner deferred refunds entirely (2026-10-20)**; the current recommendation is below.
+
+## Refunds - deferred by owner decision, out of scope for the current launch (2026-10-20)
+
+**The owner decided refunds are skipped completely for now.** This supersedes the Phase 22
+recommendation, which proposed refund recording as the next phase. Refunds are **not** the next phase,
+are **not** scheduled, and are **not** a launch requirement.
+
+What this changes:
+
+- **No refund feature is to be built** - no screen, service, route, permission, transition or accounting
+  logic. Any future refund work needs a **new explicit owner decision**, not a roadmap slot.
+- **The existing refund schema stays exactly as it is.** `refund` and its four states
+  (`requested`/`processing`/`completed`/`failed`) remain in the schema, unused, written by nothing.
+  Nothing is dropped, no migration runs, and no historical record is touched - the same retention rule
+  already applied to the reservation, claim and `operational_exception` tables.
+- **The standing prohibitions are unchanged.** `order.status`, `cod_state`, the refund state and the
+  reservation state stay four separate concepts, and a refund is never reported completed because it was
+  requested or approved (AGENTS.md). Those rules bind any future work; they are not a plan to do it now.
+- **What the owner does instead, in practice:** a refund is settled **outside the platform**, as a manual
+  money movement. The platform therefore **cannot** state that a refund was made. It must not imply one:
+  no screen, notice or dashboard figure may claim a refund occurred, and the refund figure never appears
+  in a revenue total because nothing writes it.
+
+**Recorded in:** this section, `docs/project-status.md` (decision register row and the deferred list),
+and `AGENTS.md`. **No ADR was written**, because this is a scope decision that adds no architecture.
 
 ## Current single best next step
 
-**A consignment reference the owner types in, or nothing at all - the next genuine gap is elsewhere: the
-order screens still have no cancellation/refund recording.** Refunds are the one money fact the platform
-can now *describe* but cannot *record*: `refund` exists in the schema with its four states and its
-evidence requirements, and no screen, service or route writes it.
+**The owner-operated customer credential reset** - the one launch gap that blocks a customer permanently.
+Customer authentication is first-party with **no self-service password recovery** (D17, ADR 0012): the
+interface states the gap, and ADR 0012 names the owner-operated reset with one-time credentials, audit
+logging and session revocation as the documented alternative. **It does not exist.** Every other launch
+gap either has a workaround already in place or is waiting on an owner input; this one has neither. A
+customer who forgets a password today is locked out of an account that holds their order history, and the
+owner has no way to restore it - the same dead end ADR 0012 was written to prevent.
 
-**Why this and not courier work:** courier booking, tracking and communication are explicitly outside the
-platform, and phase 22 closed the money story with the costs that made it accurate. A refund is the only
-remaining path where real money leaves the shop and the application cannot record it.
+**Why this and not the alternatives.** It is the only remaining **launch blocker** (a real customer can be
+permanently excluded), it was **already authorized in scope** by ADR 0012 rather than invented now, and it
+reuses infrastructure that exists: the owner-issued recovery primitive the owner surface already has, the
+customer session store, the throttle, the audit writer and the permission catalogue. The other documented
+gaps are not equal candidates: refunds are deferred by this decision; the owner-facing customer-ban control
+is a convenience over a primitive that already exists and is enforced in the order transaction; delivery
+amounts, failed-delivery handling, retention and image rights are **owner inputs**, not engineering work,
+and no code can start until they are supplied; analytics, dispatch/consignment and cash reconciliation sit
+outside the confirmed workflow (ADR 0017) or depend on the same owner inputs.
 
-**Prerequisites (all owner inputs, not guesses):** when a refund is allowed (before dispatch, after a
-failed delivery, after an inspection rejects the goods); whether a refund may be partial; who confirms it
-was actually paid out; and whether the cost records survive a refunded order.
+**Prerequisites:** the **existing** `staff_recovery_token` flow is the model, and no new table is needed -
+the customer recovery token table already exists in the schema, unused. Owner approval of one product
+detail: **how the one-time credential reaches the customer**, given that no mail or SMS provider is
+authorized (ADR 0012) - the owner reading it to them by phone during the call they already make is the
+documented path, and it must be stated in the interface rather than implied.
 
-**Acceptance:** the owner can record a refund against a completed or cancelled order with its amount,
-reason and evidence note, in a state separate from the order status and from payment receipt; only an
-owner-level principal may advance it to `completed`, and only with a confirmed real-world action;
-`requested`/approved never read as completed; the audit trail records every transition; the dashboard
-continues to count the order's revenue exactly as recorded and states plainly that a refund has been
-made.
+**Acceptance:** the owner can issue a one-time customer credential from the customer's own screen, with a
+required reason; issuing it **revokes every active customer session** for that account and refuses to
+work for a suspended account without stating why to the customer; the customer can sign in with the
+one-time credential exactly once and must set a new password before using the account further; an expired,
+used or superseded token is refused; every issue, use and refusal is audited with actor and timestamp,
+and a refusal is recorded durably outside the failing transaction; no password, token plaintext or
+credential reaches the logs, the audit trail, the RSC payload or a client bundle; the flow is available
+only to a principal holding the catalogued permission, is re-checked in the service, and is covered by
+database tests for the once-only and revocation rules and by a browser check that drives the real screen.
 
-**Not authorized by this recommendation:** deployment, provisioning, DNS, credentials, gateway or online
-payment work, courier integration, inventory reservation, or any new refund, delivery or cancellation
-policy.
+**Not authorized by this recommendation:** deployment, provisioning, DNS, credentials, mail/SMS/OAuth
+providers, refund work of any kind, courier integration, inventory reservation, or any new
+cancellation, retention or delivery policy. Do not begin without explicit owner authorization.
