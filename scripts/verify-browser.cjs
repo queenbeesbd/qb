@@ -1583,7 +1583,7 @@ async function main() {
     const recentShapes = [];
     for (const locale of ['en', 'bn']) {
       await evaluate(client, `localStorage.setItem('queenbees.locale.v1', '${locale}')`);
-      for (const w of [320, 390, 768, 1024, 1440, 1920]) {
+      for (const w of [320, 390, 768, 1024, 1280, 1440, 1920]) {
         await client.send('Emulation.setDeviceMetricsOverride', { width: w, height: 900, deviceScaleFactor: 1, mobile: w < 720 });
         await nav(client, '/');
         const shape = await evaluate(client, `(() => {
@@ -1593,12 +1593,22 @@ async function main() {
           const grid = section.querySelector('ul') || section.querySelector('div');
           const cards = [...section.querySelectorAll('article')];
           const r = section.getBoundingClientRect();
+          // The offer row is the reference: it is a plain ProductGrid with the full-width density, so
+          // it states what a standard card measures at this viewport.
+          const deals = document.getElementById('deals-title');
+          const standardGrid = deals ? deals.closest('section').querySelector('ul') : null;
+          const standardCard = standardGrid ? standardGrid.querySelector('article') : null;
+          const colsOf = (el) => (el ? getComputedStyle(el).gridTemplateColumns.split(' ').length : null);
           return {
             cards: cards.length,
             pageOverflow: document.documentElement.scrollWidth - window.innerWidth,
             sectionOverflow: Math.round(grid.scrollWidth - grid.clientWidth),
             width: Math.round(r.width),
             rows: new Set(cards.map((c) => Math.round(c.getBoundingClientRect().top))).size,
+            cols: colsOf(grid),
+            cardW: cards.length ? Math.round(cards[0].getBoundingClientRect().width) : null,
+            standardCols: colsOf(standardGrid),
+            standardCardW: standardCard ? Math.round(standardCard.getBoundingClientRect().width) : null,
           };
         })()`);
         recentShapes.push({ locale, w, ...shape });
@@ -1607,6 +1617,29 @@ async function main() {
     record('45. the section has no horizontal overflow at 320-1920px in both locales',
       recentShapes.every((r) => !r.missing && r.cards === 3 && r.pageOverflow <= 1 && r.sectionOverflow <= 1),
       recentShapes.filter((r) => r.missing || r.cards !== 3 || r.pageOverflow > 1 || r.sectionOverflow > 1));
+
+    /*
+     * 48/48b - the row is the standard grid, not a scale of its own.
+     *
+     * Phase 26 first gave this section a `trio` density so three cards filled the row; the result was
+     * cards wider than every other card on the page. It now uses `ProductGrid`'s full-width density, so
+     * the column count and the card width must match the offer row exactly at every viewport, and the
+     * row is allowed to leave the columns its three products do not fill.
+     */
+    const standardColumns = { 320: 2, 390: 2, 768: 3, 1024: 3, 1280: 4, 1440: 5, 1920: 5 };
+    record('48. "Recently added" uses the standard grid columns and card width at every viewport',
+      recentShapes.every((r) => !r.missing && r.cols === standardColumns[r.w] &&
+        r.standardCols === standardColumns[r.w] && r.cardW !== null && r.standardCardW !== null &&
+        Math.abs(r.cardW - r.standardCardW) <= 1),
+      recentShapes.map((r) => ({ locale: r.locale, w: r.w, cols: r.cols, standardCols: r.standardCols,
+        cardW: r.cardW, standardCardW: r.standardCardW })));
+
+    const wideRows = recentShapes.filter((r) => r.w === 1440);
+    record('48b. wide desktop declares five columns and leaves the two it cannot fill empty',
+      wideRows.length === 2 && wideRows.every((r) => r.cols === 5 && r.cards === 3 && r.rows === 1 &&
+        r.cardW === r.standardCardW),
+      wideRows.map((r) => ({ locale: r.locale, cols: r.cols, cards: r.cards, rows: r.rows,
+        cardW: r.cardW, standardCardW: r.standardCardW })));
 
     // 46 - recency did not disturb the catalog listing or the cart
     await evaluate(client, `localStorage.setItem('queenbees.locale.v1', 'en')`);

@@ -209,6 +209,13 @@ export function HomeView({
            * The section is omitted entirely when the source cannot date its products, and states a
            * shorter gap when only one or two can be dated - it never pads the row to three with a
            * repeated card or an invented entry.
+           *
+           * The row uses the standard full-width grid (Phase 26 revision), not a density of its own:
+           * its cards are the same width as the shelf's and the offer row's at every viewport. The
+           * selection is three products because D6 publishes exactly three, so on wide desktop the
+           * row fills three of five columns and leaves the rest empty. Stretching three cards across
+           * the full width to fill the row is what made them oversized; the count is a fact about
+           * the catalog, not a layout to pad.
            */}
           {recentlyAdded.length > 0 && (
             <section className={styles.section} aria-labelledby="recently-added-title">
@@ -225,7 +232,7 @@ export function HomeView({
                   {t('home.viewAll')}
                 </Link>
               </header>
-              <ProductGrid density="trio">
+              <ProductGrid>
                 {recentlyAdded.map((product) => (
                   <ProductCard key={product.id} product={product} />
                 ))}

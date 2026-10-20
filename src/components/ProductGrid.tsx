@@ -9,18 +9,17 @@ import styles from './ProductGrid.module.css';
  * which is narrower than the phone grid. Default (`full`) is for homepage, category and
  * related-product rows that have the whole container.
  *
- * `density="trio"` is for a row that publishes a **fixed count of three** (the homepage
- * "Recently added" selection). A `full` grid would place three cards in a four- or five-column
- * track and leave the remaining columns empty, so the row reads as an unfinished carousel and
- * every card stretches wider than the cards above it. Three explicit columns keep the row full
- * at its own width and the cards the same size as their neighbours.
+ * A section that publishes fewer products than the grid has columns leaves those columns
+ * empty. That is deliberate (`full` density): stretching the cards to fill the row is what
+ * made the "Recently added" cards wider than every other card on the homepage. A short row is
+ * honest about how much data it has; an inflated card is not.
  */
 export function ProductGrid({
   children,
   density = 'full',
 }: {
   children: React.ReactNode;
-  density?: 'full' | 'sidebar' | 'trio';
+  density?: 'full' | 'sidebar';
 }) {
   return (
     <ul className={styles.grid} data-density={density}>

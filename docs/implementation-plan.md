@@ -809,6 +809,21 @@ products.**
 construction. That is the approved behaviour - both surfaces make the same factual claim - and the hero
 adds no card, title, price or text, so it does not read as a second copy of the row.
 
+**Revision 2 - "Recently added" uses the standard grid.** The section had been given a `trio` density so
+its three cards filled their own row; the effect was three cards wider than every other card on the page,
+which is the same defect the shelf had. The density is **removed** (`ProductGrid` now offers `full` and
+`sidebar` only) and the row uses the standard full-width grid, so its column count and card width match the
+offer row at every viewport: 2 / 3 / 3 / 4 / 5 columns at 320 / 768 / 1024 / 1280 / 1440px, with cards
+136 / 233 / 309 / 282 / 253px measured against the same 136 / 233 / 309 / 282 / 253px standard cards.
+
+**The selection stays three products, and that is a deliberate limit, not an oversight.** `RECENT_LIMIT` and
+the section's body copy ("the three products most recently added") come from D6, not from the hero; the hero's
+three images are a separate feature with its own composition. At 1440px the row therefore fills three of five
+columns and leaves two empty. Stretching the cards to fill the row is what caused the defect being fixed, and
+padding the row with invented or repeated cards is forbidden. **Showing more than three would change the
+published requirement (D6) and the section's copy - an owner decision, one constant plus two dictionary
+strings, not a layout tweak.**
+
 ## Current single best next step
 
 **The actual BDT delivery amounts, supplied by the owner (D-item 5).** This is not an implementation task -
