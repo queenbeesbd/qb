@@ -100,6 +100,29 @@ describe('recently added ordering (database)', { skip: toolingAvailable ? false 
     assert.deepEqual([...newest].sort(), [...expected].sort());
   });
 
+  it('publishes those three in newest-first order, which is the reverse of the seed', async () => {
+    const rows = await withTransaction((tx) => listPublishedProducts(tx));
+    const expected = fixtureProducts
+      .slice(-3)
+      .reverse()
+      .map((item) => item.slug);
+    assert.deepEqual(rows.slice(0, 3).map((row) => row.slug), expected);
+  });
+
+  it('promotes a row whose creation instant becomes the newest of all', async () => {
+    // The behaviour "a newly added product becomes the lead image" starts here: the ordering is what
+    // decides it, and the storefront's hero and "Recently added" section both consume this list.
+    const before = await withTransaction((tx) => listPublishedProducts(tx));
+    const target = before[before.length - 1]!.slug;
+    const newest = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    await withTransaction((tx) =>
+      tx.execute(sql`update ${product} set created_at = ${newest.toISOString()} where slug = ${target}`),
+    );
+
+    const after = await withTransaction((tx) => listPublishedProducts(tx));
+    assert.equal(after[0]!.slug, target, 'the newly-created row now leads the catalog');
+  });
+
   it('resolves equal creation instants deterministically by descending id', async () => {
     // Construct the tie the seed deliberately avoids. Two published products are pinned to one
     // instant; the ordering must then be decided by id, and must be the same on a repeated read.

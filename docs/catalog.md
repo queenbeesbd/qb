@@ -130,7 +130,9 @@ Consequence: that audit settled nothing about QueenBee's own catalog. The storef
 - **No capture dates in the captured fixture.** The fixture carries no date-added field, so a
   fixture-backed catalog cannot order products by recency and the homepage omits its "Recently added"
   section rather than inventing an arrival order. The database catalog does have one:
-  `product.created_at`, which the homepage's "Recently added" section reads (D6, Phase 26).
+  `product.created_at`, which the homepage's "Recently added" section reads (D6, Phase 26). The
+  **three hero photographs** read the same column and the same ordering (owner decision, Phase 26
+  revision), so the hero and that section always name the same three products, in the same order.
 - No variant grouping, SKU mapping or stock counts.
 - Bangla names need native review.
 - Availability is a dated snapshot, never live inventory.

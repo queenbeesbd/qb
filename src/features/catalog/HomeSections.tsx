@@ -7,34 +7,27 @@ import type { CatalogCategory, CatalogItem } from '@/lib/types';
 import { CategoryIcon, InfoIcon } from '@/components/icons';
 import { ProductCard } from '@/components/ProductCard';
 import { ProductGrid } from '@/components/ProductGrid';
-import { RECENT_LIMIT, selectRecentlyAdded } from './recent';
+import { RECENT_LIMIT, selectHeroProducts, selectRecentlyAdded } from './recent';
 import { ProductPhoto } from '@/components/ProductPhoto';
 import { FeaturedShelf } from './FeaturedShelf';
 import styles from '@/app/home.module.css';
 
-/**
- * Products shown in the hero composition. These are real catalog records whose
- * photography is verified and whose reuse status is recorded, so the hero is
- * never padded with unrelated or decorative imagery. A slug that is absent from
- * the catalog simply shortens the collage.
+/*
+ * The hero photographs are the catalog's three newest products (owner decision, Phase 26 revision),
+ * ordered newest first and taken from the same ordering rule as "Recently added". They used to be a
+ * hand-picked slug list, which was curation wearing the look of a product edit; recency is now a real
+ * stored fact, so the composition follows the catalog instead of a constant.
  */
-const HERO_SLUGS = [
-  'lilac-5-niacinamide-serum-30-ml',
-  'mamaearth-beetroot-hydraful-face-wash-100ml',
-  'earth-beauty-hydrasilk-conditioner-with-argan-oil-keratin-350-ml',
-] as const;
 
 /**
  * Homepage composition.
  *
  * Every product, category and curation id arrives as a server-resolved prop from
- * one catalog snapshot; this view never selects products itself. Sections are
- * limited to those the verified data can actually support. There is deliberately
- * no "recently added" list: the storefront publishes no reliable date-added
- * field, so ordering products by arrival would be invented (D6 in
- * docs/requirements.md records that requirement as replaced, not shown). Each
- * selection below is presented as what it is - a curated shelf or a row derived
- * from published comparison prices - never as a recency claim.
+ * one catalog snapshot; this view never reads the database itself. Sections are
+ * limited to those the verified data can actually support, and each selection is
+ * presented as what it is - the owner's curated shelf, a row derived from
+ * published comparison prices, or a recency selection ordered by the stored
+ * creation timestamp (D6).
  *
  * The selections are id lists supplied by the server (from the catalog's own
  * curation records); an id that no longer resolves shortens the section instead
@@ -100,9 +93,7 @@ export function HomeView({
     )
     .slice(0, 4);
 
-  const heroProducts = HERO_SLUGS.map((slug) =>
-    products.find((product) => product.slug === slug),
-  ).filter((product): product is CatalogItem => Boolean(product));
+  const heroProducts = selectHeroProducts(products);
 
   const isEmpty = products.length === 0;
 

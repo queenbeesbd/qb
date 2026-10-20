@@ -776,6 +776,39 @@ browser + HTTP flow, `verify:admin`, `typecheck`, `lint`, `check:i18n` (849 keys
 timestamp orders the section; it is not published as a date), no admin control for recency, and no change to
 curated selections.
 
+### Phase 26 revision - hero images follow recency, featured shelf follows the grid (not yet committed)
+
+Owner decision: the **three product photographs beside the hero headline are the three most recently
+added products**, newest first. The decision extends D6 to the hero **only**; the "Recently added"
+section keeps its own selection, count and layout.
+
+| Piece | Where |
+| --- | --- |
+| Shared ordering | `selectNewestProducts` in `src/features/catalog/recent.ts` - one rule behind both surfaces |
+| Hero selection | `selectHeroProducts(products)` - newest first, skips a product with no photograph |
+| Hero wiring | `HomeSections.tsx`; the hand-picked `HERO_SLUGS` list is gone |
+| Shelf scale | `FeaturedShelf.module.css` - track width and gap derived at `ProductGrid`'s own breakpoints |
+
+**No migration and no schema change.** The timestamp source is the same `product.created_at` column the
+section already reads (`NOT NULL`, `defaultNow()`, indexed by `product_category_published_idx`), ordered
+`created_at desc, id desc`.
+
+**Why the hero changed.** A slug constant is curation presented as a product edit: it silently stopped
+being "the newest" the moment the catalog moved. The hero now inherits recency from the data, and the
+collage keeps its composition, positioning, links and responsive behaviour - only the selection changed.
+
+**Why the shelf changed.** The Featured shelf derived its own column widths at its own breakpoints
+(2 / 3 / 4, with the wider gap from 1024px), so at 1440px it showed four cards of ~442px beside a
+standard grid that fits five of ~253px. It now uses the full grid's own breakpoints - 2 / 3 / 4 / 5 at
+720 / 1280 / 1440px with the gap widening at 1280px - so a featured card and a card in the offer row
+below are the same width at every viewport. Six featured products still overflow at 1440px, so the
+controls keep their job. **Five columns is a wide-desktop layout rule, not a promise to publish five
+products.**
+
+**Fairness note:** the hero and the "Recently added" section now show the same three products by
+construction. That is the approved behaviour - both surfaces make the same factual claim - and the hero
+adds no card, title, price or text, so it does not read as a second copy of the row.
+
 ## Current single best next step
 
 **The actual BDT delivery amounts, supplied by the owner (D-item 5).** This is not an implementation task -

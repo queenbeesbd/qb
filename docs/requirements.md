@@ -51,12 +51,12 @@ Demonstration success: find a product, inspect correct information, choose a qua
 
 | ID | Requirement | Status | Evidence |
 | --- | --- | --- | --- |
-| D1 | Homepage and navigation | Done | Hero with product composition, categories, featured shelf, offers |
+| D1 | Homepage and navigation | Done | Hero copy with the **three newest products' photographs** (see D6), categories, featured shelf, offers |
 | D2 | Categories and listings | Done | `/products` plus 5 `/categories/[slug]`; counts; reload and back/forward |
 | D3 | Search, filter, sort | Done | URL-driven search across name/brand/pack/tags, category and brand filters, 4 sorts, clear-all |
 | D4 | Product detail | Done | 3:4 photo, price hierarchy, brand, pack, availability note, quantity, add to cart, explicit missing-description state |
 | D5 | Variants and availability | Partial | Availability is a dated snapshot with a visible caveat. No variant grouping - the storefront publishes no confirmed groups |
-| D6 | Recently added | **Implemented (Phase 26, owner-approved)** | Homepage "Recently added" shows **exactly three** products ordered by `product.created_at` desc, `product.id` desc as the deterministic tie-breaker. This **supersedes** the earlier "replaced, not shown" direction: the owner approved recency on 2026-10-20, and the timestamp already existed on the product table, so no schema change was needed. A product with no stated date participates in nothing; the section renders fewer than three or is omitted rather than padded |
+| D6 | Recently added | **Implemented (Phase 26, owner-approved; extended to the hero)** | Homepage "Recently added" shows **exactly three** products ordered by `product.created_at` desc, `product.id` desc as the deterministic tie-breaker. This **supersedes** the earlier "replaced, not shown" direction: the owner approved recency on 2026-10-20, and the timestamp already existed on the product table, so no schema change was needed. A product with no stated date participates in nothing; the section renders fewer than three or is omitted rather than padded. **The owner extended the same decision to the three hero images only** (Phase 26 revision): they show those same newest products in the same order, from the same ordering rule rather than a curated slug list, and a product with no photograph is skipped rather than rendered as an empty frame. The "Recently added" section's selection, count and layout are unchanged by this extension |
 | D7 | Hot deals | Done | Only records with a published comparison price above current; savings and floored percentage derived |
 | D8 | Cart and quantity | Done | Add/update/remove, duplicate lines merged, empty state, derived integer totals |
 | D9 | Responsive and accessible | Done (headless-verified) | No overflow in Phase 5 suite across 320-1920px; drawer focus trap and Escape, skip link, reduced motion and 40px targets verified in headless Chromium; real devices/AT remain unverified |
@@ -64,7 +64,7 @@ Demonstration success: find a product, inspect correct information, choose a qua
 | D11 | Non-happy paths | Done | Empty search, empty category, empty cart, unknown product (404), corrupt storage, unsupported locale, error boundary |
 | D12 | Honest demo presentation | Done | Locked announcement strip on every route, identified simulated checkout, inert checkout route, `robots: noindex, nofollow`. Redundant explanatory demo lines were removed from the shopping UI in Phase 3 |
 | D13 | Product imagery | Demo implementation done; production use blocked | 22 products have locally served WebP/JPEG at 3:4 with provenance; rights pending written confirmation |
-| D14 | Featured shelf navigation | Done | **Exactly one row at every viewport**, 4 visible on desktop, 2 on mobile, group advance, controls bounded and disabled at ends, keyboard reachable, no dependency |
+| D14 | Featured shelf navigation | Done | **Exactly one row at every viewport**, visible count and card width taken from the standard grid (2 / 3 / 4 / 5 at 720 / 1280 / 1440px), group advance, controls bounded and disabled at ends, keyboard reachable, no dependency |
 | D16 | Featured selection configuration | Done | `src/data/curation.ts` id list, max 6, validated against the catalog, graceful when empty |
 | D17 | Curated collection | Done | "More to explore", 8 id-referenced products, disjoint from the featured and offer rows |
 | D18 | Mobile category discovery | Done | Homepage category section hidden below 720px; the header drawer lists all five categories on that same breakpoint |

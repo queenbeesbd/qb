@@ -661,10 +661,12 @@ async function main() {
     await evaluate(client, `window.__qb.shelfNext()`);
     await sleep(900);
     const shelfAdvanced = await evaluate(client, `window.__qb.shelf()`);
+    // The suite runs at 1440px, where the shelf shows five of its six cards, so one page of scrolling
+    // lands on the remaining five and cannot go further.
     record('27b. advancing reveals the remaining products and flips both control states',
       !!shelfAdvanced && shelfAdvanced.scrollLeft > 0 && shelfAdvanced.rows === 1 &&
       shelfAdvanced.prevDisabled === false && shelfAdvanced.nextDisabled === true &&
-      shelfAdvanced.fullyVisible === 4,
+      shelfAdvanced.fullyVisible === 5,
       shelfAdvanced);
 
     // 27c - the shelf owns its header: controls in the former "View all" slot
@@ -721,6 +723,35 @@ async function main() {
     })()`);
     record('28. hero composes real product photos alongside the copy and CTAs', hero.heroPhotos === 3 && hero.photosLoaded === 3 && hero.hasHeading && hero.hasPrimaryCta, hero);
 
+    // 28b - the hero photographs are the catalog's three newest products (owner decision, Phase 26
+    // revision). The expectation is the seeded newest three in newest-first order, agreed with the
+    // seed's own instants rather than with the page's layout order.
+    const heroNewest = await evaluate(client, `(() => {
+      const heroSection = document.querySelector('main section');
+      const links = [...heroSection.querySelectorAll('a[href^="/products/"]')];
+      const photos = [...heroSection.querySelectorAll('picture img')];
+      return {
+        hrefs: links.map((a) => a.getAttribute('href')),
+        labels: links.map((a) => a.getAttribute('aria-label')),
+        alts: photos.map((i) => i.getAttribute('alt')),
+        srcs: photos.map((i) => i.getAttribute('src')),
+        loaded: photos.filter((i) => i.complete && i.naturalWidth > 0).length,
+      };
+    })()`);
+    const expectedHero = SEEDED_RECENT_SLUGS.map((slug) => '/products/' + slug);
+    record('28b. the hero photographs are the three newest products, newest first',
+      JSON.stringify(heroNewest.hrefs) === JSON.stringify(expectedHero) &&
+      heroNewest.alts.length === 3 && heroNewest.loaded === 3 &&
+      heroNewest.srcs.every((src) => typeof src === 'string' && src.indexOf('/catalog/') !== -1) &&
+      new Set(heroNewest.srcs).size === 3,
+      { shown: heroNewest.hrefs, expected: expectedHero, srcs: heroNewest.srcs });
+
+    record('28c. each hero frame links to the product it depicts and carries its name',
+      heroNewest.labels.length === 3 && heroNewest.alts.length === 3 &&
+      heroNewest.labels.every((label, index) => typeof label === 'string' && label.length > 0 &&
+        label === heroNewest.alts[index]),
+      { labels: heroNewest.labels, alts: heroNewest.alts });
+
     // 29 - Bangla headings carry no negative tracking and use a shared weight
     await evaluate(client, `localStorage.setItem('queenbees.locale.v1', 'bn')`);
     await nav(client, '/');
@@ -756,19 +787,46 @@ async function main() {
       await client.send('Emulation.setDeviceMetricsOverride', { width: vp.w, height: vp.h, deviceScaleFactor: 1, mobile: vp.mobile });
       await nav(client, '/');
       const s = await evaluate(client, `window.__qb.shelf()`);
-      shelfShapes.push({ w: vp.w, rows: s && s.rows, cards: s && s.cards, visible: s && s.fullyVisible, pageOverflow: s && s.pageOverflow });
+      // The shelf must not invent its own scale: its column width and column count are compared against
+      // the standard full-width grid in the offer row, which uses ProductGrid. Both sit in the same
+      // container, so the only reason for a difference is a different rule.
+      const density = await evaluate(client, `(() => {
+        const s = document.querySelector('div[class$="_scroller"]');
+        const slot = s && s.firstElementChild ? s.firstElementChild.getBoundingClientRect().width : null;
+        const heading = document.getElementById('deals-title');
+        const grid = heading ? heading.closest('section').querySelector('ul') : null;
+        const card = grid ? grid.querySelector('article') : null;
+        return {
+          shelfCardW: slot ? Math.round(slot) : null,
+          gridCols: grid ? getComputedStyle(grid).gridTemplateColumns.split(' ').length : null,
+          gridCardW: card ? Math.round(card.getBoundingClientRect().width) : null,
+        };
+      })()`);
+      shelfShapes.push({ w: vp.w, rows: s && s.rows, cards: s && s.cards, visible: s && s.fullyVisible,
+        pageOverflow: s && s.pageOverflow, ...density });
     }
     record('31. featured shelf is exactly one row of at most six cards at every viewport',
       shelfShapes.every((r) => r.rows === 1 && r.cards === 6 && r.cards <= 6 && r.pageOverflow <= 1),
       shelfShapes);
 
-    record('31b. four featured cards are visible initially on desktop widths',
-      shelfShapes.filter((r) => r.w >= 1024).every((r) => r.visible === 4),
-      shelfShapes.filter((r) => r.w >= 1024));
+    // The standard full-width grid publishes 2 / 3 / 3 / 4 / 5 columns at these widths, and the shelf
+    // is required to show the same number rather than a scale of its own. Five columns is the
+    // wide-desktop rule (1440px and up); it does not ask for five products at every viewport.
+    const expectedVisible = { 320: 2, 375: 2, 768: 3, 1024: 3, 1280: 4, 1440: 5, 1920: 5 };
+    record('31b. featured cards follow the standard grid column counts at every viewport',
+      shelfShapes.every((r) => r.visible === expectedVisible[r.w] && r.gridCols === expectedVisible[r.w]),
+      shelfShapes.map((r) => ({ w: r.w, featuredVisible: r.visible, gridColumns: r.gridCols })));
 
     record('31c. mobile shows two featured cards without pushing the page sideways',
       shelfShapes.filter((r) => r.w <= 375).every((r) => r.visible === 2),
       shelfShapes.filter((r) => r.w <= 375));
+
+    // Measured card width, not the declared track: `grid-auto-columns` computes as the unresolved
+    // `calc(...)` expression, so the rendered width is the only honest comparison.
+    record('31d. a featured card is the same width as a standard grid card at every viewport',
+      shelfShapes.every((r) => r.shelfCardW !== null && r.gridCardW !== null &&
+        Math.abs(r.shelfCardW - r.gridCardW) <= 1),
+      shelfShapes.map((r) => ({ w: r.w, featuredCard: r.shelfCardW, standardCard: r.gridCardW })));
 
     // 32 - pricing hierarchy on cards
     await client.send('Emulation.clearDeviceMetricsOverride');
