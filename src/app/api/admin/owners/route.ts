@@ -11,7 +11,7 @@
 
 import { withTransaction } from '@/db/client';
 import { OWNERS_PATH } from '@/server/auth/constants';
-import { setIssuedTokenFlash } from '@/server/auth/flash';
+import { clearIssuedTokenFlash, setIssuedTokenFlash } from '@/server/auth/flash';
 import { guardMutation } from '@/server/auth/guard';
 import { PERMISSIONS } from '@/server/authz/permissions';
 import { AuthorizationError, ConflictError } from '@/server/authz/authorize';
@@ -51,6 +51,7 @@ export async function POST(request: Request): Promise<Response> {
       ),
     );
 
+    await clearIssuedTokenFlash();
     await setIssuedTokenFlash({
       token: created.recoveryToken,
       expiresAt: created.expiresAt.toISOString(),

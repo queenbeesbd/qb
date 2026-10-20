@@ -344,9 +344,16 @@ long-lived second password.
 **Authorization.** Created only by the recovery endpoint; consumed only by the reset endpoint.
 A successful use revokes every existing session on that account.
 
-**Not used at launch.** With **no self-service password recovery at launch (ADR 0012)**, this table has
-no active producer: the `password_reset` and `email_verify` purposes are unused. Operational resets are
-owned and operated by the store with one-time credentials, audit logging and session revocation.
+**Actively written since Phase 23** - but only for an **owner-operated reset**, never self-service
+(ADR 0012). `issueCustomerRecovery` writes one `password_reset` row per issuance with the **digest** of a
+256-bit one-time credential, a **30-minute** expiry, and the same request that revokes every live session;
+`redeemCustomerRecovery` consumes it with a guarded `UPDATE ... WHERE used_at IS NULL` and forces a new
+password in one transaction.
+
+**Never self-service.** No customer-triggerable producer exists, so no mail or SMS path is implied, and the
+`email_verify` purpose stays **unused** (there is no provider authorized to verify an address). The
+`requested_ip_hash` column stays NULL: an owner-initiated issuance has no customer source address to
+record.
 
 ### 4.5 `auth_throttle`
 
@@ -1960,7 +1967,12 @@ record what the tables can express, not what is built.
 | Browse catalog, categories, published products | yes | yes | yes | yes | yes |
 | Build and keep a cart | yes (local) | yes (local) | - | - | - |
 | Register, log in | yes | yes | - | - | - |
-| Recover account (self-service) | **no** - not implemented (ADR 0012, ADR 0014 decision 9) | **no** - no delivery channel authorized | - | - | - |
+| Recover account (self-service) | **no** - does not exist (ADR 0012) | **no** - no delivery channel authorized | - | - | - |
+| Issue a one-time recovery code (`customer.credential_reset`, privileged) | no | no | no | no | yes |
+
+**Phase 23:** a customer cannot initiate recovery at all; an **owner** issues the code, after verifying
+the customer by the manual process (the phone call they already make), and reads it out during that call.
+Costs belong to whoever holds the permission, and the customer can never be the actor in an issuance.
 | Place an order | **no** (D12) | yes | no | no | no |
 | Read own order, timeline, notifications | - | yes | - | - | - |
 | Read **any** order | no | **no** | yes | yes | yes |
@@ -2165,7 +2177,7 @@ checkout must not be silently reintroduced.
 | Session storage | `customer_session`, storing only the **SHA-256 of a 256-bit random token** (4.3) |
 | Session lifetime | Sliding idle limit plus an absolute ceiling; both server-side. Proposal: 30 days absolute, 7 days idle for customers |
 | Rotation | Session id rotated on login and on privilege change, which defeats fixation |
-| Recovery | **No self-service recovery at launch (ADR 0012).** The designed single-use, short-lived, hashed token (`account_recovery_token`, 4.4) is **not produced** at launch; an owner-operated reset issues a one-time credential with audit logging and revokes every existing session |
+| Recovery | **No self-service recovery (ADR 0012).** The **owner-operated reset exists since Phase 23** (ADR 0019): an owner-only, privileged-permission action issues a 256-bit one-time credential stored only as a digest, valid 30 minutes, single-use, superseding any live one; it revokes **every** session at issuance and again at redemption, and redemption forces a new password. Suspended and soft-deleted accounts are refused without disclosing why |
 | Rate limiting | `auth_throttle` (4.5) on login, registration, recovery and claim submission, keyed by hashed subject |
 | Enumeration resistance | Identical responses and comparable timing for known and unknown accounts; recovery always reports "if that account exists, a message was sent" |
 | Staff auth | The same mechanism in separate tables with **shorter** lifetimes (4.7), plus a permission model (4.8) |

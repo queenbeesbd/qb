@@ -777,6 +777,31 @@ export const dictionary = {
     'admin.customers.suspend': 'স্থগিত করুন',
     'admin.customers.reasonPlaceholder': 'কারণ (ন্যূনতম ১০ অক্ষর)',
     'admin.customers.suspendedNote': 'এই অ্যাকাউন্ট স্থগিত; সেশন বাতিল ও নতুন অর্ডার বন্ধ।',
+    'admin.customers.recovery.title': 'পাসওয়ার্ড পুনরুদ্ধার',
+    'admin.customers.recovery.body':
+      'ফোনে গ্রাহকের পরিচয় নিশ্চিত করার পর এক-বার ব্যবহারযোগ্য কোড তৈরি করুন এবং সেই কলেই গ্রাহককে পড়ে শোনান। গ্রাহক নিজের নতুন পাসওয়ার্ড ঠিক করবেন।',
+    'admin.customers.recovery.reasonLabel': 'কারণ',
+    'admin.customers.recovery.reasonPlaceholder': 'কীভাবে পরিচয় যাচাই করা হয়েছে',
+    'admin.customers.recovery.submit': 'কোড তৈরি করুন',
+    'admin.customers.recovery.consequence':
+      'কোড তৈরি করলে গ্রাহকের সব চালু সেশন বাতিল হবে এবং আগের কোডটি আর কাজ করবে না। কোড একবারই ব্যবহার করা যাবে, ৩০ মিনিটে মেয়াদ শেষ হবে।',
+    'admin.customers.recovery.reasonRequired': 'কমপক্ষে ১০ অক্ষরের কারণ লিখুন।',
+    'admin.customers.recovery.unavailable': 'এই অ্যাকাউন্টের জন্য কোড তৈরি করা যায়নি।',
+    'admin.customers.recovery.tokenTitle': 'এক-বার ব্যবহারযোগ্য কোড',
+    'admin.customers.recovery.tokenBody':
+      'এই কোডটি এখনই গ্রাহককে পড়ে শোনান। পাতা বদলালে কোডটি আর দেখা যাবে না।',
+    'admin.customers.recovery.tokenExpires': 'মেয়াদ শেষ',
+    'admin.customers.recovery.dismiss': 'কোড দেখানো শেষ',
+    'admin.customers.recovery.tokenGone':
+      'কোডটি তৈরি হয়েছে, কিন্তু আর দেখানো যাচ্ছে না। প্রয়োজন হলে নতুন একটি কোড তৈরি করুন।',
+    'account.recoverTitle': 'এক-বার ব্যবহারযোগ্য কোড দিয়ে ঢুকুন',
+    'account.recoverBody':
+      'স্টোরের মালিক ফোনে যাচাই করে আপনাকে একটি এক-বার ব্যবহারযোগ্য কোড দেবেন। সেই কোড ও নতুন পাসওয়ার্ড লিখুন। কোডটি একবারই কাজ করবে।',
+    'account.recoverCode': 'কোড',
+    'account.recoverSubmit': 'নতুন পাসওয়ার্ড সংরক্ষণ করুন',
+    'account.newPassword': 'নতুন পাসওয়ার্ড',
+    'account.errors.recoveryInvalid':
+      'কোডটি মেলেনি, অথবা মেয়াদ শেষ বা আগেই ব্যবহৃত হয়েছে। নতুন কোডের জন্য স্টোরের সাথে যোগাযোগ করুন।',
     'admin.customers.notice.suspended': 'অ্যাকাউন্ট স্থগিত হয়েছে; সব সক্রিয় সেশন বাতিল।',
     'admin.customers.notice.denied': 'এই কাজটির অনুমতি নেই।',
     'admin.customers.notice.conflict': 'অ্যাকাউন্টটি আগেই স্থগিত বা সক্রিয় নয়।',
@@ -1694,6 +1719,31 @@ export const dictionary = {
     'admin.customers.suspend': 'Suspend',
     'admin.customers.reasonPlaceholder': 'Reason (10+ characters)',
     'admin.customers.suspendedNote': 'This account is suspended; sessions revoked and new orders refused.',
+    'admin.customers.recovery.title': 'Password recovery',
+    'admin.customers.recovery.body':
+      'After verifying the customer on the phone, issue a one-time code and read it to them during that call. They set their own new password.',
+    'admin.customers.recovery.reasonLabel': 'Reason',
+    'admin.customers.recovery.reasonPlaceholder': 'How the identity was verified',
+    'admin.customers.recovery.submit': 'Issue a code',
+    'admin.customers.recovery.consequence':
+      'Issuing a code revokes every active session for this customer and makes any earlier code invalid. The code works once and expires after 30 minutes.',
+    'admin.customers.recovery.reasonRequired': 'Enter a reason of at least 10 characters.',
+    'admin.customers.recovery.unavailable': 'A code could not be issued for this account.',
+    'admin.customers.recovery.tokenTitle': 'One-time code',
+    'admin.customers.recovery.tokenBody':
+      'Read this code to the customer now. It is never shown again after you leave this page.',
+    'admin.customers.recovery.tokenExpires': 'Expires',
+    'admin.customers.recovery.dismiss': 'Done showing the code',
+    'admin.customers.recovery.tokenGone':
+      'The code was issued but can no longer be shown. Issue a new one if it is still needed.',
+    'account.recoverTitle': 'Sign in with a one-time code',
+    'account.recoverBody':
+      'The store owner verifies you by phone and gives you a one-time code. Enter that code with a new password. The code works once.',
+    'account.recoverCode': 'Code',
+    'account.recoverSubmit': 'Save the new password',
+    'account.newPassword': 'New password',
+    'account.errors.recoveryInvalid':
+      'The code did not match, or it expired or was already used. Contact the store for a new one.',
     'admin.customers.notice.suspended': 'Account suspended; every live session was revoked.',
     'admin.customers.notice.denied': 'Your account does not have permission for that action.',
     'admin.customers.notice.conflict': 'That account is already suspended, or not active.',

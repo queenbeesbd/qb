@@ -47,6 +47,38 @@ export const CUSTOMER_REGISTER_THROTTLE: ThrottlePolicy = {
 };
 
 /**
+ * Lifetime of an owner-issued customer recovery credential (Phase 23).
+ *
+ * **30 minutes, matching the owner surface's `RECOVERY_TOKEN_MS`.** The choice is deliberately the
+ * shorter of the two bounds the architecture already uses: it is far longer than the owner needs to read
+ * one credential to a customer on the phone - the hand-off is immediate, during a call that is already
+ * happening - and short enough that a credential read out and mislaid (a wrong number, a note on a desk)
+ * is worthless by the time anyone could abuse it. A mail-based reset would need hours; this flow never
+ * does, so it does not borrow that lifetime.
+ *
+ * It is not environment-tunable for the same reason the session lifetimes are not: a policy a deployment
+ * can quietly lengthen is a policy enforced nowhere.
+ */
+export const RECOVERY_TOKEN_MS = 30 * 60 * 1000;
+
+/**
+ * Redemption throttle: by source only.
+ *
+ * There is no account subject to key on, because a caller without a valid credential must not be able to
+ * point the counter at someone else's account. Ten attempts per 15 minutes is enough for a customer who
+ * mistypes a credential twice and nowhere near enough to search a 256-bit space.
+ */
+export const CUSTOMER_RECOVERY_REDEEM_THROTTLE: ThrottlePolicy = {
+  scope: 'recovery',
+  windowMs: 15 * 60 * 1000,
+  maxAttempts: 10,
+  blockMs: 15 * 60 * 1000,
+};
+
+/** Where a customer enters a one-time credential, and where they land afterwards. */
+export const CUSTOMER_RECOVERY_PATH = '/account/recover';
+
+/**
  * Paths a post-authentication redirect may resolve to.
  *
  * Only same-origin, relative customer paths are accepted - the checkout page and the account tree.

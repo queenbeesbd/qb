@@ -43,8 +43,8 @@ export default async function AdminOwnersPage({
   const owners = await withTransaction((tx) => listOwnerAccounts(tx));
   const canManage = hasPermission(principal, PERMISSIONS.staffManage);
 
-  // Read once, then gone: the raw token is displayed here and never again, because only its digest is
-  // stored and it is single-use.
+  // Read only: the route clears the cookie before this page renders again, so a reload shows nothing.
+  // Only the digest is stored and the token is single-use.
   const flash = await readIssuedTokenFlash();
   const issuedToken = flash === null ? null : { token: flash.token, expiresAt: flash.expiresAt };
 

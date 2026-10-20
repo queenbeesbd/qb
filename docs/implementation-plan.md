@@ -705,42 +705,61 @@ What this changes:
 **Recorded in:** this section, `docs/project-status.md` (decision register row and the deferred list),
 and `AGENTS.md`. **No ADR was written**, because this is a scope decision that adds no architecture.
 
+## Phase 23 - owner-operated customer credential reset, delivered 2026-10-20
+
+**The last launch blocker is closed.** Customer authentication has no self-service recovery and no
+authorized mail/SMS provider (D17, ADR 0012), so before this phase a customer who forgot a password was
+permanently locked out and the owner had no remedy. ADR 0012 named the alternative; this phase built it.
+
+| Piece | Where |
+| --- | --- |
+| Issue + redeem, digest-only, atomic | `src/server/customer-auth/recovery.ts` |
+| Owner route | `POST /api/admin/customers/recovery` |
+| Flash dismissal | `POST /api/admin/customers/recovery/dismiss` |
+| Customer redemption | `/account/recover` + `POST /api/account/recover` |
+| Permission | `customer.credential_reset` (**privileged**) |
+| Audit | `customer.credential_reset_issued`, `customer.recovery_refused`, `customer.credential_reset_redeemed` |
+| Expiry policy | `RECOVERY_TOKEN_MS` = **30 minutes** (ADR 0019 §4) |
+
+**Rules, each enforced twice where it matters:** a 256-bit credential stored only as a SHA-256 digest;
+single use, consumed by a guarded `UPDATE ... WHERE used_at IS NULL`; superseded by the partial unique
+index; **every live session revoked at issuance and at redemption**; redemption **forces a new password**;
+a **suspended or deleted account refused with one indistinguishable outcome**; source-throttled; every
+failure generic. **No migration** - `account_recovery_token` was already designed for this.
+
+**A real defect found and fixed:** the admin flash cookie was documented "read once, then gone" but only
+ever read, so **every reload re-displayed the one-time token**. A page render cannot clear a cookie in this
+version of Next.js (it threw a 500), so the clear is a route that overwrites the cookie empty **with the
+same `path`**. The Chromium check that reloads after dismissal is what caught it.
+
+**Not built:** no email, SMS, OAuth or external provider; no customer-triggered recovery request; no
+password-history or force-expiry policy; no refund work (deferred).
+
 ## Current single best next step
 
-**The owner-operated customer credential reset** - the one launch gap that blocks a customer permanently.
-Customer authentication is first-party with **no self-service password recovery** (D17, ADR 0012): the
-interface states the gap, and ADR 0012 names the owner-operated reset with one-time credentials, audit
-logging and session revocation as the documented alternative. **It does not exist.** Every other launch
-gap either has a workaround already in place or is waiting on an owner input; this one has neither. A
-customer who forgets a password today is locked out of an account that holds their order history, and the
-owner has no way to restore it - the same dead end ADR 0012 was written to prevent.
+**The actual BDT delivery amounts, supplied by the owner (D-item 5).** This is not an implementation task -
+it is the one owner input that makes checkout work at all, and the plan already names it as the reason
+checkout blocks: until the default charge for Other districts is saved at **Settings -> Delivery charges**,
+`checkout` correctly refuses every order. It is now the **only** documented blocker that prevents a real
+customer from completing a real purchase end to end. Every other remaining item is either deferred by owner
+decision (refunds), a convenience over an existing primitive (the owner-facing ban control), outside the
+confirmed workflow (courier consignment, dispatch coordination - ADR 0017), or blocked by the same class of
+missing input (failed-delivery handling, retention, image rights).
 
-**Why this and not the alternatives.** It is the only remaining **launch blocker** (a real customer can be
-permanently excluded), it was **already authorized in scope** by ADR 0012 rather than invented now, and it
-reuses infrastructure that exists: the owner-issued recovery primitive the owner surface already has, the
-customer session store, the throttle, the audit writer and the permission catalogue. The other documented
-gaps are not equal candidates: refunds are deferred by this decision; the owner-facing customer-ban control
-is a convenience over a primitive that already exists and is enforced in the order transaction; delivery
-amounts, failed-delivery handling, retention and image rights are **owner inputs**, not engineering work,
-and no code can start until they are supplied; analytics, dispatch/consignment and cash reconciliation sit
-outside the confirmed workflow (ADR 0017) or depend on the same owner inputs.
+**Prerequisites:** the owner supplies **three actual amounts in BDT** - one required default for Other
+districts, and optionally separate figures for Dhaka and Chattogram. No price may be guessed or
+conventionally defaulted; a guessed figure becomes a published commitment and a 100x money error is the
+documented risk. The screen, the server-side resolution and the immutable order snapshot already exist and
+are verified, so **no code is expected**; if the owner also decides failed-delivery costs are charged to
+someone, that is a separate decision and a separate change.
 
-**Prerequisites:** the **existing** `staff_recovery_token` flow is the model, and no new table is needed -
-the customer recovery token table already exists in the schema, unused. Owner approval of one product
-detail: **how the one-time credential reaches the customer**, given that no mail or SMS provider is
-authorized (ADR 0012) - the owner reading it to them by phone during the call they already make is the
-documented path, and it must be stated in the interface rather than implied.
+**Acceptance:** the owner saves the default through the real screen; a customer can then complete a
+checkout choosing **Other districts** and the order records the configured amount as
+`shipping_minor` with the total equal to items subtotal plus that charge; choosing **Dhaka** uses the
+override if one was saved and the default otherwise; an order already placed keeps the amount it was
+placed with after the configuration changes; and the dashboard's gross payment, standard fee and estimated
+net figures reconcile against the orders they are derived from.
 
-**Acceptance:** the owner can issue a one-time customer credential from the customer's own screen, with a
-required reason; issuing it **revokes every active customer session** for that account and refuses to
-work for a suspended account without stating why to the customer; the customer can sign in with the
-one-time credential exactly once and must set a new password before using the account further; an expired,
-used or superseded token is refused; every issue, use and refusal is audited with actor and timestamp,
-and a refusal is recorded durably outside the failing transaction; no password, token plaintext or
-credential reaches the logs, the audit trail, the RSC payload or a client bundle; the flow is available
-only to a principal holding the catalogued permission, is re-checked in the service, and is covered by
-database tests for the once-only and revocation rules and by a browser check that drives the real screen.
-
-**Not authorized by this recommendation:** deployment, provisioning, DNS, credentials, mail/SMS/OAuth
-providers, refund work of any kind, courier integration, inventory reservation, or any new
-cancellation, retention or delivery policy. Do not begin without explicit owner authorization.
+**Not authorized by this recommendation:** deploying, provisioning, DNS, credentials, remote database
+changes, refunds, courier integration, or inventing any delivery amount. The owner supplies the figures;
+nothing is filled in on their behalf.

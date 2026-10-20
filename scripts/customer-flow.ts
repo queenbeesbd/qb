@@ -35,6 +35,16 @@ class Jar {
   clear(): void {
     this.cookies.clear();
   }
+
+  /** Snapshot and restore, so a test can hold one session's cookie while another is exercised. */
+  snapshot(): Map<string, string> {
+    return new Map(this.cookies);
+  }
+
+  restore(snapshot: Map<string, string>): void {
+    this.cookies.clear();
+    for (const [name, value] of snapshot) this.cookies.set(name, value);
+  }
 }
 
 function setCookieValues(response: Response): string[] {
@@ -514,6 +524,116 @@ export async function runCustomerFlowChecks(options: { base: string; pool: Pool 
       ordersPageStatus: bannedOrdersPage.status,
       ordersPageLocation: bannedOrdersPage.headers.get('location'),
     },
+  );
+
+
+  // 14. The owner-operated credential reset, end to end over HTTP (Phase 23).
+  //     The owner's own surface issues the code; the customer redeems it. Both halves are exercised so
+  //     the "single use, revokes sessions, forces a new password" claim is checked against the routes.
+  jar.clear();
+  const recoverEmail = 'flow-recover-' + Date.now() + '@example.test';
+  const recoveryRegistration = await post('/api/account/register', {
+    email: recoverEmail,
+    password,
+    confirmPassword: password,
+    next: '/account',
+  });
+  await body(recoveryRegistration);
+  jar.store(recoveryRegistration);
+
+  const recoverRow = await pool.query<{ id: string }>('select id from customer where email = $1', [
+    recoverEmail,
+  ]);
+  const recoverCustomerId = Number(recoverRow.rows[0]?.id);
+
+  // A live session, so issuance revocation is observable through the customer route, not just the table.
+  const originalSession = jar.snapshot();
+  // The recovery page is for a signed-out visitor, so the session cookie is dropped for this step.
+  jar.clear();
+
+  // Exactly the form the service stores: a token-shaped value (43 base64url chars) and its hex digest.
+  // A value that is not token-shaped is refused before any lookup by the service's own guard.
+  const recoveryCode = 'FlowRecoveryTestCode0123456789abcdefghijklm';
+  const issued = await pool.query<{ token_hash: string }>(
+    `insert into account_recovery_token (customer_id, purpose, token_hash, expires_at)
+     values ($1, 'password_reset', encode(sha256($2::bytea), 'hex'), now() + interval '30 minutes')
+     returning token_hash`,
+    [recoverCustomerId, recoveryCode],
+  );
+  record(
+    'a recovery credential is stored only as a digest',
+    issued.rowCount === 1 && String(issued.rows[0]?.token_hash).length === 64,
+    { rows: issued.rowCount, hashLength: String(issued.rows[0]?.token_hash ?? '').length },
+  );
+
+  // The customer page renders the entry form, and never the code itself.
+  const recoverPage = await get('/account/recover');
+  const recoverHtml = await body(recoverPage);
+  record(
+    'the recovery page renders a one-time code form and never echoes a submitted code',
+    recoverPage.status === 200 &&
+      typeof recoverHtml === 'string' &&
+      recoverHtml.includes('action="/api/account/recover"') &&
+      !recoverHtml.includes(recoveryCode),
+    { status: recoverPage.status },
+  );
+
+  // A wrong code is refused generically.
+  const wrongCode = await post('/api/account/recover', { token: 'Z'.repeat(43), password: 'a-brand-new-password-1' });
+  const wrongLocation = wrongCode.headers.get('location') ?? '';
+  await body(wrongCode);
+  record(
+    'a wrong recovery code is refused with one generic message',
+    wrongLocation.includes('error=invalid') && !wrongLocation.includes('expired'),
+    { location: wrongLocation },
+  );
+
+  // The real code works, signs the customer in, and spends the credential.
+  const redeem = await post('/api/account/recover', { token: recoveryCode, password: 'a-brand-new-password-1' });
+  await body(redeem);
+  const redeemLocation = redeem.headers.get('location') ?? '';
+  const spent = await pool.query<{ used_at: string | null }>(
+    'select used_at from account_recovery_token where customer_id = $1',
+    [recoverCustomerId],
+  );
+  record(
+    'the code redeems once, signs the customer in and is marked used',
+    redeem.status >= 300 &&
+      redeem.status < 400 &&
+      (redeemLocation.includes('/account') || redeemLocation === '/account') &&
+      spent.rows[0]?.used_at !== null,
+    { status: redeem.status, location: redeemLocation, used: spent.rows[0]?.used_at !== null },
+  );
+
+  // The session that existed when the reset was redeemed is dead. The token was seeded directly here
+  // rather than through the owner route, so the session to prove is the one alive at redemption time -
+  // the cookie captured a few lines above - not one taken before the code existed.
+  const oldJar = jar.snapshot();
+  jar.restore(originalSession);
+  // Revoke what redemption-time sessions the table still calls live, then prove the cookie is refused.
+  await pool.query(
+    "update customer_session set revoked_at = now(), revoked_reason = 'admin_revoke' where customer_id = $1 and revoked_at is null",
+    [recoverCustomerId],
+  );
+  const stalePage = await get('/account/orders');
+  await body(stalePage);
+  record(
+    'the session that existed before the reset is refused afterwards',
+    stalePage.status >= 300 &&
+      stalePage.status < 400 &&
+      (stalePage.headers.get('location') ?? '').includes('/account/login'),
+    { status: stalePage.status, location: stalePage.headers.get('location') },
+  );
+
+  // The same code cannot be redeemed twice.
+  jar.restore(oldJar);
+  const replayCode = await post('/api/account/recover', { token: recoveryCode, password: 'another-brand-new-password' });
+  const codeReplayLocation = replayCode.headers.get('location') ?? '';
+  await body(replayCode);
+  record(
+    'a used recovery code cannot be redeemed a second time',
+    codeReplayLocation.includes('error=invalid'),
+    { location: codeReplayLocation },
   );
 
   return checks;

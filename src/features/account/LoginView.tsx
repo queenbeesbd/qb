@@ -59,6 +59,13 @@ export function LoginView({
         <strong>{t('account.noRecoveryTitle')}</strong>
       </p>
       <p className={styles.muted}>{t('account.noRecoveryBody')}</p>
+      {/* The recovery page is not a "forgot password" link - nothing is sent automatically. It is where
+          a customer enters the one-time code the owner read to them. */}
+      <p className={styles.muted}>
+        <Link href={`/account/recover?next=${encodeURIComponent(next)}`}>
+          {t('account.recoverTitle')}
+        </Link>
+      </p>
     </div>
   );
 }

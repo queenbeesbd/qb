@@ -55,6 +55,8 @@ describe('permission catalogue', () => {
       PERMISSIONS.refundConfirm,
       PERMISSIONS.staffManage,
       PERMISSIONS.settingsWrite,
+      // Phase 23: issuing a recovery credential lets a caller take over a customer account.
+      PERMISSIONS.customerCredentialReset,
     ]) {
       assert.ok(privileged.has(code), `${code} must be privileged`);
     }
@@ -105,6 +107,8 @@ describe('permission catalogue', () => {
         PERMISSIONS.customerRead,
         PERMISSIONS.customerSuspend,
         PERMISSIONS.orderCancel,
+        // Phase 23: the owner-operated customer credential reset.
+        PERMISSIONS.customerCredentialReset,
         PERMISSIONS.orderRead,
         // Phase 19: delivery-charge configuration.
         PERMISSIONS.settingsWrite,
