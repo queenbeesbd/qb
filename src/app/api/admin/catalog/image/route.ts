@@ -12,17 +12,23 @@ import { guardMutation } from '@/server/auth/guard';
 import { roleCodes } from '@/server/authz/principal';
 import { PERMISSIONS } from '@/server/authz/permissions';
 import { AuthorizationError, ConflictError, ValidationError } from '@/server/authz/authorize';
-import { attachImage, removeImage, updateImage } from '@/server/catalog/service';
+import { attachImage, removeImage, reorderImages, updateImage } from '@/server/catalog/service';
 import { deny, redirectTo } from '../../responses';
 
 export const dynamic = 'force-dynamic';
 
-const OPERATIONS = ['attach', 'update', 'remove'] as const;
+const OPERATIONS = ['attach', 'update', 'remove', 'reorder'] as const;
 
-/** Redirects back to the product being edited, so the owner stays where they were. */
+/**
+ * Redirects back to the product being edited, so the owner stays where they were.
+ *
+ * The edit form is its own route now, so the notice travels to that page rather than to the list: a
+ * notice about an image is meaningless on a page that does not show images. With no product id there
+ * is nothing to return to, and the list is the honest destination.
+ */
 function backToProduct(productId: string | null, notice: string): Response {
-  const suffix = productId === null ? '' : `&edit=${encodeURIComponent(productId)}`;
-  return redirectTo(`${CATALOG_PATH}?notice=${notice}${suffix}`);
+  if (productId === null) return redirectTo(`${CATALOG_PATH}?notice=${notice}`);
+  return redirectTo(`${CATALOG_PATH}/${encodeURIComponent(productId)}?notice=${notice}`);
 }
 
 export async function POST(request: Request): Promise<Response> {
@@ -74,6 +80,14 @@ export async function POST(request: Request): Promise<Response> {
         }),
       );
       return backToProduct(productId, 'imageUpdated');
+    }
+
+    if (operation === 'reorder') {
+      // The order arrives as one repeated field, in the sequence the owner arranged.
+      await withTransaction((tx) =>
+        reorderImages(tx, actor, { productId: form.get('productId'), imageIds: form.getAll('imageId') }),
+      );
+      return backToProduct(productId, 'imageReordered');
     }
 
     await withTransaction((tx) => removeImage(tx, actor, form.get('imageId')));

@@ -31,6 +31,11 @@ export const TEXT_BOUNDS = {
   productName: 200,
   /** Descriptions have no schema bound; this is an input sanity bound, recorded rather than implied. */
   description: 4000,
+  /**
+   * The short shelf line shown under the price. 500 is the documented limit and the reference's own
+   * counter value; the schema carries the same bound so the promise cannot be exceeded off-form.
+   */
+  shortDescription: 500,
   packSize: 80,
   altText: 300,
   /** `product_variant.sku` is `lenAtMost 64`. */

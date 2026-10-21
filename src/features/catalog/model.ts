@@ -55,6 +55,9 @@ export function fixtureToCatalogItem(product: Product): CatalogItem {
     slug: product.slug,
     name: product.name,
     description: product.description,
+    // The captured fixture predates the short shelf line and carries no field for it. Null is the
+    // honest value: the page then omits the line rather than inventing a summary.
+    shortDescription: null,
     brand: product.brand,
     // In the fixture the category id is already the slug, so both fields agree.
     categoryId: product.categoryId,

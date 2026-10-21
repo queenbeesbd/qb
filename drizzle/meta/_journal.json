@@ -43,6 +43,13 @@
       "when": 1792508820759,
       "tag": "0005_order_additional_cost",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1792600000000,
+      "tag": "0006_product_short_description",
+      "breakpoints": true
     }
   ]
 }

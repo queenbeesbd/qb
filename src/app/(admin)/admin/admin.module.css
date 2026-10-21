@@ -2178,3 +2178,573 @@ html[dir='rtl'] .switchOn .switchKnob::after {
   }
 }
 
+
+/* ------------------------------------------------------------------
+ * Product editor (Phase 35)
+ *
+ * One page, two columns: the copy and the media on the left, the
+ * commercial facts on the right, a live card preview at the top of the
+ * right column, and a sticky action bar so Save is never scrolled away
+ * from. Everything below is built on the existing tokens and the two
+ * control heights - no third size, no new colour.
+ *
+ * The right column is the *narrow* one and the left column holds the
+ * textareas, because writing is the long task and reading the preview
+ * beside it is the point of the split. Below 1100px the columns stack
+ * with the preview FIRST: on a phone the owner wants to see what they
+ * are building before the fields, not after them.
+ * ------------------------------------------------------------------ */
+
+.productForm {
+  display: grid;
+  gap: var(--space-5);
+  min-width: 0;
+}
+
+/*
+ * The action bar is sticky because a product form is long and Save is the
+ * only irreversible act on the page. A translucent surface with a blur keeps
+ * the content legible as it passes underneath without hiding it entirely.
+ */
+.formHeader {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3) var(--space-4);
+  padding: var(--space-4) 0;
+  background: color-mix(in srgb, var(--color-page) 94%, transparent);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--color-border);
+  /*
+   * The sticky bar is the only action bar on the page, so it must never sit on top of a field the
+   * owner is reading. The scroll margin gives anchor jumps and focused fields room to clear it.
+   */
+  scroll-margin-top: 6rem;
+}
+
+.formHeaderText {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.formSubtitle {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--color-ink-muted);
+  line-height: var(--leading-snug);
+}
+
+.formHeaderActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.productFormColumns {
+  display: grid;
+  grid-template-columns: minmax(0, 1.65fr) minmax(0, 1fr);
+  gap: var(--space-5);
+  align-items: start;
+  min-width: 0;
+}
+
+.productFormMain,
+.productFormSide {
+  display: grid;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+/*
+ * A form section is a card only where it groups fields that are read together.
+ * The reference uses one card per section too, but stacks everything in a single
+ * 772px column and leaves half the page empty - which is what the two columns fix.
+ */
+.formCard {
+  display: grid;
+  gap: var(--space-4);
+  padding: var(--space-5);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  min-width: 0;
+}
+
+.formCardHead {
+  display: grid;
+  gap: 2px;
+}
+
+.formCardHead h2 {
+  margin: 0;
+  font-size: var(--text-base);
+  font-weight: 600;
+  letter-spacing: -0.005em;
+}
+
+.formCardHead p {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--color-ink-muted);
+  line-height: var(--leading-snug);
+}
+
+/* A required marker that is text, not a colour: "*" alone is not a label. */
+.requiredMark {
+  font-size: var(--text-xs);
+  font-weight: 500;
+  color: var(--color-ink-subtle);
+}
+
+.fieldLabelRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+/* A character counter: tabular digits so it does not jitter while typing. */
+.counter {
+  font-size: var(--text-xs);
+  color: var(--color-ink-subtle);
+  font-variant-numeric: tabular-nums;
+}
+
+.counterWarn {
+  font-size: var(--text-xs);
+  color: var(--color-warning);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.hintWarn {
+  font-size: var(--text-xs);
+  color: var(--color-warning);
+  line-height: var(--leading-snug);
+  font-weight: 500;
+}
+
+/*
+ * A money input with a currency prefix. The prefix is decoration, not a value:
+ * the field's name and the server's parser are unchanged, so nothing about the
+ * stored amount depends on it.
+ */
+.moneyInput {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.moneyPrefix {
+  position: absolute;
+  inset-inline-start: var(--space-3);
+  color: var(--color-ink-subtle);
+  font-size: var(--text-sm);
+  pointer-events: none;
+}
+
+.moneyInput .input {
+  padding-inline-start: calc(var(--space-3) + 1ch);
+  font-variant-numeric: tabular-nums;
+}
+
+/*
+ * A blocked submission is a refusal, so it gets the danger treatment - the same weight the notice
+ * vocabulary gives every other refusal on the admin surface, in the place the owner is looking.
+ */
+.formBlocked {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-danger);
+  border-radius: var(--radius-md);
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+  font-size: var(--text-sm);
+  line-height: var(--leading-snug);
+  font-weight: 500;
+}
+
+.formBlocked svg {
+  flex: none;
+  margin-top: 1px;
+}
+
+/* The browser's own bubble is off; the field still has to look refused. */
+.productForm [aria-invalid='true'] {
+  border-color: var(--color-danger);
+}
+
+.productForm [aria-invalid='true']:focus-visible {
+  outline-color: var(--color-danger);
+}
+
+/* ---- The live preview ---- */
+
+.previewCard {
+  display: grid;
+  grid-template-columns: 84px minmax(0, 1fr);
+  gap: var(--space-3);
+  padding: var(--space-3);
+  background: var(--color-page);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  min-width: 0;
+}
+
+.previewFrame {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 4 / 5;
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-sunken);
+  border: 1px dashed var(--color-border-strong);
+  min-width: 0;
+}
+
+.previewFrameLabel {
+  font-size: 0.625rem;
+  text-align: center;
+  color: var(--color-ink-subtle);
+  padding: 2px;
+  line-height: 1.2;
+}
+
+.previewBody {
+  display: grid;
+  gap: 2px;
+  align-content: start;
+  min-width: 0;
+}
+
+.previewName {
+  margin: 0;
+  font-weight: 600;
+  font-size: var(--text-sm);
+  overflow-wrap: anywhere;
+}
+
+.previewPack {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--color-ink-muted);
+}
+
+.previewPriceRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2);
+  margin: 2px 0 0;
+}
+
+.previewPrice {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.previewCompare {
+  font-size: var(--text-xs);
+  color: var(--color-ink-subtle);
+  text-decoration: line-through;
+  font-variant-numeric: tabular-nums;
+}
+
+.previewSaving {
+  margin: 0;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--color-success);
+}
+
+.previewShort {
+  margin: var(--space-2) 0 0;
+  font-size: var(--text-xs);
+  color: var(--color-ink-muted);
+  line-height: var(--leading-snug);
+  overflow-wrap: anywhere;
+}
+
+.previewPlaceholder {
+  margin: 0;
+  font-size: var(--text-xs);
+  font-style: italic;
+  color: var(--color-ink-subtle);
+}
+
+/* ---- Publication outcome ---- */
+
+.outcome {
+  margin: 0;
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  line-height: var(--leading-snug);
+  border: 1px solid transparent;
+}
+
+.outcome[data-tone='ok'] {
+  background: var(--color-success-soft);
+  border-color: color-mix(in srgb, var(--color-success) 24%, transparent);
+  color: var(--color-success);
+}
+
+.outcome[data-tone='warn'] {
+  background: var(--color-warning-soft);
+  border-color: color-mix(in srgb, var(--color-warning) 24%, transparent);
+  color: var(--color-warning);
+}
+
+/* A switch row whose label carries its own explanation. */
+.switchRow {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+}
+
+.switchRow input {
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+  flex: none;
+  accent-color: var(--color-action);
+}
+
+.switchRowText {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.switchRowLabel {
+  font-weight: 600;
+  font-size: var(--text-sm);
+}
+
+/* ---- Media ---- */
+
+.mediaPending {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: 1px dashed var(--color-border-strong);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-sunken);
+}
+
+.mediaPendingIcon {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  flex: none;
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  color: var(--color-ink-muted);
+}
+
+.mediaPendingTitle {
+  margin: 0 0 2px;
+  font-weight: 600;
+  font-size: var(--text-sm);
+}
+
+/* ---- Gallery ---- */
+
+.galleryList {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.galleryItem {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: var(--space-3);
+  align-items: start;
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  min-width: 0;
+}
+
+.galleryThumb {
+  display: block;
+  width: 56px;
+  height: 70px;
+  flex: none;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: var(--color-surface-sunken);
+}
+
+.galleryThumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.galleryBody {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.galleryName {
+  margin: 0;
+  font-weight: 600;
+  font-size: var(--text-sm);
+  overflow-wrap: anywhere;
+}
+
+.galleryMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-3);
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--color-ink-muted);
+}
+
+.galleryPrimary {
+  font-weight: 600;
+  color: var(--color-action);
+}
+
+.galleryForm {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.galleryAltRow {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr));
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.galleryAltLabel {
+  font-size: var(--text-xs);
+  font-weight: 500;
+  color: var(--color-ink-muted);
+}
+
+.galleryActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.galleryControls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  align-items: start;
+  justify-content: flex-end;
+}
+
+.galleryControls .button {
+  padding: 0 var(--space-2);
+}
+
+.galleryOrderForm {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid var(--color-action);
+  border-radius: var(--radius-md);
+  background: var(--color-action-soft);
+}
+
+.galleryOrderNote {
+  margin: 0;
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--color-ink);
+}
+
+.attachDetails {
+  border-top: 1px solid var(--color-border);
+  padding-top: var(--space-3);
+}
+
+.attachDetails > summary {
+  cursor: pointer;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--color-action);
+  min-height: var(--admin-control-sm);
+  display: flex;
+  align-items: center;
+}
+
+.attachForm {
+  display: grid;
+  gap: var(--space-3);
+  padding-top: var(--space-3);
+}
+
+/* ---- The footer bar ---- */
+
+/* ---- Responsive ---- */
+
+@media (max-width: 1100px) {
+  .productFormColumns {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  /*
+   * The preview moves above the fields when the columns stack: on a narrow screen the
+   * owner is building a card, and seeing it first beats scrolling past a form to find it.
+   */
+  .productFormSide {
+    order: -1;
+  }
+}
+
+@media (max-width: 720px) {
+  .formHeader {
+    position: static;
+    padding-top: 0;
+  }
+
+  .formHeaderActions {
+    width: 100%;
+  }
+
+  .formHeaderActions .button {
+    flex: 1 1 auto;
+  }
+
+  .formCard {
+    padding: var(--space-4);
+  }
+
+  .galleryItem {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .galleryControls {
+    grid-column: 1 / -1;
+    justify-content: flex-start;
+  }
+}

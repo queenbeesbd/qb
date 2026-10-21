@@ -359,6 +359,12 @@ type AdminBrowser = {
   navigate(path: string): Promise<void>;
   evaluate<T = unknown>(expression: string): Promise<T>;
   click(selector: string): Promise<void>;
+  /**
+   * Sets a controlled input's value the way a person typing does: through the native value setter and
+   * a dispatched `input` event. `el.value = x` alone does not reach a React-controlled field, which
+   * would make a live-preview assertion pass against a preview that never updated.
+   */
+  type(selector: string, value: string): Promise<void>;
   key(key: string): Promise<void>;
   waitFor(expression: string, timeoutMs?: number): Promise<boolean>;
   screenshot(path: string): Promise<void>;
@@ -502,6 +508,24 @@ async function openChromium(base: string): Promise<AdminBrowser | null> {
         `(() => { const el = document.querySelector(${JSON.stringify(selector)}); if (el === null) return false; el.click(); return true; })()`,
       );
       if (clicked !== true) throw new Error(`no element matched ${selector}`);
+      await new Promise<void>((resolve) => setTimeout(resolve, 120));
+    },
+    async type(selector, value) {
+      const typed = await evaluate(`(() => {
+        const el = document.querySelector(${JSON.stringify(selector)});
+        if (el === null) return false;
+        const proto = el instanceof HTMLTextAreaElement
+          ? HTMLTextAreaElement.prototype
+          : el instanceof HTMLSelectElement
+            ? HTMLSelectElement.prototype
+            : HTMLInputElement.prototype;
+        const setter = Object.getOwnPropertyDescriptor(proto, 'value')?.set;
+        setter?.call(el, ${JSON.stringify(value)});
+        el.dispatchEvent(new Event('input', { bubbles: true }));
+        el.dispatchEvent(new Event('change', { bubbles: true }));
+        return true;
+      })()`);
+      if (typed !== true) throw new Error(`no element matched ${selector}`);
       await new Promise<void>((resolve) => setTimeout(resolve, 120));
     },
     async key(key) {
@@ -2037,6 +2061,266 @@ async function main(): Promise<void> {
               JSON.stringify(catalogUi),
             );
             await browser.screenshot('/tmp/qb-admin-catalog.png');
+
+            /*
+             * ---- Phase 35: the product editor ----
+             *
+             * The create and edit forms are their own routes now. These checks drive the real form:
+             * the live preview must track what is typed (through the native setter, so a React-
+             * controlled field actually updates), the saving must be derived from the two typed
+             * amounts, a comparison price that is not higher must be called out, and the required
+             * summary must be specific rather than generic.
+             */
+            console.log('\nproduct editor (Phase 35)');
+
+            await browser.navigate('/admin/catalog/new');
+            const editorShell = await browser.evaluate<{
+              heading: string;
+              sections: string[];
+              required: number;
+              sticky: string;
+              preview: boolean;
+              columns: number;
+              overflow: number;
+              h1Count: number;
+            }>(`(() => {
+              const sections = [...document.querySelectorAll('main section h2')].map((h) => h.textContent?.trim() ?? '');
+              const header = document.querySelector('main form > header');
+              const cols = document.querySelector('main form > div');
+              return {
+                heading: document.querySelector('main h1')?.textContent?.trim() ?? '',
+                h1Count: document.querySelectorAll('main h1').length,
+                sections,
+                required: [...document.querySelectorAll('main [required]')].length,
+                sticky: header ? getComputedStyle(header).position : 'none',
+                preview: document.body.textContent?.includes('Storefront preview') ?? false,
+                columns: cols ? getComputedStyle(cols).gridTemplateColumns.split(' ').length : 0,
+                overflow: document.documentElement.scrollWidth - window.innerWidth,
+              };
+            })()`);
+            record(
+              'the product editor is its own route with the reference section set, a sticky action bar and a preview',
+              editorShell.heading === 'New product' &&
+                editorShell.h1Count === 1 &&
+                editorShell.sections.includes('General information') &&
+                editorShell.sections.includes('Media') &&
+                editorShell.sections.includes('Pricing') &&
+                editorShell.sections.includes('Organisation') &&
+                editorShell.sections.includes('Publication') &&
+                editorShell.sections.includes('Storefront preview') &&
+                editorShell.sticky === 'sticky' &&
+                editorShell.preview === true &&
+                editorShell.columns === 2 &&
+                editorShell.overflow <= 1,
+              JSON.stringify(editorShell),
+            );
+
+            // The required summary names the empty fields rather than saying "check the form".
+            const missingSummary = await browser.evaluate<string>(
+              `(() => document.querySelector('main form > header p')?.textContent?.trim() ?? '')()`,
+            );
+            record(
+              'the required summary names every empty required field',
+              /required/i.test(missingSummary) &&
+                missingSummary.includes('Name (English)') &&
+                missingSummary.includes('Name (Bangla)') &&
+                missingSummary.includes('Category') &&
+                missingSummary.includes('Price'),
+              missingSummary,
+            );
+
+            /*
+             * The live preview. Typing goes through the native value setter because a React-controlled
+             * input ignores a direct assignment; without that, this check would pass against a preview
+             * that never updates.
+             */
+            await browser.type('#nameEn', 'Rose Water Toner');
+            await browser.type('#price', '750');
+            await browser.type('#compareAtPrice', '900');
+            await browser.type('#shortDescription', 'One line under the price.');
+            const previewUi = await browser.evaluate<{
+              name: string;
+              price: string;
+              compare: string;
+              saving: string;
+              short: string;
+              noPriceGone: boolean;
+            }>(`(() => {
+              const preview = [...document.querySelectorAll('main section')].find((s) =>
+                s.textContent?.includes('Storefront preview'),
+              );
+              const text = preview?.textContent ?? '';
+              return {
+                // The preview body, not the section: the section also carries its own heading.
+                name: preview?.querySelector('[class*="previewBody"]')?.textContent ?? '',
+                price: /Tk 750/.test(text) ? 'Tk 750' : '',
+                compare: /Tk 900/.test(text) ? 'Tk 900' : '',
+                saving: /Save Tk/i.test(text) ? text : '',
+                short: text.includes('One line under the price.') ? 'yes' : 'no',
+                noPriceGone: !text.includes('No price yet'),
+              };
+            })()`);
+            record(
+              'the live preview tracks the typed name, price, comparison price, derived saving and short description',
+              previewUi.name.includes('Rose Water Toner') &&
+                previewUi.price === 'Tk 750' &&
+                previewUi.compare === 'Tk 900' &&
+                previewUi.saving !== '' &&
+                previewUi.short === 'yes' &&
+                previewUi.noPriceGone === true,
+              JSON.stringify(previewUi),
+            );
+
+            // A comparison price that is not genuinely higher is refused by the server, so it is
+            // called out in the form rather than discovered on save.
+            await browser.type('#compareAtPrice', '700');
+            const lowerCompare = await browser.evaluate<{ warned: boolean; saving: boolean }>(`(() => {
+              const text = document.body.textContent ?? '';
+              const preview = [...document.querySelectorAll('main section')].find((s) =>
+                s.textContent?.includes('Storefront preview'),
+              );
+              return {
+                warned: /no saving will be shown/i.test(text),
+                saving: /save/i.test(preview?.textContent ?? ''),
+              };
+            })()`);
+            record(
+              'a comparison price below the price is called out and shows no saving',
+              lowerCompare.warned === true && lowerCompare.saving === false,
+              JSON.stringify(lowerCompare),
+            );
+
+            // The slug previews the storefront path it will produce.
+            const slugHint = await browser.evaluate<string>(`(() => {
+              const hint = [...document.querySelectorAll('main p')].map((p) => p.textContent ?? '');
+              return hint.find((text) => text.startsWith('/products/')) ?? '';
+            })()`);
+            record(
+              'the slug field previews the storefront path derived from the English name',
+              slugHint === '/products/rose-water-toner',
+              slugHint,
+            );
+
+            // The publication outcome states what the two states actually mean together.
+            const outcomeHidden = await browser.evaluate<string>(
+              `(() => document.querySelector('main [data-tone]')?.textContent?.trim() ?? '')()`,
+            );
+            await browser.click('#isPublished');
+            const outcomeLive = await browser.evaluate<string>(
+              `(() => document.querySelector('main [data-tone]')?.textContent?.trim() ?? '')()`,
+            );
+            record(
+              'the publication outcome changes with the two states instead of leaving the owner to infer it',
+              /not on the storefront/i.test(outcomeHidden) && /orderable/i.test(outcomeLive) && outcomeHidden !== outcomeLive,
+              JSON.stringify({ hidden: outcomeHidden, live: outcomeLive }),
+            );
+
+            await browser.screenshot('/tmp/qb-admin-product-new-desktop.png');
+
+            // Creating through the real form lands on the new product's edit screen, where images live.
+            await browser.type('#nameBn', 'গোলাপ জল টোনার');
+            await browser.type('#compareAtPrice', '900');
+            /*
+             * A submit with required fields still empty must SAY so. Native bubbles leave a keyboard
+             * user with no announcement and no list, so the form states the set in text and focuses the
+             * first offender - this drives that path before filling the fields in.
+             */
+            await browser.click('main form > header button[type="submit"]');
+            const blockedUi = await browser.evaluate<{ alerted: string; focused: string; stillHere: boolean }>(`(() => ({
+              alerted: document.querySelector('[role="alert"]')?.textContent ?? '',
+              focused: document.activeElement?.getAttribute('name') ?? '',
+              stillHere: location.pathname === '/admin/catalog/new',
+            }))()`);
+            record(
+              'submitting an incomplete form states which fields are missing and focuses the first one',
+              /check these fields/i.test(blockedUi.alerted) && blockedUi.focused !== '' && blockedUi.stillHere === true,
+              JSON.stringify(blockedUi),
+            );
+
+            const chooseRequired = await browser.evaluate<boolean>(`(() => {
+              for (const name of ['categoryId', 'brandId']) {
+                const select = document.querySelector('select[name="' + name + '"]');
+                if (!(select instanceof HTMLSelectElement) || select.options.length < 2) return false;
+                select.value = select.options[1].value;
+                select.dispatchEvent(new Event('change', { bubbles: true }));
+              }
+              return true;
+            })()`);
+            record(
+              'the form offers real category and brand options to choose',
+              chooseRequired === true,
+              String(chooseRequired),
+            );
+
+            await browser.click('main form > header button[type="submit"]');
+            await browser.waitFor("location.pathname.startsWith('/admin/catalog/') && location.pathname !== '/admin/catalog/new'");
+            const afterCreate = await browser.evaluate<{ path: string; notice: string; gallery: boolean; media: boolean }>(`(() => ({
+              path: location.pathname,
+              notice: document.body.textContent?.includes('Product created') ? 'created' : 'none',
+              gallery: document.querySelector('[data-admin-gallery]') !== null,
+              media: document.body.textContent?.includes('Media') ?? false,
+            }))()`);
+            record(
+              'saving the new product opens its edit screen, where images can be attached',
+              /^\/admin\/catalog\/\d+$/.test(afterCreate.path) &&
+                afterCreate.notice === 'created' &&
+                afterCreate.media === true,
+              JSON.stringify(afterCreate),
+            );
+            await browser.screenshot('/tmp/qb-admin-product-edit-desktop.png');
+
+            // The short description reached the database and is rendered on the storefront page.
+            const createdShort = await withTransaction(async (tx) => {
+              const rows = await tx
+                .select({ id: product.id, slug: product.slug, shortDescription: product.shortDescription })
+                .from(product)
+                .where(sql`${product.nameEn} = 'Rose Water Toner' and ${product.deletedAt} is null`);
+              return rows[0] ?? null;
+            });
+            record(
+              'the short description is stored, not merely previewed',
+              createdShort?.shortDescription === 'One line under the price.',
+              JSON.stringify(createdShort),
+            );
+
+            // Narrow widths: the columns stack and the preview comes first, with no overflow.
+            const editorWidths = [320, 360, 390, 768, 1024, 1280, 1440, 1920];
+            const editorFindings: string[] = [];
+            for (const width of editorWidths) {
+              await browser.viewport(width, 900);
+              for (const route of ['/admin/catalog/new', afterCreate.path]) {
+                await browser.navigate(route);
+                const measured = await browser.evaluate<{ overflow: number; columns: number; previewFirst: boolean }>(`(() => {
+                  const cols = document.querySelector('main form > div');
+                  const side = document.querySelector('main form > div > aside');
+                  const main = document.querySelector('main form > div > div');
+                  const sideBox = side?.getBoundingClientRect();
+                  const mainBox = main?.getBoundingClientRect();
+                  return {
+                    overflow: document.documentElement.scrollWidth - window.innerWidth,
+                    columns: cols ? getComputedStyle(cols).gridTemplateColumns.split(' ').length : 0,
+                    previewFirst: sideBox !== undefined && mainBox !== undefined ? sideBox.top <= mainBox.top : false,
+                  };
+                })()`);
+                if (measured.overflow > 1) editorFindings.push(`${route} @${width}px: ${measured.overflow}px`);
+                if (width < 1100 && measured.columns !== 1) {
+                  editorFindings.push(`${route} @${width}px: expected one column, got ${measured.columns}`);
+                }
+                if (width < 1100 && measured.previewFirst !== true) {
+                  editorFindings.push(`${route} @${width}px: the preview is not above the fields`);
+                }
+              }
+            }
+            record(
+              'the product editor stacks to one column below 1100px with the preview first, and never widens the document',
+              editorFindings.length === 0,
+              editorFindings.length === 0 ? `${editorWidths.length} widths x 2 routes` : editorFindings.join(', '),
+            );
+
+            await browser.viewport(390, 844);
+            await browser.navigate('/admin/catalog/new');
+            await browser.screenshot('/tmp/qb-admin-product-new-mobile.png');
+            await browser.viewport(1440, 900);
 
             /*
              * ---- Phase 30: one list vocabulary across every admin list ----

@@ -3,14 +3,7 @@ import { buildQueryHref, readPageNumber, readPageSize } from '@/lib/admin-query'
 import { requireAdminPage } from '@/server/auth/guard';
 import { hasPermission } from '@/server/authz/principal';
 import { PERMISSIONS } from '@/server/authz/permissions';
-import { listAssetKeys } from '@/server/catalog/assets';
-import {
-  getProductForAdmin,
-  listBrands,
-  listCategoriesForAdmin,
-  listProductsForAdmin,
-  PRODUCT_PAGE_SIZE,
-} from '@/server/catalog/service';
+import { listBrands, listProductsForAdmin, PRODUCT_PAGE_SIZE } from '@/server/catalog/service';
 import { CatalogView, type CatalogNotice } from './CatalogView';
 
 export const dynamic = 'force-dynamic';
@@ -21,9 +14,6 @@ const NOTICES: readonly CatalogNotice[] = [
   'availability',
   'archived',
   'brandCreated',
-  'imageAttached',
-  'imageUpdated',
-  'imageRemoved',
   'denied',
   'conflict',
   'invalid',
@@ -46,9 +36,12 @@ function readNotice(value: string | string[] | undefined): CatalogNotice | null 
  * is not readable by a principal that cannot change them. Every control posts to a route that re-checks
  * the permission server-side.
  *
- * `?edit=<id>` opens one product; `?new=1` reveals the create form. The id is validated by the service,
- * which returns `null` for anything that is not a live product, so a hand-crafted id cannot disclose an
- * archived row. Search and the availability filter are applied in SQL over the live rows only.
+ * **The forms moved to their own routes** (`/admin/catalog/new`, `/admin/catalog/[productId]`), so this
+ * page is only the list. `?edit=` and `?new=` are gone rather than left as dead aliases: a stale link
+ * should reach the list, not a half-rendered form.
+ *
+ * Search and the availability filter are applied in SQL over the live rows only, and the list is paged
+ * with an exact total so the footer cannot disagree with the rows it describes.
  */
 export default async function AdminCatalogPage({
   searchParams,
@@ -58,19 +51,15 @@ export default async function AdminCatalogPage({
   const principal = await requireAdminPage(PERMISSIONS.catalogWrite);
   const params = await searchParams;
 
-  const editId = single(params.edit);
   const search = single(params.q).slice(0, 80);
   const stock = single(params.stock);
   const availability = stock === 'in_stock' || stock === 'out_of_stock' ? stock : undefined;
   const size = readPageSize(single(params.size), PRODUCT_PAGE_SIZE);
 
   const data = await withTransaction(async (tx) => {
-    const [first, categories, brands, editing] = await Promise.all([
+    const [first, brands] = await Promise.all([
       listProductsForAdmin(tx, { search, availability, limit: size, offset: 0 }),
-      // The category form needs every category, not the page of them the list happens to show.
-      listCategoriesForAdmin(tx, { limit: 100 }),
       listBrands(tx),
-      editId === '' ? Promise.resolve(null) : getProductForAdmin(tx, editId),
     ]);
 
     // The page number is resolved against the real total before the page is read, so a hand-typed
@@ -87,12 +76,8 @@ export default async function AdminCatalogPage({
             offset: (page - 1) * size,
           });
 
-    return { products, categories: categories.rows, brands, editing, page, pageCount };
+    return { products, brands, page, pageCount };
   });
-
-  // The asset inventory is read from the server's own filesystem, not from the request, and the file
-  // metadata behind each key is derived from the bytes at attach time.
-  const assets = await listAssetKeys();
 
   return (
     <CatalogView
@@ -109,36 +94,11 @@ export default async function AdminCatalogPage({
         imageCount: product.imageCount,
         primaryImageKey: product.primaryImageKey,
       }))}
-      categories={data.categories.map((category) => ({ id: category.id, nameEn: category.nameEn }))}
-      brands={data.brands.map((brand) => ({ id: brand.id, nameEn: brand.nameEn }))}
-      assets={assets}
-      editing={
-        data.editing === null
-          ? null
-          : {
-              id: data.editing.id,
-              slug: data.editing.slug,
-              nameBn: data.editing.nameBn,
-              nameEn: data.editing.nameEn,
-              descriptionBn: data.editing.descriptionBn,
-              descriptionEn: data.editing.descriptionEn,
-              packSize: data.editing.packSize,
-              categoryId: data.editing.categoryId,
-              brandId: data.editing.brandId,
-              availability: data.editing.availability,
-              isPublished: data.editing.isPublished,
-              priceMinor: data.editing.priceMinor,
-              compareAtPriceMinor: data.editing.compareAtPriceMinor,
-              sku: data.editing.sku,
-              images: data.editing.images,
-            }
-      }
       notice={readNotice(params.notice)}
       canManage={hasPermission(principal, PERMISSIONS.catalogWrite)}
       csrfToken={principal.csrfToken}
       search={search}
       stock={availability ?? 'all'}
-      creating={single(params.new) === '1'}
       total={data.products.total}
       page={data.page}
       pageCount={data.pageCount}

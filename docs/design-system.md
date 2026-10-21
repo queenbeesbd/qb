@@ -215,6 +215,31 @@ rows - and every control keeps the standard 40px height.
 its own line under the status and aligns start, because right-aligning it inside a row that has already
 wrapped reads as clipped.
 
+### The editor pattern (Phase 35)
+
+A create/edit screen is its own route, and it is built from one shape:
+
+| Part | Contract |
+| --- | --- |
+| Page header | eyebrow, `h1`, one sentence - from `PageHeader`, the same as every other admin page |
+| Sticky action bar | the readiness summary on the left, Cancel and Save on the right. **The only action bar on the page** - a second one at the bottom is the same content twice and overlays the form |
+| Two columns | copy and media left, commercial facts right. Below 1100px they stack, and the **preview comes first** |
+| Section cards | one per task (General information, Media, Pricing, Organisation, Publication), each with a one-line explanation |
+| Live preview | shows only what was typed. An empty field renders as "No price yet", never a placeholder value |
+| Required summary | names the empty required fields in text. Never an asterisk convention alone |
+| Validation | `noValidate` on the form; the submit handler states the missing set, sets `aria-invalid`, and focuses the first offender |
+
+Three rules behind it:
+
+1. **The preview never invents.** No placeholder price, no "New" badge, no stock figure. A saving is
+   derived from the two typed amounts by the same helpers the storefront uses, so it cannot claim a
+   discount the storefront would not show.
+2. **Two toggles get one sentence.** Publication and availability are independent and both gate the
+   storefront, so the form states the combined outcome ("live but not orderable") rather than making the
+   owner reason about them.
+3. **Reordering is buttons, not drag alone.** A drag-only control is unusable with a keyboard and on the
+   phone the owner works from. Order and primary image stay separate facts.
+
 ### Components
 
 `AdminShell` (rail, drawer, account menu, skip link), `PageHeader`, `Notice` (one polite/alert region

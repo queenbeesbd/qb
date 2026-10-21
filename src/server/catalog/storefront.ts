@@ -80,6 +80,7 @@ function toCatalogItem(record: CatalogProduct): CatalogItem {
     slug: record.slug,
     name: record.name,
     description: record.description,
+    shortDescription: record.shortDescription,
     brand: record.brand,
     categoryId: record.categoryId,
     categorySlug: record.categorySlug,

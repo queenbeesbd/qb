@@ -981,14 +981,71 @@ catalog/categories/audit, footer alignment, and 320/360/390/768/1024/1280/1440/1
 two defects were found that way and fixed - the eight status tabs and the date row were clipped at 390px,
 and the money cell's right alignment read as clipped once a row wrapped.
 
+## Phase 35 - Product editor (delivered 2026-10-21)
+
+**The owner asked for the new-product screen to be rebuilt to match the reference, and it is.** The form
+used to be a fieldset stack on the catalog list behind `?new=1`; it is now its own route,
+`/admin/catalog/new`, with the edit form at `/admin/catalog/[productId]`. The list no longer hosts a form
+at all, so a filtered, paginated list and a full-height editor stop sharing a URL.
+
+**Owner decisions taken before the build** (asked, not assumed):
+
+| Question | Decision |
+| --- | --- |
+| Copy depth | **Short description only.** The reference's SEO description was declined; it would be stored and never rendered, and no SEO surface exists. |
+| Spec fields | **Neither.** Weight/dimensions matter only for courier booking (ADR 0017 excludes it), and free-form details duplicate the description. |
+| Images | **Association + ordering.** No upload: object storage is not provisioned, and association-only imagery is an approved rule. |
+| Variants | **One variant.** Price stays on the default variant, presented as a product-level field. |
+
+**What the editor does:**
+
+- **Two columns** - copy and media left, commercial facts right - with the **live storefront preview** at
+  the top of the right column, and a **sticky action bar** so Save is never scrolled away from.
+- **Sections** named for the task (General information, Media, Pricing, Organisation, Publication), each
+  with a one-line explanation, rather than the reference's generic accordion.
+- **A required summary that names the empty fields** ("Still required: Name (English), Category, Brand,
+  Price") instead of an asterisk convention. Brand is included because the schema and the service both
+  require it.
+- **A live preview that never invents**: the typed name, pack size, price, comparison price, derived
+  saving and shelf line, with "No price yet" while the price is empty. The saving is *derived* by the same
+  `discountAmount`/`discountPercent` the storefront uses, and a comparison price that is not genuinely
+  higher is called out before save.
+- **A publication outcome sentence** stating what the two independent states mean together - live and
+  orderable, live but not orderable, or hidden - instead of leaving the owner to reason about two toggles.
+- **Real image ordering** on the edit screen: move up/down buttons writing a dense `sort_order` in one
+  post, with the primary image kept a separate fact. Buttons rather than drag alone, because a drag-only
+  control is unusable with a keyboard and on the phone the owner approves orders from.
+- **Explicit validation.** `noValidate` hands the DOM constraints to the submit handler, which states the
+  missing set in text, sets `aria-invalid`, and focuses the first offender. Native bubbles alone are
+  silent for a keyboard user and leave no list.
+
+**Schema: one additive column.** `product.short_description` (nullable, `CHECK` 1-500) in migration
+`0006_product_short_description`; **tables unchanged at 43**. The storefront renders it under the price
+and omits the paragraph entirely when it is null. One new audit action, `catalog.image_reordered`.
+
+**Deliberately not done:** no SEO description, no weight/dimensions, no custom detail fields, no variant
+matrix, no upload, no rich text, no duplicate-action chrome, and no change to any permission, price rule,
+state machine or order path.
+
+**Verified 2026-10-21** against a disposable local cluster and a real production build: `verify:admin`
+**185/185** (11 new editor checks: route shape and section set, the required summary, the live preview
+driven through the native value setter, the comparison-price warning, the slug preview, the publication
+outcome, blocked-submit feedback, a real create through the form, the stored shelf line, and 320-1920px
+containment with the preview first below 1100px); `test` **165/165**; `test:db` **246/246**; plus
+`typecheck`, `lint`, `check:i18n`, `check:catalog`, `check:secrets`, `db:validate`, `db:check`,
+`db:rehearsal`, `build` and `verify:storefront`. Screenshots at 1440 and 390px were captured and
+inspected; **three defects were found that way and fixed** - a duplicated page heading, a second action
+bar that overlaid the form, and a brand field missing from the required summary.
+
 ## Current single best next step
 
-**Phase 31 - subcategories (proposed, not authorized).** Every later parity phase now builds on the
-toolbar, filter and pagination vocabulary this phase established, and the subcategory work is the next
-one that needs **no schema change and no owner decision**: `category.parent_id` already exists, is
-indexed, and already has a "not its own parent" CHECK, so the work is a create/edit/archive surface, a
-derived "Total Subcategory" count, a specific empty state and a breadcrumb. **Owner approval is required
-before any code changes.**
+**Phase 36 - category editor parity (proposed, not authorized).** The product editor now sets the
+vocabulary - own route, two columns, sticky action bar, live preview, explicit validation - and the
+category screen is the next surface still using the old inline form on a list. It needs **no schema
+change**: `category` already has `parent_id`, `sort_order` and `is_visible`, so the work is the same
+route split, the same editor shell, a derived "Total subcategories" count, and a specific empty state.
+**Owner approval is required before any code changes.** Subcategory *management* (creating a child
+category) remains a separate decision about depth and is not part of this.
 
 **Still outstanding alongside it, and unchanged: the actual BDT delivery amounts, supplied by the owner
 (D-item 5).** This is not an implementation task -

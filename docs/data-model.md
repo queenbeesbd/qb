@@ -529,6 +529,7 @@ category with products is refused by the FK, never cascaded.
 | `category_id` | bigint | NOT NULL | FK `category(id)` `ON DELETE RESTRICT` |
 | `name_bn` / `name_en` | text | NOT NULL | `CHECK (char_length BETWEEN 1 AND 200)` |
 | `description_bn` / `description_en` | text | NULL | **NULL means the description is not known** and the interface states that gap (honesty rule) |
+| `short_description` | text | NULL | **Added in Phase 35 (migration `0006`).** The one-line shelf line shown under the price. `CHECK (NULL OR char_length BETWEEN 1 AND 500)`. **English only by decision** - it is a short caption, not catalog copy, and the interface is English only (Phase 28). NULL means the owner wrote none, and the product page omits the line rather than rendering an empty paragraph |
 | `pack_size` | text | NULL | e.g. `30 ml`. NULL means not known |
 | `availability` | text | NOT NULL | **Added in Phase 13 (migration `0003`).** The owner-controlled `In Stock` / `Out of Stock` state (D19). Default **`out_of_stock`**, deliberately fail-safe: a product nobody has confirmed as available cannot be ordered. **A state, not a quantity** - see ADR 0010 |
 | `is_published` | boolean | NOT NULL | Default `false`. Publication is an explicit act |

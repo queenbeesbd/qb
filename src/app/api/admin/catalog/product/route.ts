@@ -24,10 +24,15 @@ export const dynamic = 'force-dynamic';
 
 const OPERATIONS = ['create', 'update', 'archive'] as const;
 
-/** A fixed notice plus, for an edit, the product being edited - never a value from the form. */
+/**
+ * A fixed notice plus, for an edit, the product being edited - never a value from the form.
+ *
+ * The edit form is its own route, so a successful update returns there and a refusal returns there too;
+ * only a create or an archive goes back to the list, because those are list-level outcomes.
+ */
 function backToProduct(productId: string | null, notice: string): Response {
-  const suffix = productId === null ? '' : `&edit=${encodeURIComponent(productId)}`;
-  return redirectTo(`${CATALOG_PATH}?notice=${notice}${suffix}`);
+  if (productId === null) return redirectTo(`${CATALOG_PATH}?notice=${notice}`);
+  return redirectTo(`${CATALOG_PATH}/${encodeURIComponent(productId)}?notice=${notice}`);
 }
 
 export async function POST(request: Request): Promise<Response> {
@@ -59,6 +64,7 @@ export async function POST(request: Request): Promise<Response> {
     nameEn: form.get('nameEn'),
     descriptionBn: form.get('descriptionBn') ?? undefined,
     descriptionEn: form.get('descriptionEn') ?? undefined,
+    shortDescription: form.get('shortDescription') ?? undefined,
     categoryId: form.get('categoryId'),
     brandId: form.get('brandId'),
     packSize: form.get('packSize') ?? undefined,
@@ -71,8 +77,10 @@ export async function POST(request: Request): Promise<Response> {
 
   try {
     if (operation === 'create') {
+      // Straight to the new product's edit screen: the product exists but has no images yet, and that
+      // is the next thing to do. The list would show a row with a "No image" badge and no way forward.
       const created = await withTransaction((tx) => createProduct(tx, actor, fields));
-      return backToProduct(String(created.productId), 'created');
+      return redirectTo(`${CATALOG_PATH}/${created.productId}?notice=created`);
     }
 
     if (operation === 'update') {

@@ -105,6 +105,33 @@ should suggest one.
   same transaction, and require their own permission server-side.
 - **Neither decision ever bans a customer.** A ban is a separate action on the customers screen (D20).
 
+### The product editor (Phase 35)
+
+`/admin/catalog/new` and `/admin/catalog/[productId]` are their own routes. The list no longer hosts a
+form, so a filtered, paginated list and a full-height editor stop sharing a URL - and a refresh cannot
+lose whichever one the owner was in. `?new=1` and `?edit=<id>` are gone rather than kept as aliases.
+
+**Layout:** copy and media on the left, commercial facts on the right, the live storefront preview at the
+top of the right column, and a sticky action bar. Below 1100px the columns stack with the preview first.
+
+**What the form states that the reference does not:**
+
+| Fact | How it is presented |
+| --- | --- |
+| Required fields | A summary naming the empty ones, plus a text marker on each label - not asterisks alone |
+| The saving | Derived from the two typed amounts; a comparison price that is not higher is called out before save |
+| The slug | The storefront path it will produce, derived live from the English name |
+| The two states | One sentence for the combined outcome: live and orderable, live but not orderable, or hidden |
+| A blocked submit | The missing set in text, `aria-invalid` on the fields, focus on the first offender |
+| Images on create | Stated as impossible until the product exists, rather than a drop zone that discards files |
+
+**Image ordering is real.** `product_image.sort_order` is written as a dense 0..n-1 sequence in one post
+from move up/down buttons, with the primary image kept a separate fact: "first in the gallery" and "the
+image on the card" are different, and a reorder must not silently repoint the card.
+
+**Imagery stays association-only.** No upload path exists and none was added; the picker reads the
+server's own inventory and the metadata still comes from the file bytes.
+
 ### The list surfaces (Phase 30)
 
 All six admin lists - orders, the COD queue, products, categories, customers and the audit trail - share

@@ -28,6 +28,7 @@ function item(
     slug: `product-${id}`,
     name: { bn: `পণ্য ${id}`, en: `Product ${id}` },
     description: { bn: null, en: null },
+    shortDescription: null,
     brand: null,
     categoryId: 'skincare',
     categorySlug: 'skincare',

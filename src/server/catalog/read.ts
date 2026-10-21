@@ -43,6 +43,11 @@ export type CatalogProduct = {
   readonly slug: string;
   readonly name: { bn: string; en: string };
   readonly description: { bn: string | null; en: string | null };
+  /**
+   * The owner's short shelf line, shown under the price. Null means the owner has not written one,
+   * and the product page then renders the price alone rather than an empty paragraph.
+   */
+  readonly shortDescription: string | null;
   readonly brand: string | null;
   readonly categoryId: string;
   readonly categorySlug: string;
@@ -105,6 +110,7 @@ export async function listPublishedProducts(tx: Transaction): Promise<CatalogPro
       nameEn: product.nameEn,
       descriptionBn: product.descriptionBn,
       descriptionEn: product.descriptionEn,
+      shortDescription: product.shortDescription,
       packSize: product.packSize,
       availability: product.availability,
       categoryId: category.id,
@@ -142,6 +148,7 @@ export async function getPublishedProductBySlug(
       nameEn: product.nameEn,
       descriptionBn: product.descriptionBn,
       descriptionEn: product.descriptionEn,
+      shortDescription: product.shortDescription,
       packSize: product.packSize,
       availability: product.availability,
       categoryId: category.id,
@@ -319,6 +326,7 @@ async function projectProduct(
     nameEn: string;
     descriptionBn: string | null;
     descriptionEn: string | null;
+    shortDescription: string | null;
     packSize: string | null;
     availability: string;
     categoryId: number;
@@ -346,6 +354,7 @@ async function projectProduct(
     slug: row.slug,
     name: { bn: row.nameBn, en: row.nameEn },
     description: { bn: row.descriptionBn, en: row.descriptionEn },
+    shortDescription: row.shortDescription,
     // A product with no published brand is stored against the documented placeholder row; the
     // storefront must not turn that storage detail into an invented brand name for a customer.
     brand: row.brandSlug === UNBRANDED_BRAND_SLUG ? null : row.brandNameEn,

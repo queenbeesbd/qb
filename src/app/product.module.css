@@ -101,6 +101,16 @@
   font-size: var(--text-sm);
 }
 
+/*
+ * The short shelf line under the price. One step up from body text and muted rather than full ink, so
+ * it reads as a caption to the price rather than competing with the product title.
+ */
+.shortDescription {
+  color: var(--color-ink-muted);
+  max-width: 46ch;
+  line-height: var(--leading-snug);
+}
+
 .facts {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));

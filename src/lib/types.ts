@@ -140,6 +140,13 @@ export type CatalogItem = {
   slug: string;
   name: LocalizedText;
   description: LocalizedText;
+  /**
+   * The owner's short shelf line, rendered under the price on the product page.
+   *
+   * `null` means no summary was written, and the page omits the line rather than rendering an empty
+   * paragraph. It is one English line by decision (Phase 35): a shelf caption, not catalog copy.
+   */
+  shortDescription: string | null;
   brand: string | null;
   /** Opaque identity of the record's category. */
   categoryId: string;

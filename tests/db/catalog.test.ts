@@ -45,6 +45,7 @@ import {
   createProduct,
   listCategoriesForAdmin,
   listProductsForAdmin,
+  reorderImages,
   setAvailability,
   updateProduct,
   type ProductInput,
@@ -575,6 +576,89 @@ describe('catalog management', { skip: toolingAvailable ? false : SKIP_REASON },
       ),
       ConflictError,
       'base_key is globally unique, so an asset belongs to one product',
+    );
+  });
+
+  it('stores the short description, bounds it, and leaves it null when omitted', async () => {
+    const withShort = await withTransaction((tx) =>
+      createProduct(
+        tx,
+        owner,
+        productInput({ nameEn: 'Has Shelf Line', shortDescription: '200 ml · all skin types' }),
+      ),
+    );
+    const stored = await withTransaction((tx) =>
+      tx
+        .select({ shortDescription: productTable.shortDescription })
+        .from(productTable)
+        .where(sql`${productTable.id} = ${withShort.productId}`),
+    );
+    assert.equal(stored[0]?.shortDescription, '200 ml · all skin types');
+
+    const without = await withTransaction((tx) =>
+      createProduct(tx, owner, productInput({ nameEn: 'No Shelf Line' })),
+    );
+    const empty = await withTransaction((tx) =>
+      tx
+        .select({ shortDescription: productTable.shortDescription })
+        .from(productTable)
+        .where(sql`${productTable.id} = ${without.productId}`),
+    );
+    assert.equal(empty[0]?.shortDescription, null, 'omitting the field stores null, not an empty string');
+
+    // The 500-character bound is the same one the form counter promises, so the counter cannot offer
+    // room the save will refuse.
+    await assert.rejects(
+      withTransaction((tx) =>
+        createProduct(tx, owner, productInput({ nameEn: 'Too Long', shortDescription: 'x'.repeat(501) })),
+      ),
+      ValidationError,
+    );
+  });
+
+  it('reorders a gallery as one dense sequence and refuses an order naming another product', async () => {
+    const created = await withTransaction((tx) =>
+      createProduct(tx, owner, productInput({ nameEn: 'Reorder Gallery' })),
+    );
+    const firstKey = nextAssetKey();
+    let secondKey = nextAssetKey();
+    while (secondKey === firstKey) secondKey = nextAssetKey();
+
+    const first = await withTransaction((tx) =>
+      attachImage(tx, owner, { productId: String(created.productId), key: firstKey, altEn: 'first' }),
+    );
+    const second = await withTransaction((tx) =>
+      attachImage(tx, owner, { productId: String(created.productId), key: secondKey, altEn: 'second' }),
+    );
+
+    await withTransaction((tx) =>
+      reorderImages(tx, owner, { productId: String(created.productId), imageIds: [second.imageId, first.imageId] }),
+    );
+
+    const ordered = await withTransaction((tx) =>
+      tx
+        .select({ id: productImage.id, sortOrder: productImage.sortOrder })
+        .from(productImage)
+        .where(sql`${productImage.productId} = ${created.productId} and ${productImage.deletedAt} is null`)
+        .orderBy(productImage.sortOrder),
+    );
+    assert.deepEqual(
+      ordered.map((row) => row.id),
+      [second.imageId, first.imageId],
+    );
+    // Dense from zero, so a later insert cannot land between two arbitrary numbers.
+    assert.deepEqual(
+      ordered.map((row) => row.sortOrder),
+      [0, 1],
+    );
+
+    // An order naming an image from another product is refused rather than silently ignored.
+    const other = await withTransaction((tx) => createProduct(tx, owner, productInput({ nameEn: 'Other Gallery' })));
+    await assert.rejects(
+      withTransaction((tx) =>
+        reorderImages(tx, owner, { productId: String(other.productId), imageIds: [first.imageId] }),
+      ),
+      ValidationError,
     );
   });
 

@@ -22,6 +22,27 @@ export function formatMoney(minor: Money): string {
   return `Tk ${formatted}`;
 }
 
+/**
+ * Parses a BDT amount the owner typed, for a **preview only**.
+ *
+ * The server is the authority (`parsePoisha` in `src/server/catalog/validation.ts`, which also applies
+ * the one-million-BDT sanity bound); this exists so the form can show a live saving without importing
+ * a server module into a client bundle. It is deliberately as strict as the server's rule - ASCII
+ * digits, at most two decimals, no sign, no separator, no symbol - so the preview cannot accept
+ * something the save will then refuse.
+ *
+ * Returns `null` for anything it cannot read, which the caller renders as "not a price yet".
+ */
+export function parseBdtInput(value: string): number | null {
+  const match = /^(\d{1,9})(?:\.(\d{1,2}))?$/.exec(value.trim());
+  if (match === null) return null;
+  const whole = Number.parseInt(match[1] ?? '', 10);
+  const fractionDigits = match[2] ?? '';
+  const fraction = fractionDigits === '' ? 0 : Number.parseInt(fractionDigits.padEnd(2, '0'), 10);
+  const minor = whole * 100 + fraction;
+  return Number.isSafeInteger(minor) && minor > 0 ? minor : null;
+}
+
 /** Discount amount in poisha, or null when there is no valid discount. */
 export function discountAmount(price: Money, compareAt: Money | null): Money | null {
   if (compareAt === null || compareAt <= price) return null;

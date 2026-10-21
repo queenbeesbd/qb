@@ -475,6 +475,7 @@ export type ProductInput = {
   readonly nameEn: unknown;
   readonly descriptionBn?: unknown;
   readonly descriptionEn?: unknown;
+  readonly shortDescription?: unknown;
   readonly categoryId: unknown;
   readonly brandId: unknown;
   readonly packSize?: unknown;
@@ -606,6 +607,7 @@ export async function getProductForAdmin(tx: Transaction, productId: unknown): P
       nameEn: string;
       descriptionBn: string | null;
       descriptionEn: string | null;
+      shortDescription: string | null;
       packSize: string | null;
       categoryId: number;
       brandId: number;
@@ -638,6 +640,7 @@ export async function getProductForAdmin(tx: Transaction, productId: unknown): P
       nameEn: product.nameEn,
       descriptionBn: product.descriptionBn,
       descriptionEn: product.descriptionEn,
+      shortDescription: product.shortDescription,
       packSize: product.packSize,
       categoryId: product.categoryId,
       brandId: product.brandId,
@@ -710,6 +713,7 @@ export async function createProduct(
       nameEn: fields.nameEn,
       descriptionBn: fields.descriptionBn,
       descriptionEn: fields.descriptionEn,
+      shortDescription: fields.shortDescription,
       packSize: fields.packSize,
       availability: fields.availability,
       isPublished: fields.isPublished,
@@ -790,6 +794,7 @@ export async function updateProduct(
       nameEn: fields.nameEn,
       descriptionBn: fields.descriptionBn,
       descriptionEn: fields.descriptionEn,
+      shortDescription: fields.shortDescription,
       packSize: fields.packSize,
       availability: fields.availability,
       isPublished: fields.isPublished,
@@ -953,6 +958,7 @@ async function normalizeProductInput(
   nameEn: string;
   descriptionBn: string | null;
   descriptionEn: string | null;
+  shortDescription: string | null;
   categoryId: number;
   brandId: number;
   packSize: string | null;
@@ -975,6 +981,9 @@ async function normalizeProductInput(
   const descriptionBn = parseOptionalText(input.descriptionBn, TEXT_BOUNDS.description);
   const descriptionEn = parseOptionalText(input.descriptionEn, TEXT_BOUNDS.description);
   if (!descriptionBn.ok || !descriptionEn.ok) throw new ValidationError('a description is too long');
+
+  const shortDescription = parseOptionalText(input.shortDescription, TEXT_BOUNDS.shortDescription);
+  if (!shortDescription.ok) throw new ValidationError('the short description is too long');
 
   const packSize = parseOptionalText(input.packSize, TEXT_BOUNDS.packSize);
   if (!packSize.ok) throw new ValidationError('the pack size is too long');
@@ -1036,6 +1045,7 @@ async function normalizeProductInput(
     nameEn,
     descriptionBn: descriptionBn.value,
     descriptionEn: descriptionEn.value,
+    shortDescription: shortDescription.value,
     categoryId,
     brandId,
     packSize: packSize.value,
@@ -1256,6 +1266,65 @@ export async function updateImage(
     entityType: 'product',
     entityId: row.productId,
     after: { imageKey: row.baseKey, sortOrder, isPrimary: parseVisibility(input.isPrimary) },
+  });
+}
+
+/**
+ * Sets the display order of a product's images from an ordered list of image ids.
+ *
+ * Phase 30's follow-up asked for real ordering rather than a numeric field the owner has to reason
+ * about. The whole order arrives at once, so the result is deterministic and cannot interleave with a
+ * concurrent reorder: every listed id must belong to this product and be live, and any image the
+ * caller omitted keeps its relative position after the ones it named.
+ *
+ * `sort_order` is written from the array index, so it is always a dense 0..n-1 sequence rather than an
+ * arbitrary set of numbers. The primary flag is separate and untouched here: "first in the gallery" and
+ * "the card's image" are different facts, and collapsing them would let a reorder silently change which
+ * photo the storefront leads with.
+ */
+export async function reorderImages(
+  tx: Transaction,
+  actor: ActorContext,
+  input: { productId: unknown; imageIds: unknown },
+): Promise<void> {
+  const productId = parseId(input.productId);
+  if (productId === null) throw new ValidationError('a product id is required');
+  await requirePermission(actor, CATALOG, 'product', productId);
+
+  const raw = input.imageIds;
+  if (!Array.isArray(raw) || raw.length === 0) throw new ValidationError('the image order is required');
+  const ids = raw.map((value) => (typeof value === 'string' ? value : ''));
+  if (ids.some((id) => !/^[0-9a-f-]{36}$/.test(id))) throw new ValidationError('an image id is malformed');
+  if (new Set(ids).size !== ids.length) throw new ValidationError('the image order repeats an image');
+
+  const owned = await tx
+    .select({ id: productImage.id })
+    .from(productImage)
+    .where(sql`${productImage.productId} = ${productId} and ${productImage.deletedAt} is null`);
+  const live = new Set(owned.map((row) => row.id));
+  if (ids.some((id) => !live.has(id))) {
+    throw new ValidationError('the order names an image that is not on this product');
+  }
+
+  // Images the caller did not name keep their relative order, after the named ones.
+  const unnamed = owned.map((row) => row.id).filter((id) => !ids.includes(id));
+  const ordered = [...ids, ...unnamed];
+
+  for (const [index, imageId] of ordered.entries()) {
+    await tx
+      .update(productImage)
+      .set({ sortOrder: index })
+      .where(sql`${productImage.id} = ${imageId}`);
+  }
+
+  await recordAudit(tx, {
+    actorType: 'staff',
+    actorStaffId: actor.staffUserId,
+    actorRoleCodes: actor.roleCodes,
+    action: 'catalog.image_reordered',
+    entityType: 'product',
+    entityId: productId,
+    after: { order: ordered },
   });
 }
 

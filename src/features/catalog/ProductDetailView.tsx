@@ -111,6 +111,15 @@ export function ProductDetailView({
             </p>
           )}
 
+          {/*
+            The owner's short shelf line, directly under the price - the placement the reference uses
+            and the reason the field exists. Omitted entirely when the owner has not written one, so
+            the page never renders an empty paragraph or invents copy.
+          */}
+          {product.shortDescription !== null && (
+            <p className={styles.shortDescription}>{product.shortDescription}</p>
+          )}
+
           <dl className={styles.facts}>
             {product.brand && (
               <div>

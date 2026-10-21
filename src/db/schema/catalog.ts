@@ -98,6 +98,17 @@ export const product = pgTable(
     nameEn: text('name_en').notNull(),
     descriptionBn: text('description_bn'),
     descriptionEn: text('description_en'),
+    /**
+     * The one-line summary shown under the price on the product page (Phase 35, owner decision).
+     *
+     * Deliberately **not** bilingual: it is a short shelf line, not catalog copy, and the storefront
+     * interface is English only (Phase 28). The long description above stays bilingual because it is
+     * owner content in both scripts.
+     *
+     * Nullable, and null means "no summary" - the product page then renders the price alone rather
+     * than an empty paragraph.
+     */
+    shortDescription: text('short_description'),
     packSize: text('pack_size'),
     /**
      * Owner-controlled availability (D19). **Defaults to `out_of_stock` on purpose**: the fail-safe
@@ -131,6 +142,9 @@ export const product = pgTable(
     check('product_published_needs_timestamp', sql`${t.isPublished} = false or ${t.publishedAt} is not null`),
     check('product_deleted_not_published', sql`${t.deletedAt} is null or ${t.isPublished} = false`),
     check('product_availability_valid', colIn('availability', PRODUCT_AVAILABILITY)),
+    // A shelf line, bounded at 500 characters by the documented input rule. The schema bounds it too,
+    // so a value written outside the form cannot exceed what the interface promises.
+    check('product_short_description_len', sql`${t.shortDescription} is null or char_length(${t.shortDescription}) between 1 and 500`),
   ],
 );
 

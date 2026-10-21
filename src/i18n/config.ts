@@ -1,3 +1,4 @@
+import { dictionary, type TranslationKey } from './dictionaries';
 import type { Locale } from '@/lib/types';
 
 /**
@@ -16,3 +17,22 @@ export const INTERFACE_LOCALE: Locale = 'en';
 
 /** BCP-47 tag used for `Intl` formatting (dates and numbers). */
 export const INTL_LOCALE = 'en-US';
+
+/**
+ * The server-side translator.
+ *
+ * `useTranslation` is a React hook and cannot be called from an async Server Component, but a server
+ * page still needs the same dictionary and the same `{param}` substitution. This is that lookup without
+ * the hook - one dictionary, one interpolation rule - so server and client copy cannot drift.
+ *
+ * Components keep using `useTranslation`; this exists for pages that resolve their own copy before
+ * rendering.
+ */
+export function translate(key: TranslationKey, params?: Record<string, string | number>): string {
+  const template: string = dictionary[key] ?? key;
+  if (!params) return template;
+  return template.replace(/\{(\w+)\}/g, (match, name: string) => {
+    const value = params[name];
+    return value === undefined ? match : String(value);
+  });
+}

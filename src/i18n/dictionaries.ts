@@ -427,6 +427,8 @@ export const dictionary = {
   'admin.catalog.sectionNames': 'Names and description',
   'admin.catalog.sectionClassification': 'Classification',
   'admin.catalog.sectionPricing': 'Pricing',
+  'admin.catalog.sectionPricingBody':
+    'Type the amount in taka. The comparison price is optional and only shown when it is genuinely higher.',
   'admin.catalog.sectionStatus': 'Publication and stock',
   'admin.catalog.field.priceHelp': 'Enter Bangladeshi taka, for example 750.10.',
   'admin.catalog.newProduct': 'New product',
@@ -700,6 +702,70 @@ export const dictionary = {
   'admin.owners.notice.exists': 'An account with that email already exists.',
   'admin.owners.notice.invalid': 'Enter a name and a valid email address.',
 
+  // ---- Product editor (Phase 35) ----
+  'admin.catalog.createBody':
+    'Add a product to the catalog. It stays off the storefront until you publish it, and it cannot be ordered until it is in stock.',
+  'admin.catalog.createBlocked':
+    'A product needs a category and a brand. This store has {categories} categor(ies) and {brands} brand(s), so the form is unavailable until both exist.',
+  'admin.catalog.formReady': 'All required fields are filled. Nothing is published until you tick Publish.',
+  'admin.catalog.formMissing': 'Still required: {fields}.',
+  'admin.catalog.formBlocked': 'The browser refused this submission. Check these fields: {fields}.',
+  'admin.catalog.sectionGeneral': 'General information',
+  'admin.catalog.sectionGeneralBody': 'What the customer reads on the product page.',
+  'admin.catalog.sectionMedia': 'Media',
+  'admin.catalog.sectionMediaBody': 'Photographs are associated from this store’s own image library.',
+  'admin.catalog.sectionOrganisation': 'Organisation',
+  'admin.catalog.sectionOrganisationBody': 'Where the product sits, and how it is identified.',
+  'admin.catalog.sectionPublication': 'Publication',
+  'admin.catalog.sectionPublicationBody': 'Two independent states decide whether a customer can buy this.',
+  'admin.catalog.field.nameEnPlaceholder': 'For example: Hydrating Aloe Vera Mask',
+  'admin.catalog.field.nameBnPlaceholder': 'Product name in Bangla',
+  'admin.catalog.field.shortDescription': 'Short description',
+  'admin.catalog.field.shortDescriptionPlaceholder': 'One line shown under the price, for example: “200 ml · all skin types”',
+  'admin.catalog.field.shortDescriptionHelp':
+    'Shown directly under the price on the product page. Leave it empty to show the price alone.',
+  'admin.catalog.field.descriptionHelp': 'Plain text. Line breaks are preserved; no HTML is rendered.',
+  'admin.catalog.field.packSizePlaceholder': 'For example: 200 ml',
+  'admin.catalog.field.skuPlaceholder': 'Leave empty to derive it from the slug',
+  'admin.catalog.field.skuHelp':
+    'Uppercase letters, digits and dashes. Must be unique across the catalog; derived from the slug when left empty.',
+  'admin.catalog.field.choose': 'Choose…',
+  'admin.catalog.field.availabilityHelp':
+    'Availability is a state, not a quantity. Out of stock products are shown but cannot be ordered.',
+  'admin.catalog.field.isPublishedHelp': 'Publishing puts the product on the storefront immediately.',
+  'admin.catalog.field.compareAtPriceWarn':
+    'This is not higher than the price, so no saving will be shown. Clear it or raise it.',
+  'admin.catalog.counter': '{used}/{max}',
+  'admin.catalog.currencyMark': 'BDT',
+  'admin.catalog.outcomeLiveOrderable': 'Live and orderable: the product shows on the storefront and can be bought.',
+  'admin.catalog.outcomeLiveNotOrderable':
+    'Live but not orderable: the product shows on the storefront, and the order button is refused.',
+  'admin.catalog.outcomeHidden': 'Hidden: the product is not on the storefront and cannot be ordered.',
+  'admin.catalog.previewTitle': 'Storefront preview',
+  'admin.catalog.previewBody': 'Exactly what the card shows, from what you have typed so far.',
+  'admin.catalog.previewNoImage': 'No image yet',
+  'admin.catalog.previewNoName': 'No name yet',
+  'admin.catalog.previewNoPrice': 'No price yet',
+  'admin.catalog.previewCaveat':
+    'The card shows no stock quantity, because availability is a state rather than a count.',
+  'admin.catalog.mediaAfterCreateTitle': 'Images come after the product exists',
+  'admin.catalog.mediaAfterCreateBody':
+    'An image belongs to a product row, so this product must be created first. Save it, then attach photographs from the product’s edit screen.',
+  'admin.catalog.mediaEditHint': 'Attach photographs from this store’s library, then order them below.',
+  'admin.catalog.attachExisting': 'Attach an existing photograph',
+  'admin.catalog.imageKeyHelp':
+    'Only images already generated into this store’s catalog library appear here. Dimensions and file size are read from the file itself.',
+  'admin.catalog.imageUnnamed': 'Image {key}',
+  'admin.catalog.galleryPosition': 'Position {position}',
+  'admin.catalog.saveAlt': 'Save alt text',
+  'admin.catalog.makePrimary': 'Use on the card',
+  'admin.catalog.moveUp': 'Move {name} earlier',
+  'admin.catalog.moveDown': 'Move {name} later',
+  'admin.catalog.orderPending': 'New order not saved yet.',
+  'admin.catalog.saveOrder': 'Save order',
+  'admin.catalog.notice.imageReordered': 'Image order saved.',
+  'admin.catalog.readOnly': 'This account can view this product but not change it.',
+  'admin.catalog.notice.createdShort': 'Product created. Add photographs below.',
   'admin.catalog.title': 'Products',
   'admin.catalog.body':
     'Names, descriptions, category, brand, price, imagery and availability are maintained here. Prices are entered in taka.',

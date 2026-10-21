@@ -40,7 +40,10 @@ export type AdminIconName =
   | 'clock'
   | 'plus'
   | 'settings'
-  | 'logout';
+  | 'logout'
+  | 'arrowUp'
+  | 'arrowDown'
+  | 'image';
 
 export function AdminIcon({ name, ...props }: IconProps & { name: AdminIconName }) {
   switch (name) {
@@ -164,6 +167,26 @@ export function AdminIcon({ name, ...props }: IconProps & { name: AdminIconName 
         <svg {...base} {...props}>
           <circle cx="12" cy="12" r="3" />
           <path d="M12 3.5v2M12 18.5v2M3.5 12h2M18.5 12h2M6 6l1.5 1.5M16.5 16.5 18 18M18 6l-1.5 1.5M7.5 16.5 6 18" />
+        </svg>
+      );
+    case 'arrowUp':
+      return (
+        <svg {...base} {...props}>
+          <path d="M12 19V5M6 11l6-6 6 6" />
+        </svg>
+      );
+    case 'arrowDown':
+      return (
+        <svg {...base} {...props}>
+          <path d="M12 5v14M6 13l6 6 6-6" />
+        </svg>
+      );
+    case 'image':
+      return (
+        <svg {...base} {...props}>
+          <rect x="3" y="4" width="18" height="16" rx="2" />
+          <circle cx="9" cy="10" r="1.6" />
+          <path d="m4 18 5-5 4 4 3-3 4 4" />
         </svg>
       );
     case 'logout':
