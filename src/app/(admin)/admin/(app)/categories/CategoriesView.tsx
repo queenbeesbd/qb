@@ -4,11 +4,14 @@ import Link from 'next/link';
 
 import { useTranslation } from '@/i18n/useTranslation';
 import type { TranslationKey } from '@/i18n/dictionaries';
+import { buildQueryHref } from '@/lib/admin-query';
 import { AdminIcon } from '../../_ui/icons';
 import { ConfirmSubmit } from '../../_ui/ConfirmSubmit';
 import { EmptyState } from '../../_ui/EmptyState';
+import { FilterTabs, ListSearch, ListToolbar } from '../../_ui/ListToolbar';
 import { Notice } from '../../_ui/Notice';
 import { PageHeader } from '../../_ui/PageHeader';
+import { Pagination } from '../../_ui/Pagination';
 import { StatusPill } from '../../_ui/StatusPill';
 import { SubmitButton } from '../../_ui/SubmitButton';
 import styles from '../../admin.module.css';
@@ -26,6 +29,9 @@ export type CategoryRow = {
 };
 
 export type CategoriesNotice = 'created' | 'updated' | 'archived' | 'denied' | 'conflict' | 'invalid';
+
+/** The visibility filter. `all` is the unfiltered list, not a third state on a category. */
+export type CategoryVisibilityFilter = 'all' | 'visible' | 'hidden';
 
 const NOTICE_KEYS: Record<CategoriesNotice, TranslationKey> = {
   created: 'admin.categories.notice.created',
@@ -52,6 +58,14 @@ export function CategoriesView({
   canManage,
   csrfToken,
   creating,
+  search,
+  visibility,
+  total,
+  page,
+  pageCount,
+  size,
+  defaultSize,
+  clearHref,
 }: {
   categories: readonly CategoryRow[];
   editing:
@@ -70,10 +84,30 @@ export function CategoriesView({
   canManage: boolean;
   csrfToken: string;
   creating: boolean;
+  search: string;
+  visibility: CategoryVisibilityFilter;
+  total: number;
+  page: number;
+  pageCount: number;
+  size: number;
+  defaultSize: number;
+  clearHref: string;
 }) {
   const { t } = useTranslation();
   const noticeIsError = notice !== null && ERROR_NOTICES.includes(notice);
   const formOpen = editing !== null || (canManage && creating);
+  const filtering = search !== '' || visibility !== 'all';
+
+  /*
+   * Every list link is built from the same state and none of them carries `page`, so changing what is
+   * shown returns to page 1 rather than an empty later page.
+   */
+  const href = (next: { q?: string; visibility?: string }): string =>
+    buildQueryHref('/admin/categories', {
+      q: next.q ?? search,
+      visibility: (next.visibility ?? visibility) === 'all' ? '' : (next.visibility ?? visibility),
+      size: size === defaultSize ? '' : size,
+    });
 
   const fields = (values: {
     slug?: string;
@@ -207,10 +241,47 @@ export function CategoriesView({
           <p>{t('admin.categories.listBody')}</p>
         </div>
 
+        <ListToolbar>
+          <FilterTabs
+            label={t('admin.categories.filterLabel')}
+            active={visibility}
+            options={[
+              { value: 'all', label: t('admin.common.all'), href: href({ visibility: 'all' }) },
+              { value: 'visible', label: t('admin.categories.visible'), href: href({ visibility: 'visible' }) },
+              { value: 'hidden', label: t('admin.categories.hidden'), href: href({ visibility: 'hidden' }) },
+            ]}
+          />
+
+          <ListSearch
+            action="/admin/categories"
+            id="category-search"
+            label={t('admin.categories.searchLabel')}
+            placeholder={t('admin.categories.searchPlaceholder')}
+            value={search}
+            hidden={{
+              visibility: visibility === 'all' ? '' : visibility,
+              size: size === defaultSize ? '' : String(size),
+            }}
+            clearHref={clearHref}
+            dirty={filtering}
+          />
+        </ListToolbar>
+
         {categories.length === 0 ? (
-          <EmptyState title={t('admin.categories.emptyTitle')} body={t('admin.categories.emptyBody')} icon="categories" />
+          <EmptyState
+            icon={filtering ? 'search' : 'categories'}
+            title={filtering ? t('admin.categories.searchEmptyTitle') : t('admin.categories.emptyTitle')}
+            body={filtering ? t('admin.categories.searchEmptyBody') : t('admin.categories.emptyBody')}
+            action={
+              filtering ? (
+                <Link className={`${styles.button} ${styles.buttonSecondary} ${styles.buttonSmall}`} href={clearHref}>
+                  {t('admin.common.clear')}
+                </Link>
+              ) : null
+            }
+          />
         ) : (
-          <ul className={styles.recordList}>
+          <ul className={styles.recordList} data-admin-list="">
             {categories.map((category) => (
               <li className={styles.record} key={category.id}>
                 <span className={styles.recordThumb} aria-hidden="true">
@@ -251,6 +322,23 @@ export function CategoriesView({
               </li>
             ))}
           </ul>
+        )}
+
+        {categories.length > 0 && (
+          <Pagination
+            basePath="/admin/categories"
+            query={{
+              q: search,
+              visibility: visibility === 'all' ? '' : visibility,
+              size: size === defaultSize ? '' : String(size),
+            }}
+            page={page}
+            pageCount={pageCount}
+            shown={categories.length}
+            total={total}
+            size={size}
+            defaultSize={defaultSize}
+          />
         )}
       </section>
     </>

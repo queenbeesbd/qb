@@ -1,4 +1,5 @@
 import { withTransaction } from '@/db/client';
+import { buildQueryHref, readPageNumber, readPageSize } from '@/lib/admin-query';
 import { requireAdminPage } from '@/server/auth/guard';
 import { hasPermission } from '@/server/authz/principal';
 import { PERMISSIONS } from '@/server/authz/permissions';
@@ -20,12 +21,6 @@ function readNotice(value: string | string[] | undefined): CustomerNotice | null
   return (NOTICES as readonly string[]).includes(candidate) ? (candidate as CustomerNotice) : null;
 }
 
-/** A page number, parsed defensively: anything not a positive integer is page 1. */
-function pageNumber(value: string): number {
-  const parsed = Number.parseInt(value, 10);
-  return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : 1;
-}
-
 /**
  * Customers, for the owner's moderation work.
  *
@@ -33,6 +28,9 @@ function pageNumber(value: string): number {
  * side, calls the existing `suspendCustomer` primitive (which revokes every live session and writes
  * the audited reason), and is only ever an owner decision made on a confirmed finding - never a
  * consequence of a COD decision. Search is a literal match on email or display name.
+ *
+ * Search, page and page size are applied in SQL and carried in the URL. A hand-typed page beyond the
+ * end resolves to the last page; an unknown page size falls back to the default.
  */
 export default async function AdminCustomersPage({
   searchParams,
@@ -42,15 +40,14 @@ export default async function AdminCustomersPage({
   const principal = await requireAdminPage(PERMISSIONS.customerRead);
   const params = await searchParams;
   const search = single(params.q).slice(0, 80);
+  const size = readPageSize(single(params.size), CUSTOMER_PAGE_SIZE);
 
   const data = await withTransaction(async (tx) => {
-    const first = await customers(tx, { search, limit: CUSTOMER_PAGE_SIZE, offset: 0 });
-    const pageCount = Math.max(1, Math.ceil(first.total / CUSTOMER_PAGE_SIZE));
-    const page = Math.min(pageNumber(single(params.page)), pageCount);
+    const first = await customers(tx, { search, limit: size, offset: 0 });
+    const pageCount = Math.max(1, Math.ceil(first.total / size));
+    const page = Math.min(readPageNumber(single(params.page)), pageCount);
     const result =
-      page === 1
-        ? first
-        : await customers(tx, { search, limit: CUSTOMER_PAGE_SIZE, offset: (page - 1) * CUSTOMER_PAGE_SIZE });
+      page === 1 ? first : await customers(tx, { search, limit: size, offset: (page - 1) * size });
     return { ...result, page, pageCount };
   });
 
@@ -59,6 +56,9 @@ export default async function AdminCustomersPage({
       total={data.total}
       page={data.page}
       pageCount={data.pageCount}
+      shown={data.rows.length}
+      size={size}
+      defaultSize={CUSTOMER_PAGE_SIZE}
       rows={data.rows.map((row) => ({
         customerId: row.customerId,
         email: row.email,
@@ -72,6 +72,7 @@ export default async function AdminCustomersPage({
       csrfToken={principal.csrfToken}
       canSuspend={hasPermission(principal, PERMISSIONS.customerSuspend)}
       search={search}
+      clearHref={buildQueryHref('/admin/customers', { size: size === CUSTOMER_PAGE_SIZE ? null : size })}
     />
   );
 }

@@ -136,12 +136,27 @@ export type CategoryInput = {
   readonly isVisible?: unknown;
 };
 
+/** Rows per page for the admin category list. */
+export const CATEGORY_PAGE_SIZE = 25;
+
 /**
- * Categories with their live product count, so the owner can see what a deletion would affect before
- * attempting it.
+ * Categories, for the admin list.
+ *
+ * The product count per category is a correlated `count(*)` over live rows - never a stored counter -
+ * so it cannot disagree with the catalog. `search` matches the English name, the Bangla name and the
+ * slug; `visibility` narrows to visible or hidden. The count for the footer runs over the same
+ * predicate as the page.
  */
-export async function listCategoriesForAdmin(tx: Transaction): Promise<
-  {
+export async function listCategoriesForAdmin(
+  tx: Transaction,
+  options: {
+    readonly search?: string;
+    readonly visibility?: 'visible' | 'hidden';
+    readonly limit?: number;
+    readonly offset?: number;
+  } = {},
+): Promise<{
+  readonly rows: {
     id: number;
     slug: string;
     nameBn: string;
@@ -151,9 +166,26 @@ export async function listCategoriesForAdmin(tx: Transaction): Promise<
     sortOrder: number;
     isVisible: boolean;
     productCount: number;
-  }[]
-> {
-  return tx
+  }[];
+  readonly total: number;
+}> {
+  const search = options.search?.trim() ?? '';
+  const searchClause =
+    search === ''
+      ? sql`true`
+      : sql`(${category.nameEn} ilike ${likeTerm(search)}
+          or ${category.nameBn} ilike ${likeTerm(search)}
+          or ${category.slug} ilike ${likeTerm(search)})`;
+  const visibility = options.visibility ?? null;
+  const where = sql`${category.deletedAt} is null
+          and (${visibility}::text is null
+               or (${visibility} = 'visible' and ${category.isVisible})
+               or (${visibility} = 'hidden' and not ${category.isVisible}))
+          and ${searchClause}`;
+  const limit = Math.min(Math.max(options.limit ?? CATEGORY_PAGE_SIZE, 1), 100);
+  const offset = Math.max(options.offset ?? 0, 0);
+
+  const rows = await tx
     .select({
       id: category.id,
       slug: category.slug,
@@ -169,8 +201,57 @@ export async function listCategoriesForAdmin(tx: Transaction): Promise<
       )`,
     })
     .from(category)
-    .where(sql`${category.deletedAt} is null`)
-    .orderBy(category.sortOrder, category.nameEn);
+    .where(where)
+    .orderBy(category.sortOrder, category.nameEn, category.id)
+    .limit(limit)
+    .offset(offset);
+
+  const counted = await tx
+    .select({ total: sql<number>`count(*)::int` })
+    .from(category)
+    .where(where);
+
+  return { rows, total: counted[0]?.total ?? 0 };
+}
+
+/**
+ * One live category by id, for the edit form.
+ *
+ * Returns `null` for anything that is not a live row - an archived category, an unknown id or a
+ * malformed one - so a hand-crafted `?edit=` cannot disclose an archived record. The lookup is a
+ * direct read rather than a scan of a page, so it does not depend on where the owner has paged to.
+ */
+export async function getCategoryForAdmin(
+  tx: Transaction,
+  categoryId: unknown,
+): Promise<{
+  id: number;
+  slug: string;
+  nameBn: string;
+  nameEn: string;
+  descriptionBn: string | null;
+  descriptionEn: string | null;
+  sortOrder: number;
+  isVisible: boolean;
+} | null> {
+  const id = parseId(categoryId);
+  if (id === null) return null;
+
+  const rows = await tx
+    .select({
+      id: category.id,
+      slug: category.slug,
+      nameBn: category.nameBn,
+      nameEn: category.nameEn,
+      descriptionBn: category.descriptionBn,
+      descriptionEn: category.descriptionEn,
+      sortOrder: category.sortOrder,
+      isVisible: category.isVisible,
+    })
+    .from(category)
+    .where(sql`${category.id} = ${id} and ${category.deletedAt} is null`);
+
+  return rows[0] ?? null;
 }
 
 export async function createCategory(
@@ -385,6 +466,9 @@ function parseVisibility(value: unknown): boolean {
 // Products
 // ---------------------------------------------------------------------------------------------
 
+/** Rows per page for the admin product list. Bounded, and changeable from the list footer. */
+export const PRODUCT_PAGE_SIZE = 25;
+
 export type ProductInput = {
   readonly slug?: unknown;
   readonly nameBn: unknown;
@@ -405,12 +489,21 @@ export type ProductInput = {
  * A product as the admin list needs it. Prices come from the product's default variant, which is where
  * the schema puts them - the storefront's `Product.priceMinor` is the same value projected through the
  * read layer.
+ *
+ * The list is **paged with an exact total** (Phase 30). The count runs over the same predicate as the
+ * page, so the footer cannot disagree with the rows it describes, and the order ends with `id` so a
+ * page boundary is stable when two products share a name.
  */
 export async function listProductsForAdmin(
   tx: Transaction,
-  options: { readonly search?: string; readonly availability?: 'in_stock' | 'out_of_stock' } = {},
-): Promise<
-  {
+  options: {
+    readonly search?: string;
+    readonly availability?: 'in_stock' | 'out_of_stock';
+    readonly limit?: number;
+    readonly offset?: number;
+  } = {},
+): Promise<{
+  readonly rows: {
     id: number;
     slug: string;
     nameBn: string;
@@ -425,8 +518,9 @@ export async function listProductsForAdmin(
     sku: string | null;
     imageCount: number;
     primaryImageKey: string | null;
-  }[]
-> {
+  }[];
+  readonly total: number;
+}> {
   const search = options.search?.trim() ?? '';
   const searchClause =
     search === ''
@@ -441,7 +535,13 @@ export async function listProductsForAdmin(
               and "product_variant"."sku" ilike ${likeTerm(search)}
           ))`;
   const availability = options.availability ?? null;
-  return tx
+  const where = sql`${product.deletedAt} is null
+          and (${availability}::text is null or ${product.availability} = ${availability})
+          and ${searchClause}`;
+  const limit = Math.min(Math.max(options.limit ?? PRODUCT_PAGE_SIZE, 1), 100);
+  const offset = Math.max(options.offset ?? 0, 0);
+
+  const rows = await tx
     .select({
       id: product.id,
       slug: product.slug,
@@ -483,12 +583,19 @@ export async function listProductsForAdmin(
     .innerJoin(brand, sql`${brand.id} = ${product.brandId}`)
     // Filters narrow an owner-facing list only. They apply over the same "live row" predicate, so a
     // search cannot reveal an archived product, and availability stays the binary state it is.
-    .where(
-      sql`${product.deletedAt} is null
-          and (${availability}::text is null or ${product.availability} = ${availability})
-          and ${searchClause}`,
-    )
-    .orderBy(product.nameEn);
+    .where(where)
+    .orderBy(product.nameEn, product.id)
+    .limit(limit)
+    .offset(offset);
+
+  const counted = await tx
+    .select({ total: sql<number>`count(*)::int` })
+    .from(product)
+    .innerJoin(category, sql`${category.id} = ${product.categoryId}`)
+    .innerJoin(brand, sql`${brand.id} = ${product.brandId}`)
+    .where(where);
+
+  return { rows, total: counted[0]?.total ?? 0 };
 }
 
 export async function getProductForAdmin(tx: Transaction, productId: unknown): Promise<

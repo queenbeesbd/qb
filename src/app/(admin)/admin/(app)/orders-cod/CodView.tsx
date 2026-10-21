@@ -4,9 +4,10 @@ import Link from 'next/link';
 
 import { useTranslation } from '@/i18n/useTranslation';
 import type { TranslationKey } from '@/i18n/dictionaries';
-import { AdminIcon } from '../../_ui/icons';
+import { buildQueryHref } from '@/lib/admin-query';
 import { CodOrderCard, type CodOrderRow } from '../../_ui/CodOrderCard';
 import { EmptyState } from '../../_ui/EmptyState';
+import { FilterTabs, ListSearch, ListToolbar } from '../../_ui/ListToolbar';
 import { Notice } from '../../_ui/Notice';
 import { PageHeader } from '../../_ui/PageHeader';
 import { Pagination } from '../../_ui/Pagination';
@@ -43,6 +44,8 @@ export function CodView({
   total,
   page,
   pageCount,
+  size,
+  defaultSize,
   csrfToken,
   canApprove,
   canCancel,
@@ -57,16 +60,16 @@ export function CodView({
   total: number;
   page: number;
   pageCount: number;
+  size: number;
+  defaultSize: number;
   csrfToken: string;
   canApprove: boolean;
   canCancel: boolean;
 }) {
   const { t } = useTranslation();
-  const waitingHref = search === '' ? '/admin/orders-cod' : `/admin/orders-cod?q=${encodeURIComponent(search)}`;
-  const decidedHref =
-    search === ''
-      ? '/admin/orders-cod?filter=decided'
-      : `/admin/orders-cod?filter=decided&q=${encodeURIComponent(search)}`;
+  const sizeParam = size === defaultSize ? '' : String(size);
+  const waitingHref = buildQueryHref('/admin/orders-cod', { q: search, size: sizeParam });
+  const decidedHref = buildQueryHref('/admin/orders-cod', { filter: 'decided', q: search, size: sizeParam });
 
   return (
     <>
@@ -80,55 +83,35 @@ export function CodView({
         <Notice tone={ERROR_NOTICES.includes(notice) ? 'error' : 'success'}>{t(NOTICE_KEYS[notice])}</Notice>
       )}
 
-      <div className={styles.toolbar}>
-        <div className={styles.filterTabs} role="group" aria-label={t('admin.cod.filterLabel')}>
-          <Link
-            href={waitingHref}
-            className={filter === 'waiting' ? `${styles.filterTab} ${styles.filterTabActive}` : styles.filterTab}
-            aria-current={filter === 'waiting' ? 'page' : undefined}
-          >
-            {t('admin.cod.tabWaiting')}
-            <span className={styles.filterCount}>{waitingCount}</span>
-          </Link>
-          <Link
-            href={decidedHref}
-            className={filter === 'decided' ? `${styles.filterTab} ${styles.filterTabActive}` : styles.filterTab}
-            aria-current={filter === 'decided' ? 'page' : undefined}
-          >
-            {t('admin.cod.tabDecided')}
-          </Link>
-        </div>
+      <ListToolbar>
+        <FilterTabs
+          label={t('admin.cod.filterLabel')}
+          active={filter}
+          options={[
+            {
+              value: 'waiting',
+              label: t('admin.cod.tabWaiting'),
+              href: waitingHref,
+              count: waitingCount,
+            },
+            { value: 'decided', label: t('admin.cod.tabDecided'), href: decidedHref },
+          ]}
+        />
 
-        <form className={styles.searchForm} action="/admin/orders-cod" method="get" role="search">
-          {filter === 'decided' && <input type="hidden" name="filter" value="decided" />}
-          <div className={styles.searchField}>
-            <AdminIcon name="search" width={16} height={16} />
-            <label className="sr-only" htmlFor="cod-search">
-              {t('admin.cod.searchLabel')}
-            </label>
-            <input
-              id="cod-search"
-              className={styles.input}
-              type="search"
-              name="q"
-              defaultValue={search}
-              placeholder={t('admin.cod.searchPlaceholder')}
-              maxLength={80}
-            />
-          </div>
-          <button type="submit" className={`${styles.button} ${styles.buttonSecondary} ${styles.buttonSmall}`}>
-            {t('admin.common.search')}
-          </button>
-          {search !== '' && (
-            <Link className={styles.recordLink} href={filter === 'decided' ? '/admin/orders-cod?filter=decided' : '/admin/orders-cod'}>
-              {t('admin.common.clear')}
-            </Link>
-          )}
-        </form>
-        <span className={styles.toolbarMeta}>
-          {t('admin.cod.resultCount', { count: total })}
-        </span>
-      </div>
+        <ListSearch
+          action="/admin/orders-cod"
+          id="cod-search"
+          label={t('admin.cod.searchLabel')}
+          placeholder={t('admin.cod.searchPlaceholder')}
+          value={search}
+          hidden={{
+            filter: filter === 'decided' ? 'decided' : '',
+            size: sizeParam,
+          }}
+          clearHref={filter === 'decided' ? buildQueryHref('/admin/orders-cod', { filter: 'decided', size: sizeParam }) : waitingHref}
+          dirty={search !== ''}
+        />
+      </ListToolbar>
 
       {rows.length === 0 ? (
         search !== '' ? (
@@ -139,7 +122,7 @@ export function CodView({
             action={
               <Link
                 className={`${styles.button} ${styles.buttonSecondary} ${styles.buttonSmall}`}
-                href={filter === 'decided' ? '/admin/orders-cod?filter=decided' : '/admin/orders-cod'}
+                href={filter === 'decided' ? buildQueryHref('/admin/orders-cod', { filter: 'decided', size: sizeParam }) : waitingHref}
               >
                 {t('admin.common.clear')}
               </Link>
@@ -185,14 +168,16 @@ export function CodView({
         </div>
       )}
 
-      {filter === 'decided' && rows.length > 0 && (
+      {rows.length > 0 && (
         <Pagination
           basePath="/admin/orders-cod"
-          query={{ q: search, filter: 'decided' }}
+          query={{ q: search, filter: filter === 'decided' ? 'decided' : '', size: sizeParam }}
           page={page}
           pageCount={pageCount}
           shown={rows.length}
           total={total}
+          size={size}
+          defaultSize={defaultSize}
         />
       )}
     </>

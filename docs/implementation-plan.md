@@ -941,15 +941,54 @@ a third-party store); the export file format (the download did not materialise i
 the Add User dialog (it did not open in this session); and no accessibility conformance claim, because
 the reference's own gaps are recorded rather than adopted.
 
+## Phase 30 - admin list-surface parity (delivered 2026-10-21)
+
+**The owner approved Phase 30, and it is implemented locally.** Every admin list now shares one toolbar,
+one control scale, one row anatomy and one footer: filter first, then search, then the date range, with
+the count stated **once** in the footer. Nothing about the business rules, permissions, state machines,
+totals or audit contract changed, and there is **no schema change and no migration**.
+
+**What was aligned:**
+
+| Surface | What changed |
+| --- | --- |
+| `/admin/orders` | server-side **date range** (`from`/`to`), page-size control, delivery sub-line and line count per row, active-filter chips |
+| `/admin/orders-cod` | **both tabs now paginate** (the waiting queue used to render every waiting order at once), page-size control |
+| `/admin/catalog` | **pagination with an exact total** (the footer previously reported only the rows on screen), page-size control |
+| `/admin/categories` | **search, a visibility filter and pagination** - the list previously had none of the three |
+| `/admin/customers` | page-size control; the footer is the single count |
+| `/admin/audit` | **pagination with a real page size and an exact total**, replacing a fixed 100-row slice |
+
+**The shared pieces** are `ListToolbar`, `ListSearch` and `FilterTabs` (`_ui/ListToolbar.tsx`),
+`DateRangeFilter` and `ActiveFilters` (`_ui/ListFilters.tsx`), a rewritten `Pagination` with the page-size
+control, and the pure query-state helpers in `src/lib/admin-query.ts`. Every list is filtered **in SQL**,
+every state is in the URL, and every filter change drops the page number so a narrowed list starts at
+page 1. Invalid parameters are clamped rather than refused: `?page=9999` resolves to the last page, an
+undocumented page size falls back to the list default, and `2026-02-31` is ignored rather than rolling
+into March.
+
+**What was deliberately not done:** no new column, table, field, export, bulk action or owner-decision
+item; no category images, no product form sectioning, no customer-detail expansion; no change to any
+permission, transition, money figure or audit action. The parity document's status-C and status-E items
+stay where they were.
+
+**Verified 2026-10-21** against a disposable local cluster and a real production build: `verify:admin`
+**172/172** (22 new checks, including the toolbar sweep, server-side search and no-results, combined
+filters and chips, the date range, page size, out-of-range and invalid parameters, pagination on
+catalog/categories/audit, footer alignment, and 320/360/390/768/1024/1280/1440/1920px containment);
+`test` **165/165**; `test:db` **246/246**; plus `typecheck`, `lint`, `check:i18n`, `check:catalog`,
+`check:secrets`, `build` and `verify:storefront`. **Screenshots were captured and visually inspected**;
+two defects were found that way and fixed - the eight status tabs and the date row were clipped at 390px,
+and the money cell's right alignment read as clipped once a row wrapped.
+
 ## Current single best next step
 
-**Phase 30 - admin list-surface parity (proposed, not authorized).** The Phase 29 audit produced the
-evidence and the ordering; the one phase that needs no schema change, no owner decision and no new
-dependency is the list-surface alignment described in `docs/reference/zatiq-easy-admin-parity.md`
-section 8. It is the right next step because every later parity phase builds on its toolbar, date-filter
-and pagination vocabulary, and because most of it is alignment rather than new behaviour - status tabs,
-search and pagination already exist on the three busiest lists. **Owner approval is required before any
-code changes**; the full acceptance condition is in that section.
+**Phase 31 - subcategories (proposed, not authorized).** Every later parity phase now builds on the
+toolbar, filter and pagination vocabulary this phase established, and the subcategory work is the next
+one that needs **no schema change and no owner decision**: `category.parent_id` already exists, is
+indexed, and already has a "not its own parent" CHECK, so the work is a create/edit/archive surface, a
+derived "Total Subcategory" count, a specific empty state and a breadcrumb. **Owner approval is required
+before any code changes.**
 
 **Still outstanding alongside it, and unchanged: the actual BDT delivery amounts, supplied by the owner
 (D-item 5).** This is not an implementation task -

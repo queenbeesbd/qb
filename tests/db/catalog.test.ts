@@ -43,6 +43,7 @@ import {
   createBrand,
   createCategory,
   createProduct,
+  listCategoriesForAdmin,
   listProductsForAdmin,
   setAvailability,
   updateProduct,
@@ -310,15 +311,15 @@ describe('catalog management', { skip: toolingAvailable ? false : SKIP_REASON },
   });
 
   it('refuses a category that does not exist, and writes nothing', async () => {
-    const before = await withTransaction((tx) => listProductsForAdmin(tx));
+    const before = await withTransaction((tx) => listProductsForAdmin(tx, { limit: 100 }));
     await assert.rejects(
       withTransaction((tx) =>
         createProduct(tx, owner, productInput({ nameEn: 'Ghost Category', categoryId: '999999' })),
       ),
       ValidationError,
     );
-    const afterRows = await withTransaction((tx) => listProductsForAdmin(tx));
-    assert.equal(afterRows.length, before.length, 'no product was created');
+    const afterRows = await withTransaction((tx) => listProductsForAdmin(tx, { limit: 100 }));
+    assert.equal(afterRows.total, before.total, 'no product was created');
   });
 
   it('refuses a brand that does not exist', async () => {
@@ -604,8 +605,84 @@ describe('catalog management', { skip: toolingAvailable ? false : SKIP_REASON },
     assert.equal(images.find((image) => image.id === first.imageId)?.isPrimary, false);
   });
 
+  it('pages the product list with an exact total, and never repeats a row across pages', async () => {
+    for (let index = 0; index < 4; index += 1) {
+      await withTransaction((tx) =>
+        createProduct(tx, owner, productInput({ nameEn: `Paged Product ${index}`, availability: 'in_stock' })),
+      );
+    }
+
+    const first = await withTransaction((tx) => listProductsForAdmin(tx, { limit: 2, offset: 0 }));
+    const second = await withTransaction((tx) => listProductsForAdmin(tx, { limit: 2, offset: 2 }));
+
+    assert.equal(first.rows.length, 2);
+    assert.equal(first.total >= 4, true);
+    assert.equal(first.total, second.total, 'the count describes the same filtered set');
+
+    const firstIds = new Set(first.rows.map((row) => row.id));
+    assert.equal(
+      second.rows.every((row) => !firstIds.has(row.id)),
+      true,
+      'a page never repeats a row from the previous page',
+    );
+  });
+
+  it('narrows the product list by search and availability over the same predicate it counts', async () => {
+    const created = await withTransaction((tx) =>
+      createProduct(tx, owner, productInput({ nameEn: 'Narrow Target', availability: 'out_of_stock' })),
+    );
+
+    const byName = await withTransaction((tx) => listProductsForAdmin(tx, { search: 'Narrow Target' }));
+    assert.equal(byName.total, 1);
+    assert.equal(byName.rows[0]?.id, created.productId);
+
+    const outOfStock = await withTransaction((tx) =>
+      listProductsForAdmin(tx, { search: 'Narrow Target', availability: 'out_of_stock' }),
+    );
+    assert.equal(outOfStock.total, 1);
+
+    // The same search with the other availability state matches nothing, and says so rather than
+    // returning the product anyway.
+    const inStock = await withTransaction((tx) =>
+      listProductsForAdmin(tx, { search: 'Narrow Target', availability: 'in_stock' }),
+    );
+    assert.equal(inStock.total, 0);
+    assert.equal(inStock.rows.length, 0);
+
+    // An archived product never appears in a search, whatever the term.
+    await withTransaction((tx) => archiveProduct(tx, owner, String(created.productId)));
+    const afterArchive = await withTransaction((tx) => listProductsForAdmin(tx, { search: 'Narrow Target' }));
+    assert.equal(afterArchive.total, 0);
+  });
+
+  it('pages and filters the category list, with a live product count per row', async () => {
+    const created = await withTransaction((tx) =>
+      createCategory(tx, owner, { nameBn: 'পেজ', nameEn: 'Paged Category', sortOrder: '5', isVisible: 'on' }),
+    );
+
+    const byName = await withTransaction((tx) => listCategoriesForAdmin(tx, { search: 'Paged Category' }));
+    assert.equal(byName.total, 1);
+    assert.equal(byName.rows[0]?.id, created.categoryId);
+
+    const hiddenOnly = await withTransaction((tx) =>
+      listCategoriesForAdmin(tx, { search: 'Paged Category', visibility: 'hidden' }),
+    );
+    assert.equal(hiddenOnly.total, 0, 'a visible category is not in the hidden filter');
+
+    const visibleOnly = await withTransaction((tx) =>
+      listCategoriesForAdmin(tx, { search: 'Paged Category', visibility: 'visible' }),
+    );
+    assert.equal(visibleOnly.total, 1);
+
+    const first = await withTransaction((tx) => listCategoriesForAdmin(tx, { limit: 1, offset: 0 }));
+    const second = await withTransaction((tx) => listCategoriesForAdmin(tx, { limit: 1, offset: 1 }));
+    assert.equal(first.rows.length, 1);
+    assert.equal(first.total, second.total);
+    assert.notEqual(first.rows[0]?.id, second.rows[0]?.id, 'consecutive pages are different rows');
+  });
+
   it('refuses a catalog mutation from a principal without catalog.write, and leaves no row', async () => {
-    const before = await withTransaction((tx) => listProductsForAdmin(tx));
+    const before = await withTransaction((tx) => listProductsForAdmin(tx, { limit: 100 }));
 
     await assert.rejects(
       withTransaction((tx) => createProduct(tx, limited, productInput({ nameEn: 'Sneaky Product' }))),
@@ -622,8 +699,8 @@ describe('catalog management', { skip: toolingAvailable ? false : SKIP_REASON },
       AuthorizationError,
     );
 
-    const afterRows = await withTransaction((tx) => listProductsForAdmin(tx));
-    assert.equal(afterRows.length, before.length, 'the refused mutation changed no protected state');
+    const afterRows = await withTransaction((tx) => listProductsForAdmin(tx, { limit: 100 }));
+    assert.equal(afterRows.total, before.total, 'the refused mutation changed no protected state');
 
     const sneaky = await withTransaction((tx) =>
       tx

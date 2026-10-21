@@ -59,9 +59,11 @@ export type CodQueueRow = {
  */
 export async function listCodApprovalQueue(
   tx: Transaction,
-  options: { readonly search?: string } = {},
+  options: { readonly search?: string; readonly limit?: number; readonly offset?: number } = {},
 ): Promise<CodQueueRow[]> {
   const search = options.search?.trim() ?? '';
+  const limit = Math.min(Math.max(options.limit ?? CUSTOMER_PAGE_SIZE, 1), 100);
+  const offset = Math.max(options.offset ?? 0, 0);
   const searchClause =
     search === ''
       ? sql`true`
@@ -89,14 +91,30 @@ export async function listCodApprovalQueue(
     // owner has already rejected - which a rejection cancels - in this worklist for good, where every
     // further action could only answer "already decided".
     .where(sql`${order.codState} = 'cod_pending_approval' and ${order.status} = 'pending' and ${searchClause}`)
-    .orderBy(order.placedAt, order.id);
+    .orderBy(order.placedAt, order.id)
+    .limit(limit)
+    .offset(offset);
 }
 
-export async function countCodApprovalQueue(tx: Transaction): Promise<number> {
+/**
+ * The size of the whole waiting worklist, and of the search-narrowed one.
+ *
+ * Both numbers come from the same predicate the queue and its page use, so the tab badge (no search)
+ * and the footer ("showing 25 of 40") cannot disagree with the rows on screen.
+ */
+export async function countCodApprovalQueue(tx: Transaction, search = ''): Promise<number> {
+  const term = search.trim();
+  const searchClause =
+    term === ''
+      ? sql`true`
+      : sql`(${order.orderNumber} ilike ${likeTerm(term)}
+          or ${orderContact.recipientName} ilike ${likeTerm(term)}
+          or ${orderContact.recipientPhone} ilike ${likeTerm(term)})`;
   const rows = await tx
     .select({ total: sql<number>`count(*)::int` })
     .from(order)
-    .where(sql`${order.codState} = 'cod_pending_approval' and ${order.status} = 'pending'`);
+    .innerJoin(orderContact, sql`${orderContact.orderId} = ${order.id}`)
+    .where(sql`${order.codState} = 'cod_pending_approval' and ${order.status} = 'pending' and ${searchClause}`);
   return rows[0]?.total ?? 0;
 }
 

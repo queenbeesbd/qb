@@ -185,7 +185,7 @@ async function itemsByOrder(
 /** The COD approval worklist, oldest first, with the recorded order lines. */
 export async function codQueue(
   tx: Transaction,
-  options: { readonly search?: string } = {},
+  options: { readonly search?: string; readonly limit?: number; readonly offset?: number } = {},
 ): Promise<CodQueueItem[]> {
   const rows = await listCodApprovalQueue(tx, options);
   const items = await itemsByOrder(

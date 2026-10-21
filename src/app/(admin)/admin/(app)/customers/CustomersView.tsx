@@ -4,9 +4,9 @@ import Link from 'next/link';
 
 import { useTranslation } from '@/i18n/useTranslation';
 import type { TranslationKey } from '@/i18n/dictionaries';
-import { AdminIcon } from '../../_ui/icons';
 import { ConfirmSubmit } from '../../_ui/ConfirmSubmit';
 import { EmptyState } from '../../_ui/EmptyState';
+import { ListSearch, ListToolbar } from '../../_ui/ListToolbar';
 import { Notice } from '../../_ui/Notice';
 import { PageHeader } from '../../_ui/PageHeader';
 import { Pagination } from '../../_ui/Pagination';
@@ -47,18 +47,27 @@ export function CustomersView({
   csrfToken,
   canSuspend,
   search,
+  clearHref,
   total,
   page,
   pageCount,
+  shown,
+  size,
+  defaultSize,
 }: {
   rows: readonly CustomerRow[];
   notice: CustomerNotice | null;
   csrfToken: string;
   canSuspend: boolean;
   search: string;
+  /** The unfiltered list, so "Clear" resets the search and keeps a non-default page size. */
+  clearHref: string;
   total: number;
   page: number;
   pageCount: number;
+  shown: number;
+  size: number;
+  defaultSize: number;
 }) {
   const { t } = useTranslation();
   const dateFormat = new Intl.DateTimeFormat(INTL_LOCALE, { dateStyle: 'medium' });
@@ -71,34 +80,18 @@ export function CustomersView({
         <Notice tone={notice === 'suspended' ? 'success' : 'error'}>{t(NOTICE_KEYS[notice])}</Notice>
       )}
 
-      <div className={styles.toolbar}>
-        <form className={styles.searchForm} action="/admin/customers" method="get" role="search">
-          <div className={styles.searchField}>
-            <AdminIcon name="search" width={16} height={16} />
-            <label className="sr-only" htmlFor="customer-search">
-              {t('admin.customers.searchLabel')}
-            </label>
-            <input
-              id="customer-search"
-              className={styles.input}
-              type="search"
-              name="q"
-              defaultValue={search}
-              placeholder={t('admin.customers.searchPlaceholder')}
-              maxLength={80}
-            />
-          </div>
-          <button type="submit" className={`${styles.button} ${styles.buttonSecondary} ${styles.buttonSmall}`}>
-            {t('admin.common.search')}
-          </button>
-          {search !== '' && (
-            <Link className={styles.recordLink} href="/admin/customers">
-              {t('admin.common.clear')}
-            </Link>
-          )}
-        </form>
-        <span className={styles.toolbarMeta}>{t('admin.customers.resultCount', { count: total })}</span>
-      </div>
+      <ListToolbar>
+        <ListSearch
+          action="/admin/customers"
+          id="customer-search"
+          label={t('admin.customers.searchLabel')}
+          placeholder={t('admin.customers.searchPlaceholder')}
+          value={search}
+          hidden={{ size: size === defaultSize ? '' : String(size) }}
+          clearHref={clearHref}
+          dirty={search !== ''}
+        />
+      </ListToolbar>
 
       {rows.length === 0 ? (
         search !== '' ? (
@@ -107,7 +100,7 @@ export function CustomersView({
             title={t('admin.customers.searchEmptyTitle')}
             body={t('admin.customers.searchEmptyBody')}
             action={
-              <Link className={`${styles.button} ${styles.buttonSecondary} ${styles.buttonSmall}`} href="/admin/customers">
+              <Link className={`${styles.button} ${styles.buttonSecondary} ${styles.buttonSmall}`} href={clearHref}>
                 {t('admin.common.clear')}
               </Link>
             }
@@ -117,7 +110,7 @@ export function CustomersView({
         )
       ) : (
         <>
-        <ul className={styles.recordList}>
+        <ul className={styles.recordList} data-admin-list="">
           {rows.map((row) => {
             const active = row.status === 'active';
             return (
@@ -170,11 +163,13 @@ export function CustomersView({
         </ul>
         <Pagination
           basePath="/admin/customers"
-          query={{ q: search }}
+          query={{ q: search, size: size === defaultSize ? '' : String(size) }}
           page={page}
           pageCount={pageCount}
-          shown={rows.length}
+          shown={shown}
           total={total}
+          size={size}
+          defaultSize={defaultSize}
         />
         </>
       )}

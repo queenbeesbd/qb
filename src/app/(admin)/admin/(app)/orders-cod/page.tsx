@@ -1,4 +1,5 @@
 import { withTransaction } from '@/db/client';
+import { readPageNumber, readPageSize } from '@/lib/admin-query';
 import { requestNowIso } from '@/lib/clock';
 import { requireAdminPage } from '@/server/auth/guard';
 import { hasPermission } from '@/server/authz/principal';
@@ -17,6 +18,9 @@ export const dynamic = 'force-dynamic';
 
 const NOTICES: readonly CodNotice[] = ['approved', 'rejected', 'denied', 'conflict', 'invalid'];
 
+/** Rows per page for the waiting queue. Both tabs page at the same size. */
+const WAITING_PAGE_SIZE = DECIDED_PAGE_SIZE;
+
 function readNotice(value: string | string[] | undefined): CodNotice | null {
   const candidate = Array.isArray(value) ? value[0] : value;
   if (candidate === undefined) return null;
@@ -26,12 +30,6 @@ function readNotice(value: string | string[] | undefined): CodNotice | null {
 function single(value: string | string[] | undefined): string {
   const candidate = Array.isArray(value) ? value[0] : value;
   return candidate ?? '';
-}
-
-/** A page number, parsed defensively: anything not a positive integer is page 1. */
-function pageNumber(value: string): number {
-  const parsed = Number.parseInt(value, 10);
-  return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : 1;
 }
 
 /**
@@ -44,6 +42,10 @@ function pageNumber(value: string): number {
  * Two filters, both applied in SQL over the same guarded predicate the decision holds: the waiting
  * worklist (`cod_state = pending_approval` and `status = pending`) and what was decided today. A
  * decided order leaves the waiting list, so it is never shown with disabled actions.
+ *
+ * **Both tabs page.** The waiting queue used to render every waiting order at once, which was honest
+ * while the shop was small and unbounded once it was not; the tab badge still counts the whole
+ * worklist, so the owner sees how much is waiting even while looking at one page of it.
  */
 export default async function AdminCodPage({
   searchParams,
@@ -54,23 +56,30 @@ export default async function AdminCodPage({
   const params = await searchParams;
   const search = single(params.q).slice(0, 80);
   const filter = single(params.filter) === 'decided' ? 'decided' : 'waiting';
+  const size = readPageSize(single(params.size), filter === 'decided' ? DECIDED_PAGE_SIZE : WAITING_PAGE_SIZE);
+  const requestedPage = readPageNumber(single(params.page));
 
   const data = await withTransaction(async (tx) => {
+    // The badge counts the whole waiting worklist, never just the page on screen.
     const waitingCount = await countCodApprovalQueue(tx);
     if (filter === 'decided') {
       // Resolve the page against the real total first, so a hand-typed page beyond the end shows the
       // last page rather than an empty list with no explanation.
-      const first = await codDecidedToday(tx, { search, limit: DECIDED_PAGE_SIZE, offset: 0 });
-      const pageCount = Math.max(1, Math.ceil(first.total / DECIDED_PAGE_SIZE));
-      const page = Math.min(pageNumber(single(params.page)), pageCount);
+      const first = await codDecidedToday(tx, { search, limit: size, offset: 0 });
+      const pageCount = Math.max(1, Math.ceil(first.total / size));
+      const page = Math.min(requestedPage, pageCount);
       const decided =
         page === 1
           ? first
-          : await codDecidedToday(tx, { search, limit: DECIDED_PAGE_SIZE, offset: (page - 1) * DECIDED_PAGE_SIZE });
+          : await codDecidedToday(tx, { search, limit: size, offset: (page - 1) * size });
       return { waitingCount, rows: decided.rows, total: decided.total, page, pageCount };
     }
-    const waiting = await codQueue(tx, { search });
-    return { waitingCount, rows: waiting, total: waiting.length, page: 1, pageCount: 1 };
+
+    const matching = await countCodApprovalQueue(tx, search);
+    const pageCount = Math.max(1, Math.ceil(matching / size));
+    const page = Math.min(requestedPage, pageCount);
+    const waiting = await codQueue(tx, { search, limit: size, offset: (page - 1) * size });
+    return { waitingCount, rows: waiting, total: matching, page, pageCount };
   });
 
   const rows = data.rows.map((row) => ({
@@ -106,6 +115,8 @@ export default async function AdminCodPage({
       total={data.total}
       page={data.page}
       pageCount={data.pageCount}
+      size={size}
+      defaultSize={filter === 'decided' ? DECIDED_PAGE_SIZE : WAITING_PAGE_SIZE}
       csrfToken={principal.csrfToken}
       canApprove={hasPermission(principal, PERMISSIONS.codApprove)}
       canCancel={hasPermission(principal, PERMISSIONS.orderCancel)}

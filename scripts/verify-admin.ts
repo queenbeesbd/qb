@@ -2038,6 +2038,490 @@ async function main(): Promise<void> {
             );
             await browser.screenshot('/tmp/qb-admin-catalog.png');
 
+            /*
+             * ---- Phase 30: one list vocabulary across every admin list ----
+             *
+             * The reference audit found three row heights, two button heights, pagination missing on
+             * half the lists and no date filter anywhere. These checks pin the corrected contract:
+             *
+             *   - one toolbar (filter, then search, then dates) and one control scale on every list;
+             *   - search, filters and a date range are server-side and visible in the URL;
+             *   - pagination and page size are real, and a filter change returns to page 1;
+             *   - no route widens the document at any supported width;
+             *   - a wide table scrolls inside its own container.
+             *
+             * The data is seeded here, in this disposable cluster, so pagination has more than one
+             * page to page through.
+             */
+            console.log('\nadmin list surfaces (Phase 30)');
+            const listSeed = await withTransaction(async (tx) => {
+              const rows = await tx
+                .select({ id: customer.id })
+                .from(customer)
+                .where(sql`${customer.id} = ${secondCod.customerId}`);
+              const customerId = rows[0]?.id;
+              if (customerId === undefined) fail('the list-surface customer is missing');
+
+              const variant = await tx
+                .select({ id: productVariant.id })
+                .from(productVariant)
+                .where(sql`${productVariant.productId} = ${productId} and ${productVariant.isDefault}`)
+                .limit(1);
+              const variantId = variant[0]?.id;
+
+              const made: string[] = [];
+              // 32 orders spread over the last 32 days: enough for two pages at 25, and enough for a
+              // date window to exclude a known subset.
+              for (let index = 0; index < 32; index += 1) {
+                const orderNumber = 'QBLST' + String(index).padStart(2, '0') + Date.now().toString(36).toUpperCase();
+                const placedAt = new Date(Date.now() - index * 24 * 3_600_000);
+                const inserted = await tx
+                  .insert(order)
+                  .values({
+                    orderNumber,
+                    customerId,
+                    paymentMethod: 'cod',
+                    status: 'pending',
+                    paymentState: 'not_applicable',
+                    codState: 'cod_pending_approval',
+                    itemsSubtotalMinor: 40000 + index,
+                    shippingMinor: 6000,
+                    totalMinor: 46000 + index,
+                    placedAt,
+                  })
+                  .returning({ id: order.id });
+                const orderId = inserted[0]?.id;
+                if (orderId === undefined) fail('could not seed a list-surface order');
+                await tx.insert(orderContact).values({
+                  orderId,
+                  recipientName: 'List Buyer ' + index,
+                  recipientPhone: '0171234' + String(1000 + index),
+                  addressLine: 'House 3, Road 5',
+                  area: 'Dhanmondi',
+                  city: 'Dhaka',
+                });
+                if (variantId !== undefined) {
+                  await tx.insert(orderItem).values({
+                    orderId,
+                    variantId,
+                    productNameBn: 'যাচাই পণ্য',
+                    productNameEn: VERIFY_PRODUCT_NAME,
+                    sku: 'VERIFY-SKU-' + index,
+                    unitPriceMinor: 40000 + index,
+                    quantity: 1,
+                    lineTotalMinor: 40000 + index,
+                  });
+                }
+                made.push(orderNumber);
+              }
+
+              // Enough products to page the catalog, all in the verification category.
+              for (let index = 0; index < 28; index += 1) {
+                const name = 'Paged Product ' + String(index).padStart(2, '0');
+                const slug = 'paged-product-' + String(index).padStart(2, '0');
+                const existing = await tx
+                  .select({ id: product.id })
+                  .from(product)
+                  .where(sql`${product.slug} = ${slug}`);
+                if (existing.length > 0) continue;
+                await tx.insert(product).values({
+                  slug,
+                  nameBn: 'পেজ পণ্য ' + index,
+                  nameEn: name,
+                  categoryId: categoryId ?? 1,
+                  brandId: brandId ?? 1,
+                  isPublished: true,
+                  // A published product must carry the timestamp it was published at - the schema
+                  // CHECK is what stops a row claiming publication it never had.
+                  publishedAt: new Date(),
+                  availability: 'in_stock',
+                });
+              }
+
+              return { made, newest: made[0], oldest: made[made.length - 1] };
+            });
+
+            /*
+             * One toolbar shape, one control scale. The selector list is what the contract is: every
+             * button, value control and date input on these five routes resolves to 40px or 34px, and
+             * every page exposes exactly one list toolbar.
+             */
+            const listRoutes = ['/admin/orders', '/admin/orders-cod', '/admin/catalog', '/admin/categories', '/admin/customers'];
+            const toolbarSweep: Array<{ route: string; toolbars: number; heights: number[] }> = [];
+            for (const route of listRoutes) {
+              await browser.navigate(route);
+              const measured = await browser.evaluate<{ toolbars: number; heights: number[] }>(`(() => ({
+                toolbars: document.querySelectorAll('[data-admin-toolbar]').length,
+                heights: [...document.querySelectorAll(
+                  'main button, main input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]), main select',
+                )].map((el) => Math.round(el.getBoundingClientRect().height)).filter((h) => h > 0),
+              }))()`);
+              toolbarSweep.push({ route, ...measured });
+            }
+            record(
+              'every admin list renders exactly one toolbar and keeps the 34/40 control scale',
+              toolbarSweep.every((page) => page.toolbars === 1) &&
+                toolbarSweep.every((page) => page.heights.length > 0) &&
+                toolbarSweep.every((page) => page.heights.every((h) => h === 34 || h === 40)),
+              JSON.stringify(
+                toolbarSweep.map((page) => ({
+                  route: page.route,
+                  toolbars: page.toolbars,
+                  heights: [...new Set(page.heights)],
+                })),
+              ),
+            );
+
+            /*
+             * Server-side search: the term travels in the URL, the server narrows the list, and a
+             * term that matches nothing states the gap and offers the way back rather than an empty
+             * table. This is the case a client-only filter gets wrong, because it filters one page.
+             */
+            await browser.navigate('/admin/orders?q=' + encodeURIComponent('List Buyer 7'));
+            const searchUi = await browser.evaluate<{
+              url: string;
+              rows: number;
+              hit: boolean;
+              others: boolean;
+              clear: boolean;
+            }>(`(() => {
+              const list = document.querySelector('[data-admin-list]');
+              const text = list?.textContent ?? '';
+              return {
+                url: location.search,
+                rows: list?.querySelectorAll(':scope > li').length ?? 0,
+                hit: text.includes('List Buyer 7'),
+                others: text.includes('List Buyer 6') || text.includes('List Buyer 8'),
+                clear: [...document.querySelectorAll('main a')].some((a) => /clear/i.test(a.textContent || '')),
+              };
+            })()`);
+            record(
+              'order search is applied by the server and reflected in the URL',
+              searchUi.rows === 1 && searchUi.hit === true && searchUi.others === false && searchUi.clear === true,
+              JSON.stringify(searchUi),
+            );
+
+            await browser.navigate('/admin/orders?q=' + encodeURIComponent('no-such-order-zzz'));
+            const noResults = await browser.evaluate<{ empty: boolean; clear: boolean; url: string }>(`(() => ({
+              empty: /No orders match/i.test(document.body.textContent || ''),
+              clear: [...document.querySelectorAll('main a')].some((a) => /clear/i.test(a.textContent || '')),
+              url: location.search,
+            }))()`);
+            record(
+              'a search with no match states the gap and offers a way back',
+              noResults.empty === true && noResults.clear === true && noResults.url.includes('no-such-order-zzz'),
+              JSON.stringify(noResults),
+            );
+
+            /*
+             * Filters combine. A status tab and a search narrow together, the URL carries both, and
+             * the filter chip row names what is in force - so a narrowed list can never be mistaken
+             * for the whole list.
+             */
+            await browser.navigate('/admin/orders?filter=pending&q=' + encodeURIComponent('List Buyer 7'));
+            const combined = await browser.evaluate<{ rows: number; chips: number; url: string; q: string }>(`(() => ({
+              rows: document.querySelectorAll('[data-admin-list] > li').length,
+              chips: document.querySelectorAll('[data-admin-filter-chip]').length,
+              // Decoded, because a browser serialises a space as %20 in the search string and the
+              // encoded form is not what the assertion is about.
+              url: decodeURIComponent(location.search),
+              q: new URLSearchParams(location.search).get('q') ?? '',
+            }))()`);
+            record(
+              'a status filter and a search combine on the server, both stay in the URL, and both are named as chips',
+              combined.rows === 1 &&
+                combined.chips >= 2 &&
+                combined.url.includes('filter=pending') &&
+                combined.q === 'List Buyer 7',
+              JSON.stringify(combined),
+            );
+
+            // Clearing the chips restores the whole list: the count goes back up and no chip remains.
+            await browser.navigate('/admin/orders');
+            const cleared = await browser.evaluate<{ rows: number; chips: number; url: string }>(`(() => ({
+              rows: document.querySelectorAll('[data-admin-list] > li').length,
+              chips: document.querySelectorAll('[data-admin-filter-chip]').length,
+              url: location.search,
+            }))()`);
+            record(
+              'clearing every filter restores the full list and removes the chips',
+              cleared.chips === 0 && cleared.rows === 25 && cleared.url === '',
+              JSON.stringify(cleared),
+            );
+
+            /*
+             * The date range is server-side and half-open: a window that ends today must exclude an
+             * order placed yesterday. The assertion is about a record that exists, so a broken
+             * predicate cannot pass by returning nothing.
+             */
+            const today = new Date();
+            const isoDay = (date: Date): string =>
+              `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+            await browser.navigate(`/admin/orders?from=${isoDay(today)}&to=${isoDay(today)}&size=100`);
+            const ranged = await browser.evaluate<{ text: string; rows: number; url: string; from: string }>(`(() => ({
+              text: document.querySelector('[data-admin-list]')?.textContent ?? '',
+              rows: document.querySelectorAll('[data-admin-list] > li').length,
+              url: location.search,
+              from: document.querySelector('input[name="from"]')?.value ?? '',
+            }))()`);
+            record(
+              'a date range is applied by the server, excludes older rows and survives in the URL and the inputs',
+              ranged.rows >= 1 &&
+                ranged.text.includes(listSeed.newest ?? '') &&
+                !ranged.text.includes(listSeed.oldest ?? '') &&
+                ranged.url.includes('from=' + isoDay(today)) &&
+                ranged.from === isoDay(today),
+              JSON.stringify({ rows: ranged.rows, url: ranged.url, from: ranged.from }),
+            );
+            await browser.screenshot('/tmp/qb-admin-orders-date-range.png');
+
+            /*
+             * Pagination: a page size change is a link, so it survives reload, and it returns to
+             * page 1 rather than leaving the owner on a page that may no longer exist.
+             */
+            await browser.navigate('/admin/orders?size=10');
+            const pageOne = await browser.evaluate<{ rows: number; url: string; hasNext: boolean }>(`(() => ({
+              rows: document.querySelectorAll('[data-admin-list] > li').length,
+              url: location.search,
+              hasNext: [...document.querySelectorAll('main a')].some((a) => /next page/i.test(a.textContent || '')),
+            }))()`);
+            record(
+              'the page-size control returns exactly the requested number of rows',
+              pageOne.rows === 10 && pageOne.url.includes('size=10') && pageOne.hasNext === true,
+              JSON.stringify(pageOne),
+            );
+
+            const firstRowOnPageOne = await browser.evaluate<string>(`(() => {
+              const list = document.querySelector('[data-admin-list]');
+              return list?.querySelector(':scope > li')?.textContent ?? '';
+            })()`);
+
+            await browser.navigate('/admin/orders?size=10&page=2');
+            const pageTwo = await browser.evaluate<{ rows: number; first: string; pageLabel: string }>(`(() => ({
+              rows: document.querySelectorAll('[data-admin-list] > li').length,
+              first: document.querySelector('[data-admin-list] > li')?.textContent ?? '',
+              pageLabel: [...document.querySelectorAll('main p, main span')]
+                .map((el) => el.textContent || '')
+                .find((text) => /page \\d+ of/i.test(text)) ?? '',
+            }))()`);
+            record(
+              'page 2 returns a different set of rows than page 1',
+              pageTwo.rows === 10 &&
+                pageTwo.pageLabel.toLowerCase().includes('page 2') &&
+                pageTwo.first !== firstRowOnPageOne,
+              JSON.stringify({ rows: pageTwo.rows, label: pageTwo.pageLabel, differs: pageTwo.first !== firstRowOnPageOne }),
+            );
+
+            await browser.navigate('/admin/orders?page=9999&size=10');
+            const outOfRange = await browser.evaluate<{ rows: number; text: string }>(`(() => ({
+              rows: document.querySelectorAll('[data-admin-list] > li').length,
+              text: document.body.textContent ?? '',
+            }))()`);
+            record(
+              'a page number beyond the end resolves to a real page instead of an empty screen',
+              outOfRange.rows > 0 && !/could not be loaded/i.test(outOfRange.text),
+              JSON.stringify({ rows: outOfRange.rows }),
+            );
+
+            await browser.navigate('/admin/orders?q=&filter=all&from=2026-02-31&size=7');
+            const invalidParams = await browser.evaluate<{ status: string; rows: number; from: string }>(`(() => ({
+              status: document.querySelector('h1')?.textContent ?? '',
+              rows: document.querySelectorAll('[data-admin-list] > li').length,
+              from: document.querySelector('input[name="from"]')?.value ?? 'x',
+            }))()`);
+            record(
+              'an impossible date and an undocumented page size are ignored rather than refused',
+              invalidParams.rows > 0 && invalidParams.from === '' && invalidParams.status !== '',
+              JSON.stringify(invalidParams),
+            );
+
+            /*
+             * Pagination on the lists that had none: catalog, categories and audit. Each must state a
+             * real total and offer the page-size control, and the catalog page must contain exactly
+             * the requested number of product rows.
+             */
+            await browser.navigate('/admin/catalog?size=10');
+            const catalogPage = await browser.evaluate<{ rows: number; sizeLinks: number; total: boolean }>(`(() => ({
+              rows: document.querySelectorAll('[data-admin-list] > li').length,
+              sizeLinks: document.querySelectorAll('main [role="group"] a[aria-current="true"]').length,
+              total: /showing \\d+ of \\d+/i.test(document.body.textContent || ''),
+            }))()`);
+            record(
+              'the catalog list is paginated with a page-size control and an exact total',
+              catalogPage.rows === 10 && catalogPage.sizeLinks >= 1 && catalogPage.total === true,
+              JSON.stringify(catalogPage),
+            );
+            await browser.screenshot('/tmp/qb-admin-catalog-paged.png');
+
+            await browser.navigate('/admin/categories?size=10');
+            const categoriesPage = await browser.evaluate<{ search: boolean; total: boolean; filter: boolean }>(`(() => ({
+              search: document.querySelector('form[role="search"] input[name="q"]') !== null,
+              total: /showing \\d+ of \\d+/i.test(document.body.textContent || ''),
+              filter: document.querySelectorAll('[role="group"] a').length >= 3,
+            }))()`);
+            record(
+              'the category list has search, a visibility filter and a stated total',
+              categoriesPage.search === true && categoriesPage.total === true && categoriesPage.filter === true,
+              JSON.stringify(categoriesPage),
+            );
+
+            // Search and the visibility filter are applied together by the server, not in the browser.
+            await browser.navigate('/admin/categories?q=' + encodeURIComponent('Verify Category'));
+            const categorySearch = await browser.evaluate<{ rows: number; text: string; url: string }>(`(() => ({
+              rows: document.querySelectorAll('[data-admin-list] > li').length,
+              text: document.querySelector('[data-admin-list]')?.textContent ?? '',
+              url: location.search,
+            }))()`);
+            await browser.navigate('/admin/categories?q=' + encodeURIComponent('Verify Category') + '&visibility=hidden');
+            const categoryHidden = await browser.evaluate<{ rows: number; empty: boolean }>(`(() => ({
+              rows: document.querySelectorAll('[data-admin-list] > li').length,
+              empty: /No categories match/i.test(document.body.textContent || ''),
+            }))()`);
+            record(
+              'category search narrows on the server and combines with the visibility filter',
+              categorySearch.rows === 1 &&
+                categorySearch.text.includes('Verify Category') &&
+                categoryHidden.rows === 0 &&
+                categoryHidden.empty === true,
+              JSON.stringify({ search: categorySearch.rows, hidden: categoryHidden.rows }),
+            );
+            await browser.screenshot('/tmp/qb-admin-categories.png');
+
+            await browser.navigate('/admin/audit?size=10');
+            const auditPage = await browser.evaluate<{ rows: number; total: boolean; size: boolean }>(`(() => ({
+              rows: document.querySelectorAll('[data-admin-table] tbody tr').length,
+              total: /showing \\d+ of \\d+/i.test(document.body.textContent || ''),
+              size: document.querySelectorAll('main [role="group"] a').length > 1,
+            }))()`);
+            record(
+              'the audit trail is paginated with an exact total',
+              auditPage.rows > 0 && auditPage.rows <= 10 && auditPage.total === true && auditPage.size === true,
+              JSON.stringify(auditPage),
+            );
+            await browser.screenshot('/tmp/qb-admin-audit.png');
+
+            /*
+             * Row actions still work. The row links to the order detail, which is the only place an
+             * action is offered; the permission boundary itself is proven over HTTP above.
+             */
+            await browser.navigate('/admin/orders?size=10');
+            const rowLink = await browser.evaluate<string | null>(
+              `(() => document.querySelector('[data-admin-list] > li a[href^="/admin/orders/"]')?.getAttribute('href') ?? null)()`,
+            );
+            if (rowLink === null) fail('the order list has no row link');
+            await browser.navigate(rowLink);
+            const openedOrder = await browser.evaluate<{ heading: string; reason: boolean }>(`(() => ({
+              heading: document.querySelector('h1')?.textContent?.trim() ?? '',
+              reason: document.querySelector('form[action="/api/admin/orders-cod"] [name="reason"]') !== null,
+            }))()`);
+            record(
+              'a list row opens its order, which still carries the guarded decision control',
+              openedOrder.heading.startsWith('QBLST') && openedOrder.reason === true,
+              JSON.stringify(openedOrder),
+            );
+
+            /*
+             * Responsive containment at every supported width. A dense table may scroll inside its
+             * own container; the document must never widen, because a widened document is a page an
+             * owner cannot read on a phone.
+             */
+            const widths = [320, 360, 390, 768, 1024, 1280, 1440, 1920];
+            const overflowFindings: string[] = [];
+            for (const width of widths) {
+              await browser.viewport(width, 900);
+              for (const route of [...listRoutes, '/admin/audit']) {
+                await browser.navigate(route);
+                const measured = await browser.evaluate<{ overflow: number; scrolls: boolean }>(`(() => {
+                  const wrap = document.querySelector('main div');
+                  const table = document.querySelector('[data-admin-table]');
+                  const scroller = table?.parentElement ?? null;
+                  return {
+                    overflow: document.documentElement.scrollWidth - window.innerWidth,
+                    scrolls: scroller !== null
+                      ? scroller.scrollWidth > scroller.clientWidth && getComputedStyle(scroller).overflowX !== 'visible'
+                      : false,
+                  };
+                })()`);
+                if (measured.overflow > 1) overflowFindings.push(`${route} @${width}px: ${measured.overflow}px`);
+                if (route === '/admin/audit' && width <= 390 && measured.scrolls !== true) {
+                  overflowFindings.push(`${route} @${width}px: the table does not scroll inside its container`);
+                }
+              }
+            }
+            record(
+              'no admin list widens the document at 320-1920px, and the audit table scrolls inside its container',
+              overflowFindings.length === 0,
+              overflowFindings.length === 0 ? `${widths.length} widths x ${listRoutes.length + 1} routes` : overflowFindings.join(', '),
+            );
+
+            await browser.viewport(390, 844);
+            await browser.navigate('/admin/orders');
+            await browser.screenshot('/tmp/qb-admin-orders-mobile.png');
+            await browser.navigate('/admin/customers');
+            await browser.screenshot('/tmp/qb-admin-customers-mobile.png');
+            await browser.viewport(1440, 900);
+            await browser.navigate('/admin/orders');
+            await browser.screenshot('/tmp/qb-admin-orders-desktop.png');
+
+            /*
+             * The footer is the only place a list states its size, so it gets its own capture scrolled
+             * into view: a footer below the fold is a footer nobody read while approving this change.
+             */
+            await browser.navigate('/admin/orders?size=10');
+            const footer = await browser.evaluate<{
+              countLeft: number;
+              groupLeft: number;
+              groupRight: number;
+              mainRight: number;
+              sameRow: boolean;
+            }>(`(() => {
+              const footer = [...document.querySelectorAll('main div')].find(
+                (el) => /Showing \\d+ of \\d+/.test(el.textContent || '') && el.querySelector('[role="group"]'),
+              );
+              if (!footer) return { countLeft: 0, groupLeft: 0, groupRight: 0, mainRight: 0, sameRow: false };
+              const count = footer.querySelector('p');
+              const group = footer.querySelector('div');
+              const main = document.querySelector('main');
+              const countBox = count?.getBoundingClientRect();
+              const groupBox = group?.getBoundingClientRect();
+              return {
+                countLeft: Math.round(countBox?.left ?? 0),
+                groupLeft: Math.round(groupBox?.left ?? 0),
+                groupRight: Math.round(groupBox?.right ?? 0),
+                mainRight: Math.round((main?.getBoundingClientRect().right ?? 0) - 24),
+                sameRow: countBox !== undefined && groupBox !== undefined
+                  ? Math.abs((countBox.top + countBox.bottom) / 2 - (groupBox.top + groupBox.bottom) / 2) < 8
+                  : false,
+              };
+            })()`);
+            record(
+              'the list footer puts the count on the left and the controls on the right, on one row',
+              footer.countLeft < footer.groupLeft &&
+                footer.sameRow === true &&
+                Math.abs(footer.groupRight - footer.mainRight) <= 2,
+              JSON.stringify(footer),
+            );
+            await browser.evaluate('window.scrollTo(0, document.body.scrollHeight)');
+            await browser.screenshot('/tmp/qb-admin-orders-footer.png');
+
+            await browser.navigate('/admin/customers');
+            await browser.screenshot('/tmp/qb-admin-customers-desktop.png');
+
+            /*
+             * English only. The interface has one language (Phase 28); a list that leaked a second
+             * one would be a regression this phase must not introduce.
+             */
+            await browser.navigate('/admin/orders');
+            const language = await browser.evaluate<{ lang: string; bengali: boolean }>(`(() => ({
+              lang: document.documentElement.lang,
+              bengali: /[\\u0980-\\u09FF]/.test(document.body.textContent || ''),
+            }))()`);
+            record(
+              'the list surfaces stay English only',
+              language.lang === 'en' && language.bengali === false,
+              JSON.stringify(language),
+            );
+
             await browser.navigate(`/admin/customers/${secondCod.customerId}`);
             const detailUi = await browser.evaluate<{ heading: string | null; order: boolean; suspend: boolean }>(`(() => ({
               heading: document.querySelector('h1')?.textContent?.trim(),

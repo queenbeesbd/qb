@@ -160,7 +160,13 @@ Priority is business value divided by dependency. **Functional** parity is what 
 
 Each phase is independently verifiable and ends with a checkpoint. **No phase below is authorized.**
 
-### Phase 30 - Admin list-surface parity (orders, customers, products, categories)
+### Phase 30 - Admin list-surface parity (orders, customers, products, categories) - **delivered 2026-10-21**
+
+> **Delivered.** The owner authorized this phase and it is implemented locally; see
+> `docs/implementation-plan.md` (Phase 30) and `docs/admin-dashboard.md` (The list surfaces) for what
+> was actually built and verified. The plan below is retained as the specification it was built to.
+> **Not built from it, deliberately:** no new column, table, field, export or bulk action, and nothing
+> from the owner-decision list in section 9.
 
 - **Scope:** one toolbar pattern (title left, primary action right, filter row below), a date-range
   filter, a page-size control, pagination on the lists that lack it (`/admin/catalog`, `/admin/categories`,
@@ -297,18 +303,24 @@ Phase 29 change.
 
 ## 11. Recommended next step
 
-**Phase 30 - Admin list-surface parity (orders, customers, products, categories).**
+**Phase 30 - Admin list-surface parity - was delivered on 2026-10-21.** Every admin list now shares one
+toolbar, one control scale, one row anatomy and one footer; the date range is server-side and in the URL;
+catalog, categories, the COD waiting tab and the audit trail are paginated with exact totals; `verify:admin`
+grew from 150 to **172** checks. See `docs/implementation-plan.md` for the delivered scope and
+`docs/admin-dashboard.md` for the contract.
 
-- **Why this one:** it needs no schema change, no owner decision and no new dependency, and every
-  later phase builds on its toolbar and pagination vocabulary. It also closes the largest *visual* gap at
-  the lowest risk - and because status tabs, search and pagination already exist on the three busiest
-  lists, most of it is alignment rather than new behaviour.
-- **Prerequisites:** none. The owner's approval of this document.
+**The next proposal is Phase 31 - subcategories.**
+
+- **Why this one:** it is the next item on the roadmap that needs **no schema change and no owner
+  decision**. `category.parent_id` already exists, is indexed, and carries a "not its own parent" CHECK,
+  so the work is a create/edit/archive surface, a derived "Total Subcategory" count, a specific empty
+  state and a breadcrumb - all of which now have a toolbar and pagination vocabulary to sit in.
+- **Prerequisites:** none beyond the owner's authorization.
 - **Owner approval:** required before any code changes.
-- **Acceptance condition:** every admin list shares one toolbar, one control height
-  (`--admin-control` 40 px / `--admin-control-sm` 34 px), one row density and one empty-state
-  vocabulary; a date-range filter is server-side and reflected in the URL; pagination works on every list
-  that can exceed one page (catalog, categories and audit do not have it today); `npm run verify:admin`
-  passes with new checks for the date filter, the added pagination and 360 px overflow; `typecheck`, `lint`, `check:i18n`,
-  `check:catalog`, `build` and `verify:storefront` stay green; no permission, state machine, total,
-  audit contract or business policy changes.
+- **Acceptance condition:** a subcategory can be created and edited from the categories surface; a cycle
+  is refused server-side; a category with a live child cannot be archived; the count is one derived
+  query rather than a stored counter; and `verify:storefront` stays green because the storefront
+  navigation renders the subcategory under its parent.
+
+**Still open, and not engineering's to decide:** the nine owner decisions in section 9, and the actual
+BDT delivery amounts (D-item 5), which remain the one input that makes checkout work at all.

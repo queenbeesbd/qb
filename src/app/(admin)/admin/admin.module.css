@@ -1017,8 +1017,17 @@ html[lang='bn'] .sectionHead h2 {
   width: 100%;
 }
 
+/*
+ * A segmented filter is one control, but it must never be wider than the row it sits in. Eight status
+ * tabs are ~700px of labels: without wrapping they push the search field and the date row off the
+ * edge at phone widths, which is a clipped control an owner cannot reach. Wrapping is the honest
+ * answer - every tab stays visible and tappable.
+ */
 .filterTabs {
   display: inline-flex;
+  flex-wrap: wrap;
+  max-width: 100%;
+  min-width: 0;
   padding: 2px;
   gap: 2px;
   background: var(--color-surface-sunken);
@@ -1058,7 +1067,10 @@ html[lang='bn'] .sectionHead h2 {
   font-size: var(--text-xs);
 }
 
-/* A pager is secondary navigation: the count first, then the controls. */
+/*
+ * A list footer is secondary navigation: the count first, then the page-size control, then the
+ * pager. Everything in it sits on the same 40px/34px scale as the toolbar above it.
+ */
 .pagination {
   display: flex;
   flex-wrap: wrap;
@@ -1066,6 +1078,15 @@ html[lang='bn'] .sectionHead h2 {
   justify-content: space-between;
   gap: var(--space-3);
   padding-top: var(--space-3);
+  border-top: 1px solid var(--color-border);
+}
+
+.pagerGroup {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-4);
+  min-width: 0;
 }
 
 .pagerNav {
@@ -1075,10 +1096,148 @@ html[lang='bn'] .sectionHead h2 {
   flex-wrap: wrap;
 }
 
+.pagerNav .toolbarMeta {
+  margin-inline-start: 0;
+}
+
+/*
+ * Page size is a segmented control, not a `<select>`: it is a link like every other list state, so
+ * it survives a reload and a bookmark, and it never needs a client-side handler to work.
+ */
+.pageSize {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.pageSizeLabel {
+  font-size: var(--text-xs);
+  color: var(--color-ink-muted);
+  white-space: nowrap;
+}
+
+.pageSizeOptions {
+  display: inline-flex;
+  padding: 2px;
+  gap: 2px;
+  background: var(--color-surface-sunken);
+  border-radius: var(--radius-md);
+}
+
+.pageSizeOption {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: var(--admin-control-sm);
+  min-height: var(--admin-control-sm);
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-sm);
+  color: var(--color-ink-muted);
+  font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.pageSizeOption:hover {
+  color: var(--color-ink);
+}
+
+.pageSizeOptionActive {
+  background: var(--color-surface);
+  color: var(--color-ink);
+  font-weight: 600;
+  box-shadow: var(--shadow-sm);
+}
+
 .toolbarMeta {
   font-size: var(--text-sm);
   color: var(--color-ink-muted);
   margin-inline-start: auto;
+}
+
+/* ---- List filters ------------------------------------------------------- */
+
+/*
+ * The date range is one control group beside the search: two labelled inputs and the button that
+ * applies them, all on the standard height so the toolbar reads as one row of controls.
+ */
+.dateRange {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-2);
+  max-width: 100%;
+  min-width: 0;
+}
+
+.dateField {
+  display: grid;
+  gap: 2px;
+  flex: 1 1 8rem;
+  min-width: 0;
+}
+
+.dateLabel {
+  font-size: var(--text-xs);
+  font-weight: 500;
+  color: var(--color-ink-muted);
+}
+
+.dateField .input {
+  width: 100%;
+  min-width: 0;
+  /*
+   * A native date control carries its own intrinsic height, which lands a pixel or two above the
+   * standard control. Pinning it keeps the toolbar on the one 40px line every other control is on.
+   */
+  height: var(--admin-control);
+}
+
+/*
+ * Applied filters. A chip is text plus its own remove control, so the filter is never conveyed by
+ * colour alone and removing it never depends on hitting a small glyph.
+ */
+.activeFilters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.activeFiltersLabel {
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--color-ink-subtle);
+}
+
+.filterChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  min-height: var(--admin-control-sm);
+  padding: 0 var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-ink);
+  font-size: var(--text-xs);
+  font-weight: 500;
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+
+.filterChip:hover {
+  border-color: var(--color-border-strong);
+  background: var(--color-surface-sunken);
+}
+
+.filterChip svg {
+  flex: none;
+  color: var(--color-ink-subtle);
 }
 
 /* ---- Forms -------------------------------------------------------------- */
@@ -1347,6 +1506,22 @@ html[dir='rtl'] .switchOn .switchKnob::after {
   font-variant-numeric: tabular-nums;
   font-weight: 600;
   white-space: nowrap;
+}
+
+/*
+ * A money cell with its own sub-line. The sub-line is a caption, not a second total: it is what the
+ * total already contains, broken out so the owner does not have to open the order to see the
+ * delivery charge.
+ */
+.recordAmount {
+  display: grid;
+  justify-items: end;
+  gap: 2px;
+  text-align: end;
+}
+
+.recordAmount .recordMeta {
+  justify-content: flex-end;
 }
 
 .recordActions {
@@ -1815,6 +1990,29 @@ html[dir='rtl'] .switchOn .switchKnob::after {
     align-items: flex-start;
   }
 
+  /* Every list control takes the full width on a phone, stacked rather than squeezed. */
+  .toolbar {
+    align-items: stretch;
+  }
+
+  .filterTabs {
+    width: 100%;
+  }
+
+  .filterTab {
+    flex: 1 1 auto;
+    justify-content: center;
+  }
+
+  .searchForm,
+  .dateRange {
+    flex: 1 1 100%;
+  }
+
+  .dateField {
+    flex: 1 1 7rem;
+  }
+
   .pageTitle {
     font-size: var(--text-xl);
   }
@@ -1842,6 +2040,19 @@ html[dir='rtl'] .switchOn .switchKnob::after {
   .recordSide {
     grid-column: 1 / -1;
     justify-content: space-between;
+  }
+
+  /*
+   * On a phone the money cell starts its own line under the status rather than sitting at the far
+   * right of a row that has already wrapped, where its right alignment made it read as clipped.
+   */
+  .recordAmount {
+    justify-items: start;
+    text-align: start;
+  }
+
+  .recordAmount .recordMeta {
+    justify-content: flex-start;
   }
 
   .detailGrid {

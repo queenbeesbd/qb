@@ -134,6 +134,7 @@ export async function recordAudit(tx: Transaction, entry: AuditEntry): Promise<v
 export async function listRecentAudit(
   tx: Transaction,
   limit: number,
+  offset = 0,
 ): Promise<
   {
     id: number;
@@ -161,7 +162,8 @@ export async function listRecentAudit(
     })
     .from(auditEvent)
     .orderBy(sql`${auditEvent.occurredAt} desc, ${auditEvent.id} desc`)
-    .limit(limit);
+    .limit(limit)
+    .offset(Math.max(offset, 0));
 }
 
 /** A total count, so the overview can state a real number rather than an invented metric. */

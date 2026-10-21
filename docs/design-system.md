@@ -172,7 +172,9 @@ hold the scale together:
 
 `scripts/verify-admin.ts` sweeps the rendered buttons, inputs and selects on the overview, COD queue,
 catalog and delivery settings, and fails if any control is not 34 or 40px, if the accept/reject pair
-disagree, or if the required audit note is collapsed or labelled optional.
+disagree, or if the required audit note is collapsed or labelled optional. **Since Phase 30** the sweep
+also covers all five list routes and asserts exactly one toolbar per page - a second toolbar on a list is
+how a page grows a second, conflicting set of filter conventions.
 
 ### Shell and page anatomy
 
@@ -190,13 +192,38 @@ disagree, or if the required audit note is collapsed or labelled optional.
   address, recorded line items, total, then the decision controls. Age is the operational fact and is
   repeated in the page-level summary (count, oldest wait).
 
+### List anatomy (Phase 30)
+
+Every admin list is built from the same four parts, in the same order, so the panel reads as one product
+instead of six screens that happen to share a rail:
+
+1. **Page header** - eyebrow, `h1`, one sentence, the primary action.
+2. **Toolbar** - filter tabs, then search, then the date range (only where a date exists to filter on).
+   One per page; `data-admin-toolbar` marks it so the verification can count them.
+3. **The list** - a record list (or a table where five short columns beat five stacked rows). Rows carry
+   a primary line, a secondary line of metadata, a status pill and the row's actions.
+4. **Footer** - `Pagination`: the count, the page-size control and the pager. **This is the only count
+   on the page.** A total repeated in the header and the toolbar is how a screen ends up showing three
+   different numbers for the same list.
+
+**Filter tabs wrap rather than overflow.** Eight status labels are roughly 700px of text; without
+wrapping they push the search field and the date row off the edge at phone widths, which is a control an
+owner cannot reach. Below 720px the toolbar stacks - tabs full width, search and date range on their own
+rows - and every control keeps the standard 40px height.
+
+**Row money cells stack.** A total with a delivery sub-line is a two-line cell; at phone width it starts
+its own line under the status and aligns start, because right-aligning it inside a row that has already
+wrapped reads as clipped.
+
 ### Components
 
 `AdminShell` (rail, drawer, account menu, skip link), `PageHeader`, `Notice` (one polite/alert region
 per page), `SubmitButton` (pending state from `useFormStatus`), `ConfirmSubmit` (reason-capable dialog
 with focus trap, Escape and focus restoration), `StatusPill`, `EmptyState`, `AvailabilitySwitch`,
-`CodOrderCard`. All are small local components under `src/app/(admin)/admin/_ui`; styling stays in
-`admin.module.css` on the tokens above.
+`CodOrderCard`, and the Phase 30 list primitives: `ListToolbar`, `ListSearch`, `FilterTabs`,
+`DateRangeFilter`, `ActiveFilters`, `Pagination`. All are small local components under
+`src/app/(admin)/admin/_ui`; styling stays in `admin.module.css` on the tokens above, and the pure query
+helpers live in `src/lib/admin-query.ts` so they are unit-testable without a cluster.
 
 ### Motion
 

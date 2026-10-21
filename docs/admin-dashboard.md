@@ -91,6 +91,9 @@ should suggest one.
   Nothing about payment is shown because there is nothing to verify: no sender number, no transaction
   reference, no claimed amount.
 - **Implemented:** the queue, its count on the overview, the two decisions, and the audit trail.
+  **Both tabs paginate since Phase 30** - the waiting list used to render every waiting order at once -
+  and the tab badge still counts the whole worklist, so the owner sees how much is waiting while looking
+  at one page of it.
 - **The decision:** the owner calls the customer, then:
   - **Approve** → `cod_approved` and `status = 'confirmed'`, one `cod_approved` event, one
     `cod.approved` audit record with actor, reason and before/after.
@@ -102,15 +105,43 @@ should suggest one.
   same transaction, and require their own permission server-side.
 - **Neither decision ever bans a customer.** A ban is a separate action on the customers screen (D20).
 
+### The list surfaces (Phase 30)
+
+All six admin lists - orders, the COD queue, products, categories, customers and the audit trail - share
+one vocabulary, defined once and consumed everywhere:
+
+| Part | Where | Contract |
+| --- | --- | --- |
+| Toolbar | `_ui/ListToolbar.tsx` | filter tabs, then search, then the date range - same order on every list |
+| Search | `ListSearch` | a real `GET` form carrying the other filters and **never** the page number |
+| Filter tabs | `FilterTabs` | links with `aria-current`, so every filtered view is a URL |
+| Date range | `_ui/ListFilters.tsx` | two `type="date"` inputs, applied in SQL, half-open `[from, to+1 day)` |
+| Active filters | `ActiveFilters` | a chip per filter in force, each with its own remove link |
+| Footer | `_ui/Pagination.tsx` | the **only** count on the page, the page-size control and the pager |
+| Query state | `src/lib/admin-query.ts` | pure, unit-tested parsing and URL building |
+
+**Rules that hold everywhere:** filtering is done in SQL by the server, never in the browser over one
+page; every piece of list state is in the URL, so a filtered list is linkable and survives a reload;
+changing a filter or the page size drops `page`, so a narrowed list starts at page 1; and an invalid
+parameter is clamped rather than refused - `?page=9999` resolves to the last page, an undocumented page
+size falls back to the list default, and an impossible date such as `2026-02-31` is ignored instead of
+silently rolling into March.
+
+**The counts are derived, never stored.** Every total is a `count(*)` over the same predicate as the page
+it describes, and the page-size options are `10 / 25 / 50 / 100`. The audit trail pages at 50 by default
+because it is long-lived and read in longer sittings.
+
 ### The order detail and order history (Phase 20)
 
 The queue is a **worklist**; an order also needs a **record**. Both now exist, and neither duplicates the
 other's policy:
 
 - **`/admin/orders`** (requires `order.read`): every order the store has taken, newest first, with
-  server-side search over the order number, recipient name and phone, a status filter (pending,
-  confirmed, cancelled - the states the model actually uses), and pagination with an exact total so a
-  list can never silently truncate. Rows link to the detail.
+  server-side search over the order number, recipient name and phone, a status filter over the eight
+  states the model actually uses, a **server-side date range** over `placed_at` (Phase 30), a page-size
+  control, and pagination with an exact total so a list can never silently truncate. Each row also shows
+  the snapshotted delivery charge as a sub-line of the total and the number of recorded lines. Rows link
+  to the detail.
 - **`/admin/orders/[orderNumber]`** (requires `order.read`): the reference and placement time, the
   customer and the delivery contact with a `tel:` link, the delivery area and full address, the recorded
   lines at their saved unit prices, the **delivery-charge snapshot** the order stored, the order and COD

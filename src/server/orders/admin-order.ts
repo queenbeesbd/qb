@@ -335,6 +335,12 @@ export type AdminOrderRow = {
   readonly recipientPhone: string;
   readonly districtCode: string | null;
   readonly totalMinor: number;
+  /**
+   * The delivery charge snapshotted on the order, shown as the row's secondary money line. It is
+   * read from the immutable snapshot and never recomputed (ADR 0016).
+   */
+  readonly shippingMinor: number;
+  readonly itemCount: number;
 };
 
 export type AdminOrderPage = {
@@ -357,6 +363,22 @@ function orderSearchClause(search: string) {
 }
 
 /**
+ * The date window for a list, as a half-open `[start, end)` interval over `placed_at`.
+ *
+ * `end` is exclusive by construction (`dateRangeBounds` returns the start of the day *after* the
+ * chosen last day), so a range covers both named days without a `23:59:59.999` edge that would drop
+ * the last millisecond. Either bound may be null: one date alone is a genuine half-open range.
+ */
+export type ListDateRange = { readonly start: Date | null; readonly end: Date | null };
+
+function dateClause(column: typeof order.placedAt, range: ListDateRange | undefined) {
+  if (range === undefined || (range.start === null && range.end === null)) return sql`true`;
+  const start = range.start === null ? sql`true` : sql`${column} >= ${range.start}`;
+  const end = range.end === null ? sql`true` : sql`${column} < ${range.end}`;
+  return sql`(${start} and ${end})`;
+}
+
+/**
  * One page of orders, newest first, with an exact total for the same filters.
  *
  * The count runs over the same predicate as the page, so "showing 25 of 340" cannot disagree with the
@@ -367,6 +389,7 @@ export async function listOrdersForAdmin(
   options: {
     readonly search?: string;
     readonly status?: OrderStatusFilter | 'all';
+    readonly dateRange?: ListDateRange;
     readonly limit?: number;
     readonly offset?: number;
   } = {},
@@ -377,7 +400,7 @@ export async function listOrdersForAdmin(
   const offset = Math.max(options.offset ?? 0, 0);
 
   const statusClause = status === 'all' ? sql`true` : sql`${order.status} = ${status}`;
-  const where = sql`${statusClause} and ${orderSearchClause(search)}`;
+  const where = sql`${statusClause} and ${orderSearchClause(search)} and ${dateClause(order.placedAt, options.dateRange)}`;
 
   const rows = await tx
     .select({
@@ -391,6 +414,12 @@ export async function listOrdersForAdmin(
       recipientPhone: orderContact.recipientPhone,
       districtCode: orderContact.districtCode,
       totalMinor: order.totalMinor,
+      shippingMinor: order.shippingMinor,
+      // The count of recorded line items, read in the same query. `order_item` is frozen by trigger,
+      // so this cannot drift from what the order says it contains.
+      itemCount: sql<number>`(
+        select count(*)::int from "order_item" where "order_item"."order_id" = "order"."id"
+      )`,
     })
     .from(order)
     .innerJoin(orderContact, sql`${orderContact.orderId} = ${order.id}`)

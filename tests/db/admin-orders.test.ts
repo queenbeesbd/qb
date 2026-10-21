@@ -16,6 +16,7 @@ import {
   ORDER_PAGE_SIZE,
 } from '../../src/server/orders/admin-order';
 import { decideCod } from '../../src/server/orders/manage';
+import { dateRangeBounds } from '../../src/lib/admin-query';
 import { codDecidedToday, customers, customerDetail } from '../../src/server/orders/admin-read';
 
 /**
@@ -168,6 +169,59 @@ describe('owner order detail and history (Phase 20)', { skip: toolingAvailable ?
       true,
       'a page never repeats a row from the previous page',
     );
+  });
+
+  it('filters by a half-open date window over the placement time, and counts the same rows', async () => {
+    // Two orders whose placement days are unambiguous: 10 days back and 2 days back. The window is
+    // derived by the same helper the page uses, so the test exercises the real boundary arithmetic.
+    const tenDaysAgo = new Date(Date.now() - 10 * 24 * 3_600_000);
+    const twoDaysAgo = new Date(Date.now() - 2 * 24 * 3_600_000);
+    const old = await seedOrder(fixture.pool, { paymentMethod: 'cod', withReservation: false, placedHoursAgo: 240 });
+    const recent = await seedOrder(fixture.pool, { paymentMethod: 'cod', withReservation: false, placedHoursAgo: 48 });
+
+    const iso = (date: Date): string =>
+      `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+
+    // A window that covers only the recent order.
+    const recentOnly = await withTransaction((tx) =>
+      listOrdersForAdmin(tx, { dateRange: dateRangeBounds(iso(twoDaysAgo), iso(twoDaysAgo)), limit: 100 }),
+    );
+    const recentNumbers = recentOnly.rows.map((row) => row.orderNumber);
+    assert.equal(recentNumbers.includes(recent.orderNumber), true);
+    assert.equal(recentNumbers.includes(old.orderNumber), false);
+    assert.equal(recentOnly.total, recentOnly.rows.length, 'the count matches the page it describes');
+
+    // A window that covers both.
+    const both = await withTransaction((tx) =>
+      listOrdersForAdmin(tx, { dateRange: dateRangeBounds(iso(tenDaysAgo), iso(twoDaysAgo)), limit: 100 }),
+    );
+    const bothNumbers = both.rows.map((row) => row.orderNumber);
+    assert.equal(bothNumbers.includes(recent.orderNumber), true);
+    assert.equal(bothNumbers.includes(old.orderNumber), true);
+    assert.equal(both.total, both.rows.length);
+
+    // A window in the future matches nothing, and says so rather than returning the whole table.
+    const future = new Date(Date.now() + 30 * 24 * 3_600_000);
+    const none = await withTransaction((tx) =>
+      listOrdersForAdmin(tx, { dateRange: dateRangeBounds(iso(future), iso(future)) }),
+    );
+    assert.equal(none.total, 0);
+    assert.equal(none.rows.length, 0);
+  });
+
+  it('reports the delivery snapshot and the recorded line count on every row', async () => {
+    const seeded = await seedOrder(fixture.pool, {
+      paymentMethod: 'cod',
+      quantity: 2,
+      shippingMinor: 6000,
+      withReservation: false,
+    });
+
+    const page = await withTransaction((tx) => listOrdersForAdmin(tx, { search: seeded.orderNumber }));
+    const row = page.rows[0];
+    assert.equal(row?.shippingMinor, 6000, 'the charge is the order snapshot, not a recomputation');
+    assert.equal(row?.itemCount, 1, 'one recorded line, two units');
+    assert.equal(row?.totalMinor, 2 * 10000 + 6000, 'the total is the immutable snapshot, delivery included');
   });
 
   it('says how many decided orders exist beyond the page it returns', async () => {

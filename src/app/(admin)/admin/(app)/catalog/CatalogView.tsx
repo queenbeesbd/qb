@@ -4,13 +4,16 @@ import Link from 'next/link';
 
 import { useTranslation } from '@/i18n/useTranslation';
 import type { TranslationKey } from '@/i18n/dictionaries';
+import { buildQueryHref } from '@/lib/admin-query';
 import { formatMoney } from '@/lib/money';
 import { AdminIcon } from '../../_ui/icons';
 import { AvailabilitySwitch } from '../../_ui/AvailabilitySwitch';
 import { ConfirmSubmit } from '../../_ui/ConfirmSubmit';
 import { EmptyState } from '../../_ui/EmptyState';
+import { FilterTabs, ListSearch, ListToolbar } from '../../_ui/ListToolbar';
 import { Notice } from '../../_ui/Notice';
 import { PageHeader } from '../../_ui/PageHeader';
+import { Pagination } from '../../_ui/Pagination';
 import { StatusPill } from '../../_ui/StatusPill';
 import { SubmitButton } from '../../_ui/SubmitButton';
 import styles from '../../admin.module.css';
@@ -116,6 +119,12 @@ export function CatalogView({
   search,
   stock,
   creating,
+  total,
+  page,
+  pageCount,
+  size,
+  defaultSize,
+  clearHref,
 }: {
   products: readonly CatalogProductRow[];
   categories: readonly CatalogCategoryOption[];
@@ -128,20 +137,28 @@ export function CatalogView({
   search: string;
   stock: 'all' | 'in_stock' | 'out_of_stock';
   creating: boolean;
+  /** Total matching the current filters, so the footer can state what the page is not showing. */
+  total: number;
+  page: number;
+  pageCount: number;
+  size: number;
+  defaultSize: number;
+  clearHref: string;
 }) {
   const { t } = useTranslation();
   const noticeIsError = notice !== null && ERROR_NOTICES.includes(notice);
   const filtering = search !== '' || stock !== 'all';
 
-  const withQuery = (next: { stock?: string; q?: string }): string => {
-    const params = new URLSearchParams();
-    const q = next.q ?? search;
-    const nextStock = next.stock ?? stock;
-    if (q !== '') params.set('q', q);
-    if (nextStock !== 'all') params.set('stock', nextStock);
-    const query = params.toString();
-    return query === '' ? '/admin/catalog' : `/admin/catalog?${query}`;
-  };
+  /*
+   * Every list link is built from the same state, and none of them carries `page`: changing what is
+   * shown returns to page 1 instead of landing on an empty later page.
+   */
+  const withQuery = (next: { stock?: string; q?: string }): string =>
+    buildQueryHref('/admin/catalog', {
+      q: next.q ?? search,
+      stock: (next.stock ?? stock) === 'all' ? '' : (next.stock ?? stock),
+      size: size === defaultSize ? '' : size,
+    });
 
   const formFields = (values: {
     slug?: string;
@@ -464,58 +481,32 @@ export function CatalogView({
             <p>{t('admin.catalog.listBody')}</p>
           </div>
 
-          <div className={styles.toolbar}>
-            <form className={styles.searchForm} action="/admin/catalog" method="get" role="search">
-              {stock !== 'all' && <input type="hidden" name="stock" value={stock} />}
-              <div className={styles.searchField}>
-                <AdminIcon name="search" width={16} height={16} />
-                <label className="sr-only" htmlFor="catalog-search">
-                  {t('admin.catalog.searchLabel')}
-                </label>
-                <input
-                  id="catalog-search"
-                  className={styles.input}
-                  type="search"
-                  name="q"
-                  defaultValue={search}
-                  placeholder={t('admin.catalog.searchPlaceholder')}
-                  maxLength={80}
-                />
-              </div>
-              <button type="submit" className={`${styles.button} ${styles.buttonSecondary} ${styles.buttonSmall}`}>
-                {t('admin.common.search')}
-              </button>
-              {filtering && (
-                <Link className={styles.recordLink} href="/admin/catalog">
-                  {t('admin.common.clear')}
-                </Link>
-              )}
-            </form>
-            <div className={styles.filterTabs} role="group" aria-label={t('admin.catalog.filterLabel')}>
-              <Link
-                href={withQuery({ stock: 'all' })}
-                className={stock === 'all' ? `${styles.filterTab} ${styles.filterTabActive}` : styles.filterTab}
-                aria-current={stock === 'all' ? 'page' : undefined}
-              >
-                {t('admin.common.all')}
-              </Link>
-              <Link
-                href={withQuery({ stock: 'in_stock' })}
-                className={stock === 'in_stock' ? `${styles.filterTab} ${styles.filterTabActive}` : styles.filterTab}
-                aria-current={stock === 'in_stock' ? 'page' : undefined}
-              >
-                {t('admin.catalog.inStock')}
-              </Link>
-              <Link
-                href={withQuery({ stock: 'out_of_stock' })}
-                className={stock === 'out_of_stock' ? `${styles.filterTab} ${styles.filterTabActive}` : styles.filterTab}
-                aria-current={stock === 'out_of_stock' ? 'page' : undefined}
-              >
-                {t('admin.catalog.outOfStock')}
-              </Link>
-            </div>
-            <span className={styles.toolbarMeta}>{t('admin.catalog.resultCount', { count: products.length })}</span>
-          </div>
+          <ListToolbar>
+            <FilterTabs
+              label={t('admin.catalog.filterLabel')}
+              active={stock}
+              options={[
+                { value: 'all', label: t('admin.common.all'), href: withQuery({ stock: 'all' }) },
+                { value: 'in_stock', label: t('admin.catalog.inStock'), href: withQuery({ stock: 'in_stock' }) },
+                {
+                  value: 'out_of_stock',
+                  label: t('admin.catalog.outOfStock'),
+                  href: withQuery({ stock: 'out_of_stock' }),
+                },
+              ]}
+            />
+
+            <ListSearch
+              action="/admin/catalog"
+              id="catalog-search"
+              label={t('admin.catalog.searchLabel')}
+              placeholder={t('admin.catalog.searchPlaceholder')}
+              value={search}
+              hidden={{ stock: stock === 'all' ? '' : stock, size: size === defaultSize ? '' : String(size) }}
+              clearHref={clearHref}
+              dirty={filtering}
+            />
+          </ListToolbar>
 
           {products.length === 0 ? (
             <EmptyState
@@ -524,14 +515,14 @@ export function CatalogView({
               body={filtering ? t('admin.catalog.emptyFilteredBody') : t('admin.catalog.emptyBody')}
               action={
                 filtering ? (
-                  <Link className={`${styles.button} ${styles.buttonSecondary} ${styles.buttonSmall}`} href="/admin/catalog">
+                  <Link className={`${styles.button} ${styles.buttonSecondary} ${styles.buttonSmall}`} href={clearHref}>
                     {t('admin.common.clear')}
                   </Link>
                 ) : null
               }
             />
           ) : (
-            <ul className={styles.recordList}>
+            <ul className={styles.recordList} data-admin-list="">
               {products.map((product) => {
                 return (
                   <li className={styles.record} key={product.id}>
@@ -583,6 +574,23 @@ export function CatalogView({
                 );
               })}
             </ul>
+          )}
+
+          {products.length > 0 && (
+            <Pagination
+              basePath="/admin/catalog"
+              query={{
+                q: search,
+                stock: stock === 'all' ? '' : stock,
+                size: size === defaultSize ? '' : String(size),
+              }}
+              page={page}
+              pageCount={pageCount}
+              shown={products.length}
+              total={total}
+              size={size}
+              defaultSize={defaultSize}
+            />
           )}
         </section>
       )}

@@ -3,6 +3,7 @@
 import { useTranslation } from '@/i18n/useTranslation';
 import { EmptyState } from '../../_ui/EmptyState';
 import { PageHeader } from '../../_ui/PageHeader';
+import { Pagination } from '../../_ui/Pagination';
 import styles from '../../admin.module.css';
 import { INTL_LOCALE } from '@/i18n/config';
 
@@ -25,8 +26,26 @@ export type AuditRow = {
  * append-only trigger refuses an `UPDATE` or `DELETE` regardless of the caller's role, and the
  * deployed application role has neither grant. The list shows only what was recorded - no derived
  * summary, no inferred actor.
+ *
+ * The table is the one list surface that keeps a table: five short columns are faster to scan than
+ * five stacked rows. It scrolls inside its own container, so a narrow viewport never widens the
+ * document.
  */
-export function AuditView({ rows, total, shown }: { rows: readonly AuditRow[]; total: number; shown: number }) {
+export function AuditView({
+  rows,
+  total,
+  page,
+  pageCount,
+  size,
+  defaultSize,
+}: {
+  rows: readonly AuditRow[];
+  total: number;
+  page: number;
+  pageCount: number;
+  size: number;
+  defaultSize: number;
+}) {
   const { t } = useTranslation();
   const formatDate = (iso: string): string =>
     new Intl.DateTimeFormat(INTL_LOCALE, {
@@ -43,7 +62,7 @@ export function AuditView({ rows, total, shown }: { rows: readonly AuditRow[]; t
       ) : (
         <>
           <div className={styles.tableWrap}>
-            <table className={styles.table}>
+            <table className={styles.table} data-admin-table="">
               <caption className="sr-only">{t('admin.audit.title')}</caption>
               <thead>
                 <tr>
@@ -79,7 +98,16 @@ export function AuditView({ rows, total, shown }: { rows: readonly AuditRow[]; t
               </tbody>
             </table>
           </div>
-          <p className={styles.note}>{t('admin.audit.showing', { shown, total })}</p>
+          <Pagination
+            basePath="/admin/audit"
+            query={{ size: size === defaultSize ? '' : String(size) }}
+            page={page}
+            pageCount={pageCount}
+            shown={rows.length}
+            total={total}
+            size={size}
+            defaultSize={defaultSize}
+          />
         </>
       )}
     </>

@@ -1,9 +1,16 @@
 import { withTransaction } from '@/db/client';
+import { buildQueryHref, readPageNumber, readPageSize } from '@/lib/admin-query';
 import { requireAdminPage } from '@/server/auth/guard';
 import { hasPermission } from '@/server/authz/principal';
 import { PERMISSIONS } from '@/server/authz/permissions';
 import { listAssetKeys } from '@/server/catalog/assets';
-import { getProductForAdmin, listBrands, listCategoriesForAdmin, listProductsForAdmin } from '@/server/catalog/service';
+import {
+  getProductForAdmin,
+  listBrands,
+  listCategoriesForAdmin,
+  listProductsForAdmin,
+  PRODUCT_PAGE_SIZE,
+} from '@/server/catalog/service';
 import { CatalogView, type CatalogNotice } from './CatalogView';
 
 export const dynamic = 'force-dynamic';
@@ -55,15 +62,32 @@ export default async function AdminCatalogPage({
   const search = single(params.q).slice(0, 80);
   const stock = single(params.stock);
   const availability = stock === 'in_stock' || stock === 'out_of_stock' ? stock : undefined;
+  const size = readPageSize(single(params.size), PRODUCT_PAGE_SIZE);
 
   const data = await withTransaction(async (tx) => {
-    const [products, categories, brands, editing] = await Promise.all([
-      listProductsForAdmin(tx, { search, availability }),
-      listCategoriesForAdmin(tx),
+    const [first, categories, brands, editing] = await Promise.all([
+      listProductsForAdmin(tx, { search, availability, limit: size, offset: 0 }),
+      // The category form needs every category, not the page of them the list happens to show.
+      listCategoriesForAdmin(tx, { limit: 100 }),
       listBrands(tx),
       editId === '' ? Promise.resolve(null) : getProductForAdmin(tx, editId),
     ]);
-    return { products, categories, brands, editing };
+
+    // The page number is resolved against the real total before the page is read, so a hand-typed
+    // `?page=9999` shows the last page rather than an empty list with no explanation.
+    const pageCount = Math.max(1, Math.ceil(first.total / size));
+    const page = Math.min(readPageNumber(single(params.page)), pageCount);
+    const products =
+      page === 1
+        ? first
+        : await listProductsForAdmin(tx, {
+            search,
+            availability,
+            limit: size,
+            offset: (page - 1) * size,
+          });
+
+    return { products, categories: categories.rows, brands, editing, page, pageCount };
   });
 
   // The asset inventory is read from the server's own filesystem, not from the request, and the file
@@ -72,7 +96,7 @@ export default async function AdminCatalogPage({
 
   return (
     <CatalogView
-      products={data.products.map((product) => ({
+      products={data.products.rows.map((product) => ({
         id: product.id,
         slug: product.slug,
         nameBn: product.nameBn,
@@ -115,6 +139,12 @@ export default async function AdminCatalogPage({
       search={search}
       stock={availability ?? 'all'}
       creating={single(params.new) === '1'}
+      total={data.products.total}
+      page={data.page}
+      pageCount={data.pageCount}
+      size={size}
+      defaultSize={PRODUCT_PAGE_SIZE}
+      clearHref={buildQueryHref('/admin/catalog', { size: size === PRODUCT_PAGE_SIZE ? null : size })}
     />
   );
 }

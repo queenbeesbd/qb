@@ -4,8 +4,11 @@ import Link from 'next/link';
 
 import type { TranslationKey } from '@/i18n/dictionaries';
 import { useTranslation } from '@/i18n/useTranslation';
+import { buildQueryHref } from '@/lib/admin-query';
 import { deliveryAreaName } from '@/lib/delivery-areas';
 import { paymentLabel, statusLabel } from '@/features/account/order-labels';
+import { ActiveFilters, DateRangeFilter } from '../../_ui/ListFilters';
+import { FilterTabs, ListSearch, ListToolbar } from '../../_ui/ListToolbar';
 import { EmptyState } from '../../_ui/EmptyState';
 import { PageHeader } from '../../_ui/PageHeader';
 import { Pagination } from '../../_ui/Pagination';
@@ -44,6 +47,17 @@ export type AdminOrderListRow = {
   recipientPhone: string;
   districtCode: string | null;
   totalMinor: number;
+  shippingMinor: number;
+  itemCount: number;
+};
+
+/** The filter state a list link carries. `page` is deliberately absent: a filter change resets it. */
+export type OrdersQuery = {
+  q: string;
+  filter: string;
+  from: string;
+  to: string;
+  size: number;
 };
 
 function tone(status: string): PillTone {
@@ -57,28 +71,41 @@ function tone(status: string): PillTone {
  * The order history.
  *
  * Every order the store has ever taken, newest first, searchable by the three things the owner has in
- * hand when a customer calls - order number, name, phone - and filterable by the states the current
- * model actually uses. Rows link to the order detail, which is the only place an action is offered.
+ * hand when a customer calls - order number, name, phone - filterable by the states the current model
+ * actually uses, and narrowable to a date range. Rows link to the order detail, which is the only
+ * place an action is offered.
  *
- * The count line is not decoration: it is how the owner knows a list is a page rather than the whole
- * table, so "not found" never means "not on this page".
+ * The footer is the only place the list states its size. A count repeated in the header and the
+ * toolbar is how a screen ends up showing three different totals.
  */
 export function AdminOrdersView({
   rows,
   search,
   filter,
+  from,
+  to,
+  baseQuery,
+  clearHref,
   total,
   page,
   pageCount,
   shown,
+  size,
+  defaultSize,
 }: {
   rows: readonly AdminOrderListRow[];
   search: string;
   filter: OrdersFilter;
+  from: string;
+  to: string;
+  baseQuery: OrdersQuery;
+  clearHref: string;
   total: number;
   page: number;
   pageCount: number;
   shown: number;
+  size: number;
+  defaultSize: number;
 }) {
   const { t, price } = useTranslation();
   const when = (iso: string): string =>
@@ -87,13 +114,9 @@ export function AdminOrdersView({
       timeStyle: 'short',
     }).format(new Date(iso));
 
-  const filterHref = (next: OrdersFilter): string => {
-    const params = new URLSearchParams();
-    if (next !== 'all') params.set('filter', next);
-    if (search !== '') params.set('q', search);
-    const query = params.toString();
-    return query === '' ? '/admin/orders' : `/admin/orders?${query}`;
-  };
+  const href = (next: Partial<OrdersQuery>): string => buildQueryHref('/admin/orders', { ...baseQuery, ...next });
+  const dated = from !== '' || to !== '';
+  const filtering = search !== '' || filter !== 'all' || dated;
 
   return (
     <>
@@ -103,56 +126,90 @@ export function AdminOrdersView({
         description={t('admin.orders.body')}
       />
 
-      <div className={styles.toolbar}>
-        <div className={styles.filterTabs} role="group" aria-label={t('admin.orders.filterLabel')}>
-          {(Object.keys(FILTER_KEYS) as OrdersFilter[]).map((key) => (
-            <Link
-              key={key}
-              href={filterHref(key)}
-              className={filter === key ? `${styles.filterTab} ${styles.filterTabActive}` : styles.filterTab}
-              aria-current={filter === key ? 'page' : undefined}
-            >
-              {t(FILTER_KEYS[key])}
-            </Link>
-          ))}
-        </div>
+      <ListToolbar>
+        <FilterTabs
+          label={t('admin.orders.filterLabel')}
+          active={filter}
+          options={(Object.keys(FILTER_KEYS) as OrdersFilter[]).map((key) => ({
+            value: key,
+            label: t(FILTER_KEYS[key]),
+            href: href({ filter: key === 'all' ? '' : key }),
+          }))}
+        />
 
-        <form className={styles.searchForm} action="/admin/orders" method="get" role="search">
-          {filter !== 'all' && <input type="hidden" name="filter" value={filter} />}
-          <div className={styles.searchField}>
-            <label className="sr-only" htmlFor="orders-search">
-              {t('admin.orders.searchLabel')}
-            </label>
-            <input
-              id="orders-search"
-              className={styles.input}
-              type="search"
-              name="q"
-              defaultValue={search}
-              placeholder={t('admin.orders.searchPlaceholder')}
-              maxLength={80}
-            />
-          </div>
-          <button type="submit" className={`${styles.button} ${styles.buttonSecondary} ${styles.buttonSmall}`}>
-            {t('admin.common.search')}
-          </button>
-          {(search !== '' || filter !== 'all') && (
-            <Link className={styles.recordLink} href="/admin/orders">
-              {t('admin.common.clear')}
-            </Link>
-          )}
-        </form>
-        <span className={styles.toolbarMeta}>{t('admin.orders.resultCount', { count: total })}</span>
-      </div>
+        <ListSearch
+          action="/admin/orders"
+          id="orders-search"
+          label={t('admin.orders.searchLabel')}
+          placeholder={t('admin.orders.searchPlaceholder')}
+          value={search}
+          hidden={{ filter: filter === 'all' ? '' : filter, from, to, size: size === defaultSize ? '' : String(size) }}
+          clearHref={clearHref}
+          dirty={filtering}
+        />
+
+        <DateRangeFilter
+          action="/admin/orders"
+          idPrefix="orders"
+          label={t('admin.common.dateRangeLabel')}
+          from={from}
+          to={to}
+          hidden={{
+            q: search,
+            filter: filter === 'all' ? '' : filter,
+            size: size === defaultSize ? '' : String(size),
+          }}
+          clearHref={href({ from: '', to: '' })}
+        />
+      </ListToolbar>
+
+      <ActiveFilters
+        label={t('admin.common.activeFilters')}
+        clearAllHref={clearHref}
+        chips={[
+          ...(search === ''
+            ? []
+            : [
+                {
+                  key: 'q',
+                  text: t('admin.common.chipSearch', { query: search }),
+                  removeHref: href({ q: '' }),
+                },
+              ]),
+          ...(filter === 'all'
+            ? []
+            : [
+                {
+                  key: 'filter',
+                  text: t(FILTER_KEYS[filter]),
+                  removeHref: href({ filter: '' }),
+                },
+              ]),
+          ...(dated
+            ? [
+                {
+                  key: 'dates',
+                  text:
+                    from !== '' && to !== ''
+                      ? t('admin.common.chipDates', { from, to })
+                      : from !== ''
+                        ? t('admin.common.chipSince', { from })
+                        : t('admin.common.chipUntil', { to }),
+                  removeHref: href({ from: '', to: '' }),
+                },
+              ]
+            : []),
+        ]}
+      />
 
       {rows.length === 0 ? (
-        search !== '' || filter !== 'all' ? (
+        filtering ? (
           <EmptyState
             icon="search"
             title={t('admin.orders.searchEmptyTitle')}
             body={t('admin.orders.searchEmptyBody')}
             action={
-              <Link className={`${styles.button} ${styles.buttonSecondary} ${styles.buttonSmall}`} href="/admin/orders">
+              <Link className={`${styles.button} ${styles.buttonSecondary} ${styles.buttonSmall}`} href={clearHref}>
                 {t('admin.common.clear')}
               </Link>
             }
@@ -162,7 +219,7 @@ export function AdminOrdersView({
         )
       ) : (
         <>
-          <ul className={styles.recordList}>
+          <ul className={styles.recordList} data-admin-list="">
             {rows.map((row) => (
               <li className={styles.record} key={row.orderNumber}>
                 <div className={styles.recordMain}>
@@ -179,6 +236,7 @@ export function AdminOrdersView({
                     <span>
                       {row.districtCode === null ? t('orders.deliveryPending') : deliveryAreaName(row.districtCode)}
                     </span>
+                    <span>{t('admin.orders.itemCountValue', { count: row.itemCount })}</span>
                   </span>
                 </div>
                 <div className={styles.recordSide}>
@@ -186,18 +244,36 @@ export function AdminOrdersView({
                   <span className={styles.recordMeta}>
                     {t(paymentLabel(row.paymentMethod, '', row.codState))}
                   </span>
-                  <span className={styles.recordPrice}>{price(row.totalMinor)}</span>
+                  <span className={styles.recordAmount}>
+                    <span className={styles.recordPrice}>{price(row.totalMinor)}</span>
+                    {/*
+                      The delivery charge is the snapshot the order was placed with (ADR 0016). It is
+                      shown as a sub-line of the total, never added to it - the total already contains
+                      it, and a second sum would misstate what the customer owes.
+                    */}
+                    <span className={styles.recordMeta}>
+                      {t('admin.orders.deliveryLine', { amount: price(row.shippingMinor) })}
+                    </span>
+                  </span>
                 </div>
               </li>
             ))}
           </ul>
           <Pagination
             basePath="/admin/orders"
-            query={{ q: search, filter: filter === 'all' ? '' : filter }}
+            query={{
+              q: search,
+              filter: filter === 'all' ? '' : filter,
+              from,
+              to,
+              size: size === defaultSize ? '' : String(size),
+            }}
             page={page}
             pageCount={pageCount}
             shown={shown}
             total={total}
+            size={size}
+            defaultSize={defaultSize}
           />
         </>
       )}
