@@ -8,6 +8,7 @@ import { ConfirmSubmit } from '../../../_ui/ConfirmSubmit';
 import { PageHeader } from '../../../_ui/PageHeader';
 import { StatusPill } from '../../../_ui/StatusPill';
 import styles from '../../../admin.module.css';
+import { INTL_LOCALE } from '@/i18n/config';
 
 export type CustomerNotice = 'tokenIssued' | 'unavailable' | 'invalid' | 'denied';
 
@@ -59,12 +60,12 @@ export function CustomerDetailView({
   issuedToken: { token: string; expiresAt: string } | null;
   csrfToken: string;
 }) {
-  const { t, locale, price } = useTranslation();
-  const dateTimeFormat = new Intl.DateTimeFormat(locale === 'bn' ? 'bn-BD' : 'en-US', {
+  const { t, price } = useTranslation();
+  const dateTimeFormat = new Intl.DateTimeFormat(INTL_LOCALE, {
     dateStyle: 'medium',
     timeStyle: 'short',
   });
-  const dateFormat = new Intl.DateTimeFormat(locale === 'bn' ? 'bn-BD' : 'en-US', { dateStyle: 'medium' });
+  const dateFormat = new Intl.DateTimeFormat(INTL_LOCALE, { dateStyle: 'medium' });
   const active = customer.status === 'active';
 
   return (

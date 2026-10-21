@@ -14,11 +14,10 @@ import { dictionary } from '../../src/i18n/dictionaries';
  */
 
 describe('order labels', () => {
-  it('maps every COD state to a translated key in both locales', () => {
+  it('maps every COD state to a present English label', () => {
     for (const state of Object.keys(COD_LABELS)) {
       const key = paymentLabel('cod', 'not_applicable', state);
-      assert.equal(typeof dictionary.en[key], 'string', 'en label missing for ' + state);
-      assert.equal(typeof dictionary.bn[key], 'string', 'bn label missing for ' + state);
+      assert.equal(typeof dictionary[key], 'string', 'label missing for ' + state);
     }
   });
 
@@ -30,8 +29,7 @@ describe('order labels', () => {
   it('keeps a label for every legacy prepaid state, so history renders as a state and not a raw value', () => {
     for (const state of Object.keys(PAYMENT_LABELS)) {
       const key = paymentLabel('bkash', state, 'not_applicable');
-      assert.equal(typeof dictionary.en[key], 'string', 'en label missing for ' + state);
-      assert.equal(typeof dictionary.bn[key], 'string', 'bn label missing for ' + state);
+      assert.equal(typeof dictionary[key], 'string', 'label missing for ' + state);
     }
   });
 
@@ -42,17 +40,14 @@ describe('order labels', () => {
     assert.equal(methodLabel('something_new'), 'orders.method.unknown');
   });
 
-  it('states, in both locales, that a legacy order predates the COD-only release', () => {
-    assert.match(dictionary.en['orders.legacyPaymentNote'], /predates cash on delivery/i);
-    assert.match(dictionary.bn['orders.legacyPaymentNote'], /ক্যাশ অন ডেলিভারি/);
+  it('states that a legacy order predates the COD-only release', () => {
+    assert.match(dictionary['orders.legacyPaymentNote'], /predates cash on delivery/i);
   });
 
   it('offers no copy that implies a manual prepaid method is supported now', () => {
-    for (const locale of ['en', 'bn'] as const) {
-      for (const [key, value] of Object.entries(dictionary[locale])) {
-        if (!key.startsWith('checkout.')) continue;
-        assert.doesNotMatch(value, /bkash|nagad|transaction id|বিকাশ|নগদ/iu, key);
-      }
+    for (const [key, value] of Object.entries(dictionary)) {
+      if (!key.startsWith('checkout.')) continue;
+      assert.doesNotMatch(value, /bkash|nagad|transaction id/iu, key);
     }
   });
 });

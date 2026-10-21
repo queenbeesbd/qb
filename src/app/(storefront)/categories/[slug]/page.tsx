@@ -11,7 +11,7 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
   const { slug } = await params;
   const { categories } = await getStorefrontCatalog();
   const category = categories.find((entry) => entry.slug === slug);
-  if (!category) return { title: 'ক্যাটাগরি' };
+  if (!category) return { title: 'Category' };
   return { title: category.name.bn ?? category.name.en ?? slug };
 }
 

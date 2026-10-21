@@ -99,6 +99,13 @@
   --admin-topbar-height: 3.75rem;
   --admin-content-width: 75rem;
 
+  /*
+   * Admin control scale (Phase 27): two heights only. The module files cannot declare global
+   * custom properties, so the tokens live here and every admin module consumes them.
+   */
+  --admin-control-sm: 34px;
+  --admin-control: 40px;
+
   /* Motion curves for UI state, not decoration. See docs/design-system.md. */
   --ease-out-ui: cubic-bezier(0.23, 1, 0.32, 1);
   --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);

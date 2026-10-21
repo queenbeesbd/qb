@@ -9,6 +9,7 @@ import { PageHeader } from '../../_ui/PageHeader';
 import { StatusPill } from '../../_ui/StatusPill';
 import { SubmitButton } from '../../_ui/SubmitButton';
 import styles from '../../admin.module.css';
+import { INTL_LOCALE } from '@/i18n/config';
 
 export type OwnerRow = {
   id: number;
@@ -67,9 +68,9 @@ export function OwnersView({
   issuedToken: { token: string; expiresAt: string } | null;
   csrfToken: string;
 }) {
-  const { t, locale } = useTranslation();
+  const { t } = useTranslation();
   const format = (iso: string): string =>
-    new Intl.DateTimeFormat(locale === 'bn' ? 'bn-BD' : 'en-US', {
+    new Intl.DateTimeFormat(INTL_LOCALE, {
       dateStyle: 'medium',
       timeStyle: 'short',
     }).format(new Date(iso));

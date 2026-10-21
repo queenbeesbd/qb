@@ -7,7 +7,6 @@ import { useTranslation } from '@/i18n/useTranslation';
 import type { CatalogCategory } from '@/lib/types';
 import { useCart } from '@/features/cart/useCart';
 import { CartIcon, CloseIcon, MenuIcon, SearchIcon, UserIcon } from './icons';
-import { LanguageToggle } from './LanguageToggle';
 import styles from './Header.module.css';
 
 type Customer = { email: string; displayName: string | null } | null;
@@ -176,7 +175,6 @@ export function Header({
         </div>
 
         <div className={styles.actions}>
-          <LanguageToggle className={styles.languageButton} variant="compact" />
           <Link
             href="/account"
             className={`${styles.iconButton} ${styles.accountButton}`}

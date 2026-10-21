@@ -1,4 +1,8 @@
+import { activeAnnouncements } from '@/data/announcements';
+import type { AnnouncementItem } from '@/components/AnnouncementBar';
+import { withTransaction } from '@/db/client';
 import { CartProvider } from '@/features/cart/CartProvider';
+import { loadAnnouncement } from '@/server/settings/announcement';
 import { getStorefrontCatalog } from '@/server/catalog/storefront';
 import { currentCustomerPrincipal } from '@/server/customer-auth/guard';
 import { Shell } from '../Shell';
@@ -8,8 +12,7 @@ import { Shell } from '../Shell';
  *
  * The cart lives here rather than in the root layout because it is storefront state only - the admin
  * surface has no cart, and a provider it does not use would still subscribe to `localStorage` on
- * every admin page. `LocaleProvider` is in the root layout, because the admin surface is bilingual
- * too.
+ * every admin page.
  *
  * The catalog is read once here (the loader is `cache`-wrapped, so the page and its metadata share
  * this single snapshot) and only plain serializable values are handed to the client components: the
@@ -29,6 +32,20 @@ export default async function StorefrontLayout({ children }: { children: React.R
    * is `cache`-wrapped, so a page that needs the same principal a second time reuses this read.
    */
   const principal = await currentCustomerPrincipal();
+  /**
+   * Announcements are composed here (Phase 28). The locked preview notice always leads; the owner's
+   * message follows only when it is saved and switched on. Reading it on the server means a database
+   * failure surfaces through the error boundary instead of silently dropping the preview notice.
+   */
+  const saved = await withTransaction((tx) => loadAnnouncement(tx));
+  const announcements: AnnouncementItem[] = activeAnnouncements().map((item) => ({
+    id: item.id,
+    variant: item.variant,
+    message: item.message,
+  }));
+  if (saved.visible && saved.message !== null) {
+    announcements.push({ id: 'owner-message', variant: 'info', message: saved.message });
+  }
 
   return (
     <CartProvider products={catalog.products}>
@@ -37,6 +54,7 @@ export default async function StorefrontLayout({ children }: { children: React.R
         customer={
           principal === null ? null : { email: principal.email, displayName: principal.displayName }
         }
+        announcements={announcements}
       >
         {children}
       </Shell>

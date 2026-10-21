@@ -5,7 +5,7 @@ import { RecoverView } from '@/features/account/RecoverView';
 import { currentCustomerPrincipal, safeCustomerNext } from '@/server/customer-auth/guard';
 
 export const metadata: Metadata = {
-  title: 'অ্যাকাউন্ট পুনরুদ্ধার',
+  title: 'Account recovery',
   robots: { index: false, follow: false },
 };
 export const dynamic = 'force-dynamic';

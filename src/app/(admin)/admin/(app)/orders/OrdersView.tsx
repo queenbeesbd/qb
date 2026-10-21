@@ -11,6 +11,7 @@ import { PageHeader } from '../../_ui/PageHeader';
 import { Pagination } from '../../_ui/Pagination';
 import { StatusPill, type PillTone } from '../../_ui/StatusPill';
 import styles from '../../admin.module.css';
+import { INTL_LOCALE } from '@/i18n/config';
 
 export type OrdersFilter =
   | 'all'
@@ -79,9 +80,9 @@ export function AdminOrdersView({
   pageCount: number;
   shown: number;
 }) {
-  const { t, price, locale } = useTranslation();
+  const { t, price } = useTranslation();
   const when = (iso: string): string =>
-    new Intl.DateTimeFormat(locale === 'bn' ? 'bn-BD' : 'en-US', {
+    new Intl.DateTimeFormat(INTL_LOCALE, {
       dateStyle: 'medium',
       timeStyle: 'short',
     }).format(new Date(iso));
@@ -176,7 +177,7 @@ export function AdminOrdersView({
                       {row.recipientName} · <a href={`tel:${row.recipientPhone}`}>{row.recipientPhone}</a>
                     </span>
                     <span>
-                      {row.districtCode === null ? t('orders.deliveryPending') : deliveryAreaName(row.districtCode, locale)}
+                      {row.districtCode === null ? t('orders.deliveryPending') : deliveryAreaName(row.districtCode)}
                     </span>
                   </span>
                 </div>

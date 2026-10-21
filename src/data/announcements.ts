@@ -22,10 +22,8 @@ export const announcements: Announcement[] = [
      * itself as a live ordering channel.
      */
     locked: true,
-    message: {
-      bn: 'এটি একটি প্রিভিউ স্টোর — অর্ডার সংরক্ষিত হয়, কিন্তু কোনো পেমেন্ট নেওয়া হয় না এবং কোনো ডেলিভারি হয় না।',
-      en: 'This is a preview store — orders are recorded here, but no payments are taken and nothing is dispatched.',
-    },
+    message:
+      'This is a preview store — orders are recorded here, but no payments are taken and nothing is dispatched.',
   },
 ];
 

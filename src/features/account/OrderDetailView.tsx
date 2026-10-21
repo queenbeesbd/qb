@@ -4,13 +4,13 @@ import Link from 'next/link';
 import { useTranslation } from '@/i18n/useTranslation';
 import type { TranslationKey } from '@/i18n/dictionaries';
 import { deliveryAreaName } from '@/lib/delivery-areas';
-import type { Locale } from '@/lib/types';
 import { ClearCart } from '@/features/checkout/ClearCart';
 import { methodLabel, paymentLabel, statusLabel } from './order-labels';
 import styles from '@/app/account.module.css';
+import { INTL_LOCALE } from '@/i18n/config';
 
-function formatWhen(iso: string, locale: Locale): string {
-  return new Intl.DateTimeFormat(locale === 'bn' ? 'bn-BD' : 'en-US', {
+function formatWhen(iso: string): string {
+  return new Intl.DateTimeFormat(INTL_LOCALE, {
     dateStyle: 'medium',
     timeStyle: 'short',
   }).format(new Date(iso));
@@ -81,7 +81,7 @@ export type OrderDetail = {
  * must never wipe a cart that belongs to a new one.
  */
 export function OrderDetailView({ order, placed }: { order: OrderDetail; placed: boolean }) {
-  const { t, price, locale } = useTranslation();
+  const { t, price } = useTranslation();
 
   return (
     <div className={styles.page}>
@@ -99,7 +99,7 @@ export function OrderDetailView({ order, placed }: { order: OrderDetail; placed:
         <p className={styles.orderNumber}>
           {t('orders.orderNumber')} <strong>{order.orderNumber}</strong>
         </p>
-        <p className={styles.muted}>{formatWhen(order.placedAt, locale)}</p>
+        <p className={styles.muted}>{formatWhen(order.placedAt)}</p>
       </header>
 
       <section className={styles.card} aria-labelledby="order-status">
@@ -170,7 +170,7 @@ export function OrderDetailView({ order, placed }: { order: OrderDetail; placed:
         <p className={styles.muted}>{order.recipientPhone}</p>
         <p className={styles.muted}>
           {order.addressLine}
-          {order.districtCode === null ? '' : `, ${deliveryAreaName(order.districtCode, locale)}`}, {order.area},{' '}
+          {order.districtCode === null ? '' : `, ${deliveryAreaName(order.districtCode)}`}, {order.area},{' '}
           {order.city}
           {order.postcode ? ` ${order.postcode}` : ''}
         </p>

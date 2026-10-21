@@ -6,7 +6,6 @@ import {
   PERMISSION_CATALOGUE,
   PERMISSIONS,
   PERMISSION_LABELS,
-  PERMISSION_LABELS_BN,
   PERMISSIONS_IMPLEMENTED,
 } from '../../src/server/authz/permissions';
 import { hasPermission, holdsOwnerRole, roleCodes, type StaffPrincipal } from '../../src/server/authz/principal';
@@ -82,10 +81,9 @@ describe('permission catalogue', () => {
     }
   });
 
-  it('labels every code in both locales, so the staff screen has no untranslated row', () => {
+  it('labels every code, so the staff screen has no untranslated row', () => {
     for (const entry of PERMISSION_CATALOGUE) {
-      assert.ok(PERMISSION_LABELS[entry.code], `missing English label for ${entry.code}`);
-      assert.ok(PERMISSION_LABELS_BN[entry.code], `missing Bangla label for ${entry.code}`);
+      assert.ok(PERMISSION_LABELS[entry.code], `missing label for ${entry.code}`);
     }
   });
 

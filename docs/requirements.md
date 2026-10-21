@@ -60,7 +60,7 @@ Demonstration success: find a product, inspect correct information, choose a qua
 | D7 | Hot deals | Done | Only records with a published comparison price above current; savings and floored percentage derived |
 | D8 | Cart and quantity | Done | Add/update/remove, duplicate lines merged, empty state, derived integer totals |
 | D9 | Responsive and accessible | Done (headless-verified) | No overflow in Phase 5 suite across 320-1920px; drawer focus trap and Escape, skip link, reduced motion and 40px targets verified in headless Chromium; real devices/AT remain unverified |
-| D10 | Language switching | Done | Whole-UI toggle, persistence, `documentElement.lang`, per-field content fallback |
+| D10 | Language switching | **Replaced - English only (Phase 28)** | The owner made QueenBee's a single-language interface. The toggle, the locale store and the Bangla dictionary are removed; `html lang="en"`, one dictionary, and `npm run check:i18n` now asserts completeness and the absence of Bengali interface copy. Product/category records and customer text still render in Bengali where the data is Bengali |
 | D11 | Non-happy paths | Done | Empty search, empty category, empty cart, unknown product (404), corrupt storage, unsupported locale, error boundary |
 | D12 | Honest demo presentation | Done | Locked announcement strip on every route, identified simulated checkout, inert checkout route, `robots: noindex, nofollow`. Redundant explanatory demo lines were removed from the shopping UI in Phase 3 |
 | D13 | Product imagery | Demo implementation done; production use blocked | 22 products have locally served WebP/JPEG at 3:4 with provenance; rights pending written confirmation |
@@ -132,7 +132,7 @@ Provenance and imagery in `docs/catalog.md`; types in `src/lib/types.ts`:
 
 ## Bilingual requirements
 
-Central dictionaries with semantic namespaced keys; no scattered conditionals; no runtime machine translation; no hardcoded interface text. Per-field product fallback per ADR 0002. The toggle is keyboard accessible, visibly labelled and persistent. Bangla typography is verified for rendering, wrapping and line-height, and negative letter-spacing is explicitly disabled for Bengali. `npm run check:i18n` currently verifies 129 keys in both locales and matching placeholder tokens; this count is an audit snapshot, not a fixed requirement.
+One English dictionary with semantic namespaced keys; no scattered conditionals; no runtime machine translation; no hardcoded interface text. Catalog records keep both language columns and the interface prefers the English field, falling back to the record's own Bengali text rather than showing nothing (data, not interface copy). Bengali typography rules remain - no negative letter-spacing, no fixed-height containers - because records and customer text may contain Bengali. `npm run check:i18n` verifies completeness, English-only interface copy, referenced-key existence and the absence of Bengali in application-owned code.
 
 ## Production requirements (not started)
 

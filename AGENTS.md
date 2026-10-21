@@ -119,7 +119,8 @@ Every implementation prompt and completed implementation report must end with on
 - Treat persisted cart/locale data as untrusted: parse defensively, validate ids against the catalog, and clamp numeric values.
 - Never render untrusted HTML. Product copy is plain text by design; do not introduce `dangerouslySetInnerHTML` or an unreviewed sanitizer.
 - Public image visibility is not a licence. The product photography (22 products) is tagged `rights: 'merchant_source_pending_confirmation'` and is **not** cleared for public launch. Do not relabel it as cleared, and do not add further merchant assets without recorded permission - see `docs/catalog.md`.
-- Announcement content lives in `src/data/announcements.ts`, never inline in a component. The `demo-preview` entry is `locked: true`; keep it locked and keep `npm run check:catalog` asserting it. A visible announcement must carry both locales.
+- **The interface is English only (Phase 28).** One dictionary (`src/i18n/dictionaries.ts`), one `html lang="en"`, no language toggle and no locale store. Do not reintroduce a second interface language, a toggle, or a stored preference read. `npm run check:i18n` asserts the dictionary is complete, contains no Bengali, every referenced key exists, and no application-owned interface file carries Bengali text. Product and category records keep their `name_bn`/`name_en` columns and Bengali customer text is still rendered - that is data, not interface copy.
+- Announcement content: the **locked `demo-preview` notice** lives in `src/data/announcements.ts`, is always rendered, and `npm run check:catalog` asserts it. The owner's own news line is stored in `store_setting` (`announcement.message`, `announcement.visible`) and edited at **Settings -> Announcement bar**; it is composed on the server after the locked notice and can never replace it.
 
 ## Verification expectations
 

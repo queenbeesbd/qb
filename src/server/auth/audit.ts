@@ -68,6 +68,7 @@ export type AuditAction =
   | 'catalog.image_attached'
   | 'catalog.image_updated'
   | 'catalog.image_removed'
+  | 'settings.announcement_updated'
   | 'delivery.default_updated'
   | 'delivery.district_saved'
   | 'delivery.district_deactivated'

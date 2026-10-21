@@ -7,7 +7,7 @@ import { CHECKOUT_PATH } from '@/server/customer-auth/constants';
 import { requireCustomerPage } from '@/server/customer-auth/guard';
 
 export const metadata: Metadata = {
-  title: 'চেকআউট',
+  title: 'Checkout',
   robots: { index: false, follow: false },
 };
 

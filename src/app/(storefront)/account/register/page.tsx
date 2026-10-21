@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation';
 import { RegisterView } from '@/features/account/RegisterView';
 import { currentCustomerPrincipal, safeCustomerNext } from '@/server/customer-auth/guard';
 
-export const metadata: Metadata = { title: 'অ্যাকাউন্ট খুলুন', robots: { index: false, follow: false } };
+export const metadata: Metadata = { title: 'Create your account', robots: { index: false, follow: false } };
 export const dynamic = 'force-dynamic';
 
 /** Customer registration: email and password only. There is no verification mail and no reset flow. */

@@ -97,7 +97,6 @@ export const PERMISSION_CATALOGUE: readonly PermissionDefinition[] = [
 export const OWNER_ROLE = {
   code: 'owner',
   name: 'Owner',
-  nameBn: 'মালিক',
   description: 'Full administrative authority, including role management and every money fact.',
   isOwnerLevel: true,
 } as const;
@@ -127,29 +126,6 @@ export const PERMISSION_LABELS: Record<string, string> = {
   [PERMISSIONS.settingsWrite]: 'Write store settings',
 };
 
-export const PERMISSION_LABELS_BN: Record<string, string> = {
-  [PERMISSIONS.codApprove]: 'সিওডি অনুমোদন',
-  [PERMISSIONS.codConfirmCollection]: 'সিওডি আদায় নিশ্চিত',
-  [PERMISSIONS.financeReconcile]: 'সিওডি নগদ মিলকরণ',
-  [PERMISSIONS.orderCostRecord]: 'অর্ডারের অতিরিক্ত খরচ নথিভুক্ত',
-  [PERMISSIONS.orderRead]: 'অর্ডার দেখা',
-  [PERMISSIONS.orderDispatch]: 'ডেলিভারি ও প্রেরণ',
-  [PERMISSIONS.orderCancel]: 'বাতিলকরণ পরিচালনা',
-  [PERMISSIONS.refundRequest]: 'রিফান্ড অনুরোধ',
-  [PERMISSIONS.refundConfirm]: 'রিফান্ড সম্পন্ন',
-  [PERMISSIONS.returnInspect]: 'ফেরত পরীক্ষা',
-  [PERMISSIONS.customerRead]: 'গ্রাহক দেখা',
-  [PERMISSIONS.customerSuspend]: 'গ্রাহক স্থগিত',
-  [PERMISSIONS.customerRevokeSession]: 'গ্রাহক সেশন বাতিল',
-  [PERMISSIONS.customerFlag]: 'গ্রাহক পর্যালোচনা ফ্ল্যাগ',
-  [PERMISSIONS.customerCredentialReset]: 'গ্রাহকের পুনরুদ্ধার কোড তৈরি',
-  [PERMISSIONS.catalogWrite]: 'ক্যাটালগ সম্পাদনা',
-  [PERMISSIONS.inventoryAdjust]: 'স্টক সমন্বয়',
-  [PERMISSIONS.staffRead]: 'স্টাফ দেখা',
-  [PERMISSIONS.staffManage]: 'স্টাফ ও ভূমিকা ব্যবস্থাপনা',
-  [PERMISSIONS.auditRead]: 'অডিট ট্রেইল দেখা',
-  [PERMISSIONS.settingsWrite]: 'স্টোর সেটিংস লেখা',
-};
 
 /**
  * Permissions that have a **reachable server-side workflow**, so the list is a statement about the

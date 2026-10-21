@@ -18,11 +18,11 @@ const notoBengali = Noto_Sans_Bengali({
 
 export const metadata: Metadata = {
   title: {
-    default: "QueenBee's — ডেমো স্টোরফ্রন্ট",
+    default: "QueenBee's — Cosmetics storefront",
     template: "%s · QueenBee's",
   },
   description:
-    'QueenBee’s cosmetics storefront demo. Bangla and English browsing over the store catalog. No payments are taken and nothing is dispatched.',
+    'QueenBee’s cosmetics storefront. Browse the store catalog and place a cash-on-delivery order. This is a preview store: no payments are taken and nothing is dispatched.',
   icons: {
     icon: [{ url: '/brand/favicon.svg', type: 'image/svg+xml' }],
   },
@@ -47,12 +47,14 @@ export const viewport: Viewport = {
  * Rendering storefront chrome here would put a cart on every admin page - and, as the build caught,
  * render the header above the provider it depends on.
  *
- * Bangla is the approved default locale, so the server-rendered document is marked `bn` and the
- * client provider may switch to a stored preference.
+ * The document is marked `en`: the interface is English only (Phase 28), and a stored preference
+ * cannot change that because no code reads one any more. The Bengali font stays because catalog
+ * records and customer-entered text may contain Bengali - that is data, and it should render
+ * correctly even though the interface around it is English.
  */
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="bn" className={`${inter.variable} ${notoBengali.variable}`}>
+    <html lang="en" className={`${inter.variable} ${notoBengali.variable}`}>
       <body>
         <Providers>{children}</Providers>
       </body>

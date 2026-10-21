@@ -47,6 +47,7 @@ import {
   staffCredential,
   staffRole,
   staffUser,
+  storeSetting,
 } from '../src/db/schema';
 import { seedReferenceData } from '../src/db/seed';
 import { activeAnnouncements } from '../src/data/announcements';
@@ -2224,6 +2225,97 @@ async function main(): Promise<void> {
               String(defaultAfter[0]?.defaultMinor),
             );
 
+            /*
+             * Phase 28 - the announcement bar is owner-editable, and the preview notice is not.
+             *
+             * The round trip matters more than the form: what the owner saves must reach the
+             * storefront, the fixed preview notice must survive beside it, and clearing the message
+             * must remove the bar rather than leave a blank strip.
+             */
+            await browser.navigate('/admin/settings/announcement');
+            const announcementUi = await browser.evaluate<{
+              title: string | null;
+              hasTextarea: boolean;
+              hasVisibleToggle: boolean;
+              empty: boolean;
+              previewNoticeCopy: boolean;
+            }>(`(() => {
+              const heading = document.querySelector('h1')?.textContent?.trim() ?? null;
+              const card = document.querySelector('form[action="/api/admin/announcement"]');
+              return {
+                title: heading,
+                hasTextarea: card !== null && card.querySelector('textarea[name="message"]') !== null,
+                hasVisibleToggle: card !== null && card.querySelector('input[name="visible"]') !== null,
+                empty: /no message saved/i.test(document.body.textContent || ''),
+                previewNoticeCopy: /preview notice/i.test(document.body.textContent || ''),
+              };
+            })()`);
+            record(
+              'the announcement settings screen offers one message, one switch and the preview caveat',
+              announcementUi.title === 'Announcement bar' &&
+                announcementUi.hasTextarea &&
+                announcementUi.hasVisibleToggle &&
+                announcementUi.empty &&
+                announcementUi.previewNoticeCopy,
+              JSON.stringify(announcementUi),
+            );
+
+            const ANNOUNCEMENT_TEXT = 'Order now for delivery before the weekend.';
+            await browser.evaluate(`(() => {
+              const form = document.querySelector('form[action="/api/admin/announcement"]');
+              const textarea = form?.querySelector('textarea[name="message"]');
+              const toggle = form?.querySelector('input[name="visible"]');
+              if (!(textarea instanceof HTMLTextAreaElement) || !(toggle instanceof HTMLInputElement)) return false;
+              textarea.value = '${ANNOUNCEMENT_TEXT}';
+              toggle.checked = true;
+              form.requestSubmit();
+              return true;
+            })()`);
+            await browser.waitFor(
+              "location.pathname === '/admin/settings/announcement' && location.search.includes('notice=saved')",
+            );
+            const storefrontWithMessage = await call(base, '/');
+            const savedRows = await withTransaction((tx) =>
+              tx.select({ key: storeSetting.key, value: storeSetting.value }).from(storeSetting),
+            );
+            record(
+              'saving the announcement reaches the storefront and keeps the preview notice',
+              storefrontWithMessage.body.includes(ANNOUNCEMENT_TEXT) &&
+                /this is a preview store/i.test(storefrontWithMessage.body),
+              `rows ${savedRows.length}`,
+            );
+            record(
+              'the saved announcement is stored as typed settings, not as free-form HTML',
+              savedRows.some((row) => row.key === 'announcement.message' && row.value === ANNOUNCEMENT_TEXT) &&
+                savedRows.some((row) => row.key === 'announcement.visible' && row.value === true),
+              JSON.stringify(savedRows.map((row) => row.key)),
+            );
+
+            await browser.navigate('/admin/settings/announcement');
+            await browser.evaluate(`(() => {
+              const form = document.querySelector('form[action="/api/admin/announcement"]');
+              const textarea = form?.querySelector('textarea[name="message"]');
+              const toggle = form?.querySelector('input[name="visible"]');
+              if (!(textarea instanceof HTMLTextAreaElement) || !(toggle instanceof HTMLInputElement)) return false;
+              textarea.value = '';
+              toggle.checked = false;
+              form.requestSubmit();
+              return true;
+            })()`);
+            await browser.waitFor(
+              "location.pathname === '/admin/settings/announcement' && location.search.includes('notice=saved')",
+            );
+            const storefrontCleared = await call(base, '/');
+            record(
+              'clearing the message removes the bar instead of leaving a blank line',
+              !storefrontCleared.body.includes(ANNOUNCEMENT_TEXT) &&
+                /this is a preview store/i.test(storefrontCleared.body),
+              'storefront re-fetched',
+            );
+
+            // The delivery checks that follow operate on the delivery page, so return to it.
+            await browser.navigate('/admin/settings/delivery');
+
             await browser.evaluate(`(() => {
               const form = [...document.querySelectorAll('form[action="/api/admin/delivery"]')]
                 .find((candidate) => candidate.querySelector('input[name="districtCode"]')?.value === 'dhaka');
@@ -2284,8 +2376,7 @@ async function main(): Promise<void> {
           'the locked demo announcement is still present on the storefront',
           lockedAnnouncements.length > 0 &&
             lockedAnnouncements.some(
-              (announcement) =>
-                home.body.includes(announcement.message.en) || home.body.includes(announcement.message.bn),
+              (announcement) => home.body.includes(announcement.message),
             ),
           `${lockedAnnouncements.length} locked announcement(s) configured`,
         );

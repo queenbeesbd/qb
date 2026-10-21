@@ -14,6 +14,7 @@ import { PageHeader } from '../../../_ui/PageHeader';
 import { StatusPill, type PillTone } from '../../../_ui/StatusPill';
 import { SubmitButton } from '../../../_ui/SubmitButton';
 import styles from '../../../admin.module.css';
+import { INTL_LOCALE } from '@/i18n/config';
 
 export type AdminOrderNotice =
   | 'approved'
@@ -245,8 +246,8 @@ export function AdminOrderDetailView({
   /** Where "back" goes: the queue or the order list, with its filters preserved. */
   returnTo: { href: string; labelKey: TranslationKey };
 }) {
-  const { t, price, pick, locale } = useTranslation();
-  const dateTime = new Intl.DateTimeFormat(locale === 'bn' ? 'bn-BD' : 'en-US', {
+  const { t, price, pick } = useTranslation();
+  const dateTime = new Intl.DateTimeFormat(INTL_LOCALE, {
     dateStyle: 'medium',
     timeStyle: 'short',
   });
@@ -275,7 +276,7 @@ export function AdminOrderDetailView({
   const cancellable = order.status === 'pending' || order.status === 'confirmed' || order.status === 'processing';
 
   const ageText = ((): string => {
-    const format = new Intl.RelativeTimeFormat(locale === 'bn' ? 'bn' : 'en', { numeric: 'auto' });
+    const format = new Intl.RelativeTimeFormat('en', { numeric: 'auto' });
     return order.ageHours >= 24
       ? format.format(-Math.floor(order.ageHours / 24), 'day')
       : format.format(-order.ageHours, 'hour');
@@ -561,7 +562,7 @@ export function AdminOrderDetailView({
               {order.contact.addressLine}
               {order.contact.districtCode === null
                 ? ''
-                : ', ' + deliveryAreaName(order.contact.districtCode, locale)}
+                : ', ' + deliveryAreaName(order.contact.districtCode)}
               , {order.contact.area}, {order.contact.city}
               {order.contact.postcode === null ? '' : ' ' + order.contact.postcode}
             </p>

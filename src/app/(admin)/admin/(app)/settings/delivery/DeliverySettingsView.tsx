@@ -59,7 +59,7 @@ export function DeliverySettingsView({
   notice: DeliveryNotice | null;
   csrfToken: string;
 }) {
-  const { t, price, locale } = useTranslation();
+  const { t, price } = useTranslation();
   const byArea = new Map(overrides.map((row) => [row.districtCode, row]));
 
   return (
@@ -119,7 +119,7 @@ export function DeliverySettingsView({
           {overrideAreas().map((area) => {
             const row = byArea.get(area.code);
             const active = row?.isActive === true;
-            const name = locale === 'bn' ? area.nameBn : area.nameEn;
+            const name = area.name;
             const fallback =
               defaultMinor === null ? '' : ' — ' + price(defaultMinor);
             return (

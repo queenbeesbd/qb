@@ -26,11 +26,9 @@
  *
  * On touch widths the small variant grows to the default height, because 34px is below the
  * project's own 40px touch-target guidance and the admin is used on a phone in the shop.
+ *
+ * The two tokens are declared in globals.css: a CSS Module cannot define global custom properties.
  */
-:root {
-  --admin-control-sm: 34px;
-  --admin-control: 40px;
-}
 
 .page {
   min-height: 100vh;

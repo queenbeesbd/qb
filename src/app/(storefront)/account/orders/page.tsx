@@ -5,7 +5,7 @@ import { CUSTOMER_ORDERS_PATH } from '@/server/customer-auth/constants';
 import { requireCustomerPage } from '@/server/customer-auth/guard';
 import { listCustomerOrders } from '@/server/orders/read';
 
-export const metadata: Metadata = { title: 'আমার অর্ডার', robots: { index: false, follow: false } };
+export const metadata: Metadata = { title: 'My orders', robots: { index: false, follow: false } };
 export const dynamic = 'force-dynamic';
 
 /**

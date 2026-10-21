@@ -11,7 +11,7 @@ export async function generateMetadata({ searchParams }: { searchParams: SearchP
   if (query.q) {
     return { title: `Search: ${query.q}` };
   }
-  return { title: 'সব পণ্য' };
+  return { title: 'All products' };
 }
 
 /**

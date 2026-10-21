@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { AccountView } from '@/features/account/AccountView';
 import { currentCustomerPrincipal } from '@/server/customer-auth/guard';
 
-export const metadata: Metadata = { title: 'আমার অ্যাকাউন্ট' };
+export const metadata: Metadata = { title: 'My account' };
 export const dynamic = 'force-dynamic';
 
 /**

@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useTranslation } from '@/i18n/useTranslation';
 import { methodLabel, paymentLabel, statusLabel } from './order-labels';
 import styles from '@/app/account.module.css';
+import { INTL_LOCALE } from '@/i18n/config';
 
 export type OrderListItem = {
   orderNumber: string;
@@ -21,9 +22,9 @@ export type OrderListItem = {
 
 /** The customer's own order list. Amounts and states are database facts; nothing here is derived. */
 export function OrdersView({ orders }: { orders: readonly OrderListItem[] }) {
-  const { t, price, locale } = useTranslation();
+  const { t, price } = useTranslation();
   const when = (iso: string): string =>
-    new Intl.DateTimeFormat(locale === 'bn' ? 'bn-BD' : 'en-US', {
+    new Intl.DateTimeFormat(INTL_LOCALE, {
       dateStyle: 'medium',
       timeStyle: 'short',
     }).format(new Date(iso));

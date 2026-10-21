@@ -1,6 +1,5 @@
-import { useContext } from 'react';
-import { LocaleContext } from './LocaleProvider';
-import type { TranslationKey } from './dictionaries';
+import { INTERFACE_LOCALE } from './config';
+import { dictionary, type TranslationKey } from './dictionaries';
 import { formatMoney } from '@/lib/money';
 import type { LocalizedText, Money } from '@/lib/types';
 
@@ -10,18 +9,16 @@ export type Translate = (
 ) => string;
 
 /**
- * Returns the translator, active locale and a localized money formatter.
- * Components never branch on locale directly; they call `t` and `pick`.
+ * The interface translator.
+ *
+ * There is no locale context any more (Phase 28): the interface is English only, so this is a plain
+ * lookup instead of a subscription to a switching store. Components keep calling `t`/`pick`/`price`,
+ * which is why the removal of the language toggle did not require rewriting every view - but the
+ * value they receive can no longer be anything except English.
  */
 export function useTranslation() {
-  const context = useContext(LocaleContext);
-  if (!context) {
-    throw new Error('useTranslation must be used inside LocaleProvider');
-  }
-  const { locale, dict } = context;
-
   function t(key: TranslationKey, params?: Record<string, string | number>): string {
-    const template: string = dict[key] ?? key;
+    const template: string = dictionary[key] ?? key;
     if (!params) return template;
     return template.replace(/\{(\w+)\}/g, (match, name: string) => {
       const value = params[name];
@@ -30,21 +27,20 @@ export function useTranslation() {
   }
 
   /**
-   * Resolves localized product/category content with a documented fallback:
-   * requested locale first, then the other locale. Untranslated content is
-   * shown in its source language rather than replaced with an invented claim.
+   * Resolves a catalog record's text.
+   *
+   * English first, then the record's other language. This fallback exists only for **owner data**:
+   * if a product is entered with a Bangla name and no English one, showing the name it was given is
+   * more honest than showing nothing. It is not interface copy and it is not a Bangla interface.
    */
   function pick(value: LocalizedText | null | undefined): string | null {
     if (!value) return null;
-    const primary = value[locale];
-    if (primary) return primary;
-    const fallback = locale === 'bn' ? value.en : value.bn;
-    return fallback ?? null;
+    return value.en ?? value.bn ?? null;
   }
 
   function price(amount: Money): string {
-    return formatMoney(amount, locale);
+    return formatMoney(amount);
   }
 
-  return { ...context, t, pick, price };
+  return { locale: INTERFACE_LOCALE, dict: dictionary, t, pick, price };
 }

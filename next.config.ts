@@ -23,11 +23,27 @@ const securityHeaders = [
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
+  // Production builds stay on Turbopack. The empty block states that deliberately: without it,
+  // Turbopack refuses to build because a webpack config exists (used only by `dev`).
+  turbopack: {},
   images: {
     formats: ['image/webp'],
   },
   async headers() {
     return [{ source: '/:path*', headers: securityHeaders }];
+  },
+  /**
+   * The harness rewrites `.pi/fabric/mesh/state.json` continuously. Turbopack watches every file
+   * under the project root and offers no ignore option, so those writes triggered an endless Fast
+   * Refresh loop in development. The dev script therefore runs webpack, whose watcher can ignore
+   * `.pi`; Turbopack remains the build bundler.
+   */
+  webpack(config) {
+    config.watchOptions = {
+      ...config.watchOptions,
+      ignored: ['**/node_modules/**', '**/.git/**', '**/.pi/**'],
+    };
+    return config;
   },
 };
 

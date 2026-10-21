@@ -1,7 +1,8 @@
 /**
  * Normalises free text for search: trims, collapses whitespace, case-folds and
- * strips vowel marks so "niacinamide" and "নিয়াসিনামাইড" both match loosely.
- * Bengali letters, digits and conjuncts are preserved.
+ * strips vowel marks so a Bengali spelling of a Latin name still matches loosely. Bengali
+ * letters, digits and conjuncts are preserved: search must keep working for owner-entered Bangla
+ * product names and customer text even though the interface itself is English.
  */
 export function normaliseForSearch(input: string): string {
   return input

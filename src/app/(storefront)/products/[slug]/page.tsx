@@ -9,7 +9,7 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
   const { slug } = await params;
   const { products } = await getStorefrontCatalog();
   const product = products.find((entry) => entry.slug === slug);
-  if (!product) return { title: 'পণ্য' };
+  if (!product) return { title: 'Product' };
   return {
     title: product.name.bn ?? product.name.en ?? slug,
     description: product.description.bn ?? product.description.en ?? undefined,

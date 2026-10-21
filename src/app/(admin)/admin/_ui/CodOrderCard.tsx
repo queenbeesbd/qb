@@ -9,6 +9,7 @@ import { ConfirmSubmit } from './ConfirmSubmit';
 import { StatusPill } from './StatusPill';
 import { SubmitButton } from './SubmitButton';
 import styles from '../admin.module.css';
+import { INTL_LOCALE } from '@/i18n/config';
 
 export type CodOrderItem = {
   nameBn: string;
@@ -69,7 +70,7 @@ export function CodOrderCard({
   canCancel: boolean;
   decided?: { decision: 'approved' | 'rejected'; decidedAt: string };
 }) {
-  const { t, price, pick, locale } = useTranslation();
+  const { t, price, pick } = useTranslation();
   const age = ageOf(row.placedAt, new Date(nowIso).getTime());
   const hot = age.hours >= 24;
   const ageText =
@@ -81,7 +82,7 @@ export function CodOrderCard({
           ? t('admin.cod.ageHours', { count: age.hours })
           : t('admin.cod.ageDays', { count: age.days });
 
-  const placed = new Intl.DateTimeFormat(locale === 'bn' ? 'bn-BD' : 'en-US', {
+  const placed = new Intl.DateTimeFormat(INTL_LOCALE, {
     dateStyle: 'medium',
     timeStyle: 'short',
   }).format(new Date(row.placedAt));
@@ -89,7 +90,7 @@ export function CodOrderCard({
   const decidedAt =
     decided === undefined
       ? null
-      : new Intl.DateTimeFormat(locale === 'bn' ? 'bn-BD' : 'en-US', {
+      : new Intl.DateTimeFormat(INTL_LOCALE, {
           dateStyle: 'medium',
           timeStyle: 'short',
         }).format(new Date(decided.decidedAt));
@@ -136,7 +137,7 @@ export function CodOrderCard({
             </a>
           </div>
           <p className={styles.orderAddress}>
-            {row.addressLine}, {row.districtCode === null ? '' : `${deliveryAreaName(row.districtCode, locale)}, `}
+            {row.addressLine}, {row.districtCode === null ? '' : `${deliveryAreaName(row.districtCode)}, `}
             {row.area}, {row.city}
           </p>
           <ul className={styles.orderItems} aria-label={t('admin.cod.itemsTitle')}>

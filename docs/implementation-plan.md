@@ -852,6 +852,44 @@ survives a reload, because clearing it in the client would race the existing nav
 recovery screen still has no contact route, because the store's phone number is owner-supplied data that
 does not exist in the repository.
 
+## Phase 28 - English-only interface and an owner-editable announcement bar, delivered 2026-10-21
+
+**One interface language.** The owner made QueenBee's English only: the toggle, the locale store, the
+provider and the 845-key Bangla half of the dictionary are gone. The type is narrowed to `Locale = 'en'`, so
+a Bangla interface is now a compile error rather than a configuration mistake. Nothing reads a stored
+preference any more, which is what makes "refresh, navigate, sign in, sign out" unable to restore Bangla.
+
+| Piece | Where |
+| --- | --- |
+| Dictionary | `src/i18n/dictionaries.ts` - English only, one object |
+| Translator | `src/i18n/useTranslation.ts` - plain lookup, no context, `locale` fixed to `'en'` |
+| Removed | `LanguageToggle`, `LocaleProvider`, `locale-store`, the four language-toggle keys and their CSS |
+| Money | `formatMoney(minor)` - `Tk 1,150`, no locale argument |
+| Delivery areas | one English `name` per area instead of `nameEn`/`nameBn` |
+| Document | `html lang="en"`, English metadata; the Bengali font stays for Bengali *data* |
+| Check | `npm run check:i18n` rewritten: completeness, no Bengali interface copy, referenced keys exist, no Bengali in application-owned code |
+
+**"No Bengali in application-owned code" is the load-bearing assertion.** Catalog and seed files are
+allowlisted because product, brand and category names are **records**; a code page, a form label, a
+metadata title or an accessibility string carrying Bengali fails the check.
+
+**Deliberately kept.** `name_bn` columns, Bengali product/category values, `LocalizedText`, the Bengali
+font, and the search normaliser that strips Bengali vowel marks. The interface language changed; the
+business records did not.
+
+**The announcement bar is now editable** at **Settings -> Announcement bar** (`settings.write`, owner-level).
+It is stored in the existing `store_setting` table as two typed rows - `announcement.message` (text) and
+`announcement.visible` (boolean) - so this needed **no schema change and no migration**; the table's key
+format check, value-type check and `updated_by_staff_id` already fit. The write and its
+`settings.announcement_updated` audit record commit together. The **locked preview notice is not
+editable**: it stays in `src/data/announcements.ts`, is composed first on the server, and the owner's line
+can only be added beside it. An empty message is stored as empty and forced hidden - the bar is never a
+blank strip.
+
+**Verified 2026-10-21:** see the phase 28 verification block recorded in `docs/project-status.md`; the
+suite totals for the final committed tree are reported in the phase 28 summary rather than guessed here.
+
+
 ## Current single best next step
 
 **The actual BDT delivery amounts, supplied by the owner (D-item 5).** This is not an implementation task -

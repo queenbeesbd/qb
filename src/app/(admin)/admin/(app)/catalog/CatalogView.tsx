@@ -129,7 +129,7 @@ export function CatalogView({
   stock: 'all' | 'in_stock' | 'out_of_stock';
   creating: boolean;
 }) {
-  const { t, locale } = useTranslation();
+  const { t } = useTranslation();
   const noticeIsError = notice !== null && ERROR_NOTICES.includes(notice);
   const filtering = search !== '' || stock !== 'all';
 
@@ -550,7 +550,7 @@ export function CatalogView({
                     </div>
                     <div className={styles.recordSide}>
                       <span className={styles.recordPrice}>
-                        {product.priceMinor === null ? '—' : formatMoney(product.priceMinor, locale)}
+                        {product.priceMinor === null ? '—' : formatMoney(product.priceMinor)}
                       </span>
                       <AvailabilitySwitch
                         productId={product.id}

@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation';
 import { LoginView } from '@/features/account/LoginView';
 import { currentCustomerPrincipal, safeCustomerNext } from '@/server/customer-auth/guard';
 
-export const metadata: Metadata = { title: 'সাইন ইন', robots: { index: false, follow: false } };
+export const metadata: Metadata = { title: 'Sign in', robots: { index: false, follow: false } };
 export const dynamic = 'force-dynamic';
 
 /** Customer sign-in. An already-authenticated visitor is sent straight to the return path. */

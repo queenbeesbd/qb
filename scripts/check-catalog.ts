@@ -144,8 +144,8 @@ if (!demoAnnouncement) {
   if (!demoAnnouncement.locked) {
     errors.push('announcements: the demo-preview announcement must be locked');
   }
-  if (!demoAnnouncement.message.bn || !demoAnnouncement.message.en) {
-    errors.push('announcements: the demo-preview announcement needs both locales');
+  if (demoAnnouncement.message.trim().length === 0) {
+    errors.push('announcements: the demo-preview announcement needs a message');
   }
   if (!activeAnnouncements().some((announcement) => announcement.id === 'demo-preview')) {
     errors.push('announcements: the demo-preview announcement is not active');
@@ -153,8 +153,8 @@ if (!demoAnnouncement) {
 }
 
 for (const announcement of announcements) {
-  if (!announcement.message.bn || !announcement.message.en) {
-    errors.push(`announcements: ${announcement.id} needs both locales`);
+  if (announcement.message.trim().length === 0) {
+    errors.push(`announcements: ${announcement.id} needs a message`);
   }
 }
 

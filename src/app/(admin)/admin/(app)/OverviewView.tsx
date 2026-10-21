@@ -9,6 +9,7 @@ import { EmptyState } from '../_ui/EmptyState';
 import { PageHeader } from '../_ui/PageHeader';
 import { StatusPill } from '../_ui/StatusPill';
 import styles from '../admin.module.css';
+import { INTL_LOCALE } from '@/i18n/config';
 
 type FlagRow = { customerId: number; email: string; displayName: string | null; reason: string };
 
@@ -79,10 +80,10 @@ export function OverviewView({
   canReadAudit: boolean;
   canReadCatalog: boolean;
 }) {
-  const { t, locale, price } = useTranslation();
+  const { t, price } = useTranslation();
   const now = new Date(nowIso);
-  const dateFormat = new Intl.DateTimeFormat(locale === 'bn' ? 'bn-BD' : 'en-US', { dateStyle: 'full' });
-  const timeFormat = new Intl.DateTimeFormat(locale === 'bn' ? 'bn-BD' : 'en-US', {
+  const dateFormat = new Intl.DateTimeFormat(INTL_LOCALE, { dateStyle: 'full' });
+  const timeFormat = new Intl.DateTimeFormat(INTL_LOCALE, {
     dateStyle: 'medium',
     timeStyle: 'short',
   });

@@ -27,14 +27,12 @@ describe('canonical delivery areas', () => {
   it('exposes both names and matches only by code', () => {
     assert.deepEqual(deliveryAreaByCode('dhaka'), {
       code: 'dhaka',
-      nameEn: 'Dhaka',
-      nameBn: 'ঢাকা',
+      name: 'Dhaka',
       usesDefault: false,
     });
-    assert.equal(deliveryAreaName('chattogram', 'en'), 'Chattogram');
-    assert.equal(deliveryAreaName('chattogram', 'bn'), 'চট্টগ্রাম');
-    assert.equal(deliveryAreaName('others', 'en'), 'Other districts');
-    assert.equal(deliveryAreaName('unknown', 'en'), 'unknown');
+    assert.equal(deliveryAreaName('chattogram'), 'Chattogram');
+    assert.equal(deliveryAreaName('others'), 'Other districts');
+    assert.equal(deliveryAreaName('unknown'), 'unknown');
     assert.equal(isDeliveryAreaCode('Dhaka'), false, 'a display name is not a code');
     assert.equal(isDeliveryAreaCode('dhaka '), false, 'no trimming or fuzzy matching');
     assert.equal(isDeliveryAreaCode('khulna'), false, 'the list has exactly three areas');

@@ -1,6 +1,11 @@
 /** Domain types for the local demo catalog. See docs/catalog.md. */
 
-export type Locale = 'bn' | 'en';
+/**
+ * The interface language. English only since Phase 28: the narrower type makes a Bangla interface a
+ * compile error rather than a configuration mistake. Catalog records still carry `bn` text; that is
+ * data, not interface copy.
+ */
+export type Locale = 'en';
 
 /** Text that may exist in one or both locales. */
 export type LocalizedText = {
@@ -188,10 +193,10 @@ export type Announcement = {
   id: string;
   enabled: boolean;
   /**
-   * Both locales are required. A visible strip can therefore never fall back to
-   * an untranslated or empty message.
+   * The message text. English only, like the rest of the interface (Phase 28), so the type carries
+   * one string instead of two and a visible strip can never fall back to an empty line.
    */
-  message: { bn: string; en: string };
+  message: string;
   variant: AnnouncementVariant;
   /**
    * A locked announcement is rendered even when `enabled` is false. This is how

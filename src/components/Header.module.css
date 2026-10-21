@@ -38,20 +38,11 @@
  * label and keeps its accessible name, which is what lets all four controls sit on one row.
  */
 /*
- * Below 480px all four header controls must share one row. Measured at 390px: trigger 40 +
- * brand 138 + actions 184 + two 8px gaps = 378px inside a 358px content box, which is why the
- * action cluster wrapped to its own line. The language control drops its text label but keeps
- * its accessible name, which returns 64px and lets the row fit without shrinking a tap target.
+ * Below 480px the header controls must share one row. Measured at 390px after the language toggle
+ * was removed (Phase 28): drawer trigger + brand + two 40px actions fit inside the content box, so
+ * the row keeps its height and both targets stay 40px. The tighter column gap is what buys the room.
  */
 @media (max-width: 479px) {
-  .languageButton {
-    padding: 0 var(--space-2);
-  }
-
-  .languageButton span[aria-hidden='true'] {
-    display: none;
-  }
-
   .inner {
     column-gap: var(--space-2);
   }
@@ -200,27 +191,6 @@
   font-weight: 700;
   line-height: 18px;
   text-align: center;
-}
-
-.languageButton {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  min-height: 40px;
-  padding: 0 var(--space-3);
-  border: 1px solid var(--color-border-strong);
-  border-radius: var(--radius-md);
-  background: var(--color-surface);
-  color: var(--color-ink);
-  font-size: var(--text-sm);
-  font-weight: 600;
-  cursor: pointer;
-  white-space: nowrap;
-}
-
-.languageButton:hover {
-  border-color: var(--color-action);
-  color: var(--color-action);
 }
 
 /* ---------- Search fields ---------- */

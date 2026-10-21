@@ -133,12 +133,11 @@ const HELPERS = `
       const dds = [...document.querySelectorAll('main aside dd')].map((d) => d.innerText.trim());
       return { raw: dds, subtotal: window.__qb.num(dds[0]), total: window.__qb.num(dds[2]) };
     },
-    toggle() { return document.querySelector('header button[title]'); },
     addButton() {
-      return [...document.querySelectorAll('main button')].find((b) => /কার্টে যোগ করুন|Add to cart/.test(b.textContent)) || null;
+      return [...document.querySelectorAll('main button')].find((b) => /add to cart/i.test(b.textContent)) || null;
     },
     removeButton() {
-      return [...document.querySelectorAll('main button')].find((b) => /সরান|Remove/.test(b.getAttribute('aria-label') || '')) || null;
+      return [...document.querySelectorAll('main button')].find((b) => /remove/i.test(b.getAttribute('aria-label') || '')) || null;
     },
     shelf() {
       // The controls group also carries role=group, so target the scroller by
@@ -351,24 +350,18 @@ async function main() {
     // Headless pages are unfocused by default, which suppresses :focus and Tab.
     await client.send('Emulation.setFocusEmulationEnabled', { enabled: true });
 
-    // 1 - Bangla default
+    // 1 - English only (Phase 28)
     await nav(client, '/');
-    const home = await evaluate(client, `({ lang: document.documentElement.lang, bangla: /[\u0980-\u09FF]/.test(document.body.innerText), cards: document.querySelectorAll('main article').length, toggleTitle: document.querySelector('header button[title]')?.getAttribute('title') })`);
-    record('1. homepage opens in Bangla with Bangla copy and product cards', home.lang === 'bn' && home.bangla && home.cards >= 8 && home.toggleTitle === 'Switch to English', home);
+    const home = await evaluate(client, `({ lang: document.documentElement.lang, bangla: /[\u0980-\u09FF]/.test(document.body.innerText), cards: document.querySelectorAll('main article').length, languageControls: [...document.querySelectorAll('header button, header a')].filter((el) => /language|switch to/i.test((el.getAttribute('aria-label') || '') + (el.getAttribute('title') || '') + (el.textContent || ''))).length })`);
+    record('1. homepage opens in English with English copy, product cards and no language control', home.lang === 'en' && !home.bangla && home.cards >= 8 && home.languageControls === 0, home);
 
-    // 2 - language toggle and persistence
-    await evaluate(client, `window.__qb.toggle().click()`);
-    await poll(client, "document.documentElement.lang === 'en'");
-    const english = await evaluate(client, `({ lang: document.documentElement.lang, stored: localStorage.getItem('queenbees.locale.v1'), h1: document.querySelector('h1')?.textContent?.trim(), navBangla: /[\u0980-\u09FF]/.test(document.querySelector('header nav')?.innerText || ''), bodyBangla: /[\u0980-\u09FF]/.test(document.querySelector('main')?.innerText || '') })`);
-    record('2a. toggle switches the whole UI to English', english.lang === 'en' && english.stored === 'en' && !english.navBangla && !english.bodyBangla, english);
-    await client.send('Page.reload');
+    // 2 - a stored preference cannot restore a second language: write the old key, reload, and the
+    // page must still be English because nothing reads it any more.
+    await evaluate(client, `localStorage.setItem('queenbees.locale.v1', 'bn')`);
     await nav(client, '/');
-    const persisted = await evaluate(client, `({ lang: document.documentElement.lang, stored: localStorage.getItem('queenbees.locale.v1') })`);
-    record('2b. English preference persists after reload', persisted.lang === 'en' && persisted.stored === 'en', persisted);
-    await evaluate(client, `window.__qb.toggle().click()`);
-    await poll(client, "document.documentElement.lang === 'bn'");
-    const banglaAgain = await evaluate(client, `({ lang: document.documentElement.lang, stored: localStorage.getItem('queenbees.locale.v1') })`);
-    record('2c. toggles back to Bangla', banglaAgain.lang === 'bn' && banglaAgain.stored === 'bn', banglaAgain);
+    const storedBn = await evaluate(client, `({ lang: document.documentElement.lang, bangla: /[\u0980-\u09FF]/.test(document.querySelector('main')?.innerText || ''), navBangla: /[\u0980-\u09FF]/.test(document.querySelector('header nav')?.innerText || ''), languageControls: [...document.querySelectorAll('header button, header a')].filter((el) => /language|switch to/i.test((el.getAttribute('aria-label') || '') + (el.getAttribute('title') || '') + (el.textContent || ''))).length })`);
+    record('2. a stored Bangla preference restores nothing: English document, no Bangla copy, no toggle', storedBn.lang === 'en' && !storedBn.bangla && !storedBn.navBangla && storedBn.languageControls === 0, storedBn);
+    await evaluate(client, `localStorage.removeItem('queenbees.locale.v1')`);
 
     // 3 - category browse
     await nav(client, '/categories/haircare');
@@ -385,7 +378,6 @@ async function main() {
     record('4. search filters results and is reflected in the URL', search.url.includes('q=niacinamide') && search.products === 1, search);
 
     // 5 - sorting (English locale keeps digits ASCII for clarity)
-    await evaluate(client, `localStorage.setItem('queenbees.locale.v1', 'en')`);
     await nav(client, '/products?sort=price-asc');
     const ascending = await evaluate(client, `(() => { const p = window.__qb.cardPrices(); return { prices: p, ascending: p.every((v, i) => i === 0 || p[i - 1] <= v), count: p.length }; })()`);
     await nav(client, '/products?sort=price-desc');
@@ -453,29 +445,27 @@ async function main() {
     // 14 - empty cart in isolation
     await evaluate(client, `localStorage.setItem('queenbees.cart.v1', '[]')`);
     await nav(client, '/cart');
-    const emptyCart = await evaluate(client, `({ empty: /(Your cart is empty|কার্ট খালি)/.test(document.body.innerText), recovery: !!document.querySelector('main a[href="/products"]'), hasSummary: !!document.querySelector('main aside'), badge: (document.querySelector('a[href="/cart"]')?.innerText || '').trim() })`);
+    const emptyCart = await evaluate(client, `({ empty: /your cart is empty/i.test(document.body.innerText), recovery: !!document.querySelector('main a[href="/products"]'), hasSummary: !!document.querySelector('main aside'), badge: (document.querySelector('a[href="/cart"]')?.innerText || '').trim() })`);
     record('14. empty cart shows recovery and no order summary', emptyCart.empty && emptyCart.recovery && !emptyCart.hasSummary && emptyCart.badge === '', emptyCart);
 
     // 15 - corrupt storage is discarded
-    await evaluate(client, `localStorage.setItem('queenbees.cart.v1', '{not json'); localStorage.setItem('queenbees.locale.v1', 'fr')`);
+    await evaluate(client, `localStorage.setItem('queenbees.cart.v1', '{not json')`);
     await nav(client, '/cart');
     const corrupt = await evaluate(client, `({ lang: document.documentElement.lang, lines: window.__qb.cartLines().length, recovery: !!document.querySelector('main a[href="/products"]') })`);
-    record('15. corrupt cart and unsupported locale fall back safely', corrupt.lang === 'bn' && corrupt.lines === 0 && corrupt.recovery, corrupt);
+    record('15. a corrupt cart is discarded and the page stays English', corrupt.lang === 'en' && corrupt.lines === 0 && corrupt.recovery, corrupt);
 
     // 16 - checkout requires an account (D12). An anonymous visitor is redirected to sign in, and the
     // screen reached is a sign-in form: one password field, no card fields, no order fields. Locale is
-    // reset first because the previous check deliberately left an unsupported preference.
-    await evaluate(client, `localStorage.setItem('queenbees.locale.v1', 'en')`);
     await nav(client, '/products/lilac-5-niacinamide-serum-30-ml');
     await evaluate(client, `window.__qb.addButton().click()`);
     await sleep(400);
     await nav(client, '/checkout');
-    const checkout = await evaluate(client, `({ path: location.pathname, forms: document.querySelectorAll('main form').length, passwordFields: document.querySelectorAll('main input[type=password]').length, cardFields: document.querySelectorAll('main input[name*=card], main input[name*=cvv], main input[name*=payment]').length, orderFields: document.querySelectorAll('main input[name*=lines], main input[name*=idempotencyKey], main input[name=csrf]').length, externalHosts: [...new Set([...document.querySelectorAll('a[href^="http"]')].map((a) => new URL(a.href).host))], signInCopy: /(Sign in|সাইন ইন)/i.test(document.body.innerText), noRecovery: /(no password recovery|পাসওয়ার্ড পুনরুদ্ধারের কোনো পথ নেই)/i.test(document.body.innerText), cartPreserved: (document.querySelector('a[href="/cart"]')?.innerText || '').trim() })`);
+    const checkout = await evaluate(client, `({ path: location.pathname, forms: document.querySelectorAll('main form').length, passwordFields: document.querySelectorAll('main input[type=password]').length, cardFields: document.querySelectorAll('main input[name*=card], main input[name*=cvv], main input[name*=payment]').length, orderFields: document.querySelectorAll('main input[name*=lines], main input[name*=idempotencyKey], main input[name=csrf]').length, externalHosts: [...new Set([...document.querySelectorAll('a[href^="http"]')].map((a) => new URL(a.href).host))], signInCopy: /sign in/i.test(document.body.innerText), noRecovery: /no password recovery/i.test(document.body.innerText), cartPreserved: (document.querySelector('a[href="/cart"]')?.innerText || '').trim() })`);
     record('16. checkout requires an account: anonymous visitors reach the sign-in form, with no order or card fields and the cart preserved', checkout.path === '/account/login' && checkout.forms === 1 && checkout.passwordFields === 1 && checkout.cardFields === 0 && checkout.orderFields === 0 && checkout.externalHosts.length === 0 && checkout.signInCopy && checkout.noRecovery && /[0-9]/.test(checkout.cartPreserved), checkout);
 
     // 17 - not found
     await nav(client, '/products/does-not-exist');
-    const notFound = await evaluate(client, `({ copy: /(not found|পাওয়া যায়নি)/i.test(document.body.innerText), recovery: !!document.querySelector('a[href="/"]') })`);
+    const notFound = await evaluate(client, `({ copy: /not found/i.test(document.body.innerText), recovery: !!document.querySelector('a[href="/"]') })`);
     record('17. unknown product shows not-found copy with a route home', notFound.copy && notFound.recovery, notFound);
 
     // 18 - viewports
@@ -524,11 +514,10 @@ async function main() {
     const skipActivation = await evaluate(client, `(() => { const a = document.querySelector('a.skip-link'); a.focus(); a.click(); return { hash: location.hash, mainFocused: document.activeElement?.id === 'main-content' }; })()`);
     record('23. skip link is reachable by Tab, becomes visible and targets main content', skip.isSkip && skip.focusMatches && parseFloat(skip.top) >= 0 && skipActivation.hash === '#main-content' && skipActivation.mainFocused, { skip, skipActivation });
 
-    // 24 - announcement strip: present, readable, localized, above the header
+    // 24 - announcement strip: present, readable, English, above the header
     await client.send('Emulation.clearDeviceMetricsOverride');
-    await evaluate(client, `localStorage.setItem('queenbees.locale.v1', 'bn')`);
     await nav(client, '/');
-    const barBn = await evaluate(client, `(() => {
+    const barShape = await evaluate(client, `(() => {
       const bar = document.querySelector('main')?.parentElement?.querySelector('aside');
       const header = document.querySelector('header');
       const msg = bar ? bar.innerText.replace(/\\s+/g, ' ').trim() : '';
@@ -540,8 +529,8 @@ async function main() {
         present: !!bar,
         aboveHeader: bar && header ? bar.getBoundingClientRect().bottom <= header.getBoundingClientRect().top + 1 : false,
         bangla: /[\u0980-\u09FF]/.test(msg),
-        mentionsPreview: /প্রিভিউ/.test(msg),
-        mentionsNoOrder: /অর্ডার/.test(msg) && /পেমেন্ট/.test(msg),
+        mentionsPreview: /preview/i.test(msg),
+        mentionsNoOrder: /orders/i.test(msg) && /payments/i.test(msg),
         fontSize,
         headerSize,
         subordinate: fontSize !== null && headerSize !== null ? fontSize <= headerSize + 1 : false,
@@ -549,17 +538,16 @@ async function main() {
         role: bar ? bar.tagName : null,
       };
     })()`);
-    record('24. announcement strip present in Bangla, above header, mentions no real orders/payments', barBn.present && barBn.aboveHeader && barBn.bangla && barBn.mentionsPreview && barBn.mentionsNoOrder, barBn);
+    record('24. announcement strip present in English, above the header, mentions no real orders/payments', barShape.present && barShape.aboveHeader && !barShape.bangla && barShape.mentionsPreview && barShape.mentionsNoOrder, barShape);
 
-    // 25 - announcement strip in English and mobile fit
-    await evaluate(client, `localStorage.setItem('queenbees.locale.v1', 'en')`);
+    // 25 - announcement strip stays English on a fresh request, and fits a phone
     await nav(client, '/');
     const barEn = await evaluate(client, `(() => {
       const bar = document.querySelector('main')?.parentElement?.querySelector('aside');
       const msg = bar ? bar.innerText.replace(/\\s+/g, ' ').trim() : '';
       return { present: !!bar, english: /preview/i.test(msg) && /orders/i.test(msg) && /payments/i.test(msg), noBangla: !/[\u0980-\u09FF]/.test(msg), text: msg.slice(0, 90) };
     })()`);
-    record('25. announcement strip switches to English copy', barEn.present && barEn.english && barEn.noBangla, barEn);
+    record('25. announcement strip is the same English copy on a fresh request', barEn.present && barEn.english && barEn.noBangla, barEn);
 
     await client.send('Emulation.setDeviceMetricsOverride', { width: 320, height: 720, deviceScaleFactor: 1, mobile: true });
     await nav(client, '/');
@@ -682,7 +670,7 @@ async function main() {
         controlsInsideHeader: header.contains(btns[0]),
         controlCount: btns.length,
         labels: btns.map((b) => b.getAttribute('aria-label')),
-        headerHasViewAll: /View all|সব দেখুন/.test(header.innerText),
+        headerHasViewAll: /view all/i.test(header.innerText),
         noOverlap: cbox.left >= titleBox.right - 1,
         groupLabel: btns[0].parentElement.getAttribute('aria-label'),
       };
@@ -699,7 +687,7 @@ async function main() {
     // categories section and "Recently added" (Phase 26) are the two that render one. Asserting the
     // section ids rather than a bare count means a second link added to either is still caught.
     const viewAllSections = await evaluate(client, `[...document.querySelectorAll('main section')]
-      .filter((s) => /View all|সব দেখুন/.test(s.innerText))
+      .filter((s) => /view all/i.test(s.innerText))
       .map((s) => { const h = s.querySelector('h1, h2'); return h ? h.id : 'unknown'; })`);
     record('27d. the categories and "Recently added" sections each keep their "View all" route',
       JSON.stringify(viewAllSections) === JSON.stringify(['categories-title', 'recently-added-title']),
@@ -752,25 +740,14 @@ async function main() {
         label === heroNewest.alts[index]),
       { labels: heroNewest.labels, alts: heroNewest.alts });
 
-    // 29 - Bangla headings carry no negative tracking and use a shared weight
-    await evaluate(client, `localStorage.setItem('queenbees.locale.v1', 'bn')`);
+    // 29 - one heading scale, and the document states English
     await nav(client, '/');
-    const bnType = await evaluate(client, `(() => {
-      const h1 = document.querySelector('h1');
-      const h2 = document.querySelector('h2');
-      const cs = getComputedStyle(h1);
-      return { weight: cs.fontWeight, tracking: cs.letterSpacing, h2Weight: getComputedStyle(h2).fontWeight, lang: document.documentElement.lang };
-    })()`);
-    record('29. Bangla headings use no negative tracking and a shared weight', bnType.lang === 'bn' && (bnType.tracking === 'normal' || parseFloat(bnType.tracking) >= 0) && bnType.weight === bnType.h2Weight, bnType);
-
-    await evaluate(client, `localStorage.setItem('queenbees.locale.v1', 'en')`);
-    await nav(client, '/');
-    const enType = await evaluate(client, `(() => {
+    const type = await evaluate(client, `(() => {
       const h1 = document.querySelector('h1');
       const h2 = document.querySelector('h2');
       return { weight: getComputedStyle(h1).fontWeight, h2Weight: getComputedStyle(h2).fontWeight, lang: document.documentElement.lang };
     })()`);
-    record('29b. English headings use the same weight as Bangla', enType.lang === 'en' && enType.weight === enType.h2Weight && enType.weight === bnType.weight, { en: enType, bn: bnType });
+    record('29. headings share one weight and the document is English', type.lang === 'en' && type.weight === type.h2Weight, type);
 
     // 31 - the shelf is one row of at most six at every supported viewport
     const shelfViewports = [
@@ -830,7 +807,6 @@ async function main() {
 
     // 32 - pricing hierarchy on cards
     await client.send('Emulation.clearDeviceMetricsOverride');
-    await evaluate(client, `localStorage.setItem('queenbees.locale.v1', 'en')`);
     await nav(client, '/products');
     const cardType = await evaluate(client, `(() => {
       const card = [...document.querySelectorAll('main article')].find((c) => c.querySelector('span[class$="_compare"]'));
@@ -929,19 +905,18 @@ async function main() {
     /*
      * ---------- Phase 25: header, account, grid density and add-to-cart feedback ----------
      *
-     * These pin the behaviours the Phase 24 audit found broken. Each one is asserted against
-     * the served build in both locales, because the worst of them (a 15px search input) only
-     * reproduced in Bangla.
+     * These pin the behaviours the Phase 24 audit found broken. The worst of them - a 15px search
+     * input - reproduced in Bangla only, which is why the suite used to sweep both locales; with one
+     * interface language (Phase 28) the sweep is over widths alone, and the language file is gone.
      */
 
-    // 42 - the header search is genuinely typeable at 1024px in both locales.
-    // The audit measured a 15px input inside a 79px container in Bangla; the acceptance bar is
-    // 180px, and the fix buys a second header row rather than a narrower field.
+    // 42 - the header search is genuinely typeable from 1024px up.
+    // The audit measured a 15px input inside a 79px container; the acceptance bar is 180px, and the
+    // fix buys a second header row rather than a narrower field.
     const searchWidths = [];
-    for (const locale of ['bn', 'en']) {
+    {
       for (const w of [1024, 1200, 1280, 1440, 1920]) {
         await client.send('Emulation.setDeviceMetricsOverride', { width: w, height: 900, deviceScaleFactor: 1, mobile: false });
-        await evaluate(client, `localStorage.setItem('queenbees.locale.v1', '${locale}')`);
         await nav(client, '/');
         const state = await evaluate(client, `(() => {
           const inner = document.querySelector('header').firstElementChild;
@@ -949,7 +924,7 @@ async function main() {
           const visible = forms.filter((f) => f.getBoundingClientRect().width > 0);
           const input = visible[0] ? visible[0].querySelector('input') : null;
           const headerBox = document.querySelector('header').getBoundingClientRect();
-          const controls = [...inner.querySelectorAll('a[href="/account"], a[href="/cart"], button[title]')];
+          const controls = [...inner.querySelectorAll('a[href="/account"], a[href="/cart"]')];
           const offscreen = controls.filter((c) => {
             const r = c.getBoundingClientRect();
             return r.width === 0 || r.right > window.innerWidth + 1 || r.left < -1;
@@ -962,22 +937,21 @@ async function main() {
             overflow: document.documentElement.scrollWidth - window.innerWidth,
           };
         })()`);
-        searchWidths.push({ locale, w, ...state });
+        searchWidths.push({ w, ...state });
       }
     }
-    record('42. the header search input stays >=180px wide at every desktop width in both locales',
+    record('42. the header search input stays >=180px wide at every desktop width',
       searchWidths.every((r) => r.inputsVisible === 1 && r.inputW >= 180),
       searchWidths);
     record('42b. exactly one search field is visible per breakpoint, and no header control is clipped or offscreen',
       searchWidths.every((r) => r.offscreen === 0 && r.overflow <= 1),
-      searchWidths.map((r) => ({ locale: r.locale, w: r.w, headerH: r.headerH, offscreen: r.offscreen, overflow: r.overflow })));
+      searchWidths.map((r) => ({ w: r.w, headerH: r.headerH, offscreen: r.offscreen, overflow: r.overflow })));
     record('42c. the header is a single 65px row from 1200px up',
       searchWidths.filter((r) => r.w >= 1200).every((r) => r.headerH === 65),
       searchWidths.filter((r) => r.w >= 1200).map((r) => ({ w: r.w, headerH: r.headerH })));
 
     // 42d - the search field is operable by keyboard: focus, type, submit, reach the results.
     await client.send('Emulation.setDeviceMetricsOverride', { width: 1024, height: 900, deviceScaleFactor: 1, mobile: false });
-    await evaluate(client, `localStorage.setItem('queenbees.locale.v1', 'en')`);
     await nav(client, '/');
     const searchKeyboard = await evaluate(client, `(() => {
       const inner = document.querySelector('header').firstElementChild;
@@ -1053,7 +1027,6 @@ async function main() {
     // 44 - product grid density follows the surface, not the viewport.
     // Full-width surfaces reach five columns; the sidebar catalog stays at four, because five there
     // would produce ~197px cards (the audit's 144px defect in a milder form).
-    await evaluate(client, `localStorage.setItem('queenbees.locale.v1', 'en')`);
     const density = { home: [], catalog: [] };
     for (const [route, key] of [['/', 'home'], ['/products', 'catalog']]) {
       for (const w of [320, 360, 390, 768, 1024, 1280, 1440, 1920]) {
@@ -1226,15 +1199,16 @@ async function main() {
       unavailableShape.addPresent && !unavailableShape.unavailableBlock && unavailableShape.confirmations === 0,
       { ...unavailableShape, adminApi: outOfStock });
 
-    // 46 - the language toggle exposes one accessible name rather than two concatenated strings.
+    // 46 - there is no language control left on the storefront (Phase 28).
     await nav(client, '/');
-    const toggleName = await evaluate(client, `(() => {
-      const button = document.querySelector('header button[title]');
-      return { label: button.getAttribute('aria-label'), title: button.getAttribute('title'), text: button.textContent.trim() };
+    const languageUi = await evaluate(client, `(() => {
+      const controls = [...document.querySelectorAll('header button, header a, footer a')];
+      const languageish = controls.filter((el) => /language|switch to/i.test((el.getAttribute('aria-label') || '') + (el.getAttribute('title') || '') + (el.textContent || '')));
+      return { count: languageish.length, lang: document.documentElement.lang, headerButtons: document.querySelectorAll('header button').length };
     })()`);
-    record('46. the language toggle has a single explicit accessible name',
-      !!toggleName.label && toggleName.label === toggleName.title && !toggleName.label.includes('Current language'),
-      toggleName);
+    record('46. no language control exists in the header or footer, and the document is English',
+      languageUi.count === 0 && languageUi.lang === 'en',
+      languageUi);
 
     // 36 - the category section is desktop-only, and mobile keeps a route to every category
     await client.send('Emulation.setDeviceMetricsOverride', { width: 375, height: 812, deviceScaleFactor: 2, mobile: true });
@@ -1559,10 +1533,9 @@ async function main() {
     record('43. the selection is identical after a reload',
       JSON.stringify(recentAgain) === JSON.stringify(recent.hrefs), { first: recent.hrefs, second: recentAgain });
 
-    // 44 - Bangla renders the section with the same products
-    await evaluate(client, `localStorage.setItem('queenbees.locale.v1', 'bn')`);
+    // 44 - a fresh request renders the same section, in English (Phase 28)
     await nav(client, '/');
-    const recentBn = await evaluate(client, `(() => {
+    const recentAgainEn = await evaluate(client, `(() => {
       const heading = document.getElementById('recently-added-title');
       if (!heading) return null;
       const section = heading.closest('section');
@@ -1571,18 +1544,18 @@ async function main() {
                  .map((a) => a.getAttribute('href'))
                  .filter((h) => h && h.indexOf('/products/') === 0))],
                cards: section.querySelectorAll('article').length,
+               bangla: /[\u0980-\u09FF]/.test(section.innerText),
                lang: document.documentElement.lang };
     })()`);
-    record('44. the section renders in Bangla with the same three products',
-      recentBn && recentBn.cards === 3 && recentBn.lang === 'bn' &&
-      /[\u0980-\u09FF]/.test(recentBn.heading) &&
-      JSON.stringify(recentBn.hrefs) === JSON.stringify(recent.hrefs),
-      recentBn);
+    record('44. the section renders in English with the same three products',
+      recentAgainEn && recentAgainEn.cards === 3 && recentAgainEn.lang === 'en' &&
+      !recentAgainEn.bangla &&
+      JSON.stringify(recentAgainEn.hrefs) === JSON.stringify(recent.hrefs),
+      recentAgainEn);
 
-    // 45 - layout and overflow at every required width, both locales
+    // 45 - layout and overflow at every required width
     const recentShapes = [];
-    for (const locale of ['en', 'bn']) {
-      await evaluate(client, `localStorage.setItem('queenbees.locale.v1', '${locale}')`);
+    {
       for (const w of [320, 390, 768, 1024, 1280, 1440, 1920]) {
         await client.send('Emulation.setDeviceMetricsOverride', { width: w, height: 900, deviceScaleFactor: 1, mobile: w < 720 });
         await nav(client, '/');
@@ -1611,10 +1584,10 @@ async function main() {
             standardCardW: standardCard ? Math.round(standardCard.getBoundingClientRect().width) : null,
           };
         })()`);
-        recentShapes.push({ locale, w, ...shape });
+        recentShapes.push({ w, ...shape });
       }
     }
-    record('45. the section has no horizontal overflow at 320-1920px in both locales',
+    record('45. the section has no horizontal overflow at 320-1920px',
       recentShapes.every((r) => !r.missing && r.cards === 3 && r.pageOverflow <= 1 && r.sectionOverflow <= 1),
       recentShapes.filter((r) => r.missing || r.cards !== 3 || r.pageOverflow > 1 || r.sectionOverflow > 1));
 
@@ -1631,18 +1604,17 @@ async function main() {
       recentShapes.every((r) => !r.missing && r.cols === standardColumns[r.w] &&
         r.standardCols === standardColumns[r.w] && r.cardW !== null && r.standardCardW !== null &&
         Math.abs(r.cardW - r.standardCardW) <= 1),
-      recentShapes.map((r) => ({ locale: r.locale, w: r.w, cols: r.cols, standardCols: r.standardCols,
+      recentShapes.map((r) => ({ w: r.w, cols: r.cols, standardCols: r.standardCols,
         cardW: r.cardW, standardCardW: r.standardCardW })));
 
     const wideRows = recentShapes.filter((r) => r.w === 1440);
     record('48b. wide desktop declares five columns and leaves the two it cannot fill empty',
-      wideRows.length === 2 && wideRows.every((r) => r.cols === 5 && r.cards === 3 && r.rows === 1 &&
+      wideRows.length === 1 && wideRows.every((r) => r.cols === 5 && r.cards === 3 && r.rows === 1 &&
         r.cardW === r.standardCardW),
-      wideRows.map((r) => ({ locale: r.locale, cols: r.cols, cards: r.cards, rows: r.rows,
+      wideRows.map((r) => ({ cols: r.cols, cards: r.cards, rows: r.rows,
         cardW: r.cardW, standardCardW: r.standardCardW })));
 
     // 46 - recency did not disturb the catalog listing or the cart
-    await evaluate(client, `localStorage.setItem('queenbees.locale.v1', 'en')`);
     await client.send('Emulation.clearDeviceMetricsOverride');
     await nav(client, '/products');
     const catalogOrder = await evaluate(client, `(() => {

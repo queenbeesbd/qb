@@ -4,6 +4,7 @@ import { useTranslation } from '@/i18n/useTranslation';
 import { EmptyState } from '../../_ui/EmptyState';
 import { PageHeader } from '../../_ui/PageHeader';
 import styles from '../../admin.module.css';
+import { INTL_LOCALE } from '@/i18n/config';
 
 export type AuditRow = {
   id: number;
@@ -26,9 +27,9 @@ export type AuditRow = {
  * summary, no inferred actor.
  */
 export function AuditView({ rows, total, shown }: { rows: readonly AuditRow[]; total: number; shown: number }) {
-  const { t, locale } = useTranslation();
+  const { t } = useTranslation();
   const formatDate = (iso: string): string =>
-    new Intl.DateTimeFormat(locale === 'bn' ? 'bn-BD' : 'en-US', {
+    new Intl.DateTimeFormat(INTL_LOCALE, {
       dateStyle: 'short',
       timeStyle: 'medium',
     }).format(new Date(iso));

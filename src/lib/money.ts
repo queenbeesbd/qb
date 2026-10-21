@@ -1,4 +1,4 @@
-import type { Locale, Money } from './types';
+import type { Money } from './types';
 
 /** Currencies are integer poisha; all arithmetic stays in integers. */
 export const POISHA_PER_BDT = 100;
@@ -8,17 +8,18 @@ export function toBdt(minor: Money): number {
 }
 
 /**
- * Formats a poisha amount for display.
- * Bengali uses Bengali digits; English uses Latin digits. Neither changes the
- * stored value, and prices never change with locale.
+ * Formats a poisha amount for display in the one interface language.
+ *
+ * The currency is BDT and the digits are Latin: `Tk 1,150`. A price never changes with language
+ * because there is no second language (Phase 28), and the stored value is unchanged either way.
  */
-export function formatMoney(minor: Money, locale: Locale): string {
+export function formatMoney(minor: Money): string {
   const value = toBdt(minor);
-  const formatted = new Intl.NumberFormat(locale === 'bn' ? 'bn-BD' : 'en-US', {
+  const formatted = new Intl.NumberFormat('en-US', {
     minimumFractionDigits: value % 1 === 0 ? 0 : 2,
     maximumFractionDigits: 2,
   }).format(value);
-  return locale === 'bn' ? `৳${formatted}` : `Tk ${formatted}`;
+  return `Tk ${formatted}`;
 }
 
 /** Discount amount in poisha, or null when there is no valid discount. */

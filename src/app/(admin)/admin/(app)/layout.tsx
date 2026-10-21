@@ -7,6 +7,7 @@ import {
   CATEGORIES_PATH,
   COD_PATH,
   CUSTOMERS_PATH,
+  ANNOUNCEMENT_SETTINGS_PATH,
   DELIVERY_SETTINGS_PATH,
   LOGIN_PATH,
   ORDERS_PATH,
@@ -64,6 +65,12 @@ export default async function AdminShellLayout({ children }: { children: React.R
       labelKey: 'admin.nav.delivery',
       group: 'settings',
       icon: 'settings',
+    });
+    items.push({
+      href: ANNOUNCEMENT_SETTINGS_PATH,
+      labelKey: 'admin.nav.announcement',
+      group: 'settings',
+      icon: 'list',
     });
   }
   if (hasPermission(principal, PERMISSIONS.staffRead)) {

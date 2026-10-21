@@ -1,6 +1,6 @@
 'use client';
 
-import { AnnouncementBar } from '@/components/AnnouncementBar';
+import { AnnouncementBar, type AnnouncementItem } from '@/components/AnnouncementBar';
 import { Footer } from '@/components/Footer';
 import { Header } from '@/components/Header';
 import { useTranslation } from '@/i18n/useTranslation';
@@ -19,11 +19,17 @@ import styles from './Shell.module.css';
 export function Shell({
   categories,
   customer,
+  announcements,
   children,
 }: {
   categories: readonly CatalogCategory[];
   /** Resolved on the server once per request; never re-derived in the browser. */
   customer: { email: string; displayName: string | null } | null;
+  /**
+   * Composed on the server (Phase 28): the locked preview notice first, then the owner's own line if
+   * it is saved and visible. The bar itself does not decide policy.
+   */
+  announcements: readonly AnnouncementItem[];
   children: React.ReactNode;
 }) {
   return (
@@ -31,7 +37,7 @@ export function Shell({
       <a className="skip-link" href="#main-content">
         <SkipLabel />
       </a>
-      <AnnouncementBar />
+      <AnnouncementBar items={announcements} />
       <Header categories={categories} customer={customer} />
       <main id="main-content" className={styles.main} tabIndex={-1}>
         {children}

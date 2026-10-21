@@ -1,16 +1,15 @@
 'use client';
 
 import type { ReactNode } from 'react';
-import { LocaleProvider } from '@/i18n/LocaleProvider';
 
 /**
- * The root client provider.
+ * The root client boundary.
  *
- * Only the locale store is global: both the storefront and the admin surface are bilingual, and the
- * language toggle must work on either. The cart provider is deliberately *not* here - it is
- * storefront state, mounted by the storefront layout, so an admin page does not subscribe to
- * `localStorage` for a cart it will never show.
+ * It used to hold the locale store, because both surfaces were bilingual. With one interface
+ * language there is no global client state at the root: the cart provider stays in the storefront
+ * layout, where it belongs, and an admin page never subscribes to it. The component is kept as the
+ * documented seam for a future root-level provider rather than being inlined into the layout.
  */
 export function Providers({ children }: { children: ReactNode }) {
-  return <LocaleProvider>{children}</LocaleProvider>;
+  return <>{children}</>;
 }

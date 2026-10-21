@@ -12,6 +12,7 @@ import { PageHeader } from '../../_ui/PageHeader';
 import { Pagination } from '../../_ui/Pagination';
 import { StatusPill } from '../../_ui/StatusPill';
 import styles from '../../admin.module.css';
+import { INTL_LOCALE } from '@/i18n/config';
 
 export type CustomerRow = {
   customerId: number;
@@ -59,8 +60,8 @@ export function CustomersView({
   page: number;
   pageCount: number;
 }) {
-  const { t, locale } = useTranslation();
-  const dateFormat = new Intl.DateTimeFormat(locale === 'bn' ? 'bn-BD' : 'en-US', { dateStyle: 'medium' });
+  const { t } = useTranslation();
+  const dateFormat = new Intl.DateTimeFormat(INTL_LOCALE, { dateStyle: 'medium' });
 
   return (
     <>

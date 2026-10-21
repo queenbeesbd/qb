@@ -3,7 +3,7 @@ import { HomeView } from '@/features/catalog/HomeSections';
 import { getStorefrontCatalog } from '@/server/catalog/storefront';
 
 export const metadata: Metadata = {
-  title: 'QueenBee’s — যত্নে বাছাই করা কসমেটিকস',
+  title: 'QueenBee’s — Cosmetics storefront',
 };
 
 /**

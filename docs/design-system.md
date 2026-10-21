@@ -42,11 +42,13 @@ Product-led, calm, precise. The shopper compares brand, pack size, price and ava
 
 ## Typography
 
-- **English: Inter** (variable), **Bangla: Noto Sans Bengali**, both self-hosted via `next/font`.
-- **Weights are restricted to 400 / 500 / 600 / 700.** Inter is variable but Noto Sans Bengali ships only these four, so an intermediate value (550/650) renders at *different* effective weights in the two scripts. This was a real defect and is now prevented.
-- **No letter-spacing on Bengali text.** `html[lang='bn']` resets tracking for headings, overriding the global `-0.01em`.
-- Scale: 12 / 13 / 15 / 16 / 18 / 22 / 28 / 34 px. Body 15px, 1.6 leading (1.7 for Bangla).
-- No fixed-height text containers, so Bangla conjuncts and long product names never clip.
+- **Inter** (variable) for the interface, **Noto Sans Bengali** kept for Bengali *data*, both self-hosted via `next/font`. The interface is English only since Phase 28, but a product name, category name or customer-entered line may still be Bengali, so the second family is not a language feature - it is what keeps owner and customer text from falling back to a system font.
+- **Weights are restricted to 400 / 500 / 600 / 700.** Inter is variable but Noto Sans Bengali ships only these four, so an intermediate value (550/650) renders at *different* effective weights across the two scripts. This was a real defect and is now prevented.
+- **No letter-spacing on Bengali text.** The document is `lang="en"` since Phase 28, so the `html[lang='bn']` reset no longer fires; the rule stays as the guard it was written to be, and no Bengali heading is letter-spaced by the interface.
+- Scale: 12 / 13 / 15 / 16 / 18 / 22 / 28 / 34 px. Body 15px, 1.6 leading.
+- No fixed-height text containers, so Bengali conjuncts and long product names never clip.
+
+**One interface language.** There is no language toggle, no locale store and no second dictionary (Phase 28). The header's action cluster holds account and cart only; the drawer lists search, categories and the account routes. A stored `queenbees.locale.v1` value from an older visit is inert: nothing reads it, and `verify:storefront` asserts that writing it changes nothing.
 
 ## Price hierarchy
 
@@ -106,7 +108,7 @@ Asset paths are unchanged from the previous mark, so the header `<img>` and the 
 
 The wordmark is **real vector outlines**, not SVG `<text>`. This matters: inside an `<img>`, `font-family: var(--font-latin)` cannot resolve, so the old lockup silently rendered its wordmark in a system font while the rest of the site used Inter. The outlines are instanced from the project's own self-hosted Inter variable font at weight 600 - the same family and the same weight the storefront uses for headings - so the wordmark and the interface now genuinely match.
 
-Outlined text is not real text, so the SVG carries `role="img"` and an `aria-label` of `QueenBee's` and the header `<img>` repeats `alt={t('common.brand')}`. The accessible name is preserved in both locales.
+Outlined text is not real text, so the SVG carries `role="img"` and an `aria-label` of `QueenBee's` and the header `<img>` repeats `alt={t('common.brand')}`. The accessible name is preserved at every width.
 
 ### Header sizing rules
 
@@ -264,9 +266,9 @@ wrapped and the header grew to 104px.
 At **1024px** the inline navigation and the drawer trigger therefore swap
 together, on a single 64px row. Below it the drawer is the navigation surface,
 and because the drawer carries both the search field and every category, nothing
-is unreachable at those widths. Verified in both locales: the Bangla navigation
-is 441.9px and the English 446.7px, so the breakpoint holds for the wider of the
-two.
+is unreachable at those widths. The breakpoint was measured with the widest
+navigation the bilingual interface ever produced (441.9px Bangla, 446.7px English),
+so it still holds now that the interface is English only.
 
 The header search field stretches to fill the space between the navigation and
 the action buttons, capped at 720px. It previously held its intrinsic ~284px

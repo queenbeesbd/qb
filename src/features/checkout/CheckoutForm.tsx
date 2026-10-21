@@ -51,7 +51,7 @@ export function CheckoutForm({
   customerEmail: string;
   delivery: { defaultMinor: number | null; overrides: Record<string, number> };
 }) {
-  const { t, pick, price, locale } = useTranslation();
+  const { t, pick, price } = useTranslation();
   const cart = useCart();
   const [districtCode, setDistrictCode] = useState('');
   const rates = {
@@ -144,7 +144,7 @@ export function CheckoutForm({
                   <option value="">{t('checkout.field.districtPrompt')}</option>
                   {DELIVERY_AREAS.map((area) => (
                     <option key={area.code} value={area.code}>
-                      {locale === 'bn' ? area.nameBn : area.nameEn}
+                      {area.name}
                     </option>
                   ))}
                 </select>

@@ -112,7 +112,7 @@ Unknown ids are dropped rather than thrown on, so a stale configuration shortens
 
 `npm run check:catalog` asserts, across all 22 records: unique ids and slugs, positive integer poisha prices, comparison prices that are greater integers or `null`, known categories, at least one localized name, trimmed English names, an image entry with alt text, provenance page and asset URL for photography, a valid retrieval date, every declared image variant present on disk for both widths and both formats, a plausible whole-percent discount, a positive saving, and the `isDemo` marker.
 
-It also asserts the locked demo announcement exists, is locked, carries both locales, and is active - and now the curation constraints above.
+It also asserts the locked demo announcement exists, is locked, carries a non-empty English message, and is active - and now the curation constraints above. The owner's own announcement is not part of this fixture: it lives in `store_setting` and is edited at Settings -> Announcement bar.
 
 ## Phase 7 backend audit: catalog findings
 

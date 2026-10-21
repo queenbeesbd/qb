@@ -13,16 +13,16 @@ export type DeliveryAreaCode = 'dhaka' | 'chattogram' | 'others';
 
 export type DeliveryArea = {
   readonly code: DeliveryAreaCode;
-  readonly nameEn: string;
-  readonly nameBn: string;
+  /** The customer-facing name. English only, like the rest of the interface (Phase 28). */
+  readonly name: string;
   /** True for the area priced by the required default rather than its own optional override. */
   readonly usesDefault: boolean;
 };
 
 export const DELIVERY_AREAS: readonly DeliveryArea[] = [
-  { code: 'dhaka', nameEn: 'Dhaka', nameBn: 'ঢাকা', usesDefault: false },
-  { code: 'chattogram', nameEn: 'Chattogram', nameBn: 'চট্টগ্রাম', usesDefault: false },
-  { code: 'others', nameEn: 'Other districts', nameBn: 'অন্যান্য জেলা', usesDefault: true },
+  { code: 'dhaka', name: 'Dhaka', usesDefault: false },
+  { code: 'chattogram', name: 'Chattogram', usesDefault: false },
+  { code: 'others', name: 'Other districts', usesDefault: true },
 ];
 
 const BY_CODE = new Map<string, DeliveryArea>(DELIVERY_AREAS.map((area) => [area.code, area]));
@@ -35,11 +35,11 @@ export function isDeliveryAreaCode(value: unknown): value is DeliveryAreaCode {
   return typeof value === 'string' && BY_CODE.has(value);
 }
 
-/** The area's name in the requested language; an unknown code is returned unchanged. */
-export function deliveryAreaName(code: string, locale: 'bn' | 'en'): string {
+/** The area's name; an unknown code is returned unchanged so an old order still reads. */
+export function deliveryAreaName(code: string): string {
   const area = BY_CODE.get(code);
   if (area === undefined) return code;
-  return locale === 'bn' ? area.nameBn : area.nameEn;
+  return area.name;
 }
 
 /** The two areas with an optional override, in display order. */
