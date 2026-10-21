@@ -890,9 +890,69 @@ blank strip.
 suite totals for the final committed tree are reported in the phase 28 summary rather than guessed here.
 
 
+## Phase 29 - Zatiq Easy admin reference audit and feature-parity specification (research only, 2026-10-21)
+
+**A read-only audit of the reference merchant dashboard, and nothing else.** The owner supplied an
+authorized session; the panel was inspected in Chromium at 1440x900 plus four other widths, and **no
+write, upload, create, edit or delete was performed** against the reference store. No QueenBee's
+application code, schema, migration, dependency, environment file or runtime configuration changed.
+
+| Deliverable | Where |
+| --- | --- |
+| Feature inventory, behavioural findings, exclusions | `docs/reference/zatiq-easy-admin-audit.md` |
+| Measured visual specification (geometry, type, controls, states) | `docs/reference/zatiq-easy-admin-visual-spec.md` |
+| Field-by-field data-model mapping, parity matrix, phased roadmap | `docs/reference/zatiq-easy-admin-parity.md` |
+
+**What was inspected in depth:** the shell and five-group navigation, the dashboard (five KPIs, revenue
+chart, orders-by-status, recent orders, low stock, top selling, quick actions), the orders list and a full
+order detail (line items, summary, delivery, notes, the 10-value status dropdown, customer block, fraud
+flag), the products list, product create and product edit (all eight sections and every field), the
+categories list, the Create Category modal (both upload slots, limits, footer, empty-submit behaviour),
+the subcategory page, the customers list (columns, search, column chooser, row anatomy), a customer
+detail (devices/IP section, empty states), the analytics report, Users & Permissions, and Promo Codes.
+
+**The findings that matter for QueenBee's** are recorded with evidence rather than impressions: the
+reference mixes fulfilment and payment states in one dropdown; it lets a placed order's line-item prices
+be edited; it validates with native browser bubbles and has no `role="dialog"` on its modal; it renders
+three different order counts in one session; it shows a numeric stock column, which QueenBee's does not
+have by decision (ADR 0013); it collapses its rail at 768 px rather than 1024 px; and it uses three table
+row heights (48/53/57) and two button heights (36/40) where QueenBee's has one control scale. Each is
+marked **copy the idea**, **adapt**, or **refuse**.
+
+**Seventeen exclusion groups are written down explicitly** so they cannot leak back in: courier, Manage
+Shop, Themes, Theme Builder, Landing Pages, Mobile App, Spotlights, Abandoned Cart (excluded even though
+it is in the navigation), Zatiq Experts, the whole ZatiqGO section, the vendor resource links, all
+subscription and plan UI, vendor marketing, stock quantity and the other reference-only product fields,
+promo codes, staff roles and role management, the public receipt URL, and raw device/IP display.
+
+**Nothing was approved and no code was written.** Nine owner decisions are named as prerequisites for any
+future parity work - category images and their storage, product short/SEO descriptions, variant depth,
+product spec fields, an internal order note, receipt printing, customer export, whether top-selling counts
+may be published, and promo codes. The roadmap proposes Phases 30-34 and states, for each, its scope,
+exclusions, prerequisites, likely files, tests, acceptance criteria and risks.
+
+**Reference credentials were held only in `/tmp/zq/cred.json`, outside the repository,** and are in no
+tracked file, log or commit. Screenshots stay in `/tmp/zq/shots/` and are **not committed** because they
+contain third-party customer names, phone numbers and addresses.
+
+**Not inspected, and why:** no excluded module's internals; no create/edit/delete anywhere (a read-only
+audit must not mutate a live store); image-upload rejection behaviour (would require uploading a file to
+a third-party store); the export file format (the download did not materialise in the automated context);
+the Add User dialog (it did not open in this session); and no accessibility conformance claim, because
+the reference's own gaps are recorded rather than adopted.
+
 ## Current single best next step
 
-**The actual BDT delivery amounts, supplied by the owner (D-item 5).** This is not an implementation task -
+**Phase 30 - admin list-surface parity (proposed, not authorized).** The Phase 29 audit produced the
+evidence and the ordering; the one phase that needs no schema change, no owner decision and no new
+dependency is the list-surface alignment described in `docs/reference/zatiq-easy-admin-parity.md`
+section 8. It is the right next step because every later parity phase builds on its toolbar, date-filter
+and pagination vocabulary, and because most of it is alignment rather than new behaviour - status tabs,
+search and pagination already exist on the three busiest lists. **Owner approval is required before any
+code changes**; the full acceptance condition is in that section.
+
+**Still outstanding alongside it, and unchanged: the actual BDT delivery amounts, supplied by the owner
+(D-item 5).** This is not an implementation task -
 it is the one owner input that makes checkout work at all, and the plan already names it as the reason
 checkout blocks: until the default charge for Other districts is saved at **Settings -> Delivery charges**,
 `checkout` correctly refuses every order. It is now the **only** documented blocker that prevents a real
