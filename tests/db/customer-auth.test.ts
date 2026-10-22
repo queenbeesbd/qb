@@ -10,6 +10,7 @@ import type { SessionContext } from '../../src/server/auth/session';
 import { sha256Hex } from '../../src/server/auth/tokens';
 import {
   registerCustomer,
+  restoreCustomer,
   signInCustomer,
   signOutCustomer,
   suspendCustomer,
@@ -274,6 +275,88 @@ describe('customer authentication', { skip: toolingAvailable ? false : SKIP_REAS
     );
   });
 
+  it('restores a banned customer: active again, one audit record, and no session resurrected', async () => {
+    assert.equal((await register('restore-me@example.test', 'a-long-enough-password')).ok, true);
+    const first = await signIn('restore-me@example.test', 'a-long-enough-password', context());
+    assert.equal(first.ok, true);
+    if (!first.ok) return;
+
+    const customerId = first.customerId;
+    await fixture.db.transaction((tx) =>
+      suspendCustomer(tx, {
+        customerId,
+        actorStaffId: staffId,
+        actorRoleCodes: ['owner'],
+        reason: 'confirmed fake order found by the owner',
+      }),
+    );
+
+    // A reason is required, or restoring becomes a silent, unexplained state change.
+    await assert.rejects(
+      () =>
+        fixture.db.transaction((tx) =>
+          restoreCustomer(tx, { customerId, actorStaffId: staffId, actorRoleCodes: ['owner'], reason: 'short' }),
+        ),
+      ValidationError,
+    );
+
+    await fixture.db.transaction((tx) =>
+      restoreCustomer(tx, {
+        customerId,
+        actorStaffId: staffId,
+        actorRoleCodes: ['owner'],
+        reason: 'the owner verified the customer and restored access',
+      }),
+    );
+
+    const standing = await fixture.pool.query<{ status: string }>(
+      'select status from customer where id = $1',
+      [customerId],
+    );
+    assert.equal(standing.rows[0]?.status, 'active');
+
+    // A restore lifts the ban; it does not resurrect the session the ban revoked.
+    assert.equal(await fixture.db.transaction((tx) => resolveCustomerSession(tx, first.rawToken, csrf)), null);
+    const live = await fixture.pool.query<{ total: string }>(
+      `select count(*)::text as total from customer_session
+        where customer_id = $1 and revoked_at is null`,
+      [customerId],
+    );
+    assert.equal(live.rows[0]?.total, '0');
+
+    // The customer signs in again with their own password.
+    assert.equal((await signIn('restore-me@example.test', 'a-long-enough-password', context())).ok, true);
+
+    // Both decisions are in the trail, each with its own reason, and neither replaces the other.
+    const audit = await fixture.db
+      .select({ action: auditEvent.action, reason: auditEvent.reason })
+      .from(auditEvent)
+      .where(sql`${auditEvent.entityType} = 'customer' and ${auditEvent.entityId} = ${customerId}`)
+      .orderBy(auditEvent.id);
+    assert.deepEqual(audit.map((row) => row.action), ['customer.banned', 'customer.ban_reversed']);
+    assert.match(String(audit[1]?.reason), /verified the customer/);
+  });
+
+  it('refuses to restore an account that is not suspended', async () => {
+    assert.equal((await register('never-banned@example.test', 'a-long-enough-password')).ok, true);
+    const account = await fixture.pool.query<{ id: string }>(
+      `select id from customer where email = 'never-banned@example.test'`,
+    );
+    const customerId = Number(account.rows[0]?.id);
+
+    await assert.rejects(
+      () =>
+        fixture.db.transaction((tx) =>
+          restoreCustomer(tx, {
+            customerId,
+            actorStaffId: staffId,
+            actorRoleCodes: ['owner'],
+            reason: 'a long enough reason to attempt a restore',
+          }),
+        ),
+      ConflictError,
+    );
+  });
   it('writes no audit row for registration or sign-in: a customer is never an audit actor', async () => {
     const before = await fixture.db.select({ total: sql<number>`count(*)::int` }).from(auditEvent);
     assert.equal((await register('no-audit@example.test', 'a-long-enough-password')).ok, true);

@@ -120,6 +120,17 @@ Supporting documents produced in Phase 8: `docs/platform-architecture.md` (archi
 are saved through the real screen: **Dhaka Tk 100, Chattogram Tk 60, other districts Tk 120**. Verified by
 reading them back through the server resolver (`dhaka -> 10000`, `chattogram -> 6000`, `others -> 12000`
 poisha) and by the panel rendering 120 / 100 / 60; an invalid amount is still refused. `npm run
+**Phase 41 (a ban is reversible) is implemented locally (ADR 0023).** The owner decided a ban can be
+restored. `restoreCustomer` mirrors `suspendCustomer`: a guarded `suspended -> active` transition, a
+required reason (10-500 characters) and one audit record `customer.ban_reversed` with actor and reason; a
+restore of a non-suspended account is a conflict. It deliberately does not resurrect a revoked session
+(the customer signs in again), does not touch orders, refunds, reservations or payments, and does not clear
+the review flag. The route requires an explicit `operation` (`ban` | `restore`), so an ambiguous form is
+refused rather than defaulting. Both actions sit behind `customer.suspend` on the customer list and profile.
+Verified: `tests/db/customer-auth` **12/12** (two new tests), `typecheck`, `check:i18n` (1226 keys), and an
+HTTP walk-through against the running app, including the restored customer signing in again and the audit
+trail showing the reversal. **Not verified:** the confirmation dialog's interaction, because the dev server
+serves a stale production `.next` and no page hydrates.
 **Phase 40 (ban control verification) is complete; no feature was added.** An earlier plan entry claimed
 the owner-facing ban control did not exist. It has existed since Phase 18 - `/api/admin/customers` calls
 `suspendCustomer`, both customer screens carry a reason-requiring confirmation (10-500 characters), the

@@ -1271,14 +1271,18 @@ than a silent rewrite, a short reason is **invalid**, and the audit trail carrie
 dialog was verified positively too: a signed-in customer's page shows their address, and the banned
 customer's does not.
 
-**One real gap survives, and it is a decision rather than a defect: there is no reversal path.** A ban is a
-guarded `active -> suspended` transition and nothing sets `suspended` back to `active`; `status` can only
-move forward from the panel. That is deliberate in D20 (a ban follows a confirmed fake order) but it means a
-mistaken ban cannot be undone without touching the database. **The next step is the owner's answer, not
-code:** either a ban is final and the panel should say so plainly, or a restore action is a new decision
-with its own reason, audit action and confirmation (`customer.ban_reversed`), and the same rule that a ban
-never restores an order still holds. Until that is decided, nothing here changes.
-
+**Phase 41 - a ban is reversible (implemented, ADR 0023).** The owner chose to make a ban restorable.
+`restoreCustomer` mirrors `suspendCustomer`: a guarded `suspended -> active` transition, a required reason
+of 10-500 characters, and one audit record (`customer.ban_reversed`) with actor and reason. It does **not**
+resurrect a session (they were revoked at the ban; the customer signs in again), does not touch any order,
+refund, reservation or payment, and does not clear the review flag. Restoring an account that is not
+suspended is a conflict, and the route requires an explicit `operation` (`ban` or `restore`) rather than
+defaulting, so an ambiguous form cannot ban somebody. Both actions live behind `customer.suspend` on the
+customer list and profile, each behind a reason-requiring confirmation. Verified: `tests/db/customer-auth`
+**12/12** (two new tests), and an HTTP walk-through (restore -> `?notice=restored` -> the customer signs in
+again; second restore = conflict; short reason = invalid; missing operation = invalid; audit shows the
+reversal). The dialog's own interaction is unverified here, for the hydration reason this document already
+records.
 **Not authorized by this recommendation:** deploying, provisioning, DNS, credentials, remote database
 changes, refunds, courier integration, or changing any ban policy. Banning a real customer, like deploying,
 remains the owner's action.

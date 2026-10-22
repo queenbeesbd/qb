@@ -1,10 +1,13 @@
 /**
- * POST /api/admin/customers - suspend (ban) a customer account (D20).
+ * POST /api/admin/customers - ban a customer, or restore a banned one (D20, ADR 0023).
  *
- * The owner's explicit decision, with a required reason. The existing `suspendCustomer` primitive does
- * the work: a guarded `active -> suspended` transition, every live customer session revoked, and an
- * append-only audit record. Nothing here is automatic: a cancelled COD order never reaches this route,
- * and a ban never cancels, refunds or deletes an order.
+ * Two operations, one permission (`customer.suspend`) and one form vocabulary. Each is the owner's
+ * explicit decision with a **required reason**: banning revokes every live session, restoring does not
+ * resurrect one. Nothing here is automatic - a cancelled COD order never reaches this route, and
+ * neither operation cancels, refunds or deletes an order or touches payment, refund or stock state.
+ *
+ * The operation is required rather than defaulted: a missing or misspelled value is a refusal, so a
+ * typo cannot quietly ban somebody.
  */
 
 import { withTransaction } from '@/db/client';
@@ -13,35 +16,52 @@ import { guardMutation } from '@/server/auth/guard';
 import { roleCodes } from '@/server/authz/principal';
 import { PERMISSIONS } from '@/server/authz/permissions';
 import { ConflictError, ValidationError } from '@/server/authz/authorize';
-import { suspendCustomer } from '@/server/customer-auth/service';
+import { restoreCustomer, suspendCustomer } from '@/server/customer-auth/service';
 import { parseId } from '@/server/catalog/validation';
 import { deny, redirectTo } from '../responses';
 
 export const dynamic = 'force-dynamic';
+
+const OPERATIONS = ['ban', 'restore'] as const;
+
+/** A restore is confirmed on the profile it is about, so both operations can return there. */
+function safeReturn(value: FormDataEntryValue | null): string {
+  if (typeof value !== 'string') return CUSTOMERS_PATH;
+  return /^\/admin\/customers(?:\/\d+)?$/.test(value) ? value : CUSTOMERS_PATH;
+}
+
+function backTo(path: string, notice: string): Response {
+  return redirectTo(`${path}?notice=${notice}`);
+}
 
 export async function POST(request: Request): Promise<Response> {
   const guard = await guardMutation(request, PERMISSIONS.customerSuspend);
   if (!guard.ok) return deny(guard.status);
 
   const { principal, form } = guard;
+  const target = safeReturn(form.get('returnTo'));
   const customerId = parseId(form.get('customerId'));
   const reason = typeof form.get('reason') === 'string' ? (form.get('reason') as string) : '';
+  const rawOperation = form.get('operation');
+  const operation = typeof rawOperation === 'string' ? rawOperation : '';
 
-  if (customerId === null) return redirectTo(`${CUSTOMERS_PATH}?notice=invalid`);
+  if (customerId === null || !(OPERATIONS as readonly string[]).includes(operation)) {
+    return backTo(target, 'invalid');
+  }
+
+  const actor = { actorStaffId: principal.staffUserId, actorRoleCodes: roleCodes(principal) };
 
   try {
-    await withTransaction((tx) =>
-      suspendCustomer(tx, {
-        customerId,
-        actorStaffId: principal.staffUserId,
-        actorRoleCodes: roleCodes(principal),
-        reason,
-      }),
-    );
-    return redirectTo(`${CUSTOMERS_PATH}?notice=suspended`);
+    if (operation === 'ban') {
+      await withTransaction((tx) => suspendCustomer(tx, { customerId, reason, ...actor }));
+      return backTo(CUSTOMERS_PATH, 'suspended');
+    }
+
+    await withTransaction((tx) => restoreCustomer(tx, { customerId, reason, ...actor }));
+    return backTo(`${CUSTOMERS_PATH}/${customerId}`, 'restored');
   } catch (error) {
-    if (error instanceof ValidationError) return redirectTo(`${CUSTOMERS_PATH}?notice=invalid`);
-    if (error instanceof ConflictError) return redirectTo(`${CUSTOMERS_PATH}?notice=conflict`);
+    if (error instanceof ValidationError) return backTo(target, 'invalid');
+    if (error instanceof ConflictError) return backTo(target, 'conflict');
     throw error;
   }
 }

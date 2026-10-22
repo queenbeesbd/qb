@@ -11,7 +11,7 @@ import { StatusPill } from '../../../_ui/StatusPill';
 import styles from '../../../admin.module.css';
 import { INTL_LOCALE } from '@/i18n/config';
 
-export type CustomerNotice = 'tokenIssued' | 'unavailable' | 'invalid' | 'denied';
+export type CustomerNotice = 'tokenIssued' | 'unavailable' | 'invalid' | 'denied' | 'restored';
 
 type OrderRow = {
   orderId: number;
@@ -112,7 +112,9 @@ export function CustomerDetailView({
               ? t('admin.owners.notice.denied')
               : notice === 'invalid'
                 ? t('admin.customers.recovery.reasonRequired')
-                : t('admin.customers.recovery.unavailable')}
+                : notice === 'restored'
+                  ? t('admin.customers.notice.restored')
+                  : t('admin.customers.recovery.unavailable')}
           </span>
         </div>
       )}
@@ -224,7 +226,7 @@ export function CustomerDetailView({
               <ConfirmSubmit
                 action="/api/admin/customers"
                 csrfToken={csrfToken}
-                fields={{ customerId: customer.customerId }}
+                fields={{ customerId: customer.customerId, operation: 'ban' }}
                 triggerLabel={t('admin.customers.suspend')}
                 triggerVariant="danger"
                 small={false}
@@ -236,6 +238,39 @@ export function CustomerDetailView({
                 reason={{
                   label: t('admin.customers.reasonLabel'),
                   placeholder: t('admin.customers.reasonPlaceholder'),
+                  minLength: 10,
+                  maxLength: 500,
+                  required: true,
+                }}
+              />
+            </div>
+          )}
+
+          {!active && canSuspend && (
+            <div className={styles.panel}>
+              <h2 className={styles.panelTitle}>{t('admin.customers.restoreTitle')}</h2>
+              <p className={styles.note} style={{ margin: 'var(--space-2) 0 var(--space-4)' }}>
+                {t('admin.customers.restoreBody')}
+              </p>
+              <ConfirmSubmit
+                action="/api/admin/customers"
+                csrfToken={csrfToken}
+                fields={{
+                  customerId: customer.customerId,
+                  operation: 'restore',
+                  returnTo: `/admin/customers/${customer.customerId}`,
+                }}
+                triggerLabel={t('admin.customers.restore')}
+                triggerVariant="secondary"
+                small={false}
+                title={t('admin.customers.restoreTitle')}
+                body={t('admin.customers.restoreBody')}
+                confirmLabel={t('admin.customers.restore')}
+                cancelLabel={t('admin.common.cancel')}
+                pendingLabel={t('admin.common.working')}
+                reason={{
+                  label: t('admin.customers.reasonLabel'),
+                  placeholder: t('admin.customers.restoreReasonPlaceholder'),
                   minLength: 10,
                   maxLength: 500,
                   required: true,

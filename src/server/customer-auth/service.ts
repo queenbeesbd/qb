@@ -256,6 +256,8 @@ export async function signInCustomer(
  * no payment, refund or reservation state. The order path refuses a suspended account inside its own
  * transaction, which is the enforcement that matters; this function is the administrative action that
  * triggers it.
+ *
+ * **It is reversible** - see `restoreCustomer` below (owner decision, 2026-10-23).
  */
 export async function suspendCustomer(
   tx: Transaction,
@@ -292,6 +294,57 @@ export async function suspendCustomer(
   });
 
   return { sessionsRevoked };
+}
+
+/**
+ * Reverses a ban (owner decision, 2026-10-23, ADR 0023).
+ *
+ * Deliberately the mirror image of `suspendCustomer`, down to the shape: a guarded
+ * `suspended -> active` transition, a required reason of 10-500 characters, and one audit record.
+ * "Not suspended" is a **conflict**, not a silent success, so a double click cannot look like a second
+ * decision and the trail cannot describe a restore that did not happen.
+ *
+ * What it does **not** do, each for a reason:
+ *
+ * - **It does not resurrect a session.** Every session was revoked at the ban and stays revoked; the
+ *   customer signs in again with their own password. Restoring access is not restoring a login.
+ * - **It does not touch an order, refund, reservation or payment.** The fake order that caused the ban
+ *   is still there, still counted, still exactly what it was - a ban was never allowed to rewrite
+ *   history, so lifting one must not either.
+ * - **It does not clear the review flag.** The flag is a separate concept (D20) and is cleared by its
+ *   own reasoned action; a restore says "they may shop again", not "the concern was unfounded".
+ */
+export async function restoreCustomer(
+  tx: Transaction,
+  input: {
+    customerId: number;
+    actorStaffId: number;
+    actorRoleCodes: readonly string[];
+    reason: string;
+  },
+): Promise<void> {
+  const reason = input.reason.replace(/\s+/g, ' ').trim();
+  if (reason.length < 10 || reason.length > 500) {
+    throw new ValidationError('restoring access requires a reason of at least 10 characters');
+  }
+
+  const rows = await tx
+    .update(customer)
+    .set({ status: 'active', updatedAt: new Date() })
+    .where(sql`${customer.id} = ${input.customerId} and ${customer.status} = 'suspended'`)
+    .returning({ id: customer.id });
+  if (rows.length === 0) throw new ConflictError('customer is not suspended');
+
+  await recordAudit(tx, {
+    actorType: 'staff',
+    actorStaffId: input.actorStaffId,
+    actorRoleCodes: [...input.actorRoleCodes],
+    action: 'customer.ban_reversed',
+    entityType: 'customer',
+    entityId: input.customerId,
+    reason,
+    after: { status: 'active' },
+  });
 }
 
 /** Signs a customer out by revoking the session the request carried. */

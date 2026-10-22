@@ -24,10 +24,11 @@ export type CustomerRow = {
   flagged: boolean;
 };
 
-export type CustomerNotice = 'suspended' | 'denied' | 'conflict' | 'invalid';
+export type CustomerNotice = 'suspended' | 'restored' | 'denied' | 'conflict' | 'invalid';
 
 const NOTICE_KEYS: Record<CustomerNotice, TranslationKey> = {
   suspended: 'admin.customers.notice.suspended',
+  restored: 'admin.customers.notice.restored',
   denied: 'admin.customers.notice.denied',
   conflict: 'admin.customers.notice.conflict',
   invalid: 'admin.customers.notice.invalid',
@@ -36,10 +37,11 @@ const NOTICE_KEYS: Record<CustomerNotice, TranslationKey> = {
 /**
  * Customer moderation.
  *
- * Lookup, standing, order count and one destructive action. Not a CRM, and not a role or permission
- * surface (D10) - there is deliberately nothing else to do here. Suspension is an irreversible owner
- * decision that revokes sessions, so it sits behind a confirmation that requires a reason and states
- * the consequence; it is never a table-row text field.
+ * Lookup, standing, order count and the two standing actions. Not a CRM, and not a role or permission
+ * surface (D10) - there is deliberately nothing else to do here. Banning revokes sessions and restoring
+ * lifts that, so both sit behind a confirmation that requires a reason and states the consequence; they
+ * are never a table-row text field, and a restore is not the undo of a ban's history - the order that
+ * caused the ban stays exactly where it was.
  */
 export function CustomersView({
   rows,
@@ -135,11 +137,11 @@ export function CustomersView({
                     <Link className={styles.recordLink} href={`/admin/customers/${row.customerId}`}>
                       {t('admin.customers.view')}
                     </Link>
-                    {active && canSuspend && (
+                    {canSuspend && active && (
                       <ConfirmSubmit
                         action="/api/admin/customers"
                         csrfToken={csrfToken}
-                        fields={{ customerId: row.customerId }}
+                        fields={{ customerId: row.customerId, operation: 'ban' }}
                         triggerLabel={t('admin.customers.suspend')}
                         title={t('admin.customers.suspendTitle')}
                         body={t('admin.customers.suspendBody')}
@@ -149,6 +151,27 @@ export function CustomersView({
                         reason={{
                           label: t('admin.customers.reasonLabel'),
                           placeholder: t('admin.customers.reasonPlaceholder'),
+                          minLength: 10,
+                          maxLength: 500,
+                          required: true,
+                        }}
+                      />
+                    )}
+                    {canSuspend && !active && (
+                      <ConfirmSubmit
+                        action="/api/admin/customers"
+                        csrfToken={csrfToken}
+                        fields={{ customerId: row.customerId, operation: 'restore' }}
+                        triggerLabel={t('admin.customers.restore')}
+                        triggerVariant="secondary"
+                        title={t('admin.customers.restoreTitle')}
+                        body={t('admin.customers.restoreBody')}
+                        confirmLabel={t('admin.customers.restore')}
+                        cancelLabel={t('admin.common.cancel')}
+                        pendingLabel={t('admin.common.working')}
+                        reason={{
+                          label: t('admin.customers.reasonLabel'),
+                          placeholder: t('admin.customers.restoreReasonPlaceholder'),
                           minLength: 10,
                           maxLength: 500,
                           required: true,

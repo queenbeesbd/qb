@@ -42,6 +42,7 @@ export type AuditAction =
   | 'staff.disabled'
   | 'staff.enabled'
   | 'customer.banned'
+  | 'customer.ban_reversed'
   | 'customer.credential_reset_issued'
   | 'customer.credential_reset_redeemed'
   | 'customer.recovery_refused'

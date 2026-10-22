@@ -576,6 +576,11 @@ export const dictionary = {
   'admin.customers.suspendTitle': 'Suspend this customer?',
   'admin.customers.suspendBody':
     'This revokes their sessions and refuses new orders and checkout. Only suspend after a confirmed fake order. The reason is kept in the audit trail.',
+  'admin.customers.restoreTitle': 'Restore this customer\u2019s access?',
+  'admin.customers.restoreBody':
+    'The account becomes active again and can sign in and order. Their sessions were revoked when they were suspended, so they sign in again with their own password. Their orders, any refund state and the review flag are untouched, and so is the order that led to the suspension.',
+  'admin.customers.restore': 'Restore access',
+  'admin.customers.restoreReasonPlaceholder': 'Why is access being restored? (10+ characters)',
   'admin.customers.reasonLabel': 'Reason',
   'admin.customers.detailEyebrow': 'Customer',
   'admin.customers.back': 'Back to customers',
@@ -1074,6 +1079,8 @@ export const dictionary = {
   'account.errors.recoveryInvalid':
     'The code did not match, or it expired or was already used. Contact the store for a new one.',
   'admin.customers.notice.suspended': 'Account suspended; every live session was revoked.',
+  'admin.customers.notice.restored':
+    'Access restored. The account can sign in and order again; its order history is unchanged.',
   'admin.customers.notice.denied': 'Your account does not have permission for that action.',
   'admin.customers.notice.conflict': 'That account is already suspended, or not active.',
   'admin.customers.notice.invalid': 'Select a customer and give a reason (10+ characters).',

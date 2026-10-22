@@ -18,7 +18,7 @@ export const dynamic = 'force-dynamic';
  * because order history is order data, not customer-profile data. An id that names no live customer is
  * answered with 404 - never 403 - so the page cannot be used to test whether an account exists.
  */
-const NOTICES = ['tokenIssued', 'unavailable', 'invalid', 'denied'] as const;
+const NOTICES = ['tokenIssued', 'unavailable', 'invalid', 'denied', 'restored'] as const;
 type CustomerNotice = (typeof NOTICES)[number];
 
 function readNotice(value: string | string[] | undefined): CustomerNotice | null {
