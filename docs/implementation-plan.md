@@ -1323,14 +1323,45 @@ corrected, not weakened:** the table count (45 -> 46, the Telegram table), the f
 Bangla one is optional by schema). **Not verified:** browser interaction (no hydration on this dev server),
 and nothing is deployed.
 
-### The next step this import forces
+### Phase 44 - the storefront survives the real catalog (implemented locally, 2026-10-23)
 
-**Phase 44 - paginate the catalog listing (recommended, needs owner approval).** The listing was built for
-22 products and now serves 1,477: `/products` returns **4.0 MB of HTML**, of which ~1.4 MB is the
-serialized catalog in the React payload that **every** route carries. *Why now:* the imported catalog is
-unusable on a phone until this changes, and no further data work fixes it. *Prerequisites:* an owner
-decision on page size and URL shape (numbered pages vs "load more"), and on whether a product page should
-carry the whole catalog in its payload at all. *Acceptance:* `/products` serves a bounded first page, the
-per-route payload no longer grows with catalog size, filters and search still compose from the URL, and
-`verify:browser` covers the new paging.
+The import above broke the storefront in three measured ways, and this phase fixes exactly those. **None
+of it is a redesign:** the composition, copy and components are the ones the shop already had.
+
+1. **The header drew all fifteen departments.** The row ran from x=182 to x=1662, painted its tail under
+   the search field, and pushed `document.scrollWidth` to **1662 at 1440 and 1652 at 1024** - so every
+   storefront page scrolled sideways. The header now shows the **four busiest departments plus "All
+   categories"**, the row is 606px, and `overflow: hidden` on the nav means a future catalog can never
+   widen the document again. The four are chosen by **product count** (`src/features/catalog/departments.ts`),
+   not by the vendor's serial order, which put Accessories and Bags above Skincare's 652 products.
+2. **The listing rendered all 1,477 products.** `/products` was 4.0 MB of HTML, **22,752 DOM nodes** and
+   145,604px tall. It now pages at **48** (`slicePage`, `?page=N`, numbered pager with a windowed range),
+   filters reset to page one, and a page past the end lands on the last page: **1,508 nodes, 5,739px**.
+   The same slicing serves `/categories/[slug]`.
+3. **Unbounded lists everywhere the import landed.** The homepage strip is **four tiles** (the owner's
+   number) instead of three rows of five with a stranded card, and its caption no longer claims "five
+   departments". The footer lists five departments then the index. The brand facet - **245 brands** -
+   scrolls inside its own panel after a dozen chips instead of pushing the grid a screen down.
+
+**Also fixed while measuring:** the overview counted the COD queue off the five-row preview ("Waiting on a
+call 25") while the queue page said 138 - it now reads the real count - and the oldest wait printed
+"12968 hours" beside a "540 d" chip, so both now use the same day/hour rule. The tab bar's spacer cleared
+the footer by exactly 1px; it now clears by 9. Long vendor category names wrap instead of clipping mid-word.
+
+**Verified: 0 of 44 route x width combinations overflow** (11 routes at 1440/1024/768/390), header nav 6
+links, pager "Page 1 of 31", footer 5 + index, `typecheck`, `lint` (0 errors), `check:i18n` (1245 keys),
+unit **194/194**. `verify:browser`'s check 36d now expects four departments instead of the fixture's five;
+the rest of that suite is written against the 22-product fixture seed and cannot pass against the real
+catalog.
+
+### The next step
+
+**Phase 45 - stop shipping the catalog to the browser (recommended).** Every storefront route still carries
+**1,477 products in the React payload** - about 2.0 MB of HTML, 267 KB gzipped - because `CartProvider` in
+the storefront layout receives the whole catalog to resolve cart lines. *Why:* 267 KB before first paint on
+every page is the one cost of the import that pagination did not remove, and it grows with the catalog.
+*Prerequisites:* deciding where a cart line is resolved - a small id-and-price projection in the provider
+(the cart page then needs the rest) or a server-resolved cart. *Acceptance:* a product page's payload no
+longer grows with the catalog, the cart still validates ids against what the shop sells and still renders
+names, prices and images, and a route's gzipped HTML stays under ~60 KB.
 

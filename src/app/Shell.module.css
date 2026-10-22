@@ -17,8 +17,13 @@
  * Reserves the fixed bottom tab bar's height. The bar is 64px of controls plus the device's safe-area
  * inset; without this the footer's last line would sit underneath it on every phone.
  */
+/*
+ * The tab bar is 65px tall, so a 4rem spacer left the footer clearing it by exactly 1px - measured.
+ * The extra step is breathing room, not padding for its own sake: the last footer link sat flush
+ * against the bar.
+ */
 .tabBarSpace {
-  height: calc(4rem + env(safe-area-inset-bottom));
+  height: calc(4rem + env(safe-area-inset-bottom) + var(--space-2));
 }
 
 @media (min-width: 1024px) {

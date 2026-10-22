@@ -261,3 +261,18 @@ synthetic `@import.invalid` address and **none** has a credential, so every impo
 reset before it can sign in. Verified: unit **194/194**, db **258/258**, `typecheck`, `lint`, `check:i18n`,
 `check:catalog`, `db:validate`. **Known consequence:** the catalog listing does not paginate, so
 `/products` now returns 4.0 MB of HTML. See `docs/migrations/zatiq-easy-import.md`.
+**Phase 44 (the storefront survives the real catalog) is implemented locally (2026-10-23).** The import
+broke three things and this fixes exactly those, without a redesign. The header drew all fifteen
+departments (row 182-1662px, tail under the search field, every page scrolling sideways at 1440 and 1024);
+it now shows the **four busiest departments plus "All categories"**, and the nav cannot widen the document
+again. The listing rendered all 1,477 products (4.0 MB, **22,752 DOM nodes**, 145,604px tall); it now pages
+at **48** with a numbered pager, filters reset to page one, and a stale page lands on the last page -
+**1,508 nodes**. Unbounded lists fell back into bounds: the homepage strip is four tiles with an honest
+caption, the footer lists five departments then the index, and the 245-brand facet scrolls in its own panel.
+Also fixed: the overview read the COD queue off its five-row preview ("Waiting 25" beside a queue of 138),
+the oldest wait printed hours where the chips printed days, the tab-bar spacer cleared the footer by 1px,
+and long vendor category names clipped mid-word. **Verified: 0 of 44 route x width combinations overflow**,
+plus typecheck, lint (0 errors), check:i18n (1245 keys) and unit 194/194. **Not fixed, and measured:**
+every route still ships 1,477 products in the React payload (about 2.0 MB, 267 KB gzipped) because the
+layout's cart provider resolves cart lines from the whole catalog - that is the next phase.
+

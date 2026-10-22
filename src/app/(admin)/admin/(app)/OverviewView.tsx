@@ -157,12 +157,20 @@ export function OverviewView({
     oldestPlacedAt === null
       ? null
       : Math.max(0, Math.floor((now.getTime() - new Date(oldestPlacedAt).getTime()) / 3_600_000));
+  /*
+   * The same three-step age the order chips use. It printed "12968 hours" in the summary and
+   * "540 d" on the row directly beneath it, which is one fact in two units.
+   */
   const oldestAgeLabel =
     oldestAge === null
       ? null
       : oldestAge < 1
         ? t('admin.cod.ageLessThanHour')
-        : t('admin.cod.ageHours', { count: oldestAge });
+        : oldestAge < 48
+          ? t('admin.cod.ageHours', { count: oldestAge })
+          : Math.floor(oldestAge / 24) === 1
+            ? t('admin.cod.ageDaysOne', { count: 1 })
+            : t('admin.cod.ageDaysLong', { count: Math.floor(oldestAge / 24) });
 
   // The age label is written for a chip ("Under an hour"); mid-sentence it starts lowercase.
   const oldestAgePhrase =

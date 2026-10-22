@@ -18,11 +18,17 @@ import styles from './Shell.module.css';
  */
 export function Shell({
   categories,
+  departments,
   customer,
   announcements,
   children,
 }: {
   categories: readonly CatalogCategory[];
+  /**
+   * The four departments the header shows. The footer keeps the full list, so nothing is unreachable:
+   * the header is a shortcut into the shop's busiest departments, not the index.
+   */
+  departments: readonly CatalogCategory[];
   /** Resolved on the server once per request; never re-derived in the browser. */
   customer: { email: string; displayName: string | null } | null;
   /**
@@ -38,7 +44,11 @@ export function Shell({
         <SkipLabel />
       </a>
       <AnnouncementBar items={announcements} />
-      <Header categories={categories} customer={customer} />
+      <Header
+        categories={departments}
+        customer={customer}
+        moreCategories={categories.length > departments.length}
+      />
       <main id="main-content" className={styles.main} tabIndex={-1}>
         {children}
       </main>

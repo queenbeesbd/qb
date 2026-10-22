@@ -33,9 +33,15 @@ type Customer = { email: string; displayName: string | null } | null;
 export function Header({
   categories,
   customer,
+  moreCategories = false,
 }: {
   categories: readonly CatalogCategory[];
   customer: Customer;
+  /**
+   * True when the shop holds more departments than the header shows. The row then ends with a link to
+   * the index, so a department that is not among the four is one click away rather than missing.
+   */
+  moreCategories?: boolean;
 }) {
   const { t, pick } = useTranslation();
   const { itemCount } = useCart();
@@ -104,6 +110,13 @@ export function Header({
                 </li>
               );
             })}
+            {moreCategories && (
+              <li>
+                <Link href="/categories" aria-current={isCurrent('/categories') ? 'page' : undefined}>
+                  {t('nav.allCategories')}
+                </Link>
+              </li>
+            )}
           </ul>
         </nav>
 

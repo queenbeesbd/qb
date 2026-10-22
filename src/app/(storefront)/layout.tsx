@@ -2,6 +2,7 @@ import { activeAnnouncements } from '@/data/announcements';
 import type { AnnouncementItem } from '@/components/AnnouncementBar';
 import { withTransaction } from '@/db/client';
 import { CartProvider } from '@/features/cart/CartProvider';
+import { DEPARTMENTS_SHOWN, selectDepartments } from '@/features/catalog/departments';
 import { loadAnnouncement } from '@/server/settings/announcement';
 import { getStorefrontCatalog } from '@/server/catalog/storefront';
 import { currentCustomerPrincipal } from '@/server/customer-auth/guard';
@@ -37,6 +38,17 @@ export default async function StorefrontLayout({ children }: { children: React.R
    * message follows only when it is saved and switched on. Reading it on the server means a database
    * failure surfaces through the error boundary instead of silently dropping the preview notice.
    */
+  /*
+   * One ordering rule for every navigation surface: the departments holding the most products come
+   * first, because the imported catalog's own order puts Accessories and Bags above Skincare's 652.
+   * The header shows the first four, the footer the first five, and both end with the index.
+   */
+  const byDepartmentSize = selectDepartments(
+    catalog.categories,
+    catalog.products,
+    catalog.categories.length,
+  );
+
   const saved = await withTransaction((tx) => loadAnnouncement(tx));
   const announcements: AnnouncementItem[] = activeAnnouncements().map((item) => ({
     id: item.id,
@@ -50,7 +62,8 @@ export default async function StorefrontLayout({ children }: { children: React.R
   return (
     <CartProvider products={catalog.products}>
       <Shell
-        categories={catalog.categories}
+        categories={byDepartmentSize}
+        departments={byDepartmentSize.slice(0, DEPARTMENTS_SHOWN)}
         customer={
           principal === null ? null : { email: principal.email, displayName: principal.displayName }
         }

@@ -91,10 +91,17 @@
   min-width: 0;
 }
 
+/*
+ * Vendor category names are long ("Face Powder (Loose/Compact)") and were clipped mid-word at
+ * 1024px with no ellipsis, which reads as a layout bug rather than a shortened label. The name wraps
+ * instead: a department is allowed two lines, and nothing is hidden.
+ */
 .name {
   font-weight: 600;
   color: var(--color-ink);
   min-width: 0;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .count {

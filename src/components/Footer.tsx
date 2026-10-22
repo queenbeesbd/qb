@@ -16,6 +16,9 @@ import styles from './Footer.module.css';
  * Categories arrive as a server-resolved prop so the shop column always matches
  * the catalog the storefront serves.
  */
+/** How many departments the footer's shop column lists before deferring to the index. */
+const FOOTER_CATEGORY_LIMIT = 5;
+
 export function Footer({ categories }: { categories: readonly CatalogCategory[] }) {
   const { t, pick } = useTranslation();
   const year = new Date().getFullYear();
@@ -36,11 +39,21 @@ export function Footer({ categories }: { categories: readonly CatalogCategory[] 
             <li>
               <Link href="/products">{t('footer.allProducts')}</Link>
             </li>
-            {categories.map((category) => (
+            {/*
+              Five departments, then the index. The imported catalog holds fifteen, and a footer
+              column that lists all of them grew taller than the page above it - a directory is not
+              navigation, so the column stays a shortcut and the index handles the rest.
+            */}
+            {categories.slice(0, FOOTER_CATEGORY_LIMIT).map((category) => (
               <li key={category.id}>
                 <Link href={`/categories/${category.slug}`}>{pick(category.name)}</Link>
               </li>
             ))}
+            {categories.length > FOOTER_CATEGORY_LIMIT && (
+              <li>
+                <Link href="/categories">{t('nav.allCategories')}</Link>
+              </li>
+            )}
           </ul>
         </nav>
 

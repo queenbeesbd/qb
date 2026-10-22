@@ -20,6 +20,28 @@ const SORT_LABEL_KEYS: Record<SortOption, TranslationKey> = {
 };
 
 /**
+ * The page numbers to offer: first, last, the current one and its neighbours, with a gap for the
+ * middle. A 31-page catalog still shows seven controls instead of thirty-one.
+ */
+function pageWindow(current: number, total: number): (number | 'gap')[] {
+  if (total <= 7) return Array.from({ length: total }, (_, index) => index + 1);
+
+  const wanted = new Set<number>([1, total, current, current - 1, current + 1]);
+  if (current <= 3) [2, 3, 4].forEach((page) => wanted.add(page));
+  if (current >= total - 2) [total - 1, total - 2, total - 3].forEach((page) => wanted.add(page));
+
+  const pages = [...wanted].filter((page) => page >= 1 && page <= total).sort((a, b) => a - b);
+  const window: (number | 'gap')[] = [];
+  let previous = 0;
+  for (const page of pages) {
+    if (previous !== 0 && page - previous > 1) window.push('gap');
+    window.push(page);
+    previous = page;
+  }
+  return window;
+}
+
+/**
  * Catalog browser. Search, category, brand and sort all compose into a single
  * query so filters can never disagree with each other, and every change is
  * written to the URL for back/forward support.
@@ -34,12 +56,19 @@ export function CatalogView({
   categories,
   query,
   totalCount,
+  matchCount,
+  page,
+  pageCount,
 }: {
   results: readonly CatalogItem[];
   brands: readonly string[];
   categories: readonly CatalogCategory[];
   query: CatalogQuery;
   totalCount: number;
+  /** How many products match the query in total, across every page. */
+  matchCount: number;
+  page: number;
+  pageCount: number;
 }) {
   const { t, pick } = useTranslation();
   const router = useRouter();
@@ -59,15 +88,25 @@ export function CatalogView({
   const activeFilterCount =
     (query.q ? 1 : 0) + (query.category ? 1 : 0) + (query.brand ? 1 : 0);
 
+  /**
+   * Writing any filter restarts at page one: staying on page 12 of a narrower result set is how a
+   * customer lands on an empty grid. Only the pager itself names a page.
+   */
   function push(next: Partial<CatalogQuery>) {
-    const merged: CatalogQuery = { ...query, ...next };
+    const merged: CatalogQuery = { ...query, ...next, page: next.page ?? 1 };
+    router.push(hrefFor(merged));
+  }
+
+  /** The listing URL for a query, with the default page left out so it stays clean. */
+  function hrefFor(merged: CatalogQuery): string {
     const params = new URLSearchParams();
     if (merged.q) params.set('q', merged.q);
     if (merged.category) params.set('category', merged.category);
     if (merged.brand) params.set('brand', merged.brand);
     if (merged.sort !== 'relevance') params.set('sort', merged.sort);
+    if (merged.page > 1) params.set('page', String(merged.page));
     const search = params.toString();
-    router.push(search ? `/products?${search}` : '/products');
+    return search ? `/products?${search}` : '/products';
   }
 
   // `query.category` is a slug, and so is the value every category button pushes,
@@ -91,7 +130,13 @@ export function CatalogView({
         <div>
           <h1>{heading}</h1>
           <p className={styles.count} aria-live="polite">
-            {t('catalog.count', { count: results.length })}
+            {t('catalog.count', { count: matchCount.toLocaleString('en-US') })}
+            {pageCount > 1 && (
+              <span className={styles.pageSummary}>
+                {' · '}
+                {t('catalog.pageSummary', { page, pages: pageCount })}
+              </span>
+            )}
           </p>
         </div>
       </header>
@@ -174,7 +219,13 @@ export function CatalogView({
 
           <fieldset className={styles.fieldset}>
             <legend>{t('catalog.filterBrand')}</legend>
-            <ul className={styles.filterList}>
+            {/*
+              The imported catalog carries 245 brands. As free-wrapping chips they ran the filter rail
+              down the whole page, so the list scrolls inside its own panel past a dozen entries -
+              every brand stays reachable, and the grid stops being pushed down by a brand nobody
+              (245 of them) is looking for.
+            */}
+            <ul className={styles.filterList} data-scroll={brands.length > 12 ? 'true' : undefined}>
               <li>
                 <button
                   type="button"
@@ -263,11 +314,55 @@ export function CatalogView({
           </div>
 
           {results.length > 0 ? (
-            <ProductGrid density="sidebar">
-              {results.map((product) => (
-                <ProductCard key={product.id} product={product} />
-              ))}
-            </ProductGrid>
+            <>
+              <ProductGrid density="sidebar">
+                {results.map((product) => (
+                  <ProductCard key={product.id} product={product} />
+                ))}
+              </ProductGrid>
+              {pageCount > 1 && (
+                <nav className={styles.pager} aria-label={t('catalog.pagerLabel')}>
+                  {page > 1 ? (
+                    <Link className={styles.pagerStep} href={hrefFor({ ...query, page: page - 1 })} rel="prev">
+                      {t('catalog.pagerPrevious')}
+                    </Link>
+                  ) : (
+                    <span className={styles.pagerStepOff} aria-hidden="true">
+                      {t('catalog.pagerPrevious')}
+                    </span>
+                  )}
+                  <ol className={styles.pagerList}>
+                    {pageWindow(page, pageCount).map((entry, index) =>
+                      entry === 'gap' ? (
+                        <li key={`gap-${index}`} className={styles.pagerGap} aria-hidden="true">
+                          …
+                        </li>
+                      ) : (
+                        <li key={entry}>
+                          <Link
+                            className={entry === page ? styles.pagerCurrent : styles.pagerPage}
+                            href={hrefFor({ ...query, page: entry })}
+                            aria-current={entry === page ? 'page' : undefined}
+                            aria-label={t('catalog.pageSummary', { page: entry, pages: pageCount })}
+                          >
+                            {entry}
+                          </Link>
+                        </li>
+                      ),
+                    )}
+                  </ol>
+                  {page < pageCount ? (
+                    <Link className={styles.pagerStep} href={hrefFor({ ...query, page: page + 1 })} rel="next">
+                      {t('catalog.pagerNext')}
+                    </Link>
+                  ) : (
+                    <span className={styles.pagerStepOff} aria-hidden="true">
+                      {t('catalog.pagerNext')}
+                    </span>
+                  )}
+                </nav>
+              )}
+            </>
           ) : totalCount === 0 ? (
             /*
              * The whole catalog is empty. This is a real state, not a filter

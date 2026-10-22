@@ -229,9 +229,16 @@
 
 /* ---------- Primary navigation (desktop only) ---------- */
 
+/*
+ * The navigation is a shortcut, never the index: the caller decides how many departments it shows
+ * (four). The row still cannot widen the document - it clips at its own edge rather than pushing the
+ * search field and the account controls past the viewport, which is exactly what fifteen department
+ * links did when the imported catalog landed.
+ */
 .primaryNav {
   display: none;
   min-width: 0;
+  overflow: hidden;
 }
 
 .navList {
@@ -239,6 +246,7 @@
   margin: 0;
   padding: 0;
   display: flex;
+  flex-wrap: nowrap;
   align-items: center;
   gap: var(--space-1);
   min-width: 0;

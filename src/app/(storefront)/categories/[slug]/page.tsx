@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { CatalogView } from '@/features/catalog/CatalogView';
-import { listBrands, parseCatalogQuery, selectCatalog } from '@/features/catalog/query';
+import { listBrands, parseCatalogQuery, selectCatalog, slicePage } from '@/features/catalog/query';
 import { getStorefrontCatalog } from '@/server/catalog/storefront';
 
 type Params = Promise<{ slug: string }>;
@@ -37,13 +37,19 @@ export default async function CategoryPage({
   const parsed = parseCatalogQuery(await searchParams, catalog.categories);
   const query = { ...parsed, category: category.slug };
 
+  const matched = selectCatalog(catalog.products, query);
+  const page = slicePage(matched, query.page);
+
   return (
     <CatalogView
-      results={selectCatalog(catalog.products, query)}
+      results={page.items}
       brands={listBrands(catalog.products)}
       categories={catalog.categories}
       query={query}
       totalCount={catalog.products.length}
+      matchCount={matched.length}
+      page={page.page}
+      pageCount={page.pageCount}
     />
   );
 }

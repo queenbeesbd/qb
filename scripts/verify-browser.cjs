@@ -1268,8 +1268,13 @@ async function main() {
         tabBarHidden: !bar || getComputedStyle(bar).display === 'none' || bar.getBoundingClientRect().height === 0,
       };
     })()`);
-    record('36d. on desktop the section shows all five categories, the hero photographs return, and the phone tab bar is hidden',
-      desktopCategories.display !== 'none' && desktopCategories.visibleCards === 5 &&
+    /*
+     * Four, not five: the owner's 2026-10-23 decision caps the strip at the four busiest departments
+     * after the imported catalog brought fifteen. Five was the fixture catalog's count, and a
+     * five-column strip of four cards left a hole.
+     */
+    record('36d. on desktop the section shows the four departments, the hero photographs return, and the phone tab bar is hidden',
+      desktopCategories.display !== 'none' && desktopCategories.visibleCards === 4 &&
       desktopCategories.collageVisible && desktopCategories.tabBarHidden,
       desktopCategories);
     await client.send('Emulation.clearDeviceMetricsOverride');

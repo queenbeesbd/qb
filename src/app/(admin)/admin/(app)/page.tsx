@@ -14,6 +14,7 @@ import {
   type CodQueueItem,
   type FlaggedCustomer,
 } from '@/server/orders/admin-read';
+import { countCodApprovalQueue } from '@/server/orders/manage';
 import { listPromoCodes } from '@/server/promotions/service';
 import { OverviewView } from './OverviewView';
 
@@ -46,6 +47,12 @@ export default async function AdminOverviewPage() {
 
   const data = await withTransaction(async (tx) => {
     const pending = canReadOrders ? await codQueue(tx) : [];
+    /*
+     * The queue is read twice on purpose: the rows are capped for the screen, the count is not.
+     * "Waiting on a call 25" beside a queue page that says 138 was the screen lying about the
+     * backlog, and the backlog is the number the owner opens the app to see.
+     */
+    const pendingCount = canReadOrders ? await countCodApprovalQueue(tx) : 0;
     const flagged = canReadCustomers ? await flaggedCustomers(tx) : [];
     const denials = canReadAudit ? await countRecentDenials(tx) : null;
     const catalog = canReadCatalog ? await countCatalog(tx) : null;
@@ -65,7 +72,7 @@ export default async function AdminOverviewPage() {
       };
     }
 
-    return { pending, flagged, denials, catalog, revenue, analytics, recent, promo };
+    return { pending, pendingCount, flagged, denials, catalog, revenue, analytics, recent, promo };
   });
 
   const pending = data.pending;
@@ -76,9 +83,9 @@ export default async function AdminOverviewPage() {
       displayName={principal.displayName}
       nowIso={requestNowIso()}
       pending={pending.slice(0, OVERVIEW_LIMIT).map(serializeOrder)}
-      pendingCount={pending.length}
+      pendingCount={data.pendingCount}
       oldestPlacedAt={oldest === null ? null : oldest.placedAt.toISOString()}
-      moreCount={Math.max(0, pending.length - OVERVIEW_LIMIT)}
+      moreCount={Math.max(0, data.pendingCount - OVERVIEW_LIMIT)}
       flagged={data.flagged.map(serializeFlag)}
       denials={data.denials}
       catalog={data.catalog}

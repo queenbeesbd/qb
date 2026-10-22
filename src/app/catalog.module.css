@@ -19,6 +19,108 @@
   font-variant-numeric: tabular-nums;
 }
 
+.pageSummary {
+  color: var(--color-ink-muted);
+}
+
+/*
+ * The pager.
+ *
+ * The listing holds 1,477 products, so this is not decoration: it is the only way out of a page and
+ * the only statement of where the reader is. It sits under the grid on the same left edge as the
+ * cards, with the step buttons at the ends and the numbers between them, and it wraps by itself on a
+ * phone rather than scrolling sideways.
+ */
+.pager {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-6);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--color-border);
+}
+
+.pagerList {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.pagerPage,
+.pagerCurrent,
+.pagerStep,
+.pagerStepOff {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 40px;
+  height: 40px;
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  text-decoration: none;
+}
+
+.pagerPage {
+  color: var(--color-ink);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+}
+
+.pagerPage:hover {
+  background: var(--color-surface-sunken);
+}
+
+.pagerCurrent {
+  color: #ffffff;
+  background: var(--color-action);
+  border: 1px solid var(--color-action);
+}
+
+.pagerStep {
+  color: var(--color-ink);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+}
+
+.pagerStep:hover {
+  background: var(--color-surface-sunken);
+}
+
+.pagerStepOff {
+  color: var(--color-ink-muted);
+  border: 1px solid transparent;
+  opacity: 0.55;
+}
+
+.pagerGap {
+  padding: 0 var(--space-1);
+  color: var(--color-ink-muted);
+}
+
+/*
+ * On a phone the numbers take their own row and the two steps share the row beneath it. Left to
+ * wrap on their own, "Next" dropped alone under the numbers and read as a stray link.
+ */
+@media (max-width: 719px) {
+  .pager {
+    justify-content: center;
+  }
+
+  .pagerList {
+    order: -1;
+    flex-basis: 100%;
+    justify-content: center;
+  }
+}
+
 .layout {
   display: grid;
   gap: var(--space-6);
@@ -173,6 +275,18 @@
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-2);
+}
+
+/*
+ * A long facet scrolls inside its own panel. 245 brand chips pushed the results grid an entire
+ * screen down, and a filter nobody can see the end of is not a filter.
+ */
+.filterList[data-scroll='true'] {
+  max-height: 320px;
+  overflow-y: auto;
+  padding-right: var(--space-2);
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border-strong) transparent;
 }
 
 .filterButton,

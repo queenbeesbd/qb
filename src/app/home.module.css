@@ -406,8 +406,9 @@
    * department strip rather than a card grid. The odd-count fill above is a phone-only rule,
    * so it is switched off here.
    */
+  /* Four departments, four columns: the strip is one row, with no hole where a fifth card would be. */
   .categoryGrid {
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 
   .categoryItem[data-fill='true'] {

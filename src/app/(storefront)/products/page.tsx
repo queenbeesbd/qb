@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { CatalogView } from '@/features/catalog/CatalogView';
-import { listBrands, parseCatalogQuery, selectCatalog } from '@/features/catalog/query';
+import { listBrands, parseCatalogQuery, selectCatalog, slicePage } from '@/features/catalog/query';
 import { getStorefrontCatalog } from '@/server/catalog/storefront';
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
@@ -24,13 +24,24 @@ export default async function ProductsPage({ searchParams }: { searchParams: Sea
   const catalog = await getStorefrontCatalog();
   const query = parseCatalogQuery(await searchParams, catalog.categories);
 
+  /*
+   * The listing pages. The catalog is still read whole on the server - it is one snapshot and the
+   * filters need it - but only one page of it crosses into the client component, which is what keeps
+   * the payload and the DOM from growing with the catalog.
+   */
+  const matched = selectCatalog(catalog.products, query);
+  const page = slicePage(matched, query.page);
+
   return (
     <CatalogView
-      results={selectCatalog(catalog.products, query)}
+      results={page.items}
       brands={listBrands(catalog.products)}
       categories={catalog.categories}
       query={query}
       totalCount={catalog.products.length}
+      matchCount={matched.length}
+      page={page.page}
+      pageCount={page.pageCount}
     />
   );
 }

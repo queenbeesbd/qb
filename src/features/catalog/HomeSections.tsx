@@ -14,6 +14,7 @@ import {
   selectRecentlyAdded,
 } from './recent';
 import { ProductPhoto } from '@/components/ProductPhoto';
+import { selectDepartments } from './departments';
 import styles from '@/app/home.module.css';
 
 /*
@@ -70,6 +71,13 @@ export function HomeView({
   collectionIds: readonly string[];
 }) {
   const { t, pick } = useTranslation();
+
+  /*
+   * The strip shows the four departments the shop is actually made of, not all fifteen. With the
+   * imported catalog the full list was three rows of five with a stranded card, which pushed the
+   * first product row off the page - and a homepage is not an index. "/categories" carries the rest.
+   */
+  const departments = selectDepartments(categories, products);
 
   const productById = new Map(products.map((product) => [product.id, product]));
   const resolve = (ids: readonly string[]): CatalogItem[] =>
@@ -184,12 +192,12 @@ export function HomeView({
           </Link>
         </header>
         <ul className={styles.categoryGrid}>
-          {categories.map((category, index) => (
+          {departments.map((category, index) => (
             <li
               key={category.id}
-              /* An odd category count would strand one card on a phone; the last one takes the row. */
+              /* An odd count would strand one card on a phone; the last one takes the row. */
               className={styles.categoryItem}
-              data-fill={categories.length % 2 === 1 && index === categories.length - 1 ? 'true' : undefined}
+              data-fill={departments.length % 2 === 1 && index === departments.length - 1 ? 'true' : undefined}
             >
               <Link className={styles.categoryCard} href={`/categories/${category.slug}`}>
                 <span className={styles.categoryIcon}>

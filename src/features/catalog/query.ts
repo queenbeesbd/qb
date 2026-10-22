@@ -9,7 +9,24 @@ export type CatalogQuery = {
   category: string;
   brand: string;
   sort: SortOption;
+  page: number;
 };
+
+/**
+ * How many products one page of the listing shows.
+ *
+ * The imported catalog holds 1,477 products. Rendering them all produced a 3.4 MB page with 22,752 DOM
+ * nodes and a React payload that carried every product into the browser, so the listing pages now, and
+ * takes its page number from the URL so a page stays linkable and survives a refresh.
+ */
+export const CATALOG_PAGE_SIZE = 48;
+
+/** The page a listing can reach. A malformed or hostile value falls back to the first page. */
+function parsePage(raw: string): number {
+  const parsed = Number.parseInt(raw, 10);
+  if (!Number.isFinite(parsed) || parsed < 1) return 1;
+  return Math.min(parsed, 999);
+}
 
 /**
  * Parses untrusted search parameters. Unknown values fall back to safe
@@ -38,6 +55,7 @@ export function parseCatalogQuery(
     sort: (SORT_OPTIONS as readonly string[]).includes(rawSort)
       ? (rawSort as SortOption)
       : 'relevance',
+    page: parsePage(single(params.page)),
   };
 }
 
@@ -92,6 +110,21 @@ export function selectCatalog(
   query: CatalogQuery,
 ): CatalogItem[] {
   return sortProducts(filterProducts(products, query), query.sort);
+}
+
+/**
+ * One page of a result set, clamped so a page number past the end shows the last page rather than an
+ * empty grid: a stale link should land somewhere useful.
+ */
+export function slicePage<T>(
+  items: readonly T[],
+  page: number,
+  size: number = CATALOG_PAGE_SIZE,
+): { items: T[]; page: number; pageCount: number } {
+  const pageCount = Math.max(1, Math.ceil(items.length / size));
+  const current = Math.min(Math.max(1, page), pageCount);
+  const start = (current - 1) * size;
+  return { items: items.slice(start, start + size), page: current, pageCount };
 }
 
 /** Brands that actually exist in the catalog, sorted for a stable filter list. */
