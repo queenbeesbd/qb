@@ -107,6 +107,28 @@ export async function getCustomerOrderDetail(
   customerId: number,
   orderNumber: string,
 ): Promise<CustomerOrderDetail | null> {
+  return loadOrderDetail(tx, orderNumber, customerId);
+}
+
+/**
+ * One **guest** order by number, for the confirmation page a guest lands on after ordering.
+ *
+ * A guest has no session, so there is nothing to prove ownership with: the order number itself is the
+ * handle. It is a random 8-byte hex reference, never a sequence, and this read refuses an order that
+ * belongs to an account - a customer's order is not readable by number alone.
+ */
+export async function getGuestOrderDetail(
+  tx: Transaction,
+  orderNumber: string,
+): Promise<CustomerOrderDetail | null> {
+  return loadOrderDetail(tx, orderNumber, null);
+}
+
+async function loadOrderDetail(
+  tx: Transaction,
+  orderNumber: string,
+  customerId: number | null,
+): Promise<CustomerOrderDetail | null> {
   const rows = await tx
     .select({
       orderId: order.id,
@@ -131,7 +153,11 @@ export async function getCustomerOrderDetail(
     })
     .from(order)
     .innerJoin(orderContact, sql`${orderContact.orderId} = ${order.id}`)
-    .where(sql`${order.customerId} = ${customerId} and ${order.orderNumber} = ${orderNumber}`);
+    .where(
+      customerId === null
+        ? sql`${order.orderNumber} = ${orderNumber} and ${order.customerId} is null`
+        : sql`${order.orderNumber} = ${orderNumber} and ${order.customerId} = ${customerId}`,
+    );
 
   const row = rows[0];
   if (row === undefined) return null;

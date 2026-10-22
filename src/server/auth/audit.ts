@@ -71,6 +71,7 @@ export type AuditAction =
   | 'catalog.image_removed'
   | 'catalog.image_reordered'
   | 'settings.announcement_updated'
+  | 'settings.guest_orders_updated'
   | 'delivery.default_updated'
   | 'delivery.district_saved'
   | 'delivery.district_deactivated'

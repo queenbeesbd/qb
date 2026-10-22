@@ -234,6 +234,25 @@ export const dictionary = {
   'admin.nav.delivery': 'Delivery charges',
   'admin.nav.announcement': 'Announcement bar',
   'admin.nav.integrations': 'Integrations',
+  'admin.nav.otherSettings': 'Other settings',
+
+  'admin.settings.other.title': 'Other settings',
+  'admin.settings.other.body':
+    'Store policy the storefront does not render: who may place an order, and what checkout asks for.',
+  'admin.settings.other.checkoutTitle': 'Checkout',
+  'admin.settings.other.checkoutBody':
+    'One switch, and it changes who can buy. A mobile number is required either way.',
+  'admin.settings.other.guestLabel': 'Guests may order without an account',
+  'admin.settings.other.guestHelp':
+    'Off: a customer must sign in or register before checkout, and the cart survives the detour. On: anyone can order by giving a name, a mobile number and an address - no account, no password.',
+  'admin.settings.other.guestOn':
+    'Guests can order. Their order is not attached to an account and cannot appear in order history, so the confirmation page is the only record they keep.',
+  'admin.settings.other.guestOff':
+    'An account is required to order, as it has been until now. Existing guest orders are unaffected.',
+  'admin.settings.other.save': 'Save checkout policy',
+  'admin.settings.other.notice.saved': 'Checkout policy saved.',
+  'admin.settings.other.notice.denied': 'Your account does not have permission for that action.',
+
   'admin.nav.storefront': 'Back to the storefront',
 
   'admin.session.signedInAs': 'Signed in as',

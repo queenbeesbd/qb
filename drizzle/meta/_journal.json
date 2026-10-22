@@ -71,6 +71,20 @@
       "when": 1792684512133,
       "tag": "0009_telegram_recipients",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1792689850521,
+      "tag": "0010_guest_orders",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1792689983030,
+      "tag": "0011_guest_order_actors",
+      "breakpoints": true
     }
   ]
 }

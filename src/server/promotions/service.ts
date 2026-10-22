@@ -454,7 +454,8 @@ export async function recordPromoRedemption(
   input: {
     readonly promoCodeId: number;
     readonly orderId: number;
-    readonly customerId: number;
+    /** `null` on a guest order: the redemption is a fact about the order, not about an account. */
+    readonly customerId: number | null;
     readonly discountMinor: number;
   },
 ): Promise<void> {

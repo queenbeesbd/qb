@@ -120,6 +120,17 @@ Supporting documents produced in Phase 8: `docs/platform-architecture.md` (archi
 are saved through the real screen: **Dhaka Tk 100, Chattogram Tk 60, other districts Tk 120**. Verified by
 reading them back through the server resolver (`dhaka -> 10000`, `chattogram -> 6000`, `others -> 12000`
 poisha) and by the panel rendering 120 / 100 / 60; an invalid amount is still refused. `npm run
+**Phase 42 (guest checkout, owner switch) is implemented locally (ADR 0024).** Ordering needs an account
+by default; `checkout.guest_orders` (Settings -> Other settings) lets the owner allow guests. Off -> sign-in
+redirect as before. On -> name, mobile number, area, city and address are enough, and the order records
+`customer_id = null` (migration 0010) with a `guest` order event (migration 0011). No session means no CSRF
+token: that path relies on the same-origin check plus the per-render idempotency key, and a signed-in
+request with a bad token is refused rather than downgraded. Guest confirmations are capability URLs - a
+customer's order number returns 404 to an anonymous reader. Verified: off -> 307; on -> 200 and a real guest
+order `QBBFC7E4396F6C7FA6` (customer_id null, shipping 10000 Dhaka, total = subtotal + shipping, event actor
+guest); cross-site POST 403; `typecheck`, `lint`, `check:i18n`, `db:validate`. **Not built:** per-source
+throttle (the honest gap), claiming a guest order into an account, guest lookup by phone. **Not verified:**
+browser interaction with the guest form.
 **Phase 41 (a ban is reversible) is implemented locally (ADR 0023).** The owner decided a ban can be
 restored. `restoreCustomer` mirrors `suspendCustomer`: a guarded `suspended -> active` transition, a
 required reason (10-500 characters) and one audit record `customer.ban_reversed` with actor and reason; a

@@ -2,9 +2,11 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { withTransaction } from '@/db/client';
 import { OrderDetailView, type OrderDetail } from '@/features/account/OrderDetailView';
-import { CUSTOMER_ORDERS_PATH } from '@/server/customer-auth/constants';
+import { cookies } from 'next/headers';
+
+import { CUSTOMER_ORDERS_PATH, CUSTOMER_SESSION_COOKIE } from '@/server/customer-auth/constants';
 import { requireCustomerPage } from '@/server/customer-auth/guard';
-import { getCustomerOrderDetail } from '@/server/orders/read';
+import { getCustomerOrderDetail, getGuestOrderDetail } from '@/server/orders/read';
 
 export const metadata: Metadata = { title: 'Order', robots: { index: false, follow: false } };
 export const dynamic = 'force-dynamic';
@@ -24,11 +26,19 @@ export default async function OrderPage({
 }) {
   const { orderNumber } = await params;
   const query = await searchParams;
-  const principal = await requireCustomerPage(`${CUSTOMER_ORDERS_PATH}/${orderNumber}`);
-
-  const detail = await withTransaction((tx) =>
-    getCustomerOrderDetail(tx, principal.customerId, orderNumber),
-  );
+  /*
+   * A guest order is read by its own number, and only a **guest** order: the query refuses an order that
+   * belongs to an account, so a customer's order number is not a key to somebody else's page. Without a
+   * session cookie there is nothing to sign in with, so a guest goes straight to their confirmation.
+   */
+  const sessionCookie = (await cookies()).get(CUSTOMER_SESSION_COOKIE)?.value;
+  const anonymous = sessionCookie === undefined || sessionCookie === '';
+  const detail = anonymous
+    ? await withTransaction((tx) => getGuestOrderDetail(tx, orderNumber))
+    : await (async () => {
+        const principal = await requireCustomerPage(`${CUSTOMER_ORDERS_PATH}/${orderNumber}`);
+        return withTransaction((tx) => getCustomerOrderDetail(tx, principal.customerId, orderNumber));
+      })();
   if (detail === null) notFound();
 
   const order: OrderDetail = {

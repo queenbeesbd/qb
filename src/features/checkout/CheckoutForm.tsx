@@ -64,10 +64,12 @@ export function CheckoutForm({
   customerEmail,
   delivery,
 }: {
-  csrfToken: string;
+  /** Null for a guest: there is no session to bind a token to, and the route checks the origin. */
+  csrfToken: string | null;
   idempotencyKey: string;
   notice: string | null;
-  customerEmail: string;
+  /** Null for a guest: nothing is signed in, and the page does not claim otherwise. */
+  customerEmail: string | null;
   delivery: { defaultMinor: number | null; overrides: Record<string, number> };
 }) {
   const { t, pick, price } = useTranslation();
@@ -110,7 +112,7 @@ export function CheckoutForm({
     setPromoBusy(true);
     setPromoReason(null);
     const payload = new FormData();
-    payload.set('csrf', csrfToken);
+    if (csrfToken !== null) payload.set('csrf', csrfToken);
     payload.set('lines', lines);
     payload.set('promoCode', promoInput);
     try {
@@ -140,7 +142,9 @@ export function CheckoutForm({
     <div className={styles.page}>
       <header className={styles.header}>
         <h1>{t('checkout.title')}</h1>
-        <p className={styles.muted}>{t('checkout.signedInAs', { email: customerEmail })}</p>
+        {customerEmail !== null && (
+          <p className={styles.muted}>{t('checkout.signedInAs', { email: customerEmail })}</p>
+        )}
       </header>
 
       {refusal && (
@@ -150,7 +154,7 @@ export function CheckoutForm({
       )}
 
       <form className={styles.layout} action="/api/checkout/order" method="post">
-        <input type="hidden" name="csrf" value={csrfToken} />
+        {csrfToken !== null && <input type="hidden" name="csrf" value={csrfToken} />}
         <input type="hidden" name="idempotencyKey" value={idempotencyKey} />
         <input type="hidden" name="lines" value={lines} />
         {discountMinor > 0 && promo !== null && (

@@ -109,7 +109,14 @@ export type CreatedOrder = {
 };
 
 export type CreateOrderInput = {
-  readonly customerId: number;
+  /**
+   * The signed-in customer, or `null` for a **guest order** (Phase 42).
+   *
+   * A guest has no account, so there is no standing to check and nothing to attach the order to. The
+   * route only passes `null` when the owner has enabled guest ordering *and* there is no session, so a
+   * signed-in customer can never accidentally become a guest order with no history.
+   */
+  readonly customerId: number | null;
   readonly idempotencyKey: string;
   /** Digest of the submitted body; a mismatch on a seen key is a conflict. */
   readonly fingerprint: string;
@@ -145,8 +152,10 @@ export async function createOrder(tx: Transaction, input: CreateOrderInput): Pro
     .values({
       scope: IDEMPOTENCY_SCOPE,
       key: input.idempotencyKey,
-      principalKind: 'customer',
-      principalId: input.customerId,
+      // A guest submission is still idempotent; it just has no principal row to point at, so the
+      // sentinel 0 stands for "no account". The key itself remains the unguessable handle.
+      principalKind: input.customerId === null ? 'guest' : 'customer',
+      principalId: input.customerId ?? 0,
       requestFingerprint: input.fingerprint,
       expiresAt: new Date(Date.now() + IDEMPOTENCY_TTL_MS),
     })
@@ -171,14 +180,14 @@ export async function createOrder(tx: Transaction, input: CreateOrderInput): Pro
       throw new OrderRefusalError('idempotency_conflict', 'the submission could not be resolved');
     }
     // Another customer's key, or the same key with a different body, is never "the same submission".
-    if (existing.principalId !== input.customerId || existing.fingerprint !== input.fingerprint) {
+    if (existing.principalId !== (input.customerId ?? 0) || existing.fingerprint !== input.fingerprint) {
       throw new OrderRefusalError('idempotency_conflict', 'this submission key was already used');
     }
     if (existing.resultRef === null) {
       throw new OrderRefusalError('idempotency_conflict', 'this submission is still being processed');
     }
 
-    const replayed = await loadCreatedOrder(tx, input.customerId, existing.resultRef);
+    const replayed = await loadCreatedOrder(tx, input.customerId ?? 0, existing.resultRef);
     if (replayed === null) {
       throw new OrderRefusalError('idempotency_conflict', 'the original order could not be loaded');
     }
@@ -186,12 +195,17 @@ export async function createOrder(tx: Transaction, input: CreateOrderInput): Pro
   }
 
   // 2. Account standing, inside this transaction (D20). A UI check would not be enforcement.
-  const account = await tx
-    .select({ status: customer.status })
-    .from(customer)
-    .where(sql`${customer.id} = ${input.customerId}`);
-  if (account[0] === undefined || account[0].status !== 'active') {
-    throw new OrderRefusalError('banned', 'this account cannot place orders');
+  // 2. Account standing, inside this transaction (D20). A UI check would not be enforcement. A guest has
+  // no account, so there is nothing to refuse here - and that is a real difference, not an omission:
+  // a banned account cannot order, while nobody can be banned without an account in the first place.
+  if (input.customerId !== null) {
+    const account = await tx
+      .select({ status: customer.status })
+      .from(customer)
+      .where(sql`${customer.id} = ${input.customerId}`);
+    if (account[0] === undefined || account[0].status !== 'active') {
+      throw new OrderRefusalError('banned', 'this account cannot place orders');
+    }
   }
 
   // 3-4. Every line resolved from database state, priced, and totalled in integer poisha.
@@ -300,7 +314,9 @@ export async function createOrder(tx: Transaction, input: CreateOrderInput): Pro
     orderId: created.id,
     eventType: 'order_placed',
     toValue: 'pending',
-    actorType: 'customer',
+    // A guest is its own actor: the schema requires an event with no actor id to be 'guest' or
+    // 'system', and "a guest placed this order" is a truer record than "the system did".
+    actorType: input.customerId === null ? 'guest' : 'customer',
     actorCustomerId: input.customerId,
     payload: {
       itemCount: resolved.reduce((total, line) => total + line.quantity, 0),

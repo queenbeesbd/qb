@@ -126,9 +126,10 @@ export const promoCodeRedemption = pgTable(
     orderId: bigint('order_id', { mode: 'number' })
       .notNull()
       .references(() => order.id, { onDelete: 'restrict' }),
-    customerId: bigint('customer_id', { mode: 'number' })
-      .notNull()
-      .references(() => customer.id, { onDelete: 'restrict' }),
+    /** The account that used it, or `null` on a guest order (Phase 42): the order is the fact. */
+    customerId: bigint('customer_id', { mode: 'number' }).references(() => customer.id, {
+      onDelete: 'restrict',
+    }),
     /** What the customer actually got off, in poisha. Mirrors the order's own snapshot. */
     discountMinor: integer('discount_minor').notNull(),
     createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),

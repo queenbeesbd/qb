@@ -40,9 +40,16 @@ export const order = pgTable(
   {
     id: bigint('id', { mode: 'number' }).generatedAlwaysAsIdentity().primaryKey(),
     orderNumber: text('order_number').notNull(),
-    customerId: bigint('customer_id', { mode: 'number' })
-      .notNull()
-      .references(() => customer.id, { onDelete: 'restrict' }),
+    /**
+     * The customer who placed the order, or `null` for a **guest order** (Phase 42).
+     *
+     * Guest ordering is an owner-controlled setting (Settings -> Other settings). A guest order carries
+     * its contact details on `order_contact` and nothing else: there is no account to ban, no history to
+     * show and no session to revoke, which is exactly why a guest cannot be "logged in as" afterwards.
+     */
+    customerId: bigint('customer_id', { mode: 'number' }).references(() => customer.id, {
+      onDelete: 'restrict',
+    }),
     currency: text('currency').notNull().default('BDT'),
     paymentMethod: text('payment_method').notNull(),
     status: text('status').notNull().default('pending'),
@@ -225,7 +232,7 @@ export const orderEvent = pgTable(
     ),
     check(
       'order_event_system_actor_has_no_actor',
-      sql`${t.actorType} <> 'system' or (${t.actorCustomerId} is null and ${t.actorStaffId} is null)`,
+      sql`${t.actorType} not in ('system', 'guest') or (${t.actorCustomerId} is null and ${t.actorStaffId} is null)`,
     ),
   ],
 );

@@ -3,21 +3,27 @@
  *
  * The one place an order comes into existence. The request carries **ids and quantities plus delivery
  * contact**, and optionally a promotion code; it can carry no price, no discount, no total, no
- * availability and no payment method, because nothing here reads one. `createOrder` resolves every line from database state, and the totals the customer is
- * shown afterwards are the ones the server computed.
+ * availability and no payment method, because nothing here reads one. `createOrder` resolves every line
+ * from database state, and the totals the customer is shown afterwards are the ones the server computed.
+ *
+ * **Two ways in (Phase 42).** A signed-in customer posts through the session-bound guard, as before. When
+ * the owner has enabled guest ordering, an anonymous visitor may post the same form: there is no session
+ * to bind a CSRF token to, so that path relies on the same-origin check, the per-render idempotency key
+ * (an unguessable submission handle) and the order's own validation. `createOrder` is told there is no
+ * customer, so the order is written with `customer_id = null` - never attributed to somebody else.
  *
  * A refusal is a redirect back to the checkout page with a fixed notice code - never a table of reasons
- * that would distinguish a hidden product from an out-of-stock one. An unauthenticated submission is
- * sent to sign in with the checkout path preserved; the cart is in the browser, so it survives.
+ * that would distinguish a hidden product from an out-of-stock one.
  */
 
 import { after } from 'next/server';
 
 import { withTransaction } from '@/db/client';
 import { deny, redirectTo } from '@/app/api/admin/responses';
-import { notifyOrderPlaced } from '@/server/integrations/telegram';
 import { CHECKOUT_PATH, CUSTOMER_ORDERS_PATH } from '@/server/customer-auth/constants';
 import { customerLoginUrl, guardCustomerMutation } from '@/server/customer-auth/guard';
+import { isSameOrigin } from '@/server/auth/request-guards';
+import { notifyOrderPlaced } from '@/server/integrations/telegram';
 import { OrderRefusalError, createOrder } from '@/server/orders/create';
 import {
   orderFingerprint,
@@ -25,17 +31,34 @@ import {
   parseContact,
   parseIdempotencyKey,
 } from '@/server/orders/validation';
+import { loadCheckoutSettings } from '@/server/settings/checkout';
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: Request): Promise<Response> {
   const guard = await guardCustomerMutation(request);
-  if (!guard.ok) {
-    if (guard.reason === 'unauthenticated') return redirectTo(customerLoginUrl(CHECKOUT_PATH));
+  let form: FormData;
+  let customerId: number | null;
+
+  if (guard.ok) {
+    form = guard.form;
+    customerId = guard.principal.customerId;
+  } else if (guard.reason === 'unauthenticated') {
+    // Anonymous: allowed only when the owner has switched guest ordering on, and only from this origin.
+    const settings = await withTransaction((tx) => loadCheckoutSettings(tx));
+    if (!settings.guestOrders) return redirectTo(customerLoginUrl(CHECKOUT_PATH));
+    if (!isSameOrigin(request)) return deny(403);
+
+    try {
+      form = await request.formData();
+    } catch {
+      return redirectTo(`${CHECKOUT_PATH}?notice=invalid`);
+    }
+    customerId = null;
+  } else {
+    // A signed-in request with a bad CSRF token is a refusal, never a quiet fall-back to guest mode.
     return deny(guard.status);
   }
-
-  const { principal, form } = guard;
 
   const lines = parseCartLines(form.get('lines'));
   const contact = parseContact({
@@ -59,7 +82,7 @@ export async function POST(request: Request): Promise<Response> {
   try {
     const created = await withTransaction((tx) =>
       createOrder(tx, {
-        customerId: principal.customerId,
+        customerId,
         idempotencyKey,
         fingerprint: orderFingerprint(lines, contact, promoCode),
         lines,
@@ -67,12 +90,7 @@ export async function POST(request: Request): Promise<Response> {
         promoCode,
       }),
     );
-    /*
-     * Telling the owner is a **separate, failable act** against a third party, so it is scheduled after
-     * the response rather than awaited inside it: the customer never waits for Telegram, a Telegram
-     * outage cannot fail or roll back an order, and a replayed submission (the customer's second click)
-     * does not ring the owner's phone twice for one order.
-     */
+
     if (!created.replayed) {
       after(async () => {
         await notifyOrderPlaced({
@@ -83,13 +101,13 @@ export async function POST(request: Request): Promise<Response> {
           recipientName: contact.recipientName,
           recipientPhone: contact.recipientPhone,
         }).catch(() => {
-          // A notification failure is not the customer's problem and is not a reason to change this
-          // response: the order exists, and the COD workflow does not depend on a chat app.
+          // A notification failure is not the customer's problem and never changes this response.
         });
       });
     }
 
-    // `placed=1` is what tells the confirmation page to clear the browser cart - and only then.
+    // The order number is the handle: a signed-in customer gets it under their account, and a guest gets
+    // the same confirmation page by number, which is the only receipt a guest can have.
     return redirectTo(`${CUSTOMER_ORDERS_PATH}/${created.orderNumber}?placed=1`);
   } catch (error) {
     if (error instanceof OrderRefusalError) {

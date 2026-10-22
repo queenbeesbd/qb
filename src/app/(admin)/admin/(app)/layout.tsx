@@ -12,6 +12,7 @@ import {
   DELIVERY_SETTINGS_PATH,
   INTEGRATIONS_PATH,
   LOGIN_PATH,
+  OTHER_SETTINGS_PATH,
   ORDERS_PATH,
   OWNERS_PATH,
   PROMO_CODES_PATH,
@@ -109,6 +110,13 @@ export default async function AdminShellLayout({ children }: { children: React.R
       labelKey: 'admin.nav.integrations',
       group: 'settings',
       icon: 'bell',
+    });
+    // Store policy that is not a rendered value: today, whether guests may order.
+    items.push({
+      href: OTHER_SETTINGS_PATH,
+      labelKey: 'admin.nav.otherSettings',
+      group: 'settings',
+      icon: 'settings',
     });
   }
   if (hasPermission(principal, PERMISSIONS.staffRead)) {

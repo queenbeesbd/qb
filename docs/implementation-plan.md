@@ -1257,6 +1257,21 @@ non-destructive: if a default is already configured it writes nothing, so re-run
 figure the owner has since chosen). **Checkout is no longer blocked by configuration** - the only blocker
 that ever prevented a customer from completing a real purchase is gone.
 
+**Phase 42 (guest checkout, owner switch) is implemented locally (ADR 0024).** Ordering still requires an
+account by default; a stored setting, `checkout.guest_orders`, lets the owner change that from **Settings ->
+Other settings**. With it off, `/checkout` redirects to sign-in exactly as before. With it on, anyone may
+order by giving a name, a mobile number, an area, a city and an address - the same required contact block
+every order has. A guest order records `customer_id = null` (migration 0010), its `order_placed` event
+actor is `guest` (migration 0011), and a promo redemption records a null customer. The guest path is
+protected by the same-origin check plus the per-render idempotency key - no session means no CSRF token,
+and a signed-in request with a bad token is refused rather than downgraded. A guest confirmation is a
+capability URL: `/account/orders/<number>` accepts an anonymous reader only for an order with no customer,
+so a customer's number returns 404 to a guest. **No per-source throttle exists yet** - recorded as the
+honest gap if guest ordering is ever abused. Verified: switch off -> 307 to sign-in; switch on -> 200 and a
+real guest order `QBBFC7E4396F6C7FA6` (customer_id null, shipping 10000 Dhaka, total = subtotal + shipping,
+event actor guest); a cross-site guest POST is 403; a customer's order number is 404 anonymously;
+`typecheck`, `lint`, `check:i18n`, `db:validate` (46 tables, 166 checks). **Not verified:** a browser
+click-through of the guest form (stale `.next`, no hydration on this dev server).
 ## Current single best next step
 
 **Phase 40 - the ban control was verified, not rebuilt (2026-10-23).** The previous entry here claimed the

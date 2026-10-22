@@ -196,12 +196,12 @@ export const ORDER_EVENT_TYPE = [
   'refund_failed',
 ] as const;
 
-export const ORDER_EVENT_ACTOR = ['customer', 'staff', 'system'] as const;
+export const ORDER_EVENT_ACTOR = ['customer', 'guest', 'staff', 'system'] as const;
 export const AUDIT_ACTOR = ['staff', 'system'] as const;
 export const FLAG_TYPE = ['review'] as const;
 export const FLAG_STATE = ['raised', 'cleared'] as const;
 export const IDEMPOTENCY_SCOPE = ['order_create', 'claim_submit', 'refund_request', 'cod_approve'] as const;
-export const IDEMPOTENCY_PRINCIPAL = ['customer', 'staff'] as const;
+export const IDEMPOTENCY_PRINCIPAL = ['customer', 'staff', 'guest'] as const;
 export const SETTING_VALUE_TYPE = ['money_minor', 'integer', 'text', 'boolean'] as const;
 
 /**
