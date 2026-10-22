@@ -1474,9 +1474,9 @@ async function main(): Promise<void> {
       // ---- Phase 18: the redesigned shell, exercised in a real browser ----
       //
       // The HTTP checks above prove authorization and persistence. These prove the things only a
-      // rendered page can show: the rail exists at desktop width, the drawer opens and closes with
-      // focus handled, nothing overflows horizontally at 360/390px, a destructive confirmation
-      // traps focus and closes on Escape, and the inline decision actually submits.
+      // rendered page can show: the rail exists at desktop width, the phone uses a bottom tab bar
+      // whose More sheet handles focus, nothing overflows horizontally at 360/390px, a destructive
+      // confirmation traps focus and closes on Escape, and the inline decision actually submits.
       console.log('\nadmin interface in Chromium');
       {
         const secondCod = await withTransaction(async (tx) => {
@@ -1625,47 +1625,71 @@ async function main(): Promise<void> {
 
             await browser.viewport(390, 844);
             await browser.navigate('/admin');
-            const mobileClosed = await browser.evaluate<{ toggleVisible: boolean; railHidden: boolean; overflow: number }>(`(() => {
-              const toggle = document.querySelector('header button[aria-controls="admin-navigation"]');
-              const rail = document.getElementById('admin-navigation');
+            const mobileNav = await browser.evaluate<{
+              railHidden: boolean;
+              barVisible: boolean;
+              tabs: number;
+              active: string | null;
+              overflow: number;
+            }>(`(() => {
+              const rail = document.getElementById('admin-rail');
+              const bar = document.querySelector('[data-admin-bottom-nav]');
+              const current = bar?.querySelector('[aria-current="page"]');
               return {
-                toggleVisible: toggle !== null && getComputedStyle(toggle).display !== 'none',
-                railHidden: rail !== null && getComputedStyle(rail).visibility === 'hidden',
+                railHidden: rail !== null && getComputedStyle(rail).display === 'none',
+                barVisible: bar !== null && getComputedStyle(bar).display !== 'none',
+                tabs: bar?.querySelectorAll('a[href], button').length ?? 0,
+                active: current?.textContent?.trim() ?? null,
                 overflow: document.documentElement.scrollWidth - window.innerWidth,
               };
             })()`);
             record(
-              'at 390px the rail is a drawer behind a visible menu control',
-              mobileClosed.toggleVisible === true && mobileClosed.railHidden === true && mobileClosed.overflow <= 1,
-              JSON.stringify(mobileClosed),
+              'at 390px the rail is gone, a five-tab bottom bar navigates, and Overview is current',
+              mobileNav.railHidden === true &&
+                mobileNav.barVisible === true &&
+                mobileNav.tabs === 5 &&
+                mobileNav.active === 'Overview' &&
+                mobileNav.overflow <= 1,
+              JSON.stringify(mobileNav),
             );
+            await browser.screenshot('/tmp/qb-admin-dashboard-mobile.png');
 
-            await browser.click('header button[aria-controls="admin-navigation"]');
-            const opened = await browser.evaluate<{ open: boolean; focus: string | null; bodyLocked: boolean }>(`(() => {
-              const rail = document.getElementById('admin-navigation');
+            await browser.click('[data-admin-bottom-nav] button[aria-controls="admin-more-sheet"]');
+            const sheet = await browser.evaluate<{
+              open: boolean;
+              focus: string | null;
+              bodyLocked: boolean;
+              links: number;
+            }>(`(() => {
+              const sheet = document.getElementById('admin-more-sheet');
               return {
-                open: rail?.getAttribute('aria-modal') === 'true',
+                open: sheet?.getAttribute('aria-modal') === 'true',
                 focus: document.activeElement?.getAttribute('aria-label'),
                 bodyLocked: getComputedStyle(document.body).overflow === 'hidden',
+                links: sheet?.querySelectorAll('a[href]').length ?? 0,
               };
             })()`);
             record(
-              'the drawer opens modally, locks the page and moves focus to its close control',
-              opened.open === true && opened.focus === 'Close menu' && opened.bodyLocked === true,
-              JSON.stringify(opened),
+              'the More tab opens a modal sheet with every section, locks the page and focuses its close control',
+              sheet.open === true && sheet.focus === 'Close menu' && sheet.bodyLocked === true && sheet.links >= 6,
+              JSON.stringify(sheet),
             );
-            await browser.screenshot('/tmp/qb-admin-dashboard-mobile-drawer.png');
+            await browser.screenshot('/tmp/qb-admin-dashboard-mobile-more.png');
 
             await browser.key('Escape');
-            const closed = await browser.evaluate<{ modal: string | null; focus: string | null; bodyLocked: boolean }>(`(() => ({
-              modal: document.getElementById('admin-navigation')?.getAttribute('aria-modal'),
+            const sheetClosed = await browser.evaluate<{
+              sheet: boolean;
+              focus: string | null;
+              bodyLocked: boolean;
+            }>(`(() => ({
+              sheet: document.getElementById('admin-more-sheet') !== null,
               focus: document.activeElement?.getAttribute('aria-controls'),
               bodyLocked: getComputedStyle(document.body).overflow === 'hidden',
             }))()`);
             record(
-              'Escape closes the drawer and returns focus to the menu control',
-              closed.modal === null && closed.focus === 'admin-navigation' && closed.bodyLocked === false,
-              JSON.stringify(closed),
+              'Escape closes the More sheet and returns focus to the More tab',
+              sheetClosed.sheet === false && sheetClosed.focus === 'admin-more-sheet' && sheetClosed.bodyLocked === false,
+              JSON.stringify(sheetClosed),
             );
 
             const overflowAt360: string[] = [];
@@ -1729,6 +1753,32 @@ async function main(): Promise<void> {
                 orderDetailUi.events === true &&
                 orderDetailUi.overflow <= 1,
               JSON.stringify(orderDetailUi),
+            );
+            const actionPlacement = await browser.evaluate<{
+              band: string | null;
+              beforeMoney: boolean;
+              total: boolean;
+            }>(`(() => {
+              const band = document.querySelector('section[aria-labelledby="order-action-title"]');
+              const money = [...document.querySelectorAll('h2')].find((heading) =>
+                (heading.textContent ?? '').includes('Money'),
+              ) ?? null;
+              return {
+                band: band?.querySelector('h2')?.textContent?.trim() ?? null,
+                // Document order, not just visibility: the action has to come before the record.
+                beforeMoney:
+                  band !== null &&
+                  money !== null &&
+                  (band.compareDocumentPosition(money) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0,
+                total: band?.textContent?.includes('Total') ?? false,
+              };
+            })()`);
+            record(
+              'the pending order puts its decision above the money facts, with the total it is deciding on',
+              actionPlacement.band === 'Needs your decision' &&
+                actionPlacement.beforeMoney === true &&
+                actionPlacement.total === true,
+              JSON.stringify(actionPlacement),
             );
             await browser.screenshot('/tmp/qb-admin-order-detail-desktop.png');
 
@@ -1934,6 +1984,15 @@ async function main(): Promise<void> {
             // the same form the order detail posts. What matters is that it lands, is auditable, and
             // leaves the customer's charged total exactly as it was.
             await browser.navigate('/admin/orders/' + secondCod.orderNumber);
+            const settledBand = await browser.evaluate<{ band: boolean; transitions: number }>(`(() => ({
+              band: document.querySelector('section[aria-labelledby="order-action-title"]') !== null,
+              transitions: document.querySelectorAll('form[action="/api/admin/orders/transition"]').length,
+            }))()`);
+            record(
+              'a settled order shows no action band and no transition form',
+              settledBand.band === false && settledBand.transitions === 0,
+              JSON.stringify(settledBand),
+            );
             const costFormUi = await browser.evaluate<{ money: boolean; costs: boolean }>(`(() => {
               const text = document.body.textContent ?? '';
               return {
@@ -2119,14 +2178,31 @@ async function main(): Promise<void> {
             const missingSummary = await browser.evaluate<string>(
               `(() => document.querySelector('main form > header p')?.textContent?.trim() ?? '')()`,
             );
+            /*
+             * The Bangla name became optional (owner decision, 2026-10-23), so it must be absent from the
+             * required summary - and its field must not carry the required marker. Asserting the absence
+             * is what stops the old rule creeping back in through a stray `required` attribute.
+             */
+            const banglaField = await browser.evaluate<{ required: boolean; label: string }>(
+              `(() => {
+                const input = document.querySelector('#nameBn');
+                const label = document.querySelector('label[for="nameBn"]');
+                return {
+                  required: input !== null && input.hasAttribute('required'),
+                  label: label ? label.textContent.trim() : '',
+                };
+              })()`,
+            );
             record(
-              'the required summary names every empty required field',
+              'the required summary names every empty required field and never the optional Bangla name',
               /required/i.test(missingSummary) &&
                 missingSummary.includes('Name (English)') &&
-                missingSummary.includes('Name (Bangla)') &&
+                !missingSummary.includes('Name (Bangla)') &&
                 missingSummary.includes('Category') &&
-                missingSummary.includes('Price'),
-              missingSummary,
+                missingSummary.includes('Price') &&
+                banglaField.required === false &&
+                /optional/i.test(banglaField.label),
+              `${missingSummary} | ${JSON.stringify(banglaField)}`,
             );
 
             /*
@@ -2283,7 +2359,11 @@ async function main(): Promise<void> {
               JSON.stringify(createdShort),
             );
 
-            // Narrow widths: the columns stack and the preview comes first, with no overflow.
+            /*
+             * Narrow widths: the columns stack in **source order** - fields first, preview after - with no
+             * overflow. The preview used to be moved above the fields, which put ~500px of preview and
+             * commercial facts before the first name input on a phone; the form is the task and the preview
+             * is feedback on it, so the reorder was removed (2026-10-23).
             const editorWidths = [320, 360, 390, 768, 1024, 1280, 1440, 1920];
             const editorFindings: string[] = [];
             for (const width of editorWidths) {
@@ -2306,13 +2386,13 @@ async function main(): Promise<void> {
                 if (width < 1100 && measured.columns !== 1) {
                   editorFindings.push(`${route} @${width}px: expected one column, got ${measured.columns}`);
                 }
-                if (width < 1100 && measured.previewFirst !== true) {
-                  editorFindings.push(`${route} @${width}px: the preview is not above the fields`);
+                if (width < 1100 && measured.previewFirst !== false) {
+                  editorFindings.push(`${route} @${width}px: the preview is not below the fields`);
                 }
               }
             }
             record(
-              'the product editor stacks to one column below 1100px with the preview first, and never widens the document',
+              'the product editor stacks to one column below 1100px in source order, and never widens the document',
               editorFindings.length === 0,
               editorFindings.length === 0 ? `${editorWidths.length} widths x 2 routes` : editorFindings.join(', '),
             );
@@ -2994,11 +3074,10 @@ async function main(): Promise<void> {
             );
 
             /*
-             * Phase 28 - the announcement bar is owner-editable, and the preview notice is not.
-             *
-             * The round trip matters more than the form: what the owner saves must reach the
-             * storefront, the fixed preview notice must survive beside it, and clearing the message
-             * must remove the bar rather than leave a blank strip.
+             * The announcement bar is owner-editable and, since ADR 0020, it carries **only** the owner's
+             * line - the locked preview notice it used to sit under was removed with the rest of the demo
+             * wording. The round trip matters more than the form: what the owner saves must reach the
+             * storefront, and clearing the message must remove the bar rather than leave a blank strip.
              */
             await browser.navigate('/admin/settings/announcement');
             const announcementUi = await browser.evaluate<{
@@ -3006,7 +3085,7 @@ async function main(): Promise<void> {
               hasTextarea: boolean;
               hasVisibleToggle: boolean;
               empty: boolean;
-              previewNoticeCopy: boolean;
+              previewCopy: boolean;
             }>(`(() => {
               const heading = document.querySelector('h1')?.textContent?.trim() ?? null;
               const card = document.querySelector('form[action="/api/admin/announcement"]');
@@ -3015,16 +3094,16 @@ async function main(): Promise<void> {
                 hasTextarea: card !== null && card.querySelector('textarea[name="message"]') !== null,
                 hasVisibleToggle: card !== null && card.querySelector('input[name="visible"]') !== null,
                 empty: /no message saved/i.test(document.body.textContent || ''),
-                previewNoticeCopy: /preview notice/i.test(document.body.textContent || ''),
+                previewCopy: /same component/i.test(document.body.textContent || ''),
               };
             })()`);
             record(
-              'the announcement settings screen offers one message, one switch and the preview caveat',
+              'the announcement settings screen offers one message, one switch and the preview caption',
               announcementUi.title === 'Announcement bar' &&
                 announcementUi.hasTextarea &&
                 announcementUi.hasVisibleToggle &&
                 announcementUi.empty &&
-                announcementUi.previewNoticeCopy,
+                announcementUi.previewCopy,
               JSON.stringify(announcementUi),
             );
 
@@ -3047,9 +3126,9 @@ async function main(): Promise<void> {
               tx.select({ key: storeSetting.key, value: storeSetting.value }).from(storeSetting),
             );
             record(
-              'saving the announcement reaches the storefront and keeps the preview notice',
+              'saving the announcement reaches the storefront and carries no demo notice',
               storefrontWithMessage.body.includes(ANNOUNCEMENT_TEXT) &&
-                /this is a preview store/i.test(storefrontWithMessage.body),
+                !/this is a preview store/i.test(storefrontWithMessage.body),
               `rows ${savedRows.length}`,
             );
             record(
@@ -3077,8 +3156,50 @@ async function main(): Promise<void> {
             record(
               'clearing the message removes the bar instead of leaving a blank line',
               !storefrontCleared.body.includes(ANNOUNCEMENT_TEXT) &&
-                /this is a preview store/i.test(storefrontCleared.body),
+                !storefrontCleared.body.includes('data-announcement-bar'),
               'storefront re-fetched',
+            );
+
+            /*
+             * The preview is the point of the screen, so it is asserted as behaviour, not markup: the
+             * draft has to reach it, and the visibility switch has to add and remove the owner's line.
+             * Since ADR 0020 that line is the **only** thing the strip shows - there is no locked notice
+             * above it any more. `browser.type` uses the native value setter on purpose: a plain
+             * `el.value = x` would leave a controlled preview untouched and let this assertion pass
+             * against a preview that never updates.
+             */
+            await browser.navigate('/admin/settings/announcement');
+            await browser.type('textarea[name="message"]', 'Eid orders close on Friday.');
+            const previewHidden = await browser.evaluate<{ text: string; count: string }>(`(() => ({
+              text: document.querySelector('figure')?.textContent ?? '',
+              count: document.querySelector('[class*="counter"]')?.textContent ?? '',
+            }))()`);
+            record(
+              'typing updates the character count and stays out of the preview while the switch is off',
+              previewHidden.count.includes('27 of 300') &&
+                !previewHidden.text.includes('Eid orders close on Friday.'),
+              JSON.stringify(previewHidden),
+            );
+
+            await browser.click('input[name="visible"]');
+            const previewOn = await browser.evaluate<string>(
+              `document.querySelector('figure')?.textContent ?? ''`,
+            );
+            record(
+              'switching the message on shows it alone in the preview',
+              previewOn.includes('Eid orders close on Friday.') &&
+                !/this is a preview store/i.test(previewOn),
+              JSON.stringify(previewOn.slice(0, 160)),
+            );
+
+            await browser.click('input[name="visible"]');
+            const previewOff = await browser.evaluate<string>(
+              `document.querySelector('figure')?.textContent ?? ''`,
+            );
+            record(
+              'switching it off removes the owner line from the preview',
+              !previewOff.includes('Eid orders close on Friday.'),
+              JSON.stringify(previewOff.slice(0, 160)),
             );
 
             // The delivery checks that follow operate on the delivery page, so return to it.
@@ -3136,16 +3257,16 @@ async function main(): Promise<void> {
       {
         const home = await call(base, '/');
         record('the storefront home page still renders', home.status === 200, `status ${home.status}`);
-        // Matched against the configured copy rather than against English words: the storefront
-        // renders the default locale on the server, so an English-only assertion would fail on a
-        // correct page. Either locale satisfies it, and the locked entry is what must be present.
+        /*
+         * The demo notice was removed by the owner (2026-10-23), so this assertion guards the opposite
+         * direction: no locked notice may come back, and no storefront page may describe the shop as a
+         * preview. The configured list is read rather than hard-coded so a reintroduction fails here.
+         */
         const lockedAnnouncements = activeAnnouncements().filter((announcement) => announcement.locked);
         record(
-          'the locked demo announcement is still present on the storefront',
-          lockedAnnouncements.length > 0 &&
-            lockedAnnouncements.some(
-              (announcement) => home.body.includes(announcement.message),
-            ),
+          'no demo or preview notice remains on the storefront',
+          lockedAnnouncements.length === 0 &&
+            !/preview store|demonstration storefront|no payments are taken/i.test(home.body),
           `${lockedAnnouncements.length} locked announcement(s) configured`,
         );
         const products = await call(base, '/products');

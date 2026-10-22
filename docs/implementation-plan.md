@@ -1037,40 +1037,253 @@ containment with the preview first below 1100px); `test` **165/165**; `test:db` 
 inspected; **three defects were found that way and fixed** - a duplicated page heading, a second action
 bar that overlaid the form, and a brand field missing from the required summary.
 
+## Phase 37 - the storefront leaves demonstration (implemented locally, 2026-10-23)
+
+**Owner directive.** Remove the demo notice completely, upgrade the storefront, centre the desktop
+navigation, give the phone the same bottom-bar navigation the admin shell uses, redesign sign in /
+registration / my account, and make homepage sections fill their rows. Recorded in **ADR 0020**.
+
+**What changed**
+
+- **The demo notice is gone.** `src/data/announcements.ts` is an empty typed list; the strip renders the
+  owner's saved line only, with no "Demo"/"Info" badge, and is absent when that line is empty. The footer's
+  demonstration sentence was removed too. `check:catalog` and `verify:browser` were **inverted, not
+  deleted**, so a reintroduced demo notice is a failing test.
+- **One navigation model per size.** The drawer is deleted. Below 1024px a fixed bottom tab bar carries
+  Home / Shop / Categories / Cart / Account (64px targets, cart count, `aria-current`, safe-area inset,
+  shell reserves its height). From 1024px the header's own centred navigation takes over.
+- **`/categories` is a new route** with per-category product counts, because the bar's Categories tab
+  needed a destination once the drawer was gone.
+- **The desktop header is a `1fr auto 1fr` grid** so the links are centred in the viewport; search is a
+  compact link between 1024 and 1199px and a real 240px field from 1200px.
+- **The full-width grid is 2 columns on a phone and 3 from 880px**, and homepage sections publish six
+  (offer row three), so every row is complete at both widths. `ProductGrid` measures its own child count
+  and lets a lone last card span a phone row.
+- **Sign in, registration and the one-time-code page share `AuthShell`**, a two-panel frame; the account
+  page became a hub (orders, details, password route, session), and its signed-out state uses the same
+  frame.
+- **The catalog's filters are a disclosure on a phone** with an active-count badge, because the chips used
+  to fill the whole first screen before a product appeared.
+
+**Owner-requested admin fixes in the same change**
+
+- **The money field's currency prefix no longer overlays the typed amount.** It was an absolutely
+  positioned `BDT` over an input padded by one character; it is now a flex sibling with the border on the
+  wrapper, and the input keeps its 40px control height.
+- **`Name (Bangla)` is optional** on the product editor: migration `0007_product_name_bn_optional` drops
+  `NOT NULL` on `product.name_bn` (and on `order_item.product_name_bn`'s snapshot), the check allows
+  null, and a blank field stores `NULL` rather than copying the English name.
+- **Required markers are red asterisks** with the word in a visually hidden span, on the product form,
+  category and brand forms, the COD audit note, confirm dialogs and the delivery default.
+
+**Schema: one additive migration.** `0007_product_name_bn_optional` (two `DROP NOT NULL`, one re-created
+check); **tables unchanged at 43**. `drizzle/meta/0006_snapshot.json` was missing from an earlier
+hand-written migration and was reconstructed, so the 0007 SQL contains only the intended change.
+
+### Owner-requested density revision (same day, 2026-10-23)
+
+Three storefront decisions in the same revision, all UI only - **no schema, route, data or policy change**:
+
+- **Five products per row on a desktop, not three.** The full-width grid is 2 columns on a phone, 3 from
+  720px and 5 from 1200px, and every fixed homepage section publishes five. There is deliberately **no
+  four-column step**: five cards in a four-column grid strand one, and a fifth card at 1024px would be
+  ~175px, under the 200px floor. At 1440px a card is ~252px, the same width as a catalog-listing card.
+  The desk cards had measured ~437px at three across, which the owner rejected as too large.
+- **The order is featured, offers, recently added, more to explore**, and the featured row is a plain
+  grid of five. The scrolling shelf was removed: it existed to reach a sixth card, so with one row of
+  five there is nothing off screen and no controls or scroll bar. `FEATURED_MAX` is 5 for that reason.
+- **"More to explore" is a browse row**, not a five-card selection: it leads with the curated collection
+  and continues into every product the rows above did not show, up to ten (two desktop rows), ending in
+  a centred "View more products" button to `/products`. With 22 products the four sections resolve to
+  5 / 5 / 5 / 7 and every product appears exactly once.
+- **The announcement strip is left-aligned on the page canvas**, with no background. `--color-action-soft`
+  and the pink info variant no longer paint it; the text starts on the brand's gutter.
+- **The category index is one row per department on a phone.** Two cards per row gave ~139px of inner
+  width for an icon, a name, a blurb and a count, and the count printed over the blurb; the name and count
+  now share one line. The category listing also names its category in the `h1` (it said "All products"),
+  keeps its filter panel closed on arrival, and its duplicate phone search field is hidden by a rule that
+  is no longer overridden.
+
+`ProductGrid` also wraps each card in an `<li>` for the first time: the grid's own track rules and the
+odd-count phone span targeted `> li`, but the cards were rendered as direct `<article>` children, so that
+span had never actually applied.
+
+**Deliberately not done:** no deployment, no provisioning, no payment gateway, no delivery amount, no new
+dependency, and no change to any order state machine, permission or money rule.
+
+**Verified** with `typecheck`, `lint`, `check:i18n`, `check:catalog`, `db:validate`, `db:check`,
+`build`, `verify:admin` and `verify:browser` against a served production build; results are recorded in
+`docs/project-status.md`. Screenshots at 1440 and 390px were captured and inspected; defects found that
+way and fixed include a 240px-wide results column (a collapsed filter removed from the grid let the
+results slide into the filter track), an overflowing password pair, a two-click shelf paging step, and a
+preview column that pushed every field below the fold on a new product.
+
+
+### Phase 37 revision - the phone landing gets shorter, and the hero loses its band (2026-10-23)
+
+Two owner corrections to the storefront, both presentation-only:
+
+1. **Below 720px the homepage no longer shows the category strip or the three hero photographs.** The
+   phone already reaches the category index twice - the fixed tab bar and the hero's "Browse categories"
+   button - so a five-card strip was a third route and cost most of a screen before the first product.
+   The teaser photographs went with it for the same reason. Both are hidden with CSS, so the categories
+   section stays in the DOM and the tablet/desktop composition is unchanged. `verify:browser` check 36 now
+   asserts the omission and check 36d asserts the restoration; check 36b still proves the hero link is a
+   44px+ target and 36c that the tab bar carries five destinations.
+2. **The homepage hero has no background band.** The lavender panel introduced with the Phase 37 hero was
+   removed: the copy and the photographs now sit on the page canvas like every section below them, which
+   is what the storefront looked like before, and the page reads as one surface rather than a sequence of
+   coloured blocks.
+
+No data, route, price, availability or copy changed. A broken selector was found in the suite while
+re-running it (check 27 used `div[class$*="_scroller"]`, which is not a valid CSS selector and aborted the
+run at check 34); it was corrected to `div[class*="_scroller"]`.
+
+Verified 2026-10-23 in headless Chromium at 390 / 768 / 1440: the strip and the collage are absent at 390
+and present at 768 and 1440, the hero's computed background is transparent at every width, and no page
+overflows horizontally.
+
+## Phase 38 - dashboard figures, analytics and promotion codes (implemented locally, 2026-10-23)
+
+The owner compared the panel with **Zatiq Easy** and asked for the three things it does better: graphs on
+the dashboard, a real reporting screen, and promotion codes that actually apply at checkout. The three
+Zatiq screens were inspected with the owner's explicit written authorization, **as a UX reference only**
+(ADR 0021). Nothing was integrated with, and nothing new was added to, the vendor's platform.
+
+**What the dashboard is now.** A greeting, five derived figures (revenue on completed and paid orders,
+orders placed, items sold, customers served, and what is waiting on a call), a revenue line and an order
+status ring, then the COD worklist, then the recent-order list with the money, catalog and promo cards
+beside it. The queue is no longer the first thing on the page - the owner asked for the shop's numbers
+first - but it is still above every table, and an empty queue is now one strip rather than a large empty
+panel.
+
+**What analytics is.** `/admin/analytics` with a 7/30/90-day window: revenue, orders, items, customers,
+average order and discounts; the revenue series with its peak day; the fulfilment mix; what sold; the
+money split (customer payments, the delivery fee inside them, recorded extra courier costs, estimated
+net); and promo usage. Every figure is an aggregate over order rows computed on read. **The screen states
+that visits are not measured**, because this product runs no tracker (D4).
+
+**What promotion codes are.** Two tables and one amendment: `promo_code` (a percentage with an optional
+cap, or a fixed amount; optional minimum order, window and usage limit; pause rather than delete),
+`promo_code_redemption` (one row per order, unique per order, append-only) and
+`order.discount_minor` (an immutable snapshot, checked by the schema so
+`total = subtotal - discount + shipping`). A code's use count is `count(*)` over the redemption rows,
+never a counter, and the last use is protected by locking the code row inside the order transaction. The
+checkout quotes the discount through a POST that writes nothing, and **a code that cannot apply refuses
+the order rather than charging more than the screen stated**.
+
+**Owner approval is recorded for the feature, not for a policy guess.** The mechanics are fixed by ADR
+0021; the specific codes, percentages and caps are the owner's to create on the screen. No code, amount,
+percentage or window was invented in data.
+
+**Schema:** migration `0008_promo_codes` - two tables and `order.discount_minor`, taking the schema
+**43 -> 45 tables**, with the order immutability trigger widened to protect the discount. No existing
+migration was edited.
+
+**Verified 2026-10-23:** `test` **178/178** (13 new promotion-evaluation tests), `test:db` **255/256**
+(8 new promotion tests, including a real order carrying a discount and its redemption; the one failure is
+the pre-existing catalog name test described below), `check:i18n` (1148
+keys), `check:catalog`, `typecheck`, `lint` (0 errors, 2 pre-existing warnings), `db:validate`
+(45 tables, 163 checks, 91 indexes, 12 triggers), and a Chromium walk-through: create a code through the
+real form, register a customer, add to cart, apply the code at checkout (10% of Tk 2,250 capped at
+Tk 200), place the order, then approve -> dispatch -> deliver -> record payment, and read the resulting
+figures back on both screens. **One pre-existing database test still fails** - `tests/db/catalog.test.ts`
+"refuses a product that is missing one of its two names" - because the uncommitted migration `0007` made
+`name_bn` optional and the test was not updated with it. It is unrelated to this phase and was left alone.
+
+**Not verified:** `verify:browser` and `verify:admin` were **not run against the new screens** (they
+cover the storefront and the pre-existing admin surface), real iOS Safari, Android Chrome and screen
+readers remain unverified, and the new pages have been exercised in headless Chromium only.
+
+**Not built (each a new owner decision):** coupon links, automatic campaigns, first-order-only rules,
+per-customer limits, free-delivery codes, stacking, referral attribution, and any third-party analytics.
+
+**Phase 36 (category editor parity) is implemented locally and is not deployed.** The category screens
+are three routes - the list (`/admin/categories`), the create editor (`/admin/categories/new`) and the
+edit editor (`/admin/categories/[categoryId]`) - and `?new=1` / `?edit=` are gone rather than kept as
+dead aliases. The editor uses the shell the product and promo editors established: one sticky action
+bar, a readiness sentence that names the empty fields, the shared two-column layout from 1080px,
+explicit validation in words instead of native bubbles, and a preview of the address the category will
+have. The right column also carries the two **derived** counts an archive is refused on - live products
+and live subcategories - and the list shows the subcategory count per row, so the owner sees what is in
+the way before pressing Archive. A refused create or edit returns to the editor that produced it
+(`returnTo`, allowlisted to `/admin/categories`, `/admin/categories/new` and `/admin/categories/[id]`)
+with a notice code, so typing survives a refusal. **Deliberately not built:** a parent picker or any
+subcategory management - that is a decision about depth the owner has not taken, and `parent_id` is read
+only to count. **Schema unchanged: 45 tables, no migration.** Two defects were fixed on the way: a
+category's slug stays taken after it is archived, so re-using it used to reach the unique index and
+surface as a **500** (now refused in the same transaction with the same conflict notice); and the
+visibility checkbox could not actually hide a category, because an unticked box posts nothing and the
+service reads nothing as visible (the form now posts an explicit `false` beside the box).
+
+Verified 2026-10-23: `typecheck`, `lint` (0 errors, 2 pre-existing warnings), `check:i18n` (1172 keys,
+879 referenced), `tests/db/catalog.test.ts` **31/32** (the one failure is the pre-existing product-name
+test that migration `0007` invalidated), and an HTTP walk-through against the running dev server:
+create through the real route, update to hidden, a crafted `returnTo` refused, missing CSRF refused
+(403), archive, an archived id and an unknown id both **404**, old `?edit=` / `?new=` inert, and every
+refusal returning a notice code instead of a 500.
+
+**Not verified:** the editor's *client-side* layer - the readiness summary, the blocked-submit alert and
+live state - because the shared dev server on port 3000 is serving a stale **production** `.next`
+directory, so **no page in the app hydrates** in this environment (`/admin/catalog/new`, which predates
+this phase, behaves the same). Routes, redirects, rendered markup and saved rows were verified; the
+interactive layer needs the dev server restarted after removing `.next`. Headless Chromium only.
+
+**Phase 39 (Telegram order notifications) is implemented locally and is not deployed (ADR 0022).** The
+owner is told about an order without opening the panel: when an order is placed the server posts a short
+message to every **active** destination registered at **Settings -> Integrations -> Telegram**. The bot
+credential is deployment configuration (`TELEGRAM_BOT_TOKEN`, server-only, never stored, shown or logged -
+the screen receives a boolean); recipients are rows in the new `telegram_recipient` table (label, numeric
+chat id, active), so several owners each get their own message and one id cannot be registered twice.
+A recipient is **paused rather than deleted** and its id is editable, because a mistyped id is the common
+mistake. The send is scheduled with `after()` and its failure is swallowed: a chat app can never refuse,
+roll back or delay an order, and a replayed checkout (`replayed`) does not notify twice. The screen
+carries a **test message** button because Telegram fails silently until the recipient has pressed Start.
+**Migration `0009_telegram_recipients`, additive; schema 45 -> 46 tables.**
+
+Verified 2026-10-23: `tests/unit/telegram.test.ts` **16/16** (no network), `typecheck`, `lint` (0 errors, 2
+pre-existing warnings), `check:i18n` (1221 keys, 909 referenced), `db:validate` (46 tables, 165 checks, 93
+indexes) after applying the migration, a live `getMe` returning `queenbees_orderbot`, a real `sendMessage`
+to an unregistered id handled as `{attempted: 1, delivered: 0, failures: ['chat not found']}`, an HTTP
+walk-through of add / duplicate-refused / malformed-refused / test / pause / resume / anonymous, and a
+Chromium pass asserting the token appears nowhere in the page. **Not verified:** delivery to a real
+Telegram account (no owner chat id was supplied), `after()` scheduling under a deployed runtime, and the
+Telegram app itself.
+**Delivery charges are configured (2026-10-23).** The owner supplied the three amounts and they are saved
+through the real screen: **Dhaka Tk 100, Chattogram Tk 60, other districts Tk 120**. Read back from the
+server resolver: `dhaka -> 10000`, `chattogram -> 6000`, `others -> 12000` poisha, and the panel shows
+120 / 100 / 60. `npm run db:seed:delivery` writes the same three for a **fresh** database (idempotent and
+non-destructive: if a default is already configured it writes nothing, so re-running can never overwrite a
+figure the owner has since chosen). **Checkout is no longer blocked by configuration** - the only blocker
+that ever prevented a customer from completing a real purchase is gone.
+
 ## Current single best next step
 
-**Phase 36 - category editor parity (proposed, not authorized).** The product editor now sets the
-vocabulary - own route, two columns, sticky action bar, live preview, explicit validation - and the
-category screen is the next surface still using the old inline form on a list. It needs **no schema
-change**: `category` already has `parent_id`, `sort_order` and `is_visible`, so the work is the same
-route split, the same editor shell, a derived "Total subcategories" count, and a specific empty state.
-**Owner approval is required before any code changes.** Subcategory *management* (creating a child
-category) remains a separate decision about depth and is not part of this.
+**Phase 40 - the ban control was verified, not rebuilt (2026-10-23).** The previous entry here claimed the
+owner-facing ban control did not exist. **That was wrong**, and checking before building is why nothing was
+duplicated: `/api/admin/customers` has called `suspendCustomer` since Phase 18, the customers list and the
+customer detail screen both carry a reason-requiring confirmation dialog (10-500 characters), the route is
+gated on `customer.suspend`, and the audit action is `customer.banned`. What was missing was **evidence**,
+not code - so the phase exercised it end to end against a throwaway customer: register, ban with a reason,
+`/account` no longer resolves to the account, sign-in is refused, a second ban is a **conflict** rather
+than a silent rewrite, a short reason is **invalid**, and the audit trail carries the action, the reason
+`Confirmed fake order QB1 - no such address` and the actor `Demo Owner`. A control with its own confirmation
+dialog was verified positively too: a signed-in customer's page shows their address, and the banned
+customer's does not.
 
-**Still outstanding alongside it, and unchanged: the actual BDT delivery amounts, supplied by the owner
-(D-item 5).** This is not an implementation task -
-it is the one owner input that makes checkout work at all, and the plan already names it as the reason
-checkout blocks: until the default charge for Other districts is saved at **Settings -> Delivery charges**,
-`checkout` correctly refuses every order. It is now the **only** documented blocker that prevents a real
-customer from completing a real purchase end to end. Every other remaining item is either deferred by owner
-decision (refunds), a convenience over an existing primitive (the owner-facing ban control), outside the
-confirmed workflow (courier consignment, dispatch coordination - ADR 0017), or blocked by the same class of
-missing input (failed-delivery handling, retention, image rights).
-
-**Prerequisites:** the owner supplies **three actual amounts in BDT** - one required default for Other
-districts, and optionally separate figures for Dhaka and Chattogram. No price may be guessed or
-conventionally defaulted; a guessed figure becomes a published commitment and a 100x money error is the
-documented risk. The screen, the server-side resolution and the immutable order snapshot already exist and
-are verified, so **no code is expected**; if the owner also decides failed-delivery costs are charged to
-someone, that is a separate decision and a separate change.
-
-**Acceptance:** the owner saves the default through the real screen; a customer can then complete a
-checkout choosing **Other districts** and the order records the configured amount as
-`shipping_minor` with the total equal to items subtotal plus that charge; choosing **Dhaka** uses the
-override if one was saved and the default otherwise; an order already placed keeps the amount it was
-placed with after the configuration changes; and the dashboard's gross payment, standard fee and estimated
-net figures reconcile against the orders they are derived from.
+**One real gap survives, and it is a decision rather than a defect: there is no reversal path.** A ban is a
+guarded `active -> suspended` transition and nothing sets `suspended` back to `active`; `status` can only
+move forward from the panel. That is deliberate in D20 (a ban follows a confirmed fake order) but it means a
+mistaken ban cannot be undone without touching the database. **The next step is the owner's answer, not
+code:** either a ban is final and the panel should say so plainly, or a restore action is a new decision
+with its own reason, audit action and confirmation (`customer.ban_reversed`), and the same rule that a ban
+never restores an order still holds. Until that is decided, nothing here changes.
 
 **Not authorized by this recommendation:** deploying, provisioning, DNS, credentials, remote database
-changes, refunds, courier integration, or inventing any delivery amount. The owner supplies the figures;
-nothing is filled in on their behalf.
+changes, refunds, courier integration, or changing any ban policy. Banning a real customer, like deploying,
+remains the owner's action.
+
+**Also outstanding, and separate:** provisioning and deployment (a real customer cannot reach this build),
+image-rights clearance for the 22 products tagged `merchant_source_pending_confirmation`, and the
+length-of-retention decision. Each is an **owner decision with its own authorization**, not an
+implementation task, and none is implied by any approval to date.

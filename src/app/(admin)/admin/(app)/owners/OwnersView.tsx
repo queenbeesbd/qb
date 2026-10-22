@@ -79,7 +79,7 @@ export function OwnersView({
 
   return (
     <>
-      <PageHeader eyebrow={t('admin.nav.group.system')} title={t('admin.owners.title')} description={t('admin.owners.body')} />
+      <PageHeader title={t('admin.owners.title')} description={t('admin.owners.body')} />
 
       {notice !== null && (
         <Notice tone={noticeIsError ? 'error' : 'success'}>{t(NOTICE_KEYS[notice])}</Notice>

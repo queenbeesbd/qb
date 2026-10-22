@@ -166,6 +166,7 @@ export async function listCategoriesForAdmin(
     sortOrder: number;
     isVisible: boolean;
     productCount: number;
+    subcategoryCount: number;
   }[];
   readonly total: number;
 }> {
@@ -199,6 +200,12 @@ export async function listCategoriesForAdmin(
         select count(*)::int from "product"
         where "product"."category_id" = "category"."id" and "product"."deleted_at" is null
       )`,
+      // The second half of the archive refusal, derived the same way. The list shows it beside the
+      // product count so the owner can see why an archive would be refused before pressing it.
+      subcategoryCount: sql<number>`(
+        select count(*)::int from "category" child
+        where child."parent_id" = "category"."id" and child."deleted_at" is null
+      )`,
     })
     .from(category)
     .where(where)
@@ -215,11 +222,15 @@ export async function listCategoriesForAdmin(
 }
 
 /**
- * One live category by id, for the edit form.
+ * One live category by id, for the edit route.
  *
  * Returns `null` for anything that is not a live row - an archived category, an unknown id or a
- * malformed one - so a hand-crafted `?edit=` cannot disclose an archived record. The lookup is a
- * direct read rather than a scan of a page, so it does not depend on where the owner has paged to.
+ * malformed one - so a hand-crafted id cannot disclose an archived record. The lookup is a direct
+ * read rather than a scan of a page, so it does not depend on where the owner has paged to.
+ *
+ * `productCount` and `subcategoryCount` are the two derived counts `archiveCategory` refuses on, read
+ * here so the editor can say what is in the way *before* the owner tries to archive it. Both are
+ * correlated `count(*)` over live rows - never a stored counter, so neither can drift from the catalog.
  */
 export async function getCategoryForAdmin(
   tx: Transaction,
@@ -233,6 +244,8 @@ export async function getCategoryForAdmin(
   descriptionEn: string | null;
   sortOrder: number;
   isVisible: boolean;
+  productCount: number;
+  subcategoryCount: number;
 } | null> {
   const id = parseId(categoryId);
   if (id === null) return null;
@@ -247,6 +260,14 @@ export async function getCategoryForAdmin(
       descriptionEn: category.descriptionEn,
       sortOrder: category.sortOrder,
       isVisible: category.isVisible,
+      productCount: sql<number>`(
+        select count(*)::int from "product"
+        where "product"."category_id" = "category"."id" and "product"."deleted_at" is null
+      )`,
+      subcategoryCount: sql<number>`(
+        select count(*)::int from "category" child
+        where child."parent_id" = "category"."id" and child."deleted_at" is null
+      )`,
     })
     .from(category)
     .where(sql`${category.id} = ${id} and ${category.deletedAt} is null`);
@@ -437,13 +458,19 @@ async function normalizeCategoryInput(
       : parseSortOrder(input.sortOrder);
   if (sortOrder === null) throw new ValidationError('the display order must be a whole number');
 
+  /*
+   * The slug is checked against **every** row, archived ones included. Archiving a category does not
+   * free its slug - the unique index still holds it - so checking only live rows let a clash through to
+   * the database and surfaced as a 500 instead of a refusal the owner can read. Re-using an archived
+   * category's slug is refused here, in the same transaction, with the same message.
+   */
   const clash = await tx
     .select({ id: category.id })
     .from(category)
     .where(
       excludeId === null
-        ? sql`${category.slug} = ${slug} and ${category.deletedAt} is null`
-        : sql`${category.slug} = ${slug} and ${category.deletedAt} is null and ${category.id} <> ${excludeId}`,
+        ? sql`${category.slug} = ${slug}`
+        : sql`${category.slug} = ${slug} and ${category.id} <> ${excludeId}`,
     );
   if (clash.length > 0) throw new ConflictError('another category already uses that slug');
 
@@ -471,7 +498,8 @@ export const PRODUCT_PAGE_SIZE = 25;
 
 export type ProductInput = {
   readonly slug?: unknown;
-  readonly nameBn: unknown;
+  /** Optional since the owner's 2026-10-23 decision; blank stores null rather than the English name. */
+  readonly nameBn?: unknown;
   readonly nameEn: unknown;
   readonly descriptionBn?: unknown;
   readonly descriptionEn?: unknown;
@@ -507,7 +535,7 @@ export async function listProductsForAdmin(
   readonly rows: {
     id: number;
     slug: string;
-    nameBn: string;
+    nameBn: string | null;
     nameEn: string;
     categoryId: number;
     categoryNameEn: string;
@@ -603,7 +631,7 @@ export async function getProductForAdmin(tx: Transaction, productId: unknown): P
   | {
       id: number;
       slug: string;
-      nameBn: string;
+      nameBn: string | null;
       nameEn: string;
       descriptionBn: string | null;
       descriptionEn: string | null;
@@ -954,7 +982,7 @@ async function normalizeProductInput(
   excludeId: number | null,
 ): Promise<{
   slug: string;
-  nameBn: string;
+  nameBn: string | null;
   nameEn: string;
   descriptionBn: string | null;
   descriptionEn: string | null;
@@ -968,11 +996,15 @@ async function normalizeProductInput(
   availability: Availability;
   isPublished: boolean;
 }> {
-  const nameBn = parseRequiredText(input.nameBn, TEXT_BOUNDS.productName);
+  /*
+   * The English name is the product's identity in this English-first shop; the Bangla name is optional
+   * owner content. A blank Bangla field is stored as NULL rather than copied from the English name:
+   * copying would make the record claim a translation that was never written.
+   */
+  const nameBn = parseOptionalText(input.nameBn, TEXT_BOUNDS.productName);
+  if (!nameBn.ok) throw new ValidationError('the Bangla name is too long');
   const nameEn = parseRequiredText(input.nameEn, TEXT_BOUNDS.productName);
-  if (nameBn === null || nameEn === null) {
-    throw new ValidationError('a product needs both a Bangla and an English name');
-  }
+  if (nameEn === null) throw new ValidationError('a product needs an English name');
 
   const slug =
     input.slug === undefined || input.slug === '' ? slugify(nameEn) : parseSlug(input.slug);
@@ -1041,7 +1073,7 @@ async function normalizeProductInput(
 
   return {
     slug,
-    nameBn,
+    nameBn: nameBn.value,
     nameEn,
     descriptionBn: descriptionBn.value,
     descriptionEn: descriptionEn.value,

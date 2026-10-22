@@ -121,7 +121,6 @@ export function AdminOrdersView({
   return (
     <>
       <PageHeader
-        eyebrow={t('admin.nav.group.commerce')}
         title={t('admin.orders.title')}
         description={t('admin.orders.body')}
       />

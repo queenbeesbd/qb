@@ -19,8 +19,8 @@ test('an enabled dev opt-in serves the fixture catalog with no database connecti
   assert.equal(catalog.source, 'fixture');
   assert.equal(catalog.products.length, 22);
   assert.equal(catalog.categories.length, 5);
-  assert.equal(catalog.featuredIds.length, 6);
-  assert.equal(catalog.collectionIds.length, 8);
+  assert.equal(catalog.featuredIds.length, 5);
+  assert.equal(catalog.collectionIds.length, 5);
 
   // Every record is marked fixture-sourced, and the selections resolve to real records.
   const ids = new Set(catalog.products.map((product) => product.id));

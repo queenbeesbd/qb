@@ -4,6 +4,7 @@ import Link from 'next/link';
 
 import { useTranslation } from '@/i18n/useTranslation';
 import styles from '@/app/account.module.css';
+import { AuthShell } from './AuthShell';
 
 /**
  * One-time credential redemption.
@@ -25,7 +26,7 @@ export function RecoverView({
 
   const noticeText =
     notice === 'weak'
-      ? t('account.errors.weakPassword')
+      ? t('account.errors.weakPassword', { min: 12 })
       : notice === 'throttled'
         ? t('account.errors.throttled')
         : notice === 'invalid'
@@ -33,12 +34,17 @@ export function RecoverView({
           : null;
 
   return (
-    <div className={styles.narrow}>
-      <header className={styles.header}>
-        <h1>{t('account.recoverTitle')}</h1>
-        <p className={styles.muted}>{t('account.recoverBody')}</p>
-      </header>
-
+    <AuthShell
+      heading={t('account.recoverTitle')}
+      lead={t('account.recoverBody')}
+      asideTitle={t('account.authRecoverAside')}
+      points={[t('account.recoverPointCall'), t('account.recoverPointSingle'), t('account.recoverPointSessions')]}
+      footer={
+        <p className={styles.muted}>
+          <Link href={`/account/login?next=${encodeURIComponent(next)}`}>{t('account.loginSubmit')}</Link>
+        </p>
+      }
+    >
       {noticeText !== null && (
         <p className={styles.notice} role="alert">
           {noticeText}
@@ -57,6 +63,7 @@ export function RecoverView({
             required
             maxLength={43}
             pattern="[A-Za-z0-9_-]{43}"
+            placeholder={t('account.recoverCodePlaceholder')}
           />
         </label>
         <label className={styles.field}>
@@ -68,21 +75,13 @@ export function RecoverView({
             required
             minLength={12}
             maxLength={200}
+            placeholder="••••••••"
           />
         </label>
         <button type="submit" className={styles.primaryAction}>
           {t('account.recoverSubmit')}
         </button>
       </form>
-
-      <p className={styles.muted}>
-        <strong>{t('account.noRecoveryTitle')}</strong>
-      </p>
-      <p className={styles.muted}>{t('account.noRecoveryBody')}</p>
-
-      <p className={styles.muted}>
-        <Link href={`/account/login?next=${encodeURIComponent(next)}`}>{t('account.loginSubmit')}</Link>
-      </p>
-    </div>
+    </AuthShell>
   );
 }

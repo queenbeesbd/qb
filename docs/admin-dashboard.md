@@ -186,9 +186,13 @@ other's policy:
 
 ### The post-approval operations (Phase 20b)
 
-The order detail is the workspace for the life of an order. Each control appears **only while its
-transition is legal**, and every one posts to a single guarded endpoint (`/api/admin/orders/transition`)
-that calls a service which re-checks the action's own permission and the order's current state.
+The order detail is the workspace for the life of an order. The **next legal action is the first block
+under the page header**, before the money facts and the record - the owner opens an order to act on it, and
+the record is what they check before acting. The band states the step, why it is offered and the order
+total; a settled order shows **no band at all** rather than an empty panel. Each control appears **only
+while its transition is legal**, and every one posts to a single guarded endpoint
+(`/api/admin/orders/transition`) that calls a service which re-checks the action's own permission and the
+order's current state.
 
 | Control | Appears when | Records |
 | --- | --- | --- |
@@ -306,6 +310,25 @@ attention second, quick access and catalog counts last); inline approval with a 
 a confirmed rejection with a required reason; server-side search plus waiting/decided-today filters;
 product search, stock filter and the availability switch; category list/form consistency; a customer
 detail page with recorded orders and a guarded suspension; and one notice/empty/error vocabulary.
+
+### Shell and overview redesign (implemented locally, 2026-10-22)
+
+The Phase 18 shell was **replaced, not polished**. The dark rail became a **lavender wash of the
+storefront canvas** with the current section in a filled action-purple pill, and the phone's off-canvas
+drawer became a **fixed bottom tab bar** - Overview, COD orders, Products, All orders, More - with the
+remaining destinations, the signed-in account and sign out in a modal More sheet. There is no hamburger,
+because two mobile navigation models would each have to be learned and maintained.
+
+The overview was recomposed around the queue instead of a metrics grid: a greeting as the heading (no
+eyebrow, on any admin page), a lavender queue panel that states the count and the oldest wait in one
+sentence, three worklist cards whose note and Accept/Reject share a full-width footer, then recorded
+revenue and catalog state on the left with anything flagged or refused beside them. On a phone the order
+is queue, attention, money, catalog; the bar and the safe-area inset are always reserved.
+
+Everything the Phase 18 brief promised still holds: the queue uses the same guarded route, the audit note
+is still required and open, rejection still requires a reasoned confirmation, and a settled order still
+shows no action band. `verify:admin` now asserts the bottom bar and the More sheet in Chromium (modal
+focus, Escape, focus restoration) and the overview's action-first layout, and remains green.
 
 **What the brief deferred and remains unbuilt:** dispatch/consignment, cash collection and reconciliation,
 refund and cancellation recording, owner-operated customer credential reset, analytics, delivery-charge
@@ -430,7 +453,37 @@ library, an animation library, and any dashboard metric that cannot be reconcile
    exercised at 360px and with keyboard only.
 5. A stated, written list of what was **not** done, so the next phase is not guessed from silence.
 
-## Analytics design direction
+## Analytics - implemented (Phase 38, ADR 0021)
+
+The direction below was a brief; this is what shipped. It is recorded here so the next change starts from
+the real surface rather than from the plan.
+
+**Two screens, one loader.** `/admin` (last 30 days) and `/admin/analytics` (7 / 30 / 90 days) both read
+`src/server/analytics/read.ts`, so the same thirty days cannot be reported two ways.
+
+| Question | Shipped as | Note |
+| --- | --- | --- |
+| How much came in? | Revenue KPI, completed and paid orders only | Gross payments are never called revenue on their own |
+| How is it moving? | Revenue line, one point per day | Filled by the database so empty days are real; the peak day is stated in numbers |
+| What is in the pipeline? | Order-status ring, plus the status legend with counts and shares | Bucketed by `placed_at` - workload, not money |
+| What sold? | Top products by units, with revenue beside it | Units first because that is what the shelf records; revenue is the second column |
+| What did it cost me? | Money panel: customer payments, the delivery fee inside them, extra courier costs, estimated net | The fee is subtracted exactly once; net is labelled an estimate |
+| Did a code work? | Promo panel: uses, distinct codes, money given away | Redemption rows, never a counter |
+| Who visits? | **Nothing** | No tracker exists. The screen says so in one line |
+
+**Periods** are links, not a client control: `?period=7|30|90`, validated against the fixed set, so a
+crafted value cannot ask for an unbounded scan and the back button works.
+
+**States.** Empty is designed: the revenue figure draws a sentence rather than a line at zero, the ring
+says no orders were placed, and the money panel reads "Not available" for an average with nothing to
+average. There is no loading skeleton: the admin tree is `force-dynamic` and a route-level `loading.tsx`
+was rejected earlier because streaming turns a refused page into a 200 shell.
+
+**Aliases, not comparisons.** A period-over-period comparison was in the brief and is **not** shipped: it
+needs a second query window, and no screen currently has a place to state both windows without inviting a
+"trending up" reading the data cannot support. It stays a future decision.
+
+## Analytics design direction (the original brief, kept for context)
 
 Analytics exists to answer business questions. A chart that answers no question is decoration and is not built.
 

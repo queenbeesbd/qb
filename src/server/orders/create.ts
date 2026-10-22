@@ -49,6 +49,7 @@ import {
 import { checkOrderability } from '@/server/catalog/orderability';
 import { quoteDelivery } from '@/lib/delivery';
 import { loadDeliveryRates } from '@/server/delivery/service';
+import { recordPromoRedemption, resolvePromo } from '@/server/promotions/service';
 
 import { ORDER_LIMITS, type CartLineInput, type ContactInput } from './validation';
 
@@ -70,7 +71,14 @@ export type OrderRefusalReason =
   /** The owner has not configured the required default delivery charge. */
   | 'delivery_unconfigured'
   /** The idempotency key was reused with a different body, or a first attempt is still in flight. */
-  | 'idempotency_conflict';
+  | 'idempotency_conflict'
+  /**
+   * The promotion code the form carried could not be applied at the moment of submission.
+   *
+   * The order is refused rather than placed at full price: the customer agreed to a total that included
+   * the discount, and charging more than the screen stated would be a silent overcharge.
+   */
+  | 'promo_invalid';
 
 export class OrderRefusalError extends Error {
   readonly reason: OrderRefusalReason;
@@ -91,6 +99,13 @@ export type CreatedOrder = {
   readonly paymentState: string;
   readonly codState: string;
   readonly placedAt: Date;
+  /**
+   * True when this submission replayed an earlier one instead of creating an order.
+   *
+   * It exists for the notification hook: a customer who double-submits must not ring the owner's phone
+   * twice for one order. Nothing else may branch on it - the order it describes is the same order.
+   */
+  readonly replayed: boolean;
 };
 
 export type CreateOrderInput = {
@@ -100,6 +115,8 @@ export type CreateOrderInput = {
   readonly fingerprint: string;
   readonly lines: readonly CartLineInput[];
   readonly contact: ContactInput;
+  /** A code the customer typed, already normalized or not; re-resolved here, never trusted. */
+  readonly promoCode?: string | null;
 };
 
 /** An opaque public order reference. Random, uppercase hex, never a sequence and never a customer id. */
@@ -165,7 +182,7 @@ export async function createOrder(tx: Transaction, input: CreateOrderInput): Pro
     if (replayed === null) {
       throw new OrderRefusalError('idempotency_conflict', 'the original order could not be loaded');
     }
-    return replayed;
+    return { ...replayed, replayed: true };
   }
 
   // 2. Account standing, inside this transaction (D20). A UI check would not be enforcement.
@@ -177,21 +194,197 @@ export async function createOrder(tx: Transaction, input: CreateOrderInput): Pro
     throw new OrderRefusalError('banned', 'this account cannot place orders');
   }
 
-  // 3. Resolve every line from database state: orderability, then the authoritative price.
-  const resolved: {
-    productId: number;
-    variantId: number;
-    nameBn: string;
-    nameEn: string;
-    variantLabel: string | null;
-    sku: string;
-    priceMinor: number;
-    compareAtPriceMinor: number | null;
-    quantity: number;
-    imageKey: string | null;
-  }[] = [];
+  // 3-4. Every line resolved from database state, priced, and totalled in integer poisha.
+  const { lines: resolved, subtotalMinor } = await resolveOrderLines(tx, input.lines);
 
-  for (const line of input.lines) {
+  // The same resolver the checkout preview uses. A missing default is a refusal, never free delivery;
+  // an active district override wins over the default. Nothing in the request can supply this number.
+  const rates = await loadDeliveryRates(tx);
+  const quote = quoteDelivery(rates, input.contact.districtCode);
+  if (!quote.ok) {
+    throw new OrderRefusalError(
+      quote.reason === 'unconfigured' ? 'delivery_unconfigured' : 'invalid_district',
+      quote.reason === 'unconfigured'
+        ? 'delivery charges are not configured'
+        : 'the selected district is not recognised',
+    );
+  }
+  const shippingMinor = quote.quote.chargeMinor;
+
+  // 5. The promotion code, resolved against the stored rule with the code row locked, so two checkouts
+  //    cannot both take the last use. The request supplies a string, never an amount.
+  let discountMinor = 0;
+  let appliedPromo: { promoCodeId: number; code: string } | null = null;
+  const promoCodeInput = input.promoCode ?? null;
+  if (promoCodeInput !== null && promoCodeInput.trim() !== '') {
+    const promo = await resolvePromo(tx, promoCodeInput, subtotalMinor, { lock: true });
+    if (!promo.ok) {
+      throw new OrderRefusalError('promo_invalid', `the promotion code was refused: ${promo.reason}`);
+    }
+    discountMinor = promo.discountMinor;
+    appliedPromo = { promoCodeId: promo.promoCodeId, code: promo.code };
+  }
+
+  // Delivery is charged after the discount, so a code can never pay for the courier.
+  const totalMinor = subtotalMinor - discountMinor + shippingMinor;
+
+  const placedAt = new Date();
+  const paymentMethod = 'cod';
+  // The three states stay separate (D9): a COD order has no prepaid money state, waits for the owner's
+  // confirmation, and carries no expiry - there is no prepaid payment to expire.
+  const paymentState = 'not_applicable';
+  const codState = 'cod_pending_approval';
+  const expiresAt = null;
+
+  const orderRows = await tx
+    .insert(order)
+    .values({
+      orderNumber: generateOrderNumber(),
+      customerId: input.customerId,
+      currency: 'BDT',
+      paymentMethod,
+      status: 'pending',
+      paymentState,
+      codState,
+      itemsSubtotalMinor: subtotalMinor,
+      discountMinor,
+      shippingMinor,
+      totalMinor,
+      placedAt,
+      expiresAt,
+    })
+    .returning({ id: order.id, orderNumber: order.orderNumber });
+
+  const created = orderRows[0];
+  if (created === undefined) throw new Error('order insert returned no row');
+
+  await tx.insert(orderContact).values({
+    orderId: created.id,
+    recipientName: input.contact.recipientName,
+    recipientPhone: input.contact.recipientPhone,
+    addressLine: input.contact.addressLine,
+    districtCode: input.contact.districtCode,
+    area: input.contact.area,
+    city: input.contact.city,
+    postcode: input.contact.postcode,
+    deliveryNote: input.contact.deliveryNote,
+  });
+
+  await tx.insert(orderItem).values(
+    resolved.map((line) => ({
+      orderId: created.id,
+      variantId: line.variantId,
+      productNameBn: line.nameBn,
+      productNameEn: line.nameEn,
+      variantLabel: line.variantLabel,
+      sku: line.sku,
+      unitPriceMinor: line.priceMinor,
+      compareAtPriceMinor: line.compareAtPriceMinor,
+      quantity: line.quantity,
+      lineTotalMinor: line.priceMinor * line.quantity,
+      imageKeySnapshot: line.imageKey,
+    })),
+  );
+
+  if (appliedPromo !== null) {
+    await recordPromoRedemption(tx, {
+      promoCodeId: appliedPromo.promoCodeId,
+      orderId: created.id,
+      customerId: input.customerId,
+      discountMinor,
+    });
+  }
+
+  await tx.insert(orderEvent).values({
+    eventKey: `order:${created.orderNumber}:placed`,
+    orderId: created.id,
+    eventType: 'order_placed',
+    toValue: 'pending',
+    actorType: 'customer',
+    actorCustomerId: input.customerId,
+    payload: {
+      itemCount: resolved.reduce((total, line) => total + line.quantity, 0),
+      lineCount: resolved.length,
+      paymentMethod,
+      shippingMinor,
+      discountMinor,
+      promoCode: appliedPromo?.code ?? null,
+      totalMinor,
+    },
+  });
+
+  await tx
+    .update(idempotencyKey)
+    .set({ resultRef: created.orderNumber })
+    .where(
+      sql`${idempotencyKey.scope} = ${IDEMPOTENCY_SCOPE} and ${idempotencyKey.key} = ${input.idempotencyKey}`,
+    );
+
+  return {
+    orderId: created.id,
+    orderNumber: created.orderNumber,
+    totalMinor,
+    paymentMethod,
+    status: 'pending',
+    paymentState,
+    codState,
+    placedAt,
+    replayed: false,
+  };
+}
+
+/** Loads a customer's own order by number, for the idempotent-replay path. */
+async function loadCreatedOrder(
+  tx: Transaction,
+  customerId: number,
+  orderNumber: string,
+): Promise<Omit<CreatedOrder, 'replayed'> | null> {
+  const rows = await tx
+    .select({
+      orderId: order.id,
+      orderNumber: order.orderNumber,
+      totalMinor: order.totalMinor,
+      paymentMethod: order.paymentMethod,
+      status: order.status,
+      paymentState: order.paymentState,
+      codState: order.codState,
+      placedAt: order.placedAt,
+    })
+    .from(order)
+    .where(sql`${order.customerId} = ${customerId} and ${order.orderNumber} = ${orderNumber}`);
+
+  return rows[0] ?? null;
+}
+
+/** One cart line, priced from database state. The only shape order creation writes from. */
+export type ResolvedOrderLine = {
+  readonly productId: number;
+  readonly variantId: number;
+  readonly nameBn: string | null;
+  readonly nameEn: string;
+  readonly variantLabel: string | null;
+  readonly sku: string;
+  readonly priceMinor: number;
+  readonly compareAtPriceMinor: number | null;
+  readonly quantity: number;
+  readonly imageKey: string | null;
+};
+
+/**
+ * Prices a submitted cart, and is the **only** place a line price is resolved.
+ *
+ * Order creation calls this, and so does the checkout promotion preview: a discount quoted from a
+ * different subtotal than the one stored on the order would be a promise the order could not keep.
+ * Every product is checked with `checkOrderability` first, so a line that cannot be ordered refuses the
+ * whole cart rather than being silently dropped.
+ */
+export async function resolveOrderLines(
+  tx: Transaction,
+  lines: readonly CartLineInput[],
+): Promise<{ lines: ResolvedOrderLine[]; subtotalMinor: number }> {
+  const resolved: ResolvedOrderLine[] = [];
+
+  for (const line of lines) {
     const productId = Number.parseInt(line.productId, 10);
     if (!Number.isSafeInteger(productId)) {
       throw new OrderRefusalError('unavailable', 'a cart line is invalid');
@@ -246,136 +439,8 @@ export async function createOrder(tx: Transaction, input: CreateOrderInput): Pro
     });
   }
 
-  // 4. Totals, in integer poisha, from database prices and the owner's delivery configuration only.
   let subtotalMinor = 0;
   for (const line of resolved) subtotalMinor += line.priceMinor * line.quantity;
 
-  // The same resolver the checkout preview uses. A missing default is a refusal, never free delivery;
-  // an active district override wins over the default. Nothing in the request can supply this number.
-  const rates = await loadDeliveryRates(tx);
-  const quote = quoteDelivery(rates, input.contact.districtCode);
-  if (!quote.ok) {
-    throw new OrderRefusalError(
-      quote.reason === 'unconfigured' ? 'delivery_unconfigured' : 'invalid_district',
-      quote.reason === 'unconfigured'
-        ? 'delivery charges are not configured'
-        : 'the selected district is not recognised',
-    );
-  }
-  const shippingMinor = quote.quote.chargeMinor;
-  const totalMinor = subtotalMinor + shippingMinor;
-
-  const placedAt = new Date();
-  const paymentMethod = 'cod';
-  // The three states stay separate (D9): a COD order has no prepaid money state, waits for the owner's
-  // confirmation, and carries no expiry - there is no prepaid payment to expire.
-  const paymentState = 'not_applicable';
-  const codState = 'cod_pending_approval';
-  const expiresAt = null;
-
-  const orderRows = await tx
-    .insert(order)
-    .values({
-      orderNumber: generateOrderNumber(),
-      customerId: input.customerId,
-      currency: 'BDT',
-      paymentMethod,
-      status: 'pending',
-      paymentState,
-      codState,
-      itemsSubtotalMinor: subtotalMinor,
-      shippingMinor,
-      totalMinor,
-      placedAt,
-      expiresAt,
-    })
-    .returning({ id: order.id, orderNumber: order.orderNumber });
-
-  const created = orderRows[0];
-  if (created === undefined) throw new Error('order insert returned no row');
-
-  await tx.insert(orderContact).values({
-    orderId: created.id,
-    recipientName: input.contact.recipientName,
-    recipientPhone: input.contact.recipientPhone,
-    addressLine: input.contact.addressLine,
-    districtCode: input.contact.districtCode,
-    area: input.contact.area,
-    city: input.contact.city,
-    postcode: input.contact.postcode,
-    deliveryNote: input.contact.deliveryNote,
-  });
-
-  await tx.insert(orderItem).values(
-    resolved.map((line) => ({
-      orderId: created.id,
-      variantId: line.variantId,
-      productNameBn: line.nameBn,
-      productNameEn: line.nameEn,
-      variantLabel: line.variantLabel,
-      sku: line.sku,
-      unitPriceMinor: line.priceMinor,
-      compareAtPriceMinor: line.compareAtPriceMinor,
-      quantity: line.quantity,
-      lineTotalMinor: line.priceMinor * line.quantity,
-      imageKeySnapshot: line.imageKey,
-    })),
-  );
-
-  await tx.insert(orderEvent).values({
-    eventKey: `order:${created.orderNumber}:placed`,
-    orderId: created.id,
-    eventType: 'order_placed',
-    toValue: 'pending',
-    actorType: 'customer',
-    actorCustomerId: input.customerId,
-    payload: {
-      itemCount: resolved.reduce((total, line) => total + line.quantity, 0),
-      lineCount: resolved.length,
-      paymentMethod,
-      shippingMinor,
-      totalMinor,
-    },
-  });
-
-  await tx
-    .update(idempotencyKey)
-    .set({ resultRef: created.orderNumber })
-    .where(
-      sql`${idempotencyKey.scope} = ${IDEMPOTENCY_SCOPE} and ${idempotencyKey.key} = ${input.idempotencyKey}`,
-    );
-
-  return {
-    orderId: created.id,
-    orderNumber: created.orderNumber,
-    totalMinor,
-    paymentMethod,
-    status: 'pending',
-    paymentState,
-    codState,
-    placedAt,
-  };
-}
-
-/** Loads a customer's own order by number, for the idempotent-replay path. */
-async function loadCreatedOrder(
-  tx: Transaction,
-  customerId: number,
-  orderNumber: string,
-): Promise<CreatedOrder | null> {
-  const rows = await tx
-    .select({
-      orderId: order.id,
-      orderNumber: order.orderNumber,
-      totalMinor: order.totalMinor,
-      paymentMethod: order.paymentMethod,
-      status: order.status,
-      paymentState: order.paymentState,
-      codState: order.codState,
-      placedAt: order.placedAt,
-    })
-    .from(order)
-    .where(sql`${order.customerId} = ${customerId} and ${order.orderNumber} = ${orderNumber}`);
-
-  return rows[0] ?? null;
+  return { lines: resolved, subtotalMinor };
 }

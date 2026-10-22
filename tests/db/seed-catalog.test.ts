@@ -261,10 +261,15 @@ describe('catalog seed', { skip: toolingAvailable ? false : SKIP_REASON }, () =>
 
     assert.deepEqual(featured, expected(FEATURED_PRODUCT_IDS), 'featured shelf, in order');
     assert.deepEqual(collection, expected(COLLECTION_PRODUCT_IDS), 'collection, in order');
-    assert.equal(featured.length, 6);
-    assert.equal(collection.length, 8);
-    assert.equal(new Set(featured).size, 6, 'no product repeats on the featured shelf');
-    assert.equal(new Set(collection).size, 8, 'no product repeats in the collection');
+    assert.equal(featured.length, 5);
+    assert.equal(collection.length, COLLECTION_PRODUCT_IDS.length);
+    assert.equal(collection.length, 5, 'the collection leads the browse row');
+    assert.equal(new Set(featured).size, 5, 'no product repeats on the featured row');
+    assert.equal(
+      new Set(collection).size,
+      COLLECTION_PRODUCT_IDS.length,
+      'no product repeats in the collection',
+    );
     assert.deepEqual(
       featured.filter((id) => collection.includes(id)),
       [],

@@ -116,6 +116,25 @@ Supporting documents produced in Phase 8: `docs/platform-architecture.md` (archi
 **Phase 12 (Owner/Admin Authentication & Dashboard Foundation) is implemented, locally.** It concerns the **private administrative interface for this store's owner**, not merchant onboarding. The owner signs in with a hashed credential (scrypt, no new dependency), and the admin surface is protected server-side: opaque 256-bit session tokens stored only as a SHA-256 digest in an httpOnly cookie, a 30-minute sliding idle limit inside an 8-hour absolute ceiling, revocation on logout, role change, credential change and administrative action, login throttling by account **and** by source, an owner-issued single-use credential token as the recovery path (no mail provider is authorized, so recovery cannot depend on email delivery), per-permission enforcement on every admin page and mutation, and an append-only audit trail written with the authenticated actor. Migration `0002` adds `staff_recovery_token`, taking the schema to **40 tables**. `npm run verify:admin` drives the real production build over HTTP and asserts the refusals, the CSRF binding, the per-permission denials **and their database effects**; it passes 57/57. **Nothing is deployed and no QueenBee's-bound cloud resource exists**, so provisioning authorization remains a separate owner decision. **D17 (customer authentication) was settled on 2026-10-15 in ADR 0012**, so customer-facing authentication is no longer blocked on a decision.
 
 **One acceptance criterion is deliberately unmet.** A14 in `docs/data-model.md` section 17.5 records that the concurrency guarantees are reasoned and structurally constrained but **have not been executed**, because no database exists. They must be proven by test during implementation.
+**Delivery charges are configured (2026-10-23, D-item 5).** The owner supplied the three amounts and they
+are saved through the real screen: **Dhaka Tk 100, Chattogram Tk 60, other districts Tk 120**. Verified by
+reading them back through the server resolver (`dhaka -> 10000`, `chattogram -> 6000`, `others -> 12000`
+poisha) and by the panel rendering 120 / 100 / 60; an invalid amount is still refused. `npm run
+**Phase 40 (ban control verification) is complete; no feature was added.** An earlier plan entry claimed
+the owner-facing ban control did not exist. It has existed since Phase 18 - `/api/admin/customers` calls
+`suspendCustomer`, both customer screens carry a reason-requiring confirmation (10-500 characters), the
+route is gated on `customer.suspend`, and the audit action is `customer.banned`. Phase 40 therefore verified
+it instead of duplicating it, against a throwaway customer: ban with a reason -> `/account` no longer
+resolves to the account, sign-in refused, second ban **conflict**, short reason **invalid**, audit row
+carrying the reason and actor `Demo Owner`; positive control confirmed a signed-in customer's page does show
+their address. **Schema unchanged.** The one real gap is **no reversal path** - `status` only moves
+`active -> suspended`, so a mistaken ban needs a database edit; whether a restore action exists is an owner
+decision, recorded in the plan.
+db:seed:delivery` seeds the same figures into a fresh database and is idempotent **and non-destructive** -
+it writes nothing when a default already exists, so it can never overwrite a figure the owner later chose.
+**Checkout is no longer blocked by configuration**: this was the one documented owner input that prevented
+a real customer from completing a real purchase end to end. The owner can change any figure at Settings ->
+Delivery charges.
 
 **Phase 13 (Product & Category Management) is implemented, locally.** The owner can create and edit products, categories and brands, and operate the **In Stock / Out of Stock** availability state (D19); the role-management screen the owner ruled out of launch was **removed** and its four API routes and page now 404; owner accounts are managed on a minimal screen where the role is forced rather than chosen, with the last-active-owner guard enforced under a row lock; product imagery is associated from **existing local assets only**, with `content_type`, `width`, `height` and `byte_size` read from the **file bytes**; and a database-backed read layer plus an authenticated read API exist. **The authoritative orderability check refuses an unpublished, archived or out-of-stock product from database state alone.** Migration `0003` adds `product.availability` - **purely additive**, and the schema stays at **40 tables**. `npm run verify:admin` now passes **97/97**, and 37 new database tests cover the catalog and owner-account behaviour. **Nothing is deployed and no QueenBee's-bound cloud resource exists.**
 
@@ -178,3 +197,35 @@ Decisions that can be settled later without rework: staff authentication, ORM ch
 **Parallel work needing no approval:** visual review of the logo and widened layout, real-device and assistive-technology checks, Bangla content review, and image rights clearance.
 
 Last audit date: 2026-10-20.
+
+**Phase 38 (dashboard figures, analytics and promotion codes) is implemented locally and is not deployed (ADR 0021).** The owner compared the panel with Zatiq Easy and asked for three things; all three exist now. **The dashboard** leads with five derived figures, a revenue line and an order-status ring, then the COD worklist, then the recent-order list with money, catalog and promo cards. **`/admin/analytics`** reports a 7/30/90-day window - revenue, orders, items, customers, average order, discounts, the revenue series with its peak day, the fulfilment mix, what sold, the money split and promo usage - every figure an aggregate over order rows computed on read, with **money bucketed by `completed_at` and workload by `placed_at`** and **no traffic figure at all** (the screen says so). **Promotion codes** are real: `promo_code` (percentage with an optional cap, or fixed amount; optional minimum, window, usage limit; pause not delete) plus `promo_code_redemption` (one row per order, unique per order, append-only) plus an immutable `order.discount_minor`; usage is a derived `count(*)`, the last use is protected by locking the code row inside the order transaction, and checkout quotes and applies the discount through one shared evaluator. **Migration `0008` takes the schema 43 -> 45 tables** and widens the order immutability trigger. A code that cannot apply **refuses the order** rather than charging more than the preview stated. Verified 2026-10-23: `test` **178/178**, `test:db` **255/256** (the single failure is the pre-existing `catalog.test.ts` name rule, which the uncommitted migration `0007` invalidated), `check:i18n` (1148 keys), `check:catalog`, `typecheck`, `lint` (0 errors), `db:validate` (45 tables, 163 checks, 91 indexes, 12 triggers), and a Chromium walk-through from creating a code to reading the completed order's figures. **Not verified:** `verify:browser`/`verify:admin` against the new screens, real devices, screen readers. **Nothing is deployed and no cloud resource exists.**
+
+**Phone landing revision (2026-10-23, presentation only).** Below 720px the homepage now hides the category strip and the three hero photographs, and the hero no longer carries a tinted band. Both omissions are CSS-only (the section stays in the DOM), so the tablet/desktop composition, data and routes are untouched, and the phone keeps two category paths: the fixed tab bar and the hero's "Browse categories" button. `verify:browser` check 36 was rewritten to assert the omission and check 36d to assert the restoration; a broken selector in check 27 (`div[class$*="_scroller"]`, not valid CSS) was found while re-running the suite and corrected. Verified over CDP at 390 / 768 / 1440: strip and collage absent at 390 and present above, hero background transparent at every width, zero horizontal overflow.
+**Phase 36 (category editor parity) is implemented locally.** The category screens are three routes -
+the list, `/admin/categories/new` and `/admin/categories/[categoryId]` - and `?new=1` / `?edit=` are
+removed rather than kept as aliases. The editor uses the product/promo shell: one sticky action bar, a
+readiness sentence naming the empty fields, the shared two-column layout from 1080px, explicit
+validation in words, and a preview of the address the category will have. The two counts an archive is
+refused on - live products and live subcategories - are **derived** in SQL, shown in the editor and (the
+subcategory count) in the list, so the owner sees what is in the way before pressing Archive. A refused
+save returns to the editor it came from via an **allowlisted** `returnTo`, so typing survives. No parent
+picker: subcategory management is a depth decision the owner has not taken. **Schema unchanged (45
+tables, no migration).** Two defects fixed: a slug held by an **archived** category used to reach the
+unique index as a **500** (now a conflict notice), and the visibility checkbox could not actually hide a
+category because an unticked box posts nothing (the editor now posts an explicit `false`). Verified:
+`typecheck`, `lint` (0 errors, 2 pre-existing warnings), `check:i18n` (1172 keys), `tests/db/catalog.test.ts`
+**31/32** (the one failure is the pre-existing product-name test migration `0007` invalidated), and an HTTP
+walk-through of create -> update-to-hidden -> archive, a crafted `returnTo`, missing CSRF (403), archived
+and unknown ids (404), and old query parameters inert. **Not verified:** the editor's client-side layer -
+readiness summary, blocked-submit alert, live state - because the shared dev server on port 3000 serves a
+stale production `.next`, so **no page in the app hydrates** there (`/admin/catalog/new` behaves the same);
+restarting dev after removing `.next` is the fix. Headless Chromium only.
+**Phase 39 (Telegram order notifications) is implemented locally (ADR 0022).** Orders notify the owner
+through Telegram: recipients are rows (`telegram_recipient`, label + numeric chat id + active), every
+active row receives each order, and the bot token is a deployment secret (`TELEGRAM_BOT_TOKEN`) that the
+admin screen reports as configured or missing and never displays. The send runs in `after()` and cannot
+fail an order; a replayed checkout does not notify twice; a test button proves a chat id works before a
+real order depends on it. Schema **45 -> 46 tables** (migration `0009`, additive). Verified: unit **16/16**,
+`typecheck`, `lint`, `check:i18n` (1221 keys), `db:validate`, live `getMe`, a real send handled as a
+failure for an unregistered id, and an HTTP walk-through of every operation. **Not verified:** delivery to
+a real Telegram account, and `after()` under a deployed runtime.

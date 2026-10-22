@@ -87,17 +87,20 @@
   --transition-base: 180ms ease;
 
   /*
-   * Admin shell. The rail is a deliberately darker surface than the storefront ink so the
-   * navigation reads as chrome rather than content; the workspace keeps the storefront page
-   * canvas. Content is capped narrower than the storefront container because a worklist is read
-   * in a column, not scanned across a merchandising grid.
+   * Admin shell. The rail is a lavender wash of the storefront canvas, not a dark console: the admin
+   * is the same shop seen from behind the counter. Plum text keeps it legible, the filled action
+   * purple marks the current section, and the workspace keeps the storefront page canvas. Content is
+   * capped narrower than the storefront container because a worklist is read in a column.
    */
-  --color-admin-sidebar: #251e2f;
-  --color-admin-sidebar-ink: #ebe5f3;
-  --color-admin-sidebar-muted: #b6acc6;
+  --color-admin-sidebar: #f3edff;
+  --color-admin-sidebar-ink: #2a2136;
+  --color-admin-sidebar-muted: #6f6480;
+  --color-admin-sidebar-border: #e6dcf4;
   --admin-sidebar-width: 15.5rem;
   --admin-topbar-height: 3.75rem;
   --admin-content-width: 75rem;
+  /* The mobile tab bar: 64px of controls plus the device's own safe-area inset. */
+  --admin-bottom-nav-height: 4rem;
 
   /*
    * Admin control scale (Phase 27): two heights only. The module files cannot declare global

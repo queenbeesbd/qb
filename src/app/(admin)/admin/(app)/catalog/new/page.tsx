@@ -41,7 +41,6 @@ export default async function NewProductPage() {
   return (
     <>
       <PageHeader
-        eyebrow={`${translate('admin.catalog.title')} / ${translate('admin.catalog.createTitle')}`}
         title={translate('admin.catalog.createTitle')}
         description={translate('admin.catalog.createBody')}
       />

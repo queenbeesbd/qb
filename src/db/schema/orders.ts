@@ -49,6 +49,13 @@ export const order = pgTable(
     paymentState: text('payment_state').notNull(),
     codState: text('cod_state').notNull().default('not_applicable'),
     itemsSubtotalMinor: integer('items_subtotal_minor').notNull(),
+    /**
+     * What a promotion code took off, in poisha, as it was at the moment of the order.
+     *
+     * A snapshot, not a cache: the code may be edited or switched off later, and the customer's
+     * charged amount must not move. Zero on an order that used no code.
+     */
+    discountMinor: integer('discount_minor').notNull().default(0),
     shippingMinor: integer('shipping_minor').notNull().default(0),
     totalMinor: integer('total_minor').notNull(),
     placedAt: timestamp('placed_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
@@ -78,8 +85,16 @@ export const order = pgTable(
     check('order_status_valid', colIn('status', ORDER_STATUS)),
     check('order_payment_state_valid', colIn('payment_state', PAYMENT_STATE)),
     check('order_cod_state_valid', colIn('cod_state', COD_STATE)),
-    check('order_amounts_non_negative', sql`${t.itemsSubtotalMinor} >= 0 and ${t.shippingMinor} >= 0`),
-    check('order_total_is_sum', sql`${t.totalMinor} = ${t.itemsSubtotalMinor} + ${t.shippingMinor}`),
+    check(
+      'order_amounts_non_negative',
+      sql`${t.itemsSubtotalMinor} >= 0 and ${t.shippingMinor} >= 0 and ${t.discountMinor} >= 0`,
+    ),
+    // A code can never take more than the goods are worth; delivery is charged after the discount.
+    check('order_discount_within_subtotal', sql`${t.discountMinor} <= ${t.itemsSubtotalMinor}`),
+    check(
+      'order_total_is_sum',
+      sql`${t.totalMinor} = ${t.itemsSubtotalMinor} - ${t.discountMinor} + ${t.shippingMinor}`,
+    ),
     // A COD order has no MFS payment state, and a prepaid order always does.
     check(
       'order_cod_payment_state_consistent',
@@ -141,7 +156,12 @@ export const orderItem = pgTable(
     variantId: bigint('variant_id', { mode: 'number' })
       .notNull()
       .references(() => productVariant.id, { onDelete: 'restrict' }),
-    productNameBn: text('product_name_bn').notNull(),
+    /*
+     * The name as it was when the order was placed. The Bangla half is nullable because the product it
+     * was copied from may have had no Bangla name (owner decision, 2026-10-23); a snapshot records what
+     * existed, and must not invent a translation to satisfy a NOT NULL.
+     */
+    productNameBn: text('product_name_bn'),
     productNameEn: text('product_name_en').notNull(),
     variantLabel: text('variant_label'),
     sku: text('sku').notNull(),

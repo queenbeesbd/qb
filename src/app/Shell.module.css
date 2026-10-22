@@ -12,3 +12,17 @@
     padding-bottom: var(--space-8);
   }
 }
+
+/*
+ * Reserves the fixed bottom tab bar's height. The bar is 64px of controls plus the device's safe-area
+ * inset; without this the footer's last line would sit underneath it on every phone.
+ */
+.tabBarSpace {
+  height: calc(4rem + env(safe-area-inset-bottom));
+}
+
+@media (min-width: 1024px) {
+  .tabBarSpace {
+    display: none;
+  }
+}

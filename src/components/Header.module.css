@@ -7,17 +7,14 @@
 }
 
 /*
- * The header is one flex container whose children change role at two breakpoints. Keeping
- * brand, navigation, search and actions as *siblings* is what allows `order` to compose the
- * single wide row; nesting them in wrapper divs made the action cluster un-movable, which
- * was measured rendering to the left of the navigation at 1200px.
+ * One row, in reading order: brand, navigation, then the search and account controls pushed to the far
+ * end. The navigation sits **directly after the logo** rather than floating in the middle of the bar - the
+ * request was for the links to be centred *vertically*, not moved away from the brand. A flex row with
+ * `margin-inline-start: auto` on the actions does exactly that: the links follow the logo, the controls
+ * take the remaining space, and `align-items: center` centres everything on the bar's axis.
  *
- *   < 1024px   brand row (trigger, logo, actions)  +  a second full-width search row
- *   1024px     brand row                           +  navigation + search row  (header ~112px)
- *   >= 1200px  one row: logo, navigation, search, actions                  (header 64px)
- *
- * The second row below 1200px is the trade that buys a genuinely typeable search field: at
- * 1024px the single-row layout left the Bangla input 15px wide (audit F-01/S-12).
+ * Below 1024px the same element is a flex row: brand on the left, account and cart on the right, and the
+ * navigation is absent because the bottom tab bar owns it.
  */
 .inner {
   max-width: var(--container);
@@ -30,108 +27,32 @@
   min-height: var(--header-height);
 }
 
-/*
- * The narrowest phones cannot hold the language control's label and two icon buttons
- * beside a 32px brand mark, so the header wraps to two rows there. That is acceptable -
- * nothing is clipped - but the brand must keep its row to itself rather than being pushed
- * up against a separated action cluster. Below 360px the language control drops its text
- * label and keeps its accessible name, which is what lets all four controls sit on one row.
- */
-/*
- * Below 480px the header controls must share one row. Measured at 390px after the language toggle
- * was removed (Phase 28): drawer trigger + brand + two 40px actions fit inside the content box, so
- * the row keeps its height and both targets stay 40px. The tighter column gap is what buys the room.
- */
-@media (max-width: 479px) {
-  .inner {
-    column-gap: var(--space-2);
-  }
-
-  .actions {
-    gap: 2px;
-  }
-}
-
-@media (max-width: 359px) {
-  .brand img {
-    height: 26px;
-  }
-}
-
-/*
- * Below 1024px the brand row is explicit: trigger, logo, then the action cluster on the
- * same line, with the search field and the (hidden) navigation held below it.
- */
-@media (max-width: 1023px) {
-  .inner {
-    flex-wrap: wrap;
-    align-content: center;
-    row-gap: var(--space-2);
-    padding-top: var(--space-1);
-    padding-bottom: var(--space-2);
-  }
-
-  .menuTrigger {
-    order: 1;
-  }
-
-  .brand {
-    order: 2;
-    margin-inline-end: auto;
-  }
-
-  .actions {
-    order: 3;
-  }
+.brand {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
 }
 
 .brand img {
-  height: 32px;
+  height: 30px;
   width: auto;
   /*
-   * The global `img { max-width: 100% }` rule caps the box width on narrow
-   * screens while this height stays fixed, which would squash the artwork
-   * (measured 3.04:1 instead of 4.33:1 at 320px). Contain keeps the drawn
-   * mark proportionate inside whatever box it is given.
+   * The global `img { max-width: 100% }` rule caps the box width on narrow screens while the height
+   * stays fixed, which would squash the artwork. Contain keeps the mark proportionate inside whatever
+   * box it is given.
    */
   object-fit: contain;
-}
-
-/* Below the point where the header row can no longer offer the full lockup
-   width, the artwork scales down instead of being squeezed. */
-@media (max-width: 359px) {
-  .brand img {
-    height: 26px;
-  }
 }
 
 .actions {
   display: flex;
   align-items: center;
   gap: var(--space-1);
-  /* Pushed to the end of the brand row, then ordered last in the wide row. */
   margin-inline-start: auto;
 }
 
 .menuTrigger {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 40px;
-  height: 40px;
-  border: 1px solid transparent;
-  border-radius: var(--radius-md);
-  background: transparent;
-  color: var(--color-ink);
-  cursor: pointer;
-  transition: background var(--transition-fast), border-color var(--transition-fast),
-    color var(--transition-fast);
-}
-
-.menuTrigger:hover {
-  background: var(--color-surface-sunken);
-  border-color: var(--color-border);
-  color: var(--color-action);
+  display: none;
 }
 
 .iconButton {
@@ -193,47 +114,44 @@
   text-align: center;
 }
 
-/* ---------- Search fields ---------- */
+/* ---------- Search ---------- */
 
-.search,
-.searchRow {
-  display: flex;
+.search {
+  display: none;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--space-1);
+  width: 240px;
   min-width: 0;
   border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-md);
-  padding: 0 var(--space-2) 0 var(--space-3);
+  padding: 0 var(--space-1) 0 var(--space-3);
   background: var(--color-surface);
 }
 
-.search:focus-within,
-.searchRow:focus-within {
+.search:focus-within {
   border-color: var(--color-action);
   outline: 2px solid var(--color-focus);
   outline-offset: 1px;
 }
 
-.search input,
-.searchRow input {
+.search input {
   flex: 1;
   border: none;
   outline: none;
   background: transparent;
-  min-height: 40px;
+  min-height: 38px;
   font: inherit;
+  font-size: var(--text-sm);
   color: var(--color-ink);
   min-width: 0;
 }
 
-.search button,
-.searchRow button {
+.search button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  /* 36px is the documented compact control size; the field itself stays 40px+. */
-  width: 36px;
-  height: 36px;
+  width: 34px;
+  height: 34px;
   border: none;
   border-radius: var(--radius-sm);
   background: transparent;
@@ -241,51 +159,79 @@
   cursor: pointer;
 }
 
-.search button:hover,
-.searchRow button:hover {
+.search button:hover {
   background: var(--color-action-soft);
 }
 
 /*
- * Only one of the two search fields is ever displayed. Keeping both mounted but hidden with
- * `display: none` means the same React form is reused rather than duplicated in the a11y
- * tree; the hidden one is not focusable.
+ * The phone search row. It sits under the brand row and is always visible, because search is the first
+ * thing a shopper reaches for and a field hidden behind an icon is a field most people never open. It
+ * is a plain GET form, so it works without JavaScript.
  */
-/*
- * Both fields are mounted, and **both start hidden**. Exactly one is revealed per breakpoint by
- * the rules below (`.searchRow` from 1024px, `.search` from 1200px), so there is never a width
- * at which two search fields claim space or a single one is left visible by omission.
- */
-/*
- * The wrapper itself is hidden, not just its children: an empty full-width flex item is
- * still a flex item, so leaving it visible produced a phantom third header row (measured
- * 109px at every phone width). Each breakpoint below sets `display: block` on the wrapper
- * and `display: flex` on exactly one field.
- */
-.searches {
-  display: none;
-  order: 3;
-  flex: 1 1 100%;
+.mobileSearch {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin: 0 var(--gutter) var(--space-3);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  padding: 0 var(--space-1) 0 var(--space-3);
+  background: var(--color-surface);
+}
+
+.mobileSearch:focus-within {
+  border-color: var(--color-action);
+  outline: 2px solid var(--color-focus);
+  outline-offset: 1px;
+}
+
+.mobileSearch input {
+  flex: 1;
   min-width: 0;
+  min-height: 44px;
+  border: none;
+  outline: none;
+  background: transparent;
+  font: inherit;
+  font-size: var(--text-base);
+  color: var(--color-ink);
 }
 
-.searches .search,
-.searches .searchRow {
+.mobileSearch button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-action);
+  cursor: pointer;
+}
+
+.compactSearch {
   display: none;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  color: var(--color-ink);
 }
 
-/* ---------- Primary navigation ---------- */
+.compactSearch:hover {
+  background: var(--color-surface-sunken);
+  border-color: var(--color-border);
+  color: var(--color-action);
+}
 
-/*
- * Below 1024px the drawer is the navigation surface and this inline nav must be absent
- * entirely - not merely scrollable - or the drawer and the inline list would both be on
- * screen and both claim the same links.
- */
+/* ---------- Primary navigation (desktop only) ---------- */
+
 .primaryNav {
-  order: 2;
-  flex: 1 1 100%;
-  min-width: 0;
   display: none;
+  min-width: 0;
 }
 
 .navList {
@@ -294,213 +240,116 @@
   padding: 0;
   display: flex;
   align-items: center;
-  gap: var(--space-4);
+  gap: var(--space-1);
   min-width: 0;
-  overflow-x: auto;
-  scrollbar-width: none;
 }
 
-.navList::-webkit-scrollbar {
-  display: none;
-}
-
+/*
+ * A link is a 40px control centred on the bar's axis. `inline-block` with padding left the text sitting
+ * on the baseline, which read as "a little low" beside 40px icon controls; a flex box makes the height
+ * explicit and the label optical-centre.
+ */
 .navList a {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-md);
   font-size: var(--text-sm);
   font-weight: 500;
   color: var(--color-ink-muted);
-  padding: var(--space-2) 0;
-  border-bottom: 2px solid transparent;
   white-space: nowrap;
+  transition: background var(--transition-fast), color var(--transition-fast);
 }
 
 .navList a:hover {
-  color: var(--color-action);
-  border-bottom-color: var(--color-primary);
-}
-
-/* ---------- Drawer ---------- */
-
-.drawer {
-  border-top: 1px solid var(--color-border);
-  background: var(--color-surface);
-}
-
-.drawerInner {
-  max-width: var(--container);
-  margin: 0 auto;
-  padding: var(--space-4) var(--gutter);
-  display: grid;
-  gap: var(--space-4);
-}
-
-.drawerSearch {
-  display: flex;
-  gap: var(--space-2);
-}
-
-.drawerSearch input {
-  flex: 1;
-  min-height: 44px;
-  padding: 0 var(--space-3);
-  border: 1px solid var(--color-border-strong);
-  border-radius: var(--radius-md);
-  background: var(--color-surface);
   color: var(--color-ink);
-  font: inherit;
-}
-
-.drawerSearch button {
-  min-height: 44px;
-  padding: 0 var(--space-4);
-  border: none;
-  border-radius: var(--radius-md);
-  background: var(--color-action);
-  color: #fff;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.drawerList {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-}
-
-.drawerList a {
-  display: block;
-  padding: var(--space-3) var(--space-2);
-  border-bottom: 1px solid var(--color-border);
-  font-weight: 500;
-}
-
-.drawerAccount {
-  padding-top: var(--space-3);
-  border-top: 1px solid var(--color-border);
-}
-
-.drawerAccountLink {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  min-height: 44px;
-  font-weight: 600;
-  color: var(--color-action);
+  background: var(--color-surface-sunken);
 }
 
 /*
- * ---------- 1024px: inline navigation returns, search joins row two ----------
- *
- * Navigation and search share a second row at this width instead of competing with the
- * brand and the action cluster for one. That costs header height (112px rather than 64px
- * between 1024 and 1199px) and buys a search field of 400px+ instead of 15px.
+ * The current section is a filled soft lavender, the same idea as the admin rail's active item: one
+ * filled shape rather than a coloured word, so the row can be read at a glance.
  */
-@media (min-width: 1024px) {
-  .menuTrigger {
-    display: none;
-  }
+.navList a[aria-current='page'] {
+  color: var(--color-action);
+  background: var(--color-action-soft);
+  font-weight: 600;
+}
 
-  /*
-   * Row one: logo, search, actions. Row two: the category navigation.
-   *
-   * Search takes the flexible space *upstream* of the action cluster so the actions keep
-   * their fixed width and their end-of-row position; the navigation wraps beneath them,
-   * which is the row that has the room for seven links (measured 442px in Bangla). This is
-   * the ordering that produces a ~400px+ field at 1024px in both locales.
-   */
-  .brand {
-    order: 1;
-    flex: none;
-  }
-
-  .searches {
-    display: block;
-    order: 2;
-    flex: 1 1 220px;
-    min-width: 220px;
-  }
-
-  .searches .searchRow {
-    display: flex;
-  }
-
-  .actions {
-    order: 3;
-    flex: none;
-    margin-inline-start: 0;
-  }
-
-  .primaryNav {
-    display: block;
-    order: 4;
-    flex: 1 1 100%;
-    padding-top: var(--space-2);
+/*
+ * The phone header is not sticky. Two rows of chrome pinned to the top of a 390px screen cost ~116px of
+ * a ~700px viewport, and the bottom tab bar already carries navigation; the header scrolling away is
+ * what buys the product grid its first row back.
+ */
+@media (max-width: 1023px) {
+  .header {
+    position: static;
   }
 
   .inner {
+    min-height: 60px;
     padding-top: var(--space-2);
     padding-bottom: var(--space-2);
-    row-gap: 0;
+  }
+
+  .brand img {
+    height: 28px;
   }
 }
 
-/*
- * ---------- 1200px: one row ----------
- *
- * Logo, navigation, search and actions become a single 64px row in source order, with the
- * search field taking the flexible middle and a 260px floor so it can never be squeezed
- * into an untypeable sliver. The 260px floor is what makes the single row honest.
- */
-@media (min-width: 1200px) {
+@media (max-width: 359px) {
+  .brand img {
+    height: 24px;
+  }
+}
+
+/* ---------- 1024px: the centred three-zone bar ---------- */
+
+@media (min-width: 1024px) {
   .inner {
+    display: flex;
     flex-wrap: nowrap;
+    align-items: center;
+    column-gap: var(--space-4);
     min-height: var(--header-height);
     padding-top: 0;
     padding-bottom: 0;
-    column-gap: var(--space-5);
   }
 
   .brand {
-    order: 1;
     flex: none;
   }
 
   .primaryNav {
-    order: 2;
+    display: block;
     flex: 0 1 auto;
     min-width: 0;
   }
 
-  .navList {
-    overflow: hidden;
-    gap: var(--space-3);
-  }
-
-  .navList a:hover {
-    border-bottom-color: var(--color-border);
-  }
-
-  .searches {
-    display: block;
-    order: 3;
-    flex: 1 1 260px;
-    min-width: 260px;
-    max-width: 420px;
+  /* The controls claim the space after the navigation, so the links stay next to the logo. */
+  .actions {
+    flex: none;
     margin-inline-start: auto;
   }
 
-  .searches .searchRow {
-    display: none;
+  .compactSearch {
+    display: inline-flex;
   }
 
-  .searches .search {
+  .mobileSearch {
+    display: none;
+  }
+}
+
+/* ---------- 1200px: the field returns ---------- */
+
+@media (min-width: 1200px) {
+  .search {
     display: flex;
   }
 
-  .actions {
-    order: 4;
-    flex: none;
-    margin-inline-start: 0;
+  .compactSearch {
+    display: none;
   }
 }

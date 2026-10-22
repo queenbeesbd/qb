@@ -3,34 +3,35 @@ import { requestNowIso } from '@/lib/clock';
 import { requireAdminPage } from '@/server/auth/guard';
 import { hasPermission } from '@/server/authz/principal';
 import { PERMISSIONS } from '@/server/authz/permissions';
+import { loadAnalytics } from '@/server/analytics/read';
 import { countCatalog } from '@/server/catalog/read';
 import {
   codQueue,
   countRecentDenials,
   flaggedCustomers,
+  recentOrders,
   revenueSummary,
   type CodQueueItem,
   type FlaggedCustomer,
 } from '@/server/orders/admin-read';
+import { listPromoCodes } from '@/server/promotions/service';
 import { OverviewView } from './OverviewView';
 
 /** The overview is a session-scoped page; nothing here is cached. */
 export const dynamic = 'force-dynamic';
 
 /** How many orders the overview shows before sending the owner to the full queue. */
-const OVERVIEW_LIMIT = 5;
+const OVERVIEW_LIMIT = 3;
+/** How many recent orders the dashboard lists. Five fits without scrolling on a laptop. */
+const RECENT_LIMIT = 5;
 
 /**
- * The overview answers one question: what needs the owner right now?
+ * The overview: the shop's last thirty days, then the one queue that waits on a person.
  *
- * The old facts grid counted rows whether or not anything was waiting, so it answered "how much is
- * there". This page leads with the COD worklist - the only queue that waits on a person - then
- * everything that is blocked or refused, then recorded revenue, then reference counts.
- *
- * Revenue is the one money figure the application can substantiate: it is `order.total_minor`
- * summed over orders that were completed **and** whose payment the owner confirmed received. It is
- * derived on every read from immutable order rows, so no counter exists to double-count, and an order
- * that was dispatched or delivered but never paid contributes nothing.
+ * Every figure is derived on read from immutable order rows, so nothing can be counted twice: revenue
+ * only exists once payment was recorded received, and an order that was merely dispatched contributes
+ * nothing. The analytics window is the same loader the analytics screen uses, so the two screens cannot
+ * disagree about the same thirty days.
  *
  * Requires `staff.read`, which every owner-level account holds. The sections inside are gated by the
  * permission their destination requires, so the page never links to a refusal.
@@ -41,6 +42,7 @@ export default async function AdminOverviewPage() {
   const canReadCustomers = hasPermission(principal, PERMISSIONS.customerRead);
   const canReadAudit = hasPermission(principal, PERMISSIONS.auditRead);
   const canReadCatalog = hasPermission(principal, PERMISSIONS.catalogWrite);
+  const canReadPromo = hasPermission(principal, PERMISSIONS.settingsWrite);
 
   const data = await withTransaction(async (tx) => {
     const pending = canReadOrders ? await codQueue(tx) : [];
@@ -49,7 +51,21 @@ export default async function AdminOverviewPage() {
     const catalog = canReadCatalog ? await countCatalog(tx) : null;
     // Revenue is an order money fact, so it is gated by the permission that reads orders.
     const revenue = canReadOrders ? await revenueSummary(tx) : null;
-    return { pending, flagged, denials, catalog, revenue };
+    const analytics = canReadOrders ? await loadAnalytics(tx, 30) : null;
+    const recent = canReadOrders ? await recentOrders(tx, RECENT_LIMIT) : [];
+
+    let promo: { active: number; redemptions: number; givenMinor: number } | null = null;
+    if (canReadPromo) {
+      const codes = await listPromoCodes(tx);
+      const analyticsPromos = canReadOrders ? analytics?.promos : undefined;
+      promo = {
+        active: codes.filter((code) => code.isActive).length,
+        redemptions: analyticsPromos?.redemptions ?? 0,
+        givenMinor: analyticsPromos?.discountGivenMinor ?? 0,
+      };
+    }
+
+    return { pending, flagged, denials, catalog, revenue, analytics, recent, promo };
   });
 
   const pending = data.pending;
@@ -57,6 +73,7 @@ export default async function AdminOverviewPage() {
 
   return (
     <OverviewView
+      displayName={principal.displayName}
       nowIso={requestNowIso()}
       pending={pending.slice(0, OVERVIEW_LIMIT).map(serializeOrder)}
       pendingCount={pending.length}
@@ -66,6 +83,37 @@ export default async function AdminOverviewPage() {
       denials={data.denials}
       catalog={data.catalog}
       revenue={canReadOrders ? (data.revenue ?? null) : null}
+      analytics={
+        data.analytics === null
+          ? null
+          : {
+              summary: {
+                revenueMinor: data.analytics.summary.revenueMinor,
+                completedOrders: data.analytics.summary.completedOrders,
+                ordersPlaced: data.analytics.summary.ordersPlaced,
+                itemsSold: data.analytics.summary.itemsSold,
+                customersServed: data.analytics.summary.customersServed,
+              },
+              series: data.analytics.series.map((point) => ({
+                date: point.date,
+                revenueMinor: point.revenueMinor,
+              })),
+              statuses: data.analytics.statuses.map((slice) => ({
+                status: slice.status,
+                count: slice.count,
+              })),
+            }
+      }
+      recent={data.recent.map((row) => ({
+        orderId: row.orderId,
+        orderNumber: row.orderNumber,
+        placedAt: row.placedAt.toISOString(),
+        totalMinor: row.totalMinor,
+        status: row.status,
+        customerName: row.customerName,
+        customerEmail: row.customerEmail,
+      }))}
+      promo={data.promo}
       csrfToken={principal.csrfToken}
       canApprove={hasPermission(principal, PERMISSIONS.codApprove)}
       canCancel={hasPermission(principal, PERMISSIONS.orderCancel)}
@@ -73,6 +121,7 @@ export default async function AdminOverviewPage() {
       canReadCustomers={canReadCustomers}
       canReadAudit={canReadAudit}
       canReadCatalog={canReadCatalog}
+      canReadPromo={canReadPromo}
     />
   );
 }

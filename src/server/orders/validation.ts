@@ -160,10 +160,16 @@ export function parseContact(form: {
  * The payment method is deliberately absent: Cash on Delivery is the only method this release accepts,
  * so it is not part of the submitted body and cannot vary between two submissions of the same order.
  */
-export function orderFingerprint(lines: readonly CartLineInput[], contact: ContactInput): string {
+export function orderFingerprint(
+  lines: readonly CartLineInput[],
+  contact: ContactInput,
+  promoCode: string | null = null,
+): string {
   const canonical = JSON.stringify({
     lines: [...lines].sort((a, b) => a.productId.localeCompare(b.productId)),
     contact,
+    // Part of the body: replaying the same key with a different code is a new submission, not a repeat.
+    promoCode,
   });
   return createHash('sha256').update(canonical, 'utf8').digest('hex');
 }

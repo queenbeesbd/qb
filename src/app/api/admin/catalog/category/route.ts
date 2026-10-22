@@ -5,6 +5,11 @@
  * `operation` field selects between them; an unrecognized value is refused rather than defaulted, so a
  * typo cannot silently become an archive.
  *
+ * Since Phase 36 the editors are their own routes (`/admin/categories/new`,
+ * `/admin/categories/[categoryId]`) rather than a panel on the list, so this route returns the owner
+ * to the record they just acted on instead of the unfiltered list. Only a notice code travels back -
+ * never a submitted value, never an error message from the service.
+ *
  * Archiving is a **refusal-first** operation: a category that still has live products or subcategories is
  * not archived, and the owner is told what is in the way.
  */
@@ -22,10 +27,26 @@ export const dynamic = 'force-dynamic';
 
 const OPERATIONS = ['create', 'update', 'archive'] as const;
 
+/**
+ * A destination this route will send the owner back to, and nothing else.
+ *
+ * The editor posts `returnTo` so a refused save returns to the form the owner was filling in rather
+ * than to the list, where their typing would be gone. The pattern is an allowlist of the two shapes
+ * this route owns, so a crafted value cannot make the redirect an open one.
+ */
+function safeReturn(value: FormDataEntryValue | null, fallback: string): string {
+  if (typeof value !== 'string') return fallback;
+  return /^\/admin\/categories(?:\/new|\/\d+)?$/.test(value) ? value : fallback;
+}
+
+function backTo(path: string, notice: string): Response {
+  return redirectTo(`${path}?notice=${notice}`);
+}
+
 export async function POST(request: Request): Promise<Response> {
   const guard = await guardMutation(request, PERMISSIONS.catalogWrite);
   if (!guard.ok) {
-    if (guard.reason === 'forbidden') return redirectTo(`${CATEGORIES_PATH}?notice=denied`);
+    if (guard.reason === 'forbidden') return backTo(CATEGORIES_PATH, 'denied');
     return deny(guard.status);
   }
 
@@ -36,49 +57,44 @@ export async function POST(request: Request): Promise<Response> {
     roleCodes: roleCodes(principal),
   };
 
+  const target = safeReturn(form.get('returnTo'), CATEGORIES_PATH);
+
   const rawOperation = form.get('operation');
   const operation = typeof rawOperation === 'string' ? rawOperation : '';
   if (!(OPERATIONS as readonly string[]).includes(operation)) {
-    return redirectTo(`${CATEGORIES_PATH}?notice=invalid`);
+    return backTo(target, 'invalid');
   }
+
+  const input = {
+    slug: form.get('slug') ?? undefined,
+    nameBn: form.get('nameBn'),
+    nameEn: form.get('nameEn'),
+    descriptionBn: form.get('descriptionBn') ?? undefined,
+    descriptionEn: form.get('descriptionEn') ?? undefined,
+    sortOrder: form.get('sortOrder') ?? undefined,
+    isVisible: form.get('isVisible') ?? undefined,
+  };
 
   try {
     if (operation === 'create') {
-      await withTransaction((tx) =>
-        createCategory(tx, actor, {
-          slug: form.get('slug') ?? undefined,
-          nameBn: form.get('nameBn'),
-          nameEn: form.get('nameEn'),
-          descriptionBn: form.get('descriptionBn') ?? undefined,
-          descriptionEn: form.get('descriptionEn') ?? undefined,
-          sortOrder: form.get('sortOrder') ?? undefined,
-          isVisible: form.get('isVisible') ?? undefined,
-        }),
-      );
-      return redirectTo(`${CATEGORIES_PATH}?notice=created`);
+      const created = await withTransaction((tx) => createCategory(tx, actor, input));
+      // Straight to the new record: a category with no products has nothing else to show, and the
+      // owner's next act is usually assigning one or adding the description they skipped.
+      return backTo(`${CATEGORIES_PATH}/${created.categoryId}`, 'created');
     }
 
     if (operation === 'update') {
-      await withTransaction((tx) =>
-        updateCategory(tx, actor, form.get('categoryId'), {
-          slug: form.get('slug') ?? undefined,
-          nameBn: form.get('nameBn'),
-          nameEn: form.get('nameEn'),
-          descriptionBn: form.get('descriptionBn') ?? undefined,
-          descriptionEn: form.get('descriptionEn') ?? undefined,
-          sortOrder: form.get('sortOrder') ?? undefined,
-          isVisible: form.get('isVisible') ?? undefined,
-        }),
-      );
-      return redirectTo(`${CATEGORIES_PATH}?notice=updated`);
+      await withTransaction((tx) => updateCategory(tx, actor, form.get('categoryId'), input));
+      return backTo(target, 'updated');
     }
 
     await withTransaction((tx) => archiveCategory(tx, actor, form.get('categoryId')));
-    return redirectTo(`${CATEGORIES_PATH}?notice=archived`);
+    // Archive ends the record: the list is the only place left to be.
+    return backTo(CATEGORIES_PATH, 'archived');
   } catch (error) {
-    if (error instanceof ValidationError) return redirectTo(`${CATEGORIES_PATH}?notice=invalid`);
-    if (error instanceof ConflictError) return redirectTo(`${CATEGORIES_PATH}?notice=conflict`);
-    if (error instanceof AuthorizationError) return redirectTo(`${CATEGORIES_PATH}?notice=denied`);
+    if (error instanceof ValidationError) return backTo(target, 'invalid');
+    if (error instanceof ConflictError) return backTo(target, 'conflict');
+    if (error instanceof AuthorizationError) return backTo(target, 'denied');
     throw error;
   }
 }

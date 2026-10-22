@@ -80,3 +80,18 @@ Configuration requires the existing owner-level `settings.write` permission. Eve
 
 Courier booking, tracking, delivery notifications, failed-delivery fees, free-delivery thresholds,
 pickup, and any online-payment work remain out of scope.
+
+## The amounts (owner decision, 2026-10-23)
+
+| Area | Charge |
+| --- | --- |
+| Dhaka | **Tk 100** |
+| Chattogram | **Tk 60** |
+| Other districts (the required default) | **Tk 120** |
+
+They are stored as `delivery_setting.default_minor = 12000` and two active
+`delivery_district_charge` rows (`dhaka` 10000, `chattogram` 6000), saved through the real screen - not
+in code. `npm run db:seed:delivery` writes the same three into a **fresh** database and refuses to
+overwrite a default that is already configured, so a later change by the owner is never reverted by a
+re-run. The owner can change any figure at Settings -> Delivery charges; every change is audited and
+never rewrites an order already placed.

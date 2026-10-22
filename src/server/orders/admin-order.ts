@@ -22,7 +22,7 @@ import { listAdditionalCosts, orderMoney, type AdditionalCost, type OrderMoney }
 
 export type AdminOrderItem = {
   readonly id: number;
-  readonly nameBn: string;
+  readonly nameBn: string | null;
   readonly nameEn: string;
   readonly variantLabel: string | null;
   readonly sku: string;
@@ -47,7 +47,7 @@ export type AdminOrderReturn = {
   readonly id: number;
   readonly orderItemId: number;
   readonly sku: string;
-  readonly nameBn: string;
+  readonly nameBn: string | null;
   readonly nameEn: string;
   readonly quantity: number;
   readonly reason: string;

@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useRef, useState } from 'react';
 
+import { RequiredMark } from './RequiredMark';
 import styles from '../admin.module.css';
 import { SubmitButton, type ButtonVariant } from './SubmitButton';
 
@@ -130,7 +131,15 @@ export function ConfirmSubmit({
             </p>
             {reason !== undefined && (
               <div className={styles.field}>
-                <label htmlFor={`${uid}-reason`}>{reason.label}</label>
+                <label htmlFor={`${uid}-reason`}>
+                  {reason.label}
+                  {reason.required ? (
+                    <>
+                      {' '}
+                      <RequiredMark />
+                    </>
+                  ) : null}
+                </label>
                 <textarea
                   id={`${uid}-reason`}
                   name="reason"

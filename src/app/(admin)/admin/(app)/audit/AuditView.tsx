@@ -55,7 +55,7 @@ export function AuditView({
 
   return (
     <>
-      <PageHeader eyebrow={t('admin.nav.group.system')} title={t('admin.audit.title')} description={t('admin.audit.body')} />
+      <PageHeader title={t('admin.audit.title')} description={t('admin.audit.body')} />
 
       {rows.length === 0 ? (
         <EmptyState title={t('admin.audit.emptyTitle')} body={t('admin.audit.emptyBody')} icon="audit" />

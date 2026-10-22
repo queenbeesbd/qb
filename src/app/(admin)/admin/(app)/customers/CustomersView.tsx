@@ -74,7 +74,7 @@ export function CustomersView({
 
   return (
     <>
-      <PageHeader eyebrow={t('admin.nav.group.customers')} title={t('admin.customers.title')} description={t('admin.customers.body')} />
+      <PageHeader title={t('admin.customers.title')} description={t('admin.customers.body')} />
 
       {notice !== null && (
         <Notice tone={notice === 'suspended' ? 'success' : 'error'}>{t(NOTICE_KEYS[notice])}</Notice>

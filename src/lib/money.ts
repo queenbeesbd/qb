@@ -55,6 +55,22 @@ export function discountPercent(price: Money, compareAt: Money | null): number |
   return Math.floor(((compareAt - price) / compareAt) * 100);
 }
 
+/**
+ * The promotion discount an order's own frozen amounts imply.
+ *
+ * The order stores what the customer paid, the goods subtotal and the delivery fee - never the discount
+ * itself (a derived amount is not stored). The schema guarantees `total = subtotal - discount + shipping`,
+ * so the difference is exact, and an order that predates promotion codes yields zero.
+ */
+export function orderDiscountMinor(
+  itemsSubtotalMinor: Money,
+  shippingMinor: Money,
+  totalMinor: Money,
+): Money {
+  const discount = itemsSubtotalMinor + shippingMinor - totalMinor;
+  return discount > 0 ? discount : 0;
+}
+
 /** Sums line totals in poisha using integer math. */
 export function sumMinor(values: readonly Money[]): Money {
   return values.reduce((total, value) => total + Math.round(value), 0);

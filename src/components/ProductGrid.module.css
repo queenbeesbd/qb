@@ -3,12 +3,13 @@
   margin: 0;
   padding: 0;
   display: grid;
-  gap: var(--space-4);
+  gap: var(--space-3);
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .grid > li {
   display: flex;
+  min-width: 0;
 }
 
 .grid > li > * {
@@ -16,53 +17,67 @@
 }
 
 /*
- * Column counts are derived from the **width available to this grid**, not from the viewport,
- * because the same component renders on a full-width homepage and inside a catalog page whose
- * filter sidebar takes 240px plus a 48px gap before the grid begins.
- *
- * Measured card widths (content 1360px at the 1440px container cap, 24px gaps):
- *
- *   viewport  full grid          sidebar grid (240 + 48 removed)
- *   1024      3 cols -> 293px    3 cols -> 212px
- *   1280      4 cols -> 280px    4 cols -> 214px
- *   1440+     5 cols -> 254px    4 cols -> 252px
- *
- * A fifth column on the sidebar grid at 1440px would be 197px, and a sixth on either grid at
- * 1920px would be 208px / 195px. Both were rejected: below ~230px the title wraps to four or
- * five lines, the price and the availability label start colliding, and the audit already
- * recorded five columns in a sidebar layout producing ~144px cards as a defect (S-06/R-07).
- * So each surface uses the most columns that keeps every card at or above ~250px, which is
- * the reason the two grids part company rather than sharing one rule.
+ * The phone grid is two columns, so an odd count would end on a half-empty row. The last card takes
+ * the row instead - measured by `ProductGrid` and only ever true below 720px, where this is the only
+ * two-column layout. From 720px the grid holds three or more columns, and a short final row reads as
+ * a grid rather than as a hole.
  */
-
-/* Full-width surfaces (homepage, category pages, related products). */
-@media (min-width: 720px) {
-  .grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+@media (max-width: 719px) {
+  .grid[data-count-odd='true'] > li:last-child {
+    grid-column: 1 / -1;
   }
 }
 
-@media (min-width: 1280px) {
+/*
+ * Column counts, revised 2026-10-23 (owner decision): five across on a desktop.
+ *
+ * There is deliberately no four-column step. A five-card section in a four-column grid ends on one
+ * lonely card and three empty tracks - the ragged row this project has removed before - and adding the
+ * fifth column at 1024px would squeeze a card to ~175px, below the 200px readability floor asserted by
+ * `verify:browser`. So the grid stays at three until 1200px, where a fifth card is ~209px, and a
+ * five-card section then completes its row at every desktop width. At the 1440px container cap a card
+ * is ~252px, the same width as a catalog-listing card at that viewport.
+ *
+ * The earlier revision published three columns and six products per section, because six completed a
+ * row of three. Five across makes that arithmetic obsolete: one row of five is now the complete row,
+ * so every homepage selection publishes five (see `HOMEPAGE_SECTION_SIZE`).
+ */
+@media (min-width: 720px) {
   .grid {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--space-4);
+  }
+}
+
+@media (min-width: 1024px) {
+  .grid {
     gap: var(--space-5);
   }
 }
 
-@media (min-width: 1440px) {
+@media (min-width: 1200px) {
   .grid {
     grid-template-columns: repeat(5, minmax(0, 1fr));
   }
 }
 
 /*
- * Sidebar-constrained grids (the catalog). Declared with an attribute selector so the
- * catalog asks for its own density and the rule reads as a deliberate difference in policy
- * rather than an accident of ordering. Five columns appear only at 1600px, where the capped
- * container finally makes them 250px wide instead of 197px.
+ * Sidebar-constrained grids (the catalog). They take their own, denser scale because the filter column
+ * removes ~290px of track width and a listing is read row by row rather than as a composition.
+ *
+ * Measured card widths (content 1360px at the 1440px container cap, 24px gaps):
+ *
+ *   viewport  sidebar grid (240px filters + 48px gap removed)
+ *   1024      3 cols -> 212px
+ *   1280      4 cols -> 214px
+ *   1440+     4 cols -> 252px
+ *
+ * A fifth column at 1440px would be 197px, where the title wraps to four or five lines and the price
+ * starts colliding with the availability label.
  */
 .grid[data-density='sidebar'] {
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4);
 }
 
 @media (min-width: 720px) {
@@ -82,4 +97,3 @@
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }
-

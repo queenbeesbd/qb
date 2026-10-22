@@ -41,7 +41,7 @@ import {
 export type CatalogProduct = {
   readonly id: string;
   readonly slug: string;
-  readonly name: { bn: string; en: string };
+  readonly name: { bn: string | null; en: string };
   readonly description: { bn: string | null; en: string | null };
   /**
    * The owner's short shelf line, shown under the price. Null means the owner has not written one,
@@ -81,7 +81,7 @@ export type CatalogProduct = {
 export type CatalogCategory = {
   readonly id: string;
   readonly slug: string;
-  readonly name: { bn: string; en: string };
+  readonly name: { bn: string | null; en: string };
   readonly blurb: { bn: string | null; en: string | null };
   readonly sortOrder: number;
 };
@@ -322,7 +322,7 @@ async function projectProduct(
   row: {
     id: number;
     slug: string;
-    nameBn: string;
+    nameBn: string | null;
     nameEn: string;
     descriptionBn: string | null;
     descriptionEn: string | null;

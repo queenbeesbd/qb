@@ -5,10 +5,30 @@ Status: Phase 1 frontend demonstration complete; **Phase 10 architecture designe
 ## What the demo actually does
 
 - Renders the storefront from a **server-side read of the database catalog**. Storefront routes are dynamic, so a build performs no database access and no page is prerendered from a data snapshot.
-- Performs no outbound network requests at runtime: no vendor API, no payment provider, no analytics, no third-party scripts, and no remote fonts (Inter and Noto Sans Bengali are self-hosted at build time).
+- Performs no outbound network requests at runtime, with **one exception added in Phase 39**: the server may send an order notification to Telegram. There is still no vendor API, no payment provider, no analytics, no third-party script and no remote font (Inter and Noto Sans Bengali are self-hosted at build time). See *Outbound network surface* below.
 - Persists only `queenbees.cart.v1` (product-id and quantity pairs) and `queenbees.locale.v1` (`bn` or `en`). No customer, payment or session data.
 - Renders the checkout route with zero forms, zero inputs, zero submit buttons and zero external hosts, verified in the browser suite.
 
+
+## Outbound network surface (current)
+
+The storefront and admin perform **one** outbound request class: `POST https://api.telegram.org/bot<token>/sendMessage`,
+from the server, after an order is placed (ADR 0022).
+
+- **Optional.** With `TELEGRAM_BOT_TOKEN` unset the integration is off: no request is attempted and the admin
+  screen states that the bot is not configured.
+- **Never from the browser.** The token is read from the process environment in server code only; no page,
+  no client component and no `NEXT_PUBLIC_*` variable can reach it. The admin screen receives a boolean.
+- **Never authoritative.** The send runs after the response (`after()`), cannot fail or roll back an order,
+  returns a summary instead of throwing, and is not retried or recorded in a table.
+- **What leaves the platform:** the order reference, the total, the item count, the delivery area, and the
+  customer's **name and phone number** - because approving a COD order starts with a phone call. Nothing
+  else is sent: no address, no email, no line items, no payment data.
+- **What does not enter:** nothing. There is no webhook and no inbound Telegram path, so a chat message can
+  never be a command or an approval.
+
+Everything else in this document still holds: no vendor API, no payment gateway, no courier integration and
+no analytics provider exists or is authorized.
 ## Implemented frontend controls
 
 | Concern | Control | How it was checked |

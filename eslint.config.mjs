@@ -9,7 +9,13 @@ const config = [
   ...nextCoreWebVitals,
   ...nextTypeScript,
   {
-    ignores: ['.next/**', 'node_modules/**', 'next-env.d.ts'],
+    /*
+     * Working directories, not source. `.tmp-*` holds local verification artefacts (Chromium profiles,
+     * captured screenshots, one-off CDP probes) and `.dev-pg` is a local PostgreSQL data directory.
+     * Both are gitignored; linting a browser's own bundled JavaScript produces hundreds of findings that
+     * have nothing to do with this project.
+     */
+    ignores: ['.next/**', 'node_modules/**', 'next-env.d.ts', '.tmp-*/**', '.dev-pg/**', '.codegraph/**'],
   },
   {
     rules: {

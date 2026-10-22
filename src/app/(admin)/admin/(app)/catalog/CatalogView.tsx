@@ -14,13 +14,14 @@ import { FilterTabs, ListSearch, ListToolbar } from '../../_ui/ListToolbar';
 import { Notice } from '../../_ui/Notice';
 import { PageHeader } from '../../_ui/PageHeader';
 import { Pagination } from '../../_ui/Pagination';
+import { RequiredMark } from '../../_ui/RequiredMark';
 import { SubmitButton } from '../../_ui/SubmitButton';
 import styles from '../../admin.module.css';
 
 export type CatalogProductRow = {
   id: number;
   slug: string;
-  nameBn: string;
+  nameBn: string | null;
   nameEn: string;
   categoryNameEn: string;
   brandNameEn: string;
@@ -113,7 +114,6 @@ export function CatalogView({
   return (
     <>
       <PageHeader
-        eyebrow={t('admin.nav.group.commerce')}
         title={t('admin.catalog.title')}
         description={t('admin.catalog.body')}
         actions={
@@ -264,11 +264,15 @@ export function CatalogView({
               <input type="hidden" name="csrf" value={csrfToken} />
               <div className={styles.formGrid}>
                 <div className={styles.field}>
-                  <label htmlFor="brandNameEn">{t('admin.catalog.field.nameEn')}</label>
+                  <label htmlFor="brandNameEn">
+                    {t('admin.catalog.field.nameEn')} <RequiredMark />
+                  </label>
                   <input className={styles.input} id="brandNameEn" name="nameEn" required maxLength={80} />
                 </div>
                 <div className={styles.field}>
-                  <label htmlFor="brandNameBn">{t('admin.catalog.field.nameBn')}</label>
+                  <label htmlFor="brandNameBn">
+                    {t('admin.catalog.field.nameBn')} <RequiredMark />
+                  </label>
                   <input className={styles.input} id="brandNameBn" name="nameBn" required maxLength={80} lang="bn" />
                 </div>
               </div>

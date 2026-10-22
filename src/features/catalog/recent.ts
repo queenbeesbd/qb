@@ -1,10 +1,17 @@
 import type { CatalogItem } from '@/lib/types';
 
 /**
- * How many products the "Recently added" selection publishes. Exactly three: enough to read as a
- * selection rather than a single highlight, few enough to stay one row on desktop.
+ * How many products one homepage selection publishes.
+ *
+ * **Five since the 2026-10-23 revision (owner decision: five across on a desktop).** The full-width grid
+ * is five columns from 1200px, so five completes a row exactly; on a phone the two-column grid lets the
+ * final card take the row (see `ProductGrid`). The earlier six belonged to the three-column grid and
+ * would now leave one card stranded on a wide screen.
  */
-export const RECENT_LIMIT = 3;
+export const HOMEPAGE_SECTION_SIZE = 5;
+
+/** The "Recently added" selection publishes one complete row of the homepage grid. */
+export const RECENT_LIMIT = HOMEPAGE_SECTION_SIZE;
 
 /**
  * How many product photographs the hero composition shows. Three is the composition's own shape (one

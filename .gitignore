@@ -14,3 +14,11 @@ next-env.d.ts
 npm-debug.log*
 .eslintcache
 coverage/
+
+# Local development PostgreSQL cluster. Repository-external by default; this entry exists so a
+# session whose only writable path is the workspace cannot accidentally commit a data directory.
+.dev-pg/
+.tmp-*/
+
+# Local code-graph index (tool cache, 76MB, regenerable). Never part of the project.
+.codegraph/

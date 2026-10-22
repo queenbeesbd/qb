@@ -30,11 +30,18 @@ const GROUP_KEYS: Record<AdminNavGroup, TranslationKey> = {
 /**
  * The authenticated application shell.
  *
- * Desktop: a persistent rail and a hairline top bar. Below 1024px the rail becomes a drawer,
- * opened from the top bar. The drawer is the only modal surface here, so it is the only place that
- * traps focus: opening it moves focus to the close control, Escape closes it, and closing returns
- * focus to the trigger. Sign-out is a native form post, so it works without JavaScript and is
- * CSRF-checked by the same guard as every other mutation.
+ * **Desktop** keeps a lavender rail and a hairline top bar. **Below 1024px** the rail is replaced by
+ * a fixed bottom tab bar - the pattern the owner asked for, and the one a phone in a shop actually
+ * supports: four ranked destinations plus a More sheet. There is no drawer and no hamburger, because
+ * two mobile navigation models would each have to be learned and maintained.
+ *
+ * The More sheet is the only modal surface here, so it is the only place that traps focus: opening it
+ * moves focus to its close control, Escape closes it, and closing returns focus to the More tab.
+ * Sign-out is a native form post, so it works without JavaScript and is CSRF-checked by the same
+ * guard as every other mutation.
+ *
+ * The destinations arrive already filtered by the session's permissions, so no tab can advertise a
+ * refusal. This component is presentation only; every route re-checks its own permission.
  */
 export function AdminShell({
   identity,
@@ -47,28 +54,28 @@ export function AdminShell({
 }) {
   const pathname = usePathname();
   const { t } = useTranslation();
-  const [open, setOpen] = useState(false);
-  const triggerRef = useRef<HTMLButtonElement>(null);
-  const dialogRef = useRef<HTMLDivElement>(null);
-  const closeRef = useRef<HTMLButtonElement>(null);
+  const [moreOpen, setMoreOpen] = useState(false);
+  const moreButtonRef = useRef<HTMLButtonElement>(null);
+  const sheetRef = useRef<HTMLDivElement>(null);
+  const sheetCloseRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
-    if (!open) return;
-    const trigger = triggerRef.current;
-    closeRef.current?.focus();
+    if (!moreOpen) return;
+    const trigger = moreButtonRef.current;
+    sheetCloseRef.current?.focus();
     const { overflow } = document.body.style;
     document.body.style.overflow = 'hidden';
 
     const onKeyDown = (event: KeyboardEvent): void => {
       if (event.key === 'Escape') {
         event.preventDefault();
-        setOpen(false);
+        setMoreOpen(false);
         return;
       }
       if (event.key !== 'Tab') return;
-      const dialog = dialogRef.current;
-      if (dialog === null) return;
-      const focusable = dialog.querySelectorAll<HTMLElement>(
+      const sheet = sheetRef.current;
+      if (sheet === null) return;
+      const focusable = sheet.querySelectorAll<HTMLElement>(
         'a[href], button:not([disabled]), input, select, textarea, summary',
       );
       if (focusable.length === 0) return;
@@ -87,11 +94,11 @@ export function AdminShell({
     return () => {
       document.removeEventListener('keydown', onKeyDown);
       document.body.style.overflow = overflow;
-      // Return to the control that opened the drawer, whichever input opened it. Clicking a button
-      // does not focus it, so saving `document.activeElement` would restore focus to <body>.
+      // Return to the control that opened the sheet. Clicking a button does not focus it, so saving
+      // `document.activeElement` would restore focus to <body>.
       trigger?.focus();
     };
-  }, [open]);
+  }, [moreOpen]);
 
   const active = items.find(
     (item) => pathname === item.href || (item.href !== '/admin' && pathname.startsWith(item.href + '/')),
@@ -106,7 +113,15 @@ export function AdminShell({
 
   const initials = identity.displayName.trim().slice(0, 2).toUpperCase();
 
-  const nav = (
+  const primaryTabs = [...items]
+    .filter((item) => item.mobileRank !== undefined)
+    .sort((a, b) => (a.mobileRank ?? 0) - (b.mobileRank ?? 0))
+    .slice(0, 4);
+  const primaryHrefs = new Set(primaryTabs.map((item) => item.href));
+  const moreActive = active !== undefined && !primaryHrefs.has(active.href);
+  const activeLabel = active === undefined ? t('admin.nav.overview') : t(active.labelKey);
+
+  const renderNav = (onNavigate?: () => void) => (
     <nav className={styles.nav} aria-label={t('admin.nav.label')}>
       {GROUP_ORDER.map((group) => {
         const groupItems = items.filter((item) => item.group === group);
@@ -122,7 +137,7 @@ export function AdminShell({
                   href={item.href}
                   className={isActive ? `${styles.navLink} ${styles.navLinkActive}` : styles.navLink}
                   aria-current={isActive ? 'page' : undefined}
-                  onClick={() => setOpen(false)}
+                  onClick={onNavigate}
                 >
                   <AdminIcon name={item.icon} className={styles.navIcon} />
                   <span>{t(item.labelKey)}</span>
@@ -141,16 +156,9 @@ export function AdminShell({
         {t('admin.skipToContent')}
       </a>
       <div className={styles.shell}>
-        <div
-          ref={dialogRef}
-          id="admin-navigation"
-          className={open ? `${styles.sidebar} ${styles.sidebarOpen}` : styles.sidebar}
-          role={open ? 'dialog' : undefined}
-          aria-modal={open ? true : undefined}
-          aria-label={open ? t('admin.nav.label') : undefined}
-        >
+        <aside id="admin-rail" className={styles.sidebar} aria-label={t('admin.nav.label')}>
           <div className={styles.drawerHeader}>
-            <Link href="/admin" className={styles.brand} onClick={() => setOpen(false)}>
+            <Link href="/admin" className={styles.brand}>
               <span className={styles.brandMark} aria-hidden="true">
                 <AdminMark />
               </span>
@@ -159,58 +167,36 @@ export function AdminShell({
                 <span className={styles.brandArea}>{t('admin.title')}</span>
               </span>
             </Link>
-            <button
-              ref={closeRef}
-              type="button"
-              className={`${styles.drawerClose} ${styles.mobileOnly}`}
-              onClick={() => setOpen(false)}
-              aria-label={t('admin.nav.closeMenu')}
-            >
-              <AdminIcon name="close" />
-            </button>
           </div>
-          {nav}
+          {renderNav()}
           <div className={styles.sidebarFoot}>
             <Link href="/" target="_blank" rel="noreferrer">
               <AdminIcon name="storefront" />
               {t('admin.nav.storefront')}
             </Link>
           </div>
-        </div>
-
-        {open && (
-          <button
-            type="button"
-            className={styles.backdrop}
-            aria-label={t('admin.nav.closeMenu')}
-            onClick={() => setOpen(false)}
-            tabIndex={-1}
-          />
-        )}
+        </aside>
 
         <div className={styles.workspace}>
           <header className={styles.topbar}>
             <div className={styles.topbarInner}>
-              <button
-                ref={triggerRef}
-                type="button"
-                className={`${styles.iconButton} ${styles.menuButton}`}
-                aria-expanded={open}
-                aria-controls="admin-navigation"
-                aria-label={t('admin.nav.openMenu')}
-                onClick={() => setOpen(true)}
-              >
-                <AdminIcon name="menu" />
-              </button>
+              <Link href="/admin" className={`${styles.brand} ${styles.mobileBrand}`} aria-label={t('admin.nav.overview')}>
+                <span className={styles.brandMark} aria-hidden="true">
+                  <AdminMark />
+                </span>
+              </Link>
               <nav className={styles.breadcrumb} aria-label={t('admin.breadcrumbLabel')}>
                 <span className={styles.breadcrumbRoot}>{t('admin.title')}</span>
                 <span className={styles.breadcrumbSeparator} aria-hidden="true">
                   /
                 </span>
                 <span className={styles.breadcrumbCurrent} aria-current="page">
-                  {active === undefined ? t('admin.nav.overview') : t(active.labelKey)}
+                  {activeLabel}
                 </span>
               </nav>
+              <span className={styles.topbarPageTitle} aria-hidden="true">
+                {activeLabel}
+              </span>
               <span className={styles.topbarSpacer} />
               <details className={styles.account}>
                 <summary className={styles.accountSummary} aria-label={t('admin.account.menuLabel')}>
@@ -242,6 +228,93 @@ export function AdminShell({
           </main>
         </div>
       </div>
+
+      <nav className={styles.bottomNav} aria-label={t('admin.nav.mobileLabel')} data-admin-bottom-nav>
+        {primaryTabs.map((tab) => {
+          const isActive = active?.href === tab.href;
+          return (
+            <Link
+              key={tab.href}
+              href={tab.href}
+              className={isActive ? `${styles.tab} ${styles.tabActive}` : styles.tab}
+              aria-current={isActive ? 'page' : undefined}
+            >
+              <AdminIcon name={tab.icon} className={styles.tabIcon} width={22} height={22} />
+              <span className={styles.tabLabel}>{t(tab.labelKey)}</span>
+            </Link>
+          );
+        })}
+        <button
+          ref={moreButtonRef}
+          type="button"
+          className={moreActive ? `${styles.tab} ${styles.tabActive}` : styles.tab}
+          aria-current={moreActive ? 'page' : undefined}
+          aria-expanded={moreOpen}
+          aria-controls="admin-more-sheet"
+          onClick={() => setMoreOpen(true)}
+        >
+          <AdminIcon name="more" className={styles.tabIcon} width={22} height={22} />
+          <span className={styles.tabLabel}>{t('admin.nav.more')}</span>
+        </button>
+      </nav>
+
+      {moreOpen && (
+        <>
+          <button
+            type="button"
+            className={styles.sheetBackdrop}
+            aria-label={t('admin.nav.closeMenu')}
+            onClick={() => setMoreOpen(false)}
+            tabIndex={-1}
+          />
+          <div
+            ref={sheetRef}
+            id="admin-more-sheet"
+            className={styles.moreSheet}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="admin-more-title"
+          >
+            <span className={styles.sheetGrabber} aria-hidden="true" />
+            <div className={styles.sheetHead}>
+              <h2 id="admin-more-title" className={styles.sheetTitle}>
+                {t('admin.more.title')}
+              </h2>
+              <button
+                ref={sheetCloseRef}
+                type="button"
+                className={styles.sheetClose}
+                onClick={() => setMoreOpen(false)}
+                aria-label={t('admin.nav.closeMenu')}
+              >
+                <AdminIcon name="close" />
+              </button>
+            </div>
+            <div className={styles.sheetScroll}>
+              {renderNav(() => setMoreOpen(false))}
+              <div className={styles.sheetAccount}>
+                <p className={styles.sheetAccountName}>{identity.displayName}</p>
+                <p className={styles.sheetAccountMeta}>{identity.email}</p>
+                <p className={styles.sheetAccountMeta}>{roleLabel}</p>
+                <form action="/api/admin/session/logout" method="post">
+                  <input type="hidden" name="csrf" value={identity.csrfToken} />
+                  <button
+                    type="submit"
+                    className={`${styles.button} ${styles.buttonSecondary} ${styles.buttonWide}`}
+                  >
+                    <AdminIcon name="logout" />
+                    {t('admin.session.signOut')}
+                  </button>
+                </form>
+              </div>
+              <Link href="/" target="_blank" rel="noreferrer" className={styles.sheetStorefront}>
+                <AdminIcon name="storefront" />
+                {t('admin.nav.storefront')}
+              </Link>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }

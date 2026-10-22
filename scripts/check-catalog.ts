@@ -136,26 +136,26 @@ if (shared.length > 0) {
   errors.push(`curation: featured and collection share product id(s) ${shared.join(', ')}`);
 }
 
-// The demonstration must never be able to present itself as a live shop.
-const demoAnnouncement = announcements.find((announcement) => announcement.id === 'demo-preview');
-if (!demoAnnouncement) {
-  errors.push('announcements: the locked demo-preview announcement is missing');
-} else {
-  if (!demoAnnouncement.locked) {
-    errors.push('announcements: the demo-preview announcement must be locked');
-  }
-  if (demoAnnouncement.message.trim().length === 0) {
-    errors.push('announcements: the demo-preview announcement needs a message');
-  }
-  if (!activeAnnouncements().some((announcement) => announcement.id === 'demo-preview')) {
-    errors.push('announcements: the demo-preview announcement is not active');
-  }
-}
-
+/*
+ * The storefront is out of demonstration (owner decision, 2026-10-23). The locked preview notice was
+ * removed, so this check now guards the opposite direction: nothing may reintroduce a locked entry, and
+ * no configured announcement may describe the shop as a preview. The owner's own line is the only
+ * announcement, and it lives in the database rather than in this file.
+ */
 for (const announcement of announcements) {
+  if (announcement.locked) {
+    errors.push(`announcements: ${announcement.id} is locked; no locked notice is approved`);
+  }
   if (announcement.message.trim().length === 0) {
     errors.push(`announcements: ${announcement.id} needs a message`);
   }
+  if (/\b(demo|preview|demonstration)\b/i.test(announcement.message)) {
+    errors.push(`announcements: ${announcement.id} still describes the store as a demo`);
+  }
+}
+
+if (activeAnnouncements().length !== announcements.length) {
+  errors.push('announcements: the active composition disagrees with the configured list');
 }
 
 if (errors.length > 0) {
@@ -175,5 +175,5 @@ console.log(
     `${categories.length} categories, ${discounted} with verified discounts, ` +
     `${FEATURED_PRODUCT_IDS.length}/${FEATURED_MAX} featured, ` +
     `${COLLECTION_PRODUCT_IDS.length}/${COLLECTION_MAX} in the collection, ` +
-    `${activeAnnouncements().length} active announcement(s) including the locked demo warning.`,
+    `${activeAnnouncements().length} configured announcement(s); no demo notice.`,
 );

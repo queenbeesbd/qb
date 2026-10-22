@@ -79,7 +79,6 @@ export default async function EditProductPage({
   return (
     <>
       <PageHeader
-        eyebrow={`${translate('admin.catalog.title')} / ${translate('admin.catalog.edit')}`}
         title={data.product.nameEn}
         description={translate('admin.catalog.editBody')}
       />

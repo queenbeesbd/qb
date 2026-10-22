@@ -8,7 +8,7 @@ import type { TranslationKey } from '@/i18n/dictionaries';
 import type { CatalogCategory, CatalogItem } from '@/lib/types';
 import { ProductCard } from '@/components/ProductCard';
 import { ProductGrid } from '@/components/ProductGrid';
-import { SearchIcon } from '@/components/icons';
+import { FilterIcon, SearchIcon } from '@/components/icons';
 import { SORT_OPTIONS, type CatalogQuery, type SortOption } from './query';
 import styles from '@/app/catalog.module.css';
 
@@ -44,8 +44,20 @@ export function CatalogView({
   const { t, pick } = useTranslation();
   const router = useRouter();
   const [term, setTerm] = useState(query.q);
+  /**
+   * The filter panel is collapsed on a phone, always.
+   *
+   * Measured: the category and brand chips filled the entire first screen at 390px, so the first product
+   * began below the fold on a page whose whole purpose is to show products. It used to open by itself
+   * when a filter was active, which meant that landing on a category page put ~600px of chips between
+   * the heading and the first card. The active filters are already stated in the toolbar chips and the
+   * toggle's count, so a collapsed panel hides nothing.
+   */
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   const hasFilters = Boolean(query.q || query.category || query.brand || query.sort !== 'relevance');
+  const activeFilterCount =
+    (query.q ? 1 : 0) + (query.category ? 1 : 0) + (query.brand ? 1 : 0);
 
   function push(next: Partial<CatalogQuery>) {
     const merged: CatalogQuery = { ...query, ...next };
@@ -62,11 +74,22 @@ export function CatalogView({
   // so a category link never depends on a database identity value.
   const activeCategory = categories.find((category) => category.slug === query.category);
 
+  /**
+   * A category page names its category. It used to be headed "All products" with the category only
+   * stated as a chip in the toolbar, so /categories/skincare looked like the unfiltered catalog - the
+   * page a customer lands on from the Categories list did not say where they were.
+   */
+  const heading = query.q
+    ? t('search.resultsFor', { query: query.q })
+    : activeCategory !== undefined
+      ? (pick(activeCategory.name) ?? activeCategory.slug)
+      : t('catalog.title');
+
   return (
     <div className={styles.page}>
       <header className={styles.pageHeader}>
         <div>
-          <h1>{query.q ? t('search.resultsFor', { query: query.q }) : t('catalog.title')}</h1>
+          <h1>{heading}</h1>
           <p className={styles.count} aria-live="polite">
             {t('catalog.count', { count: results.length })}
           </p>
@@ -74,7 +97,12 @@ export function CatalogView({
       </header>
 
       <div className={styles.layout}>
-        <aside className={styles.filters} aria-label={t('catalog.filters')}>
+        <aside
+          id="catalog-filters"
+          className={styles.filters}
+          aria-label={t('catalog.filters')}
+          data-open={filtersOpen ? 'true' : 'false'}
+        >
           <form
             className={styles.searchForm}
             role="search"
@@ -189,7 +217,30 @@ export function CatalogView({
         <div className={styles.results}>
           <div className={styles.toolbar}>
             <div className={styles.activeFilters}>
-              {activeCategory && (
+              {/*
+                The only way into the filters on a phone. It states how many are active rather than
+                relying on the chips alone, because a collapsed panel hides them.
+              */}
+              <button
+                type="button"
+                className={styles.filterToggle}
+                aria-expanded={filtersOpen}
+                aria-controls="catalog-filters"
+                onClick={() => setFiltersOpen((open) => !open)}
+              >
+                <FilterIcon width={16} height={16} />
+                {t('catalog.filters')}
+                {activeFilterCount > 0 && (
+                  <span className={styles.filterCount}>{activeFilterCount}</span>
+                )}
+              </button>
+              {/*
+                Only filters the heading does not already state become chips. The heading names the
+                search term or the category, so repeating it in a chip beside the Filters button was the
+                same fact twice - and on a phone it was the width that pushed the sort control onto its
+                own line. A brand is the one filter the heading cannot state.
+              */}
+              {query.q && activeCategory && (
                 <span className={styles.chip}>{pick(activeCategory.name)}</span>
               )}
               {query.brand && <span className={styles.chip}>{query.brand}</span>}
@@ -199,6 +250,7 @@ export function CatalogView({
               <select
                 id="catalog-sort"
                 value={query.sort}
+                aria-label={t('catalog.sort')}
                 onChange={(event) => push({ sort: event.target.value as SortOption })}
               >
                 {SORT_OPTIONS.map((option) => (

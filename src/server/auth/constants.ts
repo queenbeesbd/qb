@@ -72,7 +72,18 @@ export const OWNERS_PATH = '/admin/owners';
 export const CATALOG_PATH = '/admin/catalog';
 export const CATEGORIES_PATH = '/admin/categories';
 export const DELIVERY_SETTINGS_PATH = '/admin/settings/delivery';
+export const PROMO_CODES_PATH = '/admin/promo-codes';
+/** The derived figures screen: revenue, orders and what is selling (Phase 38). */
+export const ANALYTICS_PATH = '/admin/analytics';
 export const ANNOUNCEMENT_SETTINGS_PATH = '/admin/settings/announcement';
+/**
+ * Integrations (Phase 39): outbound notification destinations.
+ *
+ * A hub rather than a single screen, because "where should news go" is a family that will grow (a
+ * courier, a mail provider) and the sidebar should not grow with it. Telegram is the only member today.
+ */
+export const INTEGRATIONS_PATH = '/admin/settings/integrations';
+export const TELEGRAM_SETTINGS_PATH = '/admin/settings/integrations/telegram';
 
 /**
  * Phase 16 worklists: COD confirmation and customer moderation.

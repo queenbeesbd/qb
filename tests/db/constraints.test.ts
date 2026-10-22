@@ -51,7 +51,7 @@ describe('schema constraints against real PostgreSQL', { skip: toolingAvailable 
     const failures = report.checks.filter((check) => !check.ok);
     assert.deepEqual(failures, [], `schema validation failed: ${JSON.stringify(failures)}`);
     // 42 before Phase 22 added `order_additional_cost`.
-    assert.equal(report.counts.tables, 43);
+    assert.equal(report.counts.tables, 45);
   });
 
   it('seeds a complete order graph', async () => {

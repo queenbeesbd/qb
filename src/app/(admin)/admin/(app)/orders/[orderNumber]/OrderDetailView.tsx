@@ -5,6 +5,7 @@ import Link from 'next/link';
 import type { TranslationKey } from '@/i18n/dictionaries';
 import { useTranslation } from '@/i18n/useTranslation';
 import { deliveryAreaName } from '@/lib/delivery-areas';
+import { orderDiscountMinor } from '@/lib/money';
 import { ORDER_COST_PATH, ORDER_TRANSITION_PATH } from '@/server/auth/constants';
 import { paymentLabel, statusLabel } from '@/features/account/order-labels';
 import { ConfirmSubmit } from '../../../_ui/ConfirmSubmit';
@@ -38,7 +39,7 @@ export type AdminOrderReturnModel = {
   id: number;
   orderItemId: number;
   sku: string;
-  nameBn: string;
+  nameBn: string | null;
   nameEn: string;
   quantity: number;
   reason: string;
@@ -83,7 +84,7 @@ export type AdminOrderDetailModel = {
   };
   items: readonly {
     id: number;
-    nameBn: string;
+    nameBn: string | null;
     nameEn: string;
     variantLabel: string | null;
     sku: string;
@@ -282,13 +283,22 @@ export function AdminOrderDetailView({
       : format.format(-order.ageHours, 'hour');
   })();
 
+  /*
+    A permission is not an action. The band renders only when the current state actually has a step
+    to take, so a settled order shows no band rather than an empty "Next step" panel promising work
+    that does not exist.
+  */
   const hasOperations =
-    canFulfil || canCollect || canInspect || canCancel ? true : cancellable || receivable || dispatchable;
+    dispatchable ||
+    awaitingDeliveryOutcome ||
+    receivable ||
+    returnAwaitingReceipt ||
+    completable ||
+    (cancellable && canCancel);
 
   return (
     <>
       <PageHeader
-        eyebrow={t('admin.order.eyebrow')}
         title={order.orderNumber}
         description={t('admin.cod.placedAt', { time: dateTime.format(new Date(order.placedAt)) })}
         actions={
@@ -299,6 +309,30 @@ export function AdminOrderDetailView({
       />
 
       {notice !== null && <Notice tone={noticeTone}>{t(NOTICE_KEYS[notice])}</Notice>}
+
+      {/*
+        The next legal action comes before the record, not after it. The owner opens an order to
+        decide or advance it; every fact below is what they check before pressing one of these.
+      */}
+      {(waiting || hasOperations) && (
+        <OrderActionBand
+          order={order}
+          csrfToken={csrfToken}
+          waiting={waiting}
+          dispatchable={dispatchable}
+          awaitingDeliveryOutcome={awaitingDeliveryOutcome}
+          receivable={receivable}
+          returnAwaitingReceipt={returnAwaitingReceipt}
+          completable={completable}
+          cancellable={cancellable}
+          canApprove={canApprove}
+          canCancel={canCancel}
+          canFulfil={canFulfil}
+          canCollect={canCollect}
+          canInspect={canInspect}
+          canRecordCosts={canRecordCosts}
+        />
+      )}
 
       {/*
         The money facts, kept separate on purpose. The customer's payment is gross; the standard
@@ -439,6 +473,14 @@ export function AdminOrderDetailView({
               <dt>{t('cart.subtotal')}</dt>
               <dd>{price(order.itemsSubtotalMinor)}</dd>
             </div>
+            {orderDiscountMinor(order.itemsSubtotalMinor, order.shippingMinor, order.totalMinor) > 0 && (
+              <div>
+                <dt>{t('orders.discount')}</dt>
+                <dd>
+                  −{price(orderDiscountMinor(order.itemsSubtotalMinor, order.shippingMinor, order.totalMinor))}
+                </dd>
+              </div>
+            )}
             <div>
               <dt>{t('cart.delivery')}</dt>
               <dd>{order.contact.districtCode === null ? t('orders.deliveryPending') : price(order.shippingMinor)}</dd>
@@ -724,254 +766,330 @@ export function AdminOrderDetailView({
               </Link>
             )}
           </div>
-
-          {waiting && (
-            <div className={styles.panel}>
-              <h2 className={styles.panelTitle}>{t('admin.order.decisionTitle')}</h2>
-              <p className={styles.note}>{t('admin.order.decisionBody')}</p>
-              <div className={styles.orderActions}>
-                <form action="/api/admin/orders-cod" method="post" className={styles.approveForm}>
-                  <input type="hidden" name="csrf" value={csrfToken} />
-                  <input type="hidden" name="orderId" value={order.orderId} />
-                  <input type="hidden" name="decision" value="approve" />
-                  {/* Open by default: the note is required, and a collapsed required field is a trap. */}
-                  <details className={styles.noteDetails} open>
-                    <summary>{t('admin.cod.noteSummary')}</summary>
-                    <label className="sr-only" htmlFor="order-approve-reason">
-                      {t('admin.cod.approveReason')}
-                    </label>
-                    <input
-                      id="order-approve-reason"
-                      name="reason"
-                      className={styles.input}
-                      required
-                      minLength={10}
-                      maxLength={500}
-                      defaultValue={t('admin.cod.approveReasonDefault')}
-                    />
-                  </details>
-                  <SubmitButton
-                    label={t('admin.cod.approve')}
-                    pendingLabel={t('admin.common.working')}
-                    disabled={!canApprove}
-                    wide
-                  />
-                </form>
-
-                {canCancel ? (
-                  <ConfirmSubmit
-                    action="/api/admin/orders-cod"
-                    csrfToken={csrfToken}
-                    fields={{ orderId: order.orderId, decision: 'reject' }}
-                    triggerLabel={t('admin.cod.reject')}
-                    triggerVariant="dangerOutline"
-                    title={t('admin.cod.rejectTitle')}
-                    body={t('admin.cod.rejectBody')}
-                    confirmLabel={t('admin.cod.rejectConfirm')}
-                    cancelLabel={t('admin.common.cancel')}
-                    pendingLabel={t('admin.common.working')}
-                    reason={{
-                      label: t('admin.cod.rejectReason'),
-                      placeholder: t('admin.cod.rejectReasonPlaceholder'),
-                      minLength: 10,
-                      maxLength: 500,
-                      required: true,
-                    }}
-                  />
-                ) : null}
-              </div>
-            </div>
-          )}
-
-          {!waiting && hasOperations && (
-            <div className={styles.panel}>
-              <h2 className={styles.panelTitle}>{t('admin.order.operationsTitle')}</h2>
-              <p className={styles.note}>{t('admin.order.operationsBody')}</p>
-              <div className={styles.orderActions}>
-                {dispatchable && (
-                  <form action={ORDER_TRANSITION_PATH} method="post" className={styles.approveForm}>
-                    <input type="hidden" name="csrf" value={csrfToken} />
-                    <input type="hidden" name="action" value="dispatch" />
-                    <input type="hidden" name="orderId" value={order.orderId} />
-                    <details className={styles.noteDetails}>
-                      <summary>{t('admin.order.noteSummary')}</summary>
-                      <label className="sr-only" htmlFor="dispatch-note">
-                        {t('admin.order.dispatchNote')}
-                      </label>
-                      <input id="dispatch-note" name="note" className={styles.input} maxLength={300} />
-                    </details>
-                    <SubmitButton
-                      label={t('admin.order.dispatch')}
-                      pendingLabel={t('admin.common.working')}
-                      disabled={!canFulfil}
-                      wide
-                    />
-                  </form>
-                )}
-
-                {awaitingDeliveryOutcome && (
-                  <form action={ORDER_TRANSITION_PATH} method="post" className={styles.approveForm}>
-                    <input type="hidden" name="csrf" value={csrfToken} />
-                    <input type="hidden" name="action" value="delivered" />
-                    <input type="hidden" name="orderId" value={order.orderId} />
-                    <details className={styles.noteDetails}>
-                      <summary>{t('admin.order.noteSummary')}</summary>
-                      <label className="sr-only" htmlFor="delivered-note">
-                        {t('admin.order.deliveredNote')}
-                      </label>
-                      <input id="delivered-note" name="note" className={styles.input} maxLength={300} />
-                    </details>
-                    <SubmitButton
-                      label={t('admin.order.delivered')}
-                      pendingLabel={t('admin.common.working')}
-                      variant="secondary"
-                      disabled={!canFulfil}
-                      wide
-                    />
-                  </form>
-                )}
-
-                {receivable && (
-                  <form action={ORDER_TRANSITION_PATH} method="post" className={styles.approveForm}>
-                    <input type="hidden" name="csrf" value={csrfToken} />
-                    <input type="hidden" name="action" value="paid" />
-                    <input type="hidden" name="orderId" value={order.orderId} />
-                    <p className={styles.note}>{t('admin.order.paidBody')}</p>
-                    <details className={styles.noteDetails}>
-                      <summary>{t('admin.order.noteSummary')}</summary>
-                      <label className="sr-only" htmlFor="collect-note">
-                        {t('admin.order.paidNote')}
-                      </label>
-                      <input id="collect-note" name="note" className={styles.input} maxLength={300} />
-                    </details>
-
-                    {/*
-                      Additional costs are recorded with the receipt, in the same submission and the same
-                      transaction. Two blank rows are offered rather than one required row: no cost is a
-                      perfectly normal answer, and the owner is never made to invent one to complete.
-                    */}
-                    {canRecordCosts && (
-                      <fieldset className={styles.costEntry}>
-                        <legend className={styles.costLegend}>{t('admin.order.costsEntryTitle')}</legend>
-                        <p className={styles.note}>{t('admin.order.costsEntryBody')}</p>
-                        {[0, 1].map((index) => (
-                          <div key={index} className={styles.costRow}>
-                            <label className="sr-only" htmlFor={`cost-amount-${index}`}>
-                              {t('admin.order.costsEntryAmount')}
-                            </label>
-                            <input
-                              id={`cost-amount-${index}`}
-                              name="costAmount"
-                              className={styles.input}
-                              inputMode="decimal"
-                              placeholder={t('admin.order.costsEntryAmount')}
-                            />
-                            <label className="sr-only" htmlFor={`cost-description-${index}`}>
-                              {t('admin.order.costsEntryDescription')}
-                            </label>
-                            <input
-                              id={`cost-description-${index}`}
-                              name="costDescription"
-                              className={styles.input}
-                              maxLength={200}
-                              placeholder={t('admin.order.costsEntryDescription')}
-                            />
-                          </div>
-                        ))}
-                      </fieldset>
-                    )}
-
-                    <SubmitButton
-                      label={t('admin.order.paid')}
-                      pendingLabel={t('admin.common.working')}
-                      disabled={!canCollect}
-                      wide
-                    />
-                  </form>
-                )}
-
-                {returnAwaitingReceipt && (
-                  <form action={ORDER_TRANSITION_PATH} method="post" className={styles.approveForm}>
-                    <input type="hidden" name="csrf" value={csrfToken} />
-                    <input type="hidden" name="action" value="return_received" />
-                    <input type="hidden" name="orderId" value={order.orderId} />
-                    <details className={styles.noteDetails}>
-                      <summary>{t('admin.order.noteSummary')}</summary>
-                      <label className="sr-only" htmlFor="return-note">
-                        {t('admin.order.returnReceivedNote')}
-                      </label>
-                      <input id="return-note" name="note" className={styles.input} maxLength={300} />
-                    </details>
-                    <SubmitButton
-                      label={t('admin.order.returnReceived')}
-                      pendingLabel={t('admin.common.working')}
-                      disabled={!canInspect}
-                      wide
-                    />
-                  </form>
-                )}
-
-                {completable && (
-                  <form action={ORDER_TRANSITION_PATH} method="post" className={styles.approveForm}>
-                    <input type="hidden" name="csrf" value={csrfToken} />
-                    <input type="hidden" name="action" value="complete" />
-                    <input type="hidden" name="orderId" value={order.orderId} />
-                    <SubmitButton
-                      label={t('admin.order.complete')}
-                      pendingLabel={t('admin.common.working')}
-                      variant="secondary"
-                      disabled={!canFulfil}
-                      wide
-                    />
-                  </form>
-                )}
-
-                {awaitingDeliveryOutcome && canFulfil ? (
-                  <ConfirmSubmit
-                    action={ORDER_TRANSITION_PATH}
-                    csrfToken={csrfToken}
-                    fields={{ orderId: order.orderId, action: 'failed' }}
-                    triggerLabel={t('admin.order.failed')}
-                    title={t('admin.order.failedTitle')}
-                    body={t('admin.order.failedBody')}
-                    confirmLabel={t('admin.order.failedConfirm')}
-                    cancelLabel={t('admin.common.cancel')}
-                    pendingLabel={t('admin.common.working')}
-                    reason={{
-                      label: t('admin.order.failedReason'),
-                      placeholder: t('admin.order.failedReasonPlaceholder'),
-                      minLength: 10,
-                      maxLength: 500,
-                      required: true,
-                    }}
-                  />
-                ) : null}
-
-                {cancellable && canCancel ? (
-                  <ConfirmSubmit
-                    action={ORDER_TRANSITION_PATH}
-                    csrfToken={csrfToken}
-                    fields={{ orderId: order.orderId, action: 'cancel' }}
-                    triggerLabel={t('admin.order.cancel')}
-                    title={t('admin.order.cancelTitle')}
-                    body={t('admin.order.cancelBody')}
-                    confirmLabel={t('admin.order.cancelConfirm')}
-                    cancelLabel={t('admin.common.cancel')}
-                    pendingLabel={t('admin.common.working')}
-                    reason={{
-                      label: t('admin.order.cancelReason'),
-                      placeholder: t('admin.order.cancelReasonPlaceholder'),
-                      minLength: 10,
-                      maxLength: 500,
-                      required: true,
-                    }}
-                  />
-                ) : null}
-              </div>
-            </div>
-          )}
         </aside>
       </div>
     </>
   );
 }
+
+/**
+ * The order's next legal action, mounted directly under the page header.
+ *
+ * The owner opens an order to act on it: decide it, dispatch it, record the cash. The record below is
+ * what they check before acting, so it reads second. Two rules keep this honest:
+ *
+ * - **Only a legal step is offered.** Every form is the same guarded route the rest of the admin uses,
+ *   and the service re-checks the order's state and the actor's permission. This band is presentation.
+ * - **No empty panel.** The parent renders it only when `waiting || hasOperations`, and
+ *   `hasOperations` is derived from the transitions that actually render, not from permissions - a
+ *   settled order has nothing to do and says so by showing no band at all.
+ *
+ * Return inspection keeps its controls beside the returned line in the record: inspecting one line
+ * belongs to that line, not to the order as a whole.
+ */
+type OrderActionBandProps = {
+  order: AdminOrderDetailModel;
+  csrfToken: string;
+  waiting: boolean;
+  dispatchable: boolean;
+  awaitingDeliveryOutcome: boolean;
+  receivable: boolean;
+  returnAwaitingReceipt: boolean;
+  completable: boolean;
+  cancellable: boolean;
+  canApprove: boolean;
+  canCancel: boolean;
+  canFulfil: boolean;
+  canCollect: boolean;
+  canInspect: boolean;
+  canRecordCosts: boolean;
+};
+
+function OrderActionBand({
+  order,
+  csrfToken,
+  waiting,
+  dispatchable,
+  awaitingDeliveryOutcome,
+  receivable,
+  returnAwaitingReceipt,
+  completable,
+  cancellable,
+  canApprove,
+  canCancel,
+  canFulfil,
+  canCollect,
+  canInspect,
+  canRecordCosts,
+}: OrderActionBandProps) {
+  const { t, price } = useTranslation();
+
+  return (
+    <section className={styles.actionBand} aria-labelledby="order-action-title">
+      <div className={styles.actionBandHead}>
+        <div>
+          <h2 className={styles.actionBandTitle} id="order-action-title">
+            {waiting ? t('admin.order.decisionTitle') : t('admin.order.operationsTitle')}
+          </h2>
+          <p className={styles.actionBandBody}>
+            {waiting ? t('admin.order.decisionBody') : t('admin.order.operationsBody')}
+          </p>
+        </div>
+        <div className={styles.actionBandTotal}>
+          <span className={styles.factLabel}>{t('admin.cod.total')}</span>
+          <span className={styles.recordPrice}>{price(order.totalMinor)}</span>
+        </div>
+      </div>
+
+      <div className={styles.actionGrid}>
+        {waiting ? (
+          <>
+            <form
+              action="/api/admin/orders-cod"
+              method="post"
+              className={styles.approveForm + ' ' + styles.actionFormPrimary}
+            >
+              <input type="hidden" name="csrf" value={csrfToken} />
+              <input type="hidden" name="orderId" value={order.orderId} />
+              <input type="hidden" name="decision" value="approve" />
+              {/* Open by default: the note is required, and a collapsed required field is a trap. */}
+              <details className={styles.noteDetails} open>
+                <summary>{t('admin.cod.noteSummary')}</summary>
+                <label className="sr-only" htmlFor="order-approve-reason">
+                  {t('admin.cod.approveReason')}
+                </label>
+                <input
+                  id="order-approve-reason"
+                  name="reason"
+                  className={styles.input}
+                  required
+                  minLength={10}
+                  maxLength={500}
+                  defaultValue={t('admin.cod.approveReasonDefault')}
+                />
+              </details>
+              <SubmitButton
+                label={t('admin.cod.approve')}
+                pendingLabel={t('admin.common.working')}
+                disabled={!canApprove}
+                wide
+              />
+            </form>
+
+            {canCancel ? (
+              <ConfirmSubmit
+                action="/api/admin/orders-cod"
+                csrfToken={csrfToken}
+                fields={{ orderId: order.orderId, decision: 'reject' }}
+                triggerLabel={t('admin.cod.reject')}
+                triggerVariant="dangerOutline"
+                title={t('admin.cod.rejectTitle')}
+                body={t('admin.cod.rejectBody')}
+                confirmLabel={t('admin.cod.rejectConfirm')}
+                cancelLabel={t('admin.common.cancel')}
+                pendingLabel={t('admin.common.working')}
+                className={styles.approveForm + ' ' + styles.actionConfirmEnd}
+                reason={{
+                  label: t('admin.cod.rejectReason'),
+                  placeholder: t('admin.cod.rejectReasonPlaceholder'),
+                  minLength: 10,
+                  maxLength: 500,
+                  required: true,
+                }}
+              />
+            ) : null}
+          </>
+        ) : (
+          <>
+            {dispatchable && (
+              <form action={ORDER_TRANSITION_PATH} method="post" className={styles.approveForm}>
+                <input type="hidden" name="csrf" value={csrfToken} />
+                <input type="hidden" name="action" value="dispatch" />
+                <input type="hidden" name="orderId" value={order.orderId} />
+                <details className={styles.noteDetails}>
+                  <summary>{t('admin.order.noteSummary')}</summary>
+                  <label className="sr-only" htmlFor="dispatch-note">
+                    {t('admin.order.dispatchNote')}
+                  </label>
+                  <input id="dispatch-note" name="note" className={styles.input} maxLength={300} />
+                </details>
+                <SubmitButton
+                  label={t('admin.order.dispatch')}
+                  pendingLabel={t('admin.common.working')}
+                  disabled={!canFulfil}
+                  wide
+                />
+              </form>
+            )}
+
+            {awaitingDeliveryOutcome && (
+              <form action={ORDER_TRANSITION_PATH} method="post" className={styles.approveForm}>
+                <input type="hidden" name="csrf" value={csrfToken} />
+                <input type="hidden" name="action" value="delivered" />
+                <input type="hidden" name="orderId" value={order.orderId} />
+                <details className={styles.noteDetails}>
+                  <summary>{t('admin.order.noteSummary')}</summary>
+                  <label className="sr-only" htmlFor="delivered-note">
+                    {t('admin.order.deliveredNote')}
+                  </label>
+                  <input id="delivered-note" name="note" className={styles.input} maxLength={300} />
+                </details>
+                <SubmitButton
+                  label={t('admin.order.delivered')}
+                  pendingLabel={t('admin.common.working')}
+                  variant="secondary"
+                  disabled={!canFulfil}
+                  wide
+                />
+              </form>
+            )}
+
+            {receivable && (
+              <form
+                action={ORDER_TRANSITION_PATH}
+                method="post"
+                className={styles.approveForm + ' ' + styles.actionFormWide}
+              >
+                <input type="hidden" name="csrf" value={csrfToken} />
+                <input type="hidden" name="action" value="paid" />
+                <input type="hidden" name="orderId" value={order.orderId} />
+                <p className={styles.note}>{t('admin.order.paidBody')}</p>
+                <details className={styles.noteDetails}>
+                  <summary>{t('admin.order.noteSummary')}</summary>
+                  <label className="sr-only" htmlFor="collect-note">
+                    {t('admin.order.paidNote')}
+                  </label>
+                  <input id="collect-note" name="note" className={styles.input} maxLength={300} />
+                </details>
+
+                {/*
+                  Additional costs are recorded with the receipt, in the same submission and the same
+                  transaction. Two blank rows are offered rather than one required row: no cost is a
+                  perfectly normal answer, and the owner is never made to invent one to complete.
+                */}
+                {canRecordCosts && (
+                  <fieldset className={styles.costEntry}>
+                    <legend className={styles.costLegend}>{t('admin.order.costsEntryTitle')}</legend>
+                    <p className={styles.note}>{t('admin.order.costsEntryBody')}</p>
+                    {[0, 1].map((index) => (
+                      <div key={index} className={styles.costRow}>
+                        <label className="sr-only" htmlFor={`cost-amount-${index}`}>
+                          {t('admin.order.costsEntryAmount')}
+                        </label>
+                        <input
+                          id={`cost-amount-${index}`}
+                          name="costAmount"
+                          className={styles.input}
+                          inputMode="decimal"
+                          placeholder={t('admin.order.costsEntryAmount')}
+                        />
+                        <label className="sr-only" htmlFor={`cost-description-${index}`}>
+                          {t('admin.order.costsEntryDescription')}
+                        </label>
+                        <input
+                          id={`cost-description-${index}`}
+                          name="costDescription"
+                          className={styles.input}
+                          maxLength={200}
+                          placeholder={t('admin.order.costsEntryDescription')}
+                        />
+                      </div>
+                    ))}
+                  </fieldset>
+                )}
+
+                <SubmitButton
+                  label={t('admin.order.paid')}
+                  pendingLabel={t('admin.common.working')}
+                  disabled={!canCollect}
+                  wide
+                />
+              </form>
+            )}
+
+            {returnAwaitingReceipt && (
+              <form action={ORDER_TRANSITION_PATH} method="post" className={styles.approveForm}>
+                <input type="hidden" name="csrf" value={csrfToken} />
+                <input type="hidden" name="action" value="return_received" />
+                <input type="hidden" name="orderId" value={order.orderId} />
+                <details className={styles.noteDetails}>
+                  <summary>{t('admin.order.noteSummary')}</summary>
+                  <label className="sr-only" htmlFor="return-note">
+                    {t('admin.order.returnReceivedNote')}
+                  </label>
+                  <input id="return-note" name="note" className={styles.input} maxLength={300} />
+                </details>
+                <SubmitButton
+                  label={t('admin.order.returnReceived')}
+                  pendingLabel={t('admin.common.working')}
+                  disabled={!canInspect}
+                  wide
+                />
+              </form>
+            )}
+
+            {completable && (
+              <form action={ORDER_TRANSITION_PATH} method="post" className={styles.approveForm}>
+                <input type="hidden" name="csrf" value={csrfToken} />
+                <input type="hidden" name="action" value="complete" />
+                <input type="hidden" name="orderId" value={order.orderId} />
+                <SubmitButton
+                  label={t('admin.order.complete')}
+                  pendingLabel={t('admin.common.working')}
+                  variant="secondary"
+                  disabled={!canFulfil}
+                  wide
+                />
+              </form>
+            )}
+
+            {awaitingDeliveryOutcome && canFulfil ? (
+              <ConfirmSubmit
+                action={ORDER_TRANSITION_PATH}
+                csrfToken={csrfToken}
+                fields={{ orderId: order.orderId, action: 'failed' }}
+                triggerLabel={t('admin.order.failed')}
+                title={t('admin.order.failedTitle')}
+                body={t('admin.order.failedBody')}
+                confirmLabel={t('admin.order.failedConfirm')}
+                cancelLabel={t('admin.common.cancel')}
+                pendingLabel={t('admin.common.working')}
+                className={styles.approveForm}
+                reason={{
+                  label: t('admin.order.failedReason'),
+                  placeholder: t('admin.order.failedReasonPlaceholder'),
+                  minLength: 10,
+                  maxLength: 500,
+                  required: true,
+                }}
+              />
+            ) : null}
+
+            {cancellable && canCancel ? (
+              <ConfirmSubmit
+                action={ORDER_TRANSITION_PATH}
+                csrfToken={csrfToken}
+                fields={{ orderId: order.orderId, action: 'cancel' }}
+                triggerLabel={t('admin.order.cancel')}
+                title={t('admin.order.cancelTitle')}
+                body={t('admin.order.cancelBody')}
+                confirmLabel={t('admin.order.cancelConfirm')}
+                cancelLabel={t('admin.common.cancel')}
+                pendingLabel={t('admin.common.working')}
+                className={styles.approveForm}
+                reason={{
+                  label: t('admin.order.cancelReason'),
+                  placeholder: t('admin.order.cancelReasonPlaceholder'),
+                  minLength: 10,
+                  maxLength: 500,
+                  required: true,
+                }}
+              />
+            ) : null}
+          </>
+        )}
+      </div>
+    </section>
+  );
+}
+

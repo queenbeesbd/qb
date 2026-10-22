@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useTranslation } from '@/i18n/useTranslation';
 import type { TranslationKey } from '@/i18n/dictionaries';
 import { deliveryAreaName } from '@/lib/delivery-areas';
+import { orderDiscountMinor } from '@/lib/money';
 import { ClearCart } from '@/features/checkout/ClearCart';
 import { methodLabel, paymentLabel, statusLabel } from './order-labels';
 import styles from '@/app/account.module.css';
@@ -149,6 +150,14 @@ export function OrderDetailView({ order, placed }: { order: OrderDetail; placed:
             <dt>{t('cart.subtotal')}</dt>
             <dd>{price(order.itemsSubtotalMinor)}</dd>
           </div>
+          {orderDiscountMinor(order.itemsSubtotalMinor, order.shippingMinor, order.totalMinor) > 0 && (
+            <div>
+              <dt>{t('orders.discount')}</dt>
+              <dd>
+                −{price(orderDiscountMinor(order.itemsSubtotalMinor, order.shippingMinor, order.totalMinor))}
+              </dd>
+            </div>
+          )}
           <div>
             <dt>{t('cart.delivery')}</dt>
             <dd className={order.districtCode === null ? styles.muted : undefined}>

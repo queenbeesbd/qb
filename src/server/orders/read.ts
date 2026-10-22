@@ -43,7 +43,7 @@ export type CustomerOrderDetail = CustomerOrderSummary & {
     readonly deliveryNote: string | null;
   };
   readonly items: readonly {
-    readonly productNameBn: string;
+    readonly productNameBn: string | null;
     readonly productNameEn: string;
     readonly variantLabel: string | null;
     readonly sku: string;

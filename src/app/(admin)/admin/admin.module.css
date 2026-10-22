@@ -45,11 +45,12 @@
 
 .sidebar {
   background: var(--color-admin-sidebar);
+  border-inline-end: 1px solid var(--color-admin-sidebar-border);
   color: var(--color-admin-sidebar-ink);
   display: flex;
   flex-direction: column;
   gap: var(--space-6);
-  padding: var(--space-5) var(--space-4) var(--space-5);
+  padding: var(--space-5) var(--space-3) var(--space-5);
   position: sticky;
   top: 0;
   height: 100vh;
@@ -69,7 +70,7 @@
 }
 
 .brand:hover {
-  color: #fff;
+  color: var(--color-action);
 }
 
 .brandMark {
@@ -139,25 +140,23 @@ html[lang='bn'] .navGroupLabel {
 }
 
 .navLink:hover {
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--color-surface);
   color: var(--color-admin-sidebar-ink);
 }
 
+.navLink:active {
+  background: var(--color-admin-sidebar-border);
+}
+
 .navLinkActive {
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--color-action);
   color: #fff;
   font-weight: 600;
 }
 
-.navLinkActive::before {
-  content: '';
-  position: absolute;
-  inset-inline-start: 0;
-  top: 10px;
-  bottom: 10px;
-  width: 3px;
-  border-radius: 0 3px 3px 0;
-  background: var(--brand-secondary);
+.navLinkActive:hover {
+  background: var(--color-action-hover);
+  color: #fff;
 }
 
 .navIcon {
@@ -174,7 +173,7 @@ html[lang='bn'] .navGroupLabel {
   display: grid;
   gap: var(--space-2);
   padding: var(--space-4) var(--space-2) 0;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  border-top: 1px solid var(--color-admin-sidebar-border);
 }
 
 .sidebarFoot a,
@@ -195,11 +194,11 @@ html[lang='bn'] .navGroupLabel {
 
 .sidebarFoot a:hover,
 .sidebarFoot button:hover {
-  color: #fff;
+  color: var(--color-action);
 }
 
 .sidebar :focus-visible {
-  outline-color: #fff;
+  outline-color: var(--color-focus);
   outline-offset: 2px;
 }
 
@@ -373,36 +372,175 @@ html[lang='bn'] .navGroupLabel {
   outline: none;
 }
 
-/* Mobile drawer ------------------------------------------------------------ */
+/* Mobile navigation: a bottom tab bar and its More sheet --------------------- */
 
-.backdrop {
+/*
+ * The phone navigation is a fixed bottom bar, not a drawer. Four ranked destinations and More: the
+ * owner's first move is the queue, then stock, then an order. The bar sits above the device's safe
+ * area, and the content below reserves exactly its height so nothing is ever hidden behind it.
+ */
+.bottomNav {
+  display: none;
+}
+
+.tab {
+  position: relative;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 3px;
+  min-height: var(--admin-bottom-nav-height);
+  padding: 6px 4px;
+  border: 0;
+  background: none;
+  color: var(--color-ink-muted);
+  font: inherit;
+  text-decoration: none;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.tab:active {
+  background: var(--color-surface-sunken);
+}
+
+.tabActive {
+  color: var(--color-action);
+}
+
+.tabActive::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 20px;
+  height: 2px;
+  border-radius: 0 0 2px 2px;
+  background: var(--color-action);
+  transform: translateX(-50%);
+}
+
+.tabIcon {
+  flex: none;
+}
+
+.tabLabel {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.sheetBackdrop {
   position: fixed;
   inset: 0;
-  z-index: 35;
+  z-index: 60;
   border: 0;
   padding: 0;
-  background: rgba(32, 26, 41, 0.45);
+  background: rgba(32, 26, 41, 0.48);
   animation: fade-in 160ms ease-out;
 }
 
-.drawerHeader {
+.moreSheet {
+  position: fixed;
+  inset-inline: 0;
+  bottom: 0;
+  z-index: 61;
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  max-height: 86dvh;
+  background: var(--color-surface);
+  border-radius: 20px 20px 0 0;
+  box-shadow: 0 -12px 40px rgba(32, 26, 41, 0.18);
+  padding-bottom: env(safe-area-inset-bottom);
+  animation: sheet-up 220ms var(--ease-drawer);
+}
+
+.sheetGrabber {
+  width: 36px;
+  height: 4px;
+  margin: 8px auto 0;
+  border-radius: var(--radius-pill);
+  background: var(--color-border-strong);
+  opacity: 0.5;
+}
+
+.sheetHead {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--space-3);
+  gap: var(--space-4);
+  padding: var(--space-1) var(--space-5) var(--space-3);
 }
 
-.drawerClose {
-  display: inline-grid;
-  visibility: hidden;
+.sheetTitle {
+  margin: 0;
+  font-size: var(--text-lg);
+  letter-spacing: -0.01em;
+}
+
+.sheetClose {
+  display: grid;
   place-items: center;
   width: var(--admin-control);
   height: var(--admin-control);
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  background: none;
-  color: var(--color-admin-sidebar-ink);
+  background: var(--color-surface);
+  color: var(--color-ink);
   cursor: pointer;
+}
+
+.sheetClose:hover {
+  background: var(--color-surface-sunken);
+}
+
+.sheetScroll {
+  display: grid;
+  gap: var(--space-5);
+  padding: 0 var(--space-4) var(--space-5);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.sheetAccount {
+  display: grid;
+  gap: 2px;
+  padding: var(--space-4);
+  background: var(--color-surface-sunken);
+  border-radius: var(--radius-lg);
+}
+
+.sheetAccountName {
+  margin: 0;
+  font-weight: 600;
+}
+
+.sheetAccountMeta {
+  margin: 0;
+  color: var(--color-ink-muted);
+  font-size: var(--text-sm);
+  overflow-wrap: anywhere;
+}
+
+.sheetAccount form {
+  margin: var(--space-3) 0 0;
+}
+
+.sheetStorefront {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-height: var(--admin-control);
+  color: var(--color-action);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.sheetStorefront:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
 @keyframes fade-in {
@@ -411,6 +549,17 @@ html[lang='bn'] .navGroupLabel {
   }
   to {
     opacity: 1;
+  }
+}
+
+@keyframes sheet-up {
+  from {
+    opacity: 0.4;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
   }
 }
 
@@ -431,19 +580,6 @@ html[lang='bn'] .navGroupLabel {
   gap: var(--space-2);
   max-width: 62ch;
   min-width: 0;
-}
-
-.eyebrow {
-  font-size: var(--text-xs);
-  font-weight: 600;
-  letter-spacing: 0.07em;
-  text-transform: uppercase;
-  color: var(--color-ink-subtle);
-}
-
-html[lang='bn'] .eyebrow {
-  letter-spacing: normal;
-  text-transform: none;
 }
 
 .pageTitle {
@@ -589,6 +725,334 @@ html[lang='bn'] .sectionHead h2 {
   color: var(--color-ink-subtle);
 }
 
+/* ---- Overview ----------------------------------------------------------- */
+
+/*
+ * The queue is the front door: a lavender panel that holds white worklist cards, so the first thing
+ * the owner sees is the calls waiting rather than a grid of metrics. Everything below it is
+ * reference, and reads quieter on purpose.
+ */
+.queuePanel {
+  display: grid;
+  gap: var(--space-4);
+  padding: var(--space-5);
+  background: var(--color-action-soft);
+  border: 1px solid var(--color-admin-sidebar-border);
+  border-radius: var(--radius-lg);
+  min-width: 0;
+}
+
+.queueHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-3) var(--space-5);
+}
+
+.queueIntro {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.queueTitleRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.queueTitle {
+  margin: 0;
+  font-size: var(--text-lg);
+  letter-spacing: -0.01em;
+}
+
+.queueBadge {
+  display: inline-grid;
+  place-items: center;
+  min-width: 26px;
+  height: 24px;
+  padding: 0 8px;
+  border-radius: var(--radius-pill);
+  background: var(--color-action);
+  color: #fff;
+  font-size: var(--text-xs);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.queueSub {
+  margin: 0;
+  max-width: 62ch;
+  color: var(--color-ink-muted);
+  font-size: var(--text-sm);
+  line-height: var(--leading-snug);
+}
+
+.queueLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: var(--admin-control-sm);
+  margin-inline-start: auto;
+  color: var(--color-action);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.queueLink:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.queueMore {
+  margin: 0;
+  color: var(--color-ink-muted);
+  font-size: var(--text-sm);
+}
+
+.queueMore a {
+  color: var(--color-action);
+  font-weight: 600;
+}
+
+/*
+ * Two columns on desktop: the money and catalog facts on the left, anything flagged or refused on the
+ * right. On a phone the DOM order is the urgency order: attention, money, catalog.
+ */
+.overviewGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.55fr) minmax(19rem, 1fr);
+  gap: var(--space-5);
+  align-items: start;
+}
+
+.attentionCard {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+}
+
+.revenueCard {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.catalogCard {
+  grid-column: 1;
+  grid-row: 2;
+}
+
+.overviewCard {
+  display: grid;
+  gap: var(--space-4);
+  padding: var(--space-5);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  min-width: 0;
+}
+
+.overviewCardHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-4);
+}
+
+.overviewCardHead h2 {
+  margin: 0;
+  font-size: var(--text-md);
+  letter-spacing: -0.01em;
+}
+
+.overviewCardHead p {
+  margin: 2px 0 0;
+  max-width: 58ch;
+  color: var(--color-ink-muted);
+  font-size: var(--text-sm);
+  line-height: var(--leading-snug);
+}
+
+.overviewLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--color-action);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.overviewLink:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.attentionClear {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-success-soft);
+  border-radius: var(--radius-md);
+  color: var(--color-success);
+  font-size: var(--text-sm);
+  line-height: var(--leading-snug);
+}
+
+.attentionClearIcon {
+  flex: none;
+}
+
+.attentionList {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.attentionRow {
+  display: grid;
+  gap: 3px;
+  padding: var(--space-3) 0;
+  border-top: 1px solid var(--color-border);
+}
+
+.attentionRow:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.attentionName {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  font-weight: 600;
+}
+
+.attentionReason {
+  color: var(--color-ink-muted);
+  font-size: var(--text-sm);
+  line-height: var(--leading-snug);
+}
+
+.revenueLead {
+  display: grid;
+  gap: 2px;
+  padding-bottom: var(--space-1);
+}
+
+.revenueLabel {
+  color: var(--color-ink-muted);
+  font-size: var(--text-xs);
+  font-weight: 600;
+}
+
+.revenueAmount {
+  font-size: var(--text-2xl);
+  font-weight: 700;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+.revenueMeta {
+  color: var(--color-ink-muted);
+  font-size: var(--text-sm);
+}
+
+.revenueBreakdown {
+  display: grid;
+  margin: 0;
+  border-top: 1px solid var(--color-border);
+}
+
+.revenueBreakdown > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.revenueBreakdown > div:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.revenueBreakdown dt {
+  color: var(--color-ink-muted);
+  font-size: var(--text-sm);
+}
+
+.revenueBreakdown dd {
+  margin: 0;
+  font-size: var(--text-base);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.catalogStats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-4);
+}
+
+.catalogStat {
+  display: grid;
+  gap: 2px;
+}
+
+.catalogValue {
+  font-size: var(--text-xl);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.15;
+}
+
+.catalogLabel {
+  color: var(--color-ink-muted);
+  font-size: var(--text-xs);
+  line-height: var(--leading-snug);
+}
+
+@media (max-width: 720px) {
+  .queuePanel {
+    padding: var(--space-4);
+  }
+
+  .queueHead {
+    align-items: flex-start;
+  }
+
+  .overviewGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .attentionCard,
+  .revenueCard,
+  .catalogCard {
+    grid-column: auto;
+    grid-row: auto;
+  }
+
+  .queueLink {
+    min-height: var(--admin-control);
+  }
+
+  .catalogStats {
+    gap: var(--space-2);
+  }
+}
+
+
 /* ---- Buttons ------------------------------------------------------------ */
 
 .button {
@@ -715,10 +1179,12 @@ html[lang='bn'] .sectionHead h2 {
   background: var(--color-surface-sunken);
 }
 
-/* Declared after `.iconButton` so the shared button display cannot reveal it on desktop. */
-.menuButton {
+/* Phone-only chrome. Declared hidden here so a later display rule cannot reveal it on desktop. */
+.mobileBrand,
+.topbarPageTitle {
   display: none;
 }
+
 
 /* ---- Pills -------------------------------------------------------------- */
 
@@ -781,12 +1247,59 @@ html[lang='bn'] .sectionHead h2 {
   padding: var(--space-4) var(--space-5);
   background: var(--color-surface);
   border: 1px solid var(--color-border);
-  border-inline-start: 3px solid var(--brand-primary);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
 }
 
 .orderCardDecided {
-  border-inline-start-color: var(--color-border-strong);
+  background: var(--color-surface-sunken);
+}
+
+.orderMain {
+  display: grid;
+  align-content: start;
+  min-width: 0;
+}
+
+/*
+ * The decision belongs to the order, not to the money column. A full-width footer keeps the note and
+ * the two actions together, aligns Accept and Reject on one line, and stops a tall action column
+ * from stretching a short order into a mostly empty card.
+ */
+.orderFooter {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--color-border);
+}
+
+/* Two classes: approveForm declares a grid later in this file, so the row layout must outrank it. */
+.approveForm.approveFormRow {
+  display: flex;
+  flex: 1 1 20rem;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.approveFormRow .noteDetails {
+  flex: 1 1 15rem;
+  min-width: 0;
+}
+
+.approveFormRow .noteDetails summary {
+  min-height: var(--admin-control);
+}
+
+.approveFormRow .button {
+  min-width: 8.5rem;
+}
+
+.orderFooter > form {
+  min-width: 0;
 }
 
 .orderTop {
@@ -848,14 +1361,20 @@ html[lang='bn'] .sectionHead h2 {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  min-height: var(--admin-control);
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-pill);
+  background: var(--color-action-soft);
   color: var(--color-action);
+  font-size: var(--text-sm);
   font-variant-numeric: tabular-nums;
   font-weight: 600;
+  text-decoration: none;
 }
 
 .orderPhone:hover {
-  text-decoration: underline;
-  text-underline-offset: 3px;
+  background: var(--color-action);
+  color: #fff;
 }
 
 .orderAddress {
@@ -878,12 +1397,7 @@ html[lang='bn'] .sectionHead h2 {
   flex-wrap: wrap;
   justify-content: space-between;
   gap: var(--space-2);
-  padding: 4px 0;
-  border-bottom: 1px dashed var(--color-border);
-}
-
-.orderItem:last-child {
-  border-bottom: 0;
+  padding: 2px 0;
 }
 
 .orderItemName {
@@ -894,6 +1408,20 @@ html[lang='bn'] .sectionHead h2 {
 .orderItemQty {
   color: var(--color-ink-muted);
   font-variant-numeric: tabular-nums;
+}
+
+.orderItemMore {
+  padding-top: 2px;
+  color: var(--color-ink-subtle);
+  font-size: var(--text-xs);
+}
+
+/*
+ * The dashboard card is the triage version: one recorded line, no street address, and the totals and
+ * decision close together. The queue keeps the full record.
+ */
+.orderCardCompact {
+  gap: var(--space-3) var(--space-5);
 }
 
 .orderSide {
@@ -970,6 +1498,91 @@ html[lang='bn'] .sectionHead h2 {
 
 .noteDetails .input {
   margin-top: var(--space-2);
+}
+
+/*
+ * The order's next legal action, at the top of the record rather than below it. The owner opens an
+ * order to decide or advance it; the record is what they check before acting, not what they scroll
+ * through first. The band renders only when the current state has a step to take - a settled order
+ * shows no band instead of an empty panel.
+ */
+.actionBand {
+  display: grid;
+  gap: var(--space-4);
+  padding: var(--space-5);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  min-width: 0;
+}
+
+.actionBandHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3) var(--space-5);
+}
+
+.actionBandTitle {
+  margin: 0;
+  font-size: var(--text-md);
+  font-weight: 600;
+}
+
+.actionBandBody {
+  margin: var(--space-1) 0 0;
+  max-width: 62ch;
+  color: var(--color-ink-muted);
+  font-size: var(--text-sm);
+  line-height: var(--leading-snug);
+}
+
+.actionBandTotal {
+  display: grid;
+  gap: 2px;
+  justify-items: end;
+}
+
+/*
+ * Actions wrap into as many columns as fit, rather than stacking into one tall block that pushes the
+ * record below the fold. The approve form takes two columns on a wide screen because it carries the
+ * required call note, and the payment form takes the whole row because it carries the cost entry.
+ */
+.actionGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  align-items: start;
+  gap: var(--space-3) var(--space-4);
+}
+
+.actionFormWide {
+  grid-column: 1 / -1;
+}
+
+/* The destructive partner of a primary action ends on the same line as it, not above it. */
+.actionConfirmEnd {
+  align-self: end;
+}
+
+@media (min-width: 900px) {
+  .actionFormPrimary {
+    grid-column: span 2;
+  }
+}
+
+@media (max-width: 720px) {
+  .actionBand {
+    padding: var(--space-4);
+  }
+
+  .actionBandTotal {
+    justify-items: start;
+  }
+
+  .actionGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 /* ---- Toolbar / search --------------------------------------------------- */
@@ -1256,6 +1869,17 @@ html[lang='bn'] .sectionHead h2 {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
   gap: var(--space-4);
+}
+
+/*
+ * Fields side by side keep their own height.
+ *
+ * The default stretches every cell to the tallest one, so a field whose neighbour carries three lines of
+ * hint renders as a 90px-tall input - it reads as a text area that has lost its place. Used by the
+ * forms whose columns differ in height by design (the Telegram settings screen).
+ */
+.formGridStart {
+  align-items: start;
 }
 
 .fieldset {
@@ -1940,48 +2564,56 @@ html[dir='rtl'] .switchOn .switchKnob::after {
 
 /* ---- Responsive --------------------------------------------------------- */
 
-@media (min-width: 1024px) {
-  .mobileOnly {
-    display: none;
-  }
-}
-
 @media (max-width: 1023px) {
-  .drawerClose {
-    visibility: visible;
-  }
-
   .shell {
     grid-template-columns: minmax(0, 1fr);
   }
 
+  /* The rail is desktop chrome. A phone gets the bottom bar instead of a drawer. */
   .sidebar {
+    display: none;
+  }
+
+  .bottomNav {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(0, 1fr);
     position: fixed;
-    inset-block: 0;
-    inset-inline-start: 0;
-    width: min(19rem, 86vw);
-    height: 100dvh;
-    transform: translateX(-100%);
-    transition: transform 220ms var(--ease-drawer);
-    box-shadow: var(--shadow-md);
-    visibility: hidden;
+    inset-inline: 0;
+    bottom: 0;
+    z-index: 45;
+    background: var(--color-surface);
+    border-top: 1px solid var(--color-border);
+    padding-bottom: env(safe-area-inset-bottom);
   }
 
-  .sidebarOpen {
-    transform: none;
-    visibility: visible;
+  .breadcrumb {
+    display: none;
   }
 
-  .menuButton {
-    display: inline-grid;
+  .mobileBrand {
+    display: inline-flex;
+    padding: 0;
   }
 
-  .content {
-    padding: var(--space-5) var(--space-4) var(--space-7);
+  .topbarPageTitle {
+    display: block;
+    min-width: 0;
+    overflow: hidden;
+    color: var(--color-ink);
+    font-size: var(--text-base);
+    font-weight: 600;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .topbarInner {
     padding: 0 var(--space-4);
+  }
+
+  .content {
+    padding: var(--space-5) var(--space-4)
+      calc(var(--admin-bottom-nav-height) + env(safe-area-inset-bottom) + var(--space-6));
   }
 }
 
@@ -2030,6 +2662,21 @@ html[dir='rtl'] .switchOn .switchKnob::after {
 
   .orderActions {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* The decision footer stacks on a phone, and every action owns the full width. */
+  .orderFooter {
+    display: grid;
+  }
+
+  .approveForm.approveFormRow {
+    display: grid;
+    flex: none;
+  }
+
+  .orderFooter .button,
+  .orderFooter > form {
+    width: 100%;
   }
 
   .record {
@@ -2295,11 +2942,18 @@ html[dir='rtl'] .switchOn .switchKnob::after {
   line-height: var(--leading-snug);
 }
 
-/* A required marker that is text, not a colour: "*" alone is not a label. */
+/*
+ * The required marker is a red asterisk, and the word "Required" travels in a visually hidden span
+ * beside it. The marker used to be muted small text reading "Required", which was easy to miss at a
+ * glance down a form - the owner reported exactly that. A symbol is faster to scan; the hidden word
+ * is what keeps it a label for a screen reader rather than decoration.
+ */
 .requiredMark {
-  font-size: var(--text-xs);
-  font-weight: 500;
-  color: var(--color-ink-subtle);
+  color: var(--color-danger);
+  font-size: var(--text-sm);
+  font-weight: 700;
+  line-height: 1;
+  margin-inline-start: 2px;
 }
 
 .fieldLabelRow {
@@ -2335,24 +2989,63 @@ html[dir='rtl'] .switchOn .switchKnob::after {
  * A money input with a currency prefix. The prefix is decoration, not a value:
  * the field's name and the server's parser are unchanged, so nothing about the
  * stored amount depends on it.
+ *
+ * The prefix is a **flex sibling**, not an overlay. It used to be absolutely positioned with the
+ * input padded by one character, which was correct for a one-character mark and wrong for "BDT":
+ * the typed amount started underneath the currency label (the delivery screen reported it as a
+ * placeholder that would not go away). A sibling cannot overlap, whatever the mark is or however
+ * the owner's font renders it.
+ *
+ * The border moves to the wrapper and the input keeps its 40px height, so the admin control-scale
+ * sweep still measures exactly one control height. The focus ring is drawn on the wrapper with an
+ * inset ring, which is what makes the field read as one control rather than two boxes.
  */
 .moneyInput {
-  position: relative;
   display: flex;
   align-items: center;
+  min-height: var(--admin-control);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  box-shadow: inset 0 0 0 1px var(--color-border-strong);
+}
+
+.moneyInput:hover {
+  box-shadow: inset 0 0 0 1px var(--color-ink-subtle);
+}
+
+.moneyInput:focus-within {
+  box-shadow: inset 0 0 0 1px var(--color-focus);
+  outline: 2px solid var(--color-focus);
+  outline-offset: 1px;
 }
 
 .moneyPrefix {
-  position: absolute;
-  inset-inline-start: var(--space-3);
+  flex: none;
+  padding-inline: var(--space-3) var(--space-2);
   color: var(--color-ink-subtle);
   font-size: var(--text-sm);
+  font-weight: 600;
   pointer-events: none;
 }
 
 .moneyInput .input {
-  padding-inline-start: calc(var(--space-3) + 1ch);
+  flex: 1 1 auto;
+  width: auto;
+  min-width: 0;
+  min-height: var(--admin-control);
+  padding-inline: 0 var(--space-3);
+  border: 0;
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+  background: transparent;
   font-variant-numeric: tabular-nums;
+}
+
+.moneyInput .input:hover {
+  border-color: transparent;
+}
+
+.moneyInput .input:focus-visible {
+  outline: none;
 }
 
 /*
@@ -2713,12 +3406,14 @@ html[dir='rtl'] .switchOn .switchKnob::after {
   }
 
   /*
-   * The preview moves above the fields when the columns stack: on a narrow screen the
-   * owner is building a card, and seeing it first beats scrolling past a form to find it.
+   * Stacked, the columns keep their **source order**: the fields first, then the preview and the
+   * commercial facts.
+   *
+   * They used to be reversed so the preview came first, which put ~500px of preview, pricing,
+   * organisation and publication above the name field the owner has to fill in first. On a phone that
+   * is the wrong trade: the form is the task and the preview is feedback on it. Source order also means
+   * the keyboard and screen-reader order matches the visual one, which the reorder broke.
    */
-  .productFormSide {
-    order: -1;
-  }
 }
 
 @media (max-width: 720px) {
@@ -2748,3 +3443,674 @@ html[dir='rtl'] .switchOn .switchKnob::after {
     justify-content: flex-start;
   }
 }
+
+
+/* ------------------------------------------------------------------
+ * Settings rows and previews (delivery charges, announcement bar)
+ *
+ * A settings page is read *across*, not down: the owner compares three
+ * charges, or checks one line against the storefront. So a setting is a
+ * declared row - identity, value, action - rather than a stack of cards
+ * with their own widths. Fixed tracks are the whole point: they are what
+ * puts every amount field and every Save button on the same two vertical
+ * lines, which a content-sized form cannot do.
+ *
+ * `align-items: end` is deliberate. A control row is a value plus the
+ * action that saves it, so their boxes have to end together; centring a
+ * 40px button against a label-plus-input stack is what left the buttons
+ * sitting a dozen pixels above the fields they belong to.
+ * ------------------------------------------------------------------ */
+
+.settingRows {
+  display: grid;
+  padding: 0 var(--space-5);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  min-width: 0;
+}
+
+.settingRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 7.5rem 7.5rem 6.5rem;
+  align-items: end;
+  gap: var(--space-2) var(--space-3);
+  padding: var(--space-4) 0;
+  border-top: 1px solid var(--color-border);
+  min-width: 0;
+}
+
+.settingRows > .settingRow:first-child {
+  border-top: 0;
+}
+
+/*
+ * The save action and the remove action are two forms - a confirmation dialog
+ * cannot live inside the form it is confirming - so the value form borrows the
+ * row's tracks with `subgrid` instead of declaring its own. That is what keeps
+ * the amount field and the Save button on the row's shared columns; a nested
+ * grid with its own template would drift the moment a label changed width.
+ */
+.settingRowForm {
+  grid-column: 1 / 4;
+  display: grid;
+  grid-template-columns: subgrid;
+  align-items: end;
+  gap: var(--space-2) var(--space-3);
+  min-width: 0;
+}
+
+.settingIdentity {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  /* The name is text, not a control: it centres against the row instead of
+     hanging off the bottom of it. */
+  align-self: center;
+}
+
+.settingName {
+  font-weight: 600;
+  font-size: var(--text-base);
+  color: var(--color-ink);
+  overflow-wrap: anywhere;
+}
+
+.settingState {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-xs);
+  color: var(--color-ink-muted);
+  line-height: var(--leading-snug);
+}
+
+.settingMoney {
+  min-width: 0;
+}
+
+/* A control that fills its track, so with/without a sibling it never shifts. */
+.settingRow .button {
+  width: 100%;
+}
+
+.settingRemove {
+  display: grid;
+  min-width: 0;
+}
+
+.settingActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+/* ---- Announcement preview ------------------------------------------ */
+
+.announcementGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+  align-items: start;
+  gap: var(--space-5);
+  min-width: 0;
+}
+
+/* The preview is a framed copy of the real strip, never chrome: the label and
+   the caption are what stop it being mistaken for the page's own notice. */
+.announcementPreview {
+  display: grid;
+  margin: 0;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  min-width: 0;
+}
+
+.announcementPreviewLabel {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  background: var(--color-surface-sunken);
+  border-bottom: 1px solid var(--color-border);
+}
+
+/* The frame's own label. It is the only thing on this bar that is not the storefront. */
+.announcementPreviewEyebrow {
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-ink-subtle);
+}
+
+.announcementPreviewCaption {
+  padding: var(--space-3) var(--space-4);
+  border-top: 1px solid var(--color-border);
+  font-size: var(--text-xs);
+  color: var(--color-ink-subtle);
+  line-height: var(--leading-snug);
+}
+
+@media (max-width: 1100px) {
+  .announcementGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* Below the split the owner is looking at the bar first, then writing
+     underneath it - the order they think in. */
+  .announcementPreviewSection {
+    order: -1;
+  }
+}
+
+@media (max-width: 900px) {
+  /*
+   * The identity moves onto its own line, but the value and its action stay
+   * side by side and keep a measured action track: a Save button that sizes to
+   * its own label would give each row a different amount-field width.
+   */
+  .settingRow {
+    grid-template-columns: minmax(0, 1fr) 6.5rem;
+  }
+
+  .settingRowForm {
+    grid-column: 1;
+    grid-template-columns: minmax(0, 1fr) 7.5rem;
+  }
+
+  .settingIdentity {
+    grid-column: 1 / -1;
+    align-self: start;
+  }
+
+  .settingRemove {
+    width: auto;
+  }
+}
+
+@media (max-width: 560px) {
+  .settingRows {
+    padding: 0 var(--space-4);
+  }
+
+  .settingRow {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .settingRowForm {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .settingMoney,
+  .settingRemove {
+    width: 100%;
+  }
+}
+
+
+
+/* ---- Dashboard figures (Phase 38) --------------------------------------- */
+/*
+ * The KPI band and the two chart panels. Gaps and borders rather than nested cards: the numbers are
+ * the page's content, not objects placed on it, so they sit directly on the workspace surface and the
+ * only rules are the ones that separate a tile from its neighbour.
+ */
+.kpiGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(10.5rem, 1fr));
+  gap: var(--space-3);
+}
+
+.kpi {
+  display: grid;
+  gap: 2px;
+  padding: var(--space-4);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  min-width: 0;
+}
+
+.kpiLabel {
+  font-size: var(--text-sm);
+  color: var(--color-ink-muted);
+  line-height: var(--leading-snug);
+}
+
+.kpiValue {
+  font-size: var(--text-2xl);
+  font-weight: 700;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.kpiNote {
+  font-size: var(--text-xs);
+  color: var(--color-ink-subtle);
+  line-height: var(--leading-snug);
+}
+
+.chartGrid,
+.splitGrid {
+  display: grid;
+  gap: var(--space-4);
+  align-items: start;
+}
+
+.stack {
+  display: grid;
+  gap: var(--space-4);
+  align-content: start;
+  min-width: 0;
+}
+
+@media (min-width: 1080px) {
+  .chartGrid {
+    grid-template-columns: minmax(0, 1.9fr) minmax(0, 1fr);
+  }
+
+  .splitGrid {
+    grid-template-columns: minmax(0, 1.9fr) minmax(0, 1fr);
+  }
+}
+
+/* A two-column label/value list: money facts, promo totals, catalog counts. */
+.moneyList {
+  margin: 0;
+  display: grid;
+  gap: var(--space-1);
+}
+
+.moneyList > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.moneyList > div:last-child {
+  border-bottom: 0;
+}
+
+.moneyList dt {
+  color: var(--color-ink-muted);
+  font-size: var(--text-sm);
+}
+
+.moneyList dd {
+  margin: 0;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.moneyTotal {
+  border-top: 1px solid var(--color-border-strong);
+  border-bottom: 0;
+}
+
+.moneyTotal dd {
+  font-size: var(--text-lg);
+}
+
+/* A ranked measure inside a table cell: the bar is the comparison, the number is the fact. */
+.rankCell {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.rankTrack {
+  display: block;
+  height: 6px;
+  max-width: 220px;
+  border-radius: 3px;
+  background: var(--color-surface-sunken);
+  overflow: hidden;
+}
+
+.rankFill {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  background: var(--color-action);
+}
+
+/* ---- Promo codes -------------------------------------------------------- */
+.promoSummary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
+  gap: var(--space-3);
+  margin: 0;
+}
+
+.promoSummary > div {
+  display: grid;
+  gap: 2px;
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.promoSummary dt {
+  font-size: var(--text-xs);
+  color: var(--color-ink-muted);
+}
+
+.promoSummary dd {
+  margin: 0;
+  font-size: var(--text-lg);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.promoList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-3);
+}
+
+.promoRow {
+  display: grid;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-5);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  min-width: 0;
+}
+
+.promoRow[data-paused] {
+  background: var(--color-surface-sunken);
+}
+
+.promoIdent {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  min-width: 0;
+}
+
+.promoCode {
+  font-size: var(--text-md);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.promoNote {
+  flex-basis: 100%;
+  font-size: var(--text-sm);
+  color: var(--color-ink-muted);
+}
+
+.promoFacts {
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
+  gap: var(--space-3);
+}
+
+.promoFacts dt {
+  font-size: var(--text-xs);
+  color: var(--color-ink-subtle);
+}
+
+.promoFacts dd {
+  margin: 0;
+  font-weight: 600;
+}
+
+.promoActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+@media (min-width: 960px) {
+  .promoRow {
+    grid-template-columns: minmax(10rem, 0.9fr) minmax(0, 2fr) auto;
+    align-items: center;
+  }
+}
+
+.promoEditor {
+  display: grid;
+  gap: var(--space-4);
+  align-items: start;
+}
+
+@media (min-width: 1080px) {
+  .promoEditor {
+    grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
+  }
+}
+
+.promoAside {
+  display: grid;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.previewSamples {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-2);
+}
+
+.previewSamples li {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--color-border);
+  font-size: var(--text-sm);
+}
+
+.previewSamples li:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.promoStats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+
+.promoStats > div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.promoStatValue {
+  font-size: var(--text-md);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.promoStatLabel {
+  font-size: var(--text-xs);
+  color: var(--color-ink-muted);
+}
+
+/* Two compact cards under the recent-order table, so the page's columns finish together. */
+.duoGrid {
+  display: grid;
+  gap: var(--space-4);
+  align-items: start;
+}
+
+@media (min-width: 720px) {
+  .duoGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* Recent orders as rows rather than a table: two lines per order, legible at 320px. */
+.recentList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+}
+
+.recentList li {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.recentList li:first-child {
+  padding-top: 0;
+}
+
+.recentList li:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.recentWho {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2) var(--space-3);
+  min-width: 0;
+}
+
+.recentName {
+  font-weight: 600;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.recentRef {
+  font-size: var(--text-xs);
+  color: var(--color-ink-muted);
+  overflow-wrap: anywhere;
+}
+
+.recentMeta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  font-size: var(--text-sm);
+}
+
+.recentTotal {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.recentWhen {
+  color: var(--color-ink-subtle);
+  font-size: var(--text-xs);
+}
+
+@media (min-width: 720px) {
+  .recentList li {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+  }
+
+  .recentMeta {
+    justify-content: flex-end;
+  }
+}
+/* ------------------------------------------------------------------ *
+ * Category editor (Phase 36)
+ *
+ * The same shell as the product and promo editors: one sticky action bar, two columns from 1080px,
+ * stacked below it. These layout rules are the only new ones - every field, card, switch and outcome
+ * style is the shared admin vocabulary, so this editor introduces no new control size or colour.
+ * ------------------------------------------------------------------ */
+
+.categoryEditor {
+  display: grid;
+  gap: var(--space-5);
+  min-width: 0;
+}
+
+.categoryEditorColumns {
+  display: grid;
+  gap: var(--space-4);
+  align-items: start;
+  min-width: 0;
+}
+
+@media (min-width: 1080px) {
+  .categoryEditorColumns {
+    grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
+  }
+}
+
+.categoryEditorMain,
+.categoryEditorAside {
+  display: grid;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+/* The preview is the address the category will have, not a photograph it does not own. */
+.categoryPreview {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  background: var(--color-page);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.categoryPreviewName {
+  margin: 0;
+  font-size: var(--text-base);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+/* The two derived counts, side by side: they answer one question together. */
+.categoryUsage {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+  margin: 0;
+}
+
+.categoryUsage > div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.categoryUsage dt {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--color-ink-muted);
+}
+
+.categoryUsage dd {
+  margin: 0;
+  font-size: var(--text-lg);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+

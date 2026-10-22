@@ -4,15 +4,18 @@ import Link from 'next/link';
 import { useMemo, useRef, useState } from 'react';
 
 import { useTranslation } from '@/i18n/useTranslation';
+import { slugPreview } from '@/lib/slug-preview';
 import { parseBdtInput } from '@/lib/money';
 import { discountAmount, discountPercent, formatMoney } from '@/lib/money';
 import { AdminIcon } from './icons';
+import { RequiredMark } from './RequiredMark';
 import { SubmitButton } from './SubmitButton';
 import styles from '../admin.module.css';
 
 export type ProductFormValues = {
   slug?: string;
-  nameBn?: string;
+  /** Optional owner content; null means the product has no Bangla name. */
+  nameBn?: string | null;
   nameEn?: string;
   shortDescription?: string | null;
   descriptionBn?: string | null;
@@ -39,17 +42,6 @@ function toBdtInput(minor: number | null | undefined): string {
   return `${whole}.${String(fraction).padStart(2, '0')}`;
 }
 
-/** A slug derived from the English name, mirroring the server's `slugify` so the preview is honest. */
-function slugifyClient(value: string): string {
-  return value
-    .toLowerCase()
-    .normalize('NFKD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 120)
-    .replace(/-+$/, '');
-}
 
 /**
  * The product editor.
@@ -121,7 +113,7 @@ export function ProductForm({
   const compareAtMinor = parseBdtInput(compareAt);
   const saving = priceMinor !== null ? discountAmount(priceMinor, compareAtMinor) : null;
   const percent = priceMinor !== null ? discountPercent(priceMinor, compareAtMinor) : null;
-  const effectiveSlug = slug.trim() === '' ? slugifyClient(nameEn) : slug.trim();
+  const effectiveSlug = slug.trim() === '' ? slugPreview(nameEn) : slug.trim();
 
   const shortRemaining = 500 - shortDescription.length;
 
@@ -132,14 +124,13 @@ export function ProductForm({
   const missing = useMemo(() => {
     const gaps: string[] = [];
     if (nameEn.trim() === '') gaps.push(t('admin.catalog.field.nameEn'));
-    if (nameBn.trim() === '') gaps.push(t('admin.catalog.field.nameBn'));
     if (categoryId === '') gaps.push(t('admin.catalog.field.category'));
     // A brand is required by the schema and by the service, so leaving it out of this list would let
     // the summary claim the form is ready while the save is still going to be refused.
     if (brandId === '') gaps.push(t('admin.catalog.field.brand'));
     if (price.trim() === '') gaps.push(t('admin.catalog.field.price'));
     return gaps;
-  }, [nameEn, nameBn, categoryId, brandId, price, t]);
+  }, [nameEn, categoryId, brandId, price, t]);
 
   return (
     <form
@@ -178,7 +169,16 @@ export function ProductForm({
           invalid.map((field) => {
             const id = field.getAttribute('id');
             const label = id === null ? null : form.querySelector(`label[for="${id}"]`);
-            return label?.textContent?.replace(/Required$/, '').trim() || field.getAttribute('name') || 'a field';
+            /*
+             * The required marker is a symbol plus a visually hidden word, so the label's text still
+             * contains both. Stripping them leaves the field's human name, which is what the summary
+             * sentence lists.
+             */
+            return (
+              label?.textContent?.replace(/Required/g, '').replace(/\*/g, '').trim() ||
+              field.getAttribute('name') ||
+              'a field'
+            );
           }),
         );
         invalid[0]?.focus();
@@ -232,7 +232,7 @@ export function ProductForm({
 
             <div className={styles.field}>
               <label htmlFor="nameEn">
-                {t('admin.catalog.field.nameEn')} <span className={styles.requiredMark}>{t('common.required')}</span>
+                {t('admin.catalog.field.nameEn')} <RequiredMark />
               </label>
               <input
                 className={styles.input}
@@ -247,14 +247,11 @@ export function ProductForm({
             </div>
 
             <div className={styles.field}>
-              <label htmlFor="nameBn">
-                {t('admin.catalog.field.nameBn')} <span className={styles.requiredMark}>{t('common.required')}</span>
-              </label>
+              <label htmlFor="nameBn">{t('admin.catalog.field.nameBn')}</label>
               <input
                 className={styles.input}
                 id="nameBn"
                 name="nameBn"
-                required
                 maxLength={200}
                 value={nameBn}
                 onChange={(event) => setNameBn(event.target.value)}
@@ -394,7 +391,7 @@ export function ProductForm({
 
             <div className={styles.field}>
               <label htmlFor="price">
-                {t('admin.catalog.field.price')} <span className={styles.requiredMark}>{t('common.required')}</span>
+                {t('admin.catalog.field.price')} <RequiredMark />
               </label>
               <div className={styles.moneyInput}>
                 <span className={styles.moneyPrefix} aria-hidden="true">
@@ -408,7 +405,6 @@ export function ProductForm({
                   inputMode="decimal"
                   value={price}
                   onChange={(event) => setPrice(event.target.value)}
-                  placeholder="750.00"
                 />
               </div>
               <p className={styles.hint}>{t('admin.catalog.field.priceHelp')}</p>
@@ -449,7 +445,7 @@ export function ProductForm({
 
             <div className={styles.field}>
               <label htmlFor="categoryId">
-                {t('admin.catalog.field.category')} <span className={styles.requiredMark}>{t('common.required')}</span>
+                {t('admin.catalog.field.category')} <RequiredMark />
               </label>
               <select
                 className={styles.select}
@@ -472,7 +468,7 @@ export function ProductForm({
 
             <div className={styles.field}>
               <label htmlFor="brandId">
-                {t('admin.catalog.field.brand')} <span className={styles.requiredMark}>{t('common.required')}</span>
+                {t('admin.catalog.field.brand')} <RequiredMark />
               </label>
               <select
                 className={styles.select}
@@ -527,7 +523,7 @@ export function ProductForm({
                 name="slug"
                 value={slug}
                 onChange={(event) => setSlug(event.target.value)}
-                placeholder={slugifyClient(nameEn) || 'product-slug'}
+                placeholder={slugPreview(nameEn) || 'product-slug'}
               />
               <p className={styles.hint}>
                 {effectiveSlug === '' ? t('admin.catalog.field.slugHelp') : `/products/${effectiveSlug}`}

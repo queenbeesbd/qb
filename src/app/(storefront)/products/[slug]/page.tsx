@@ -32,9 +32,14 @@ export default async function ProductPage({ params }: { params: Params }) {
 
   const category =
     catalog.categories.find((entry) => entry.id === product.categoryId) ?? null;
+  /**
+   * Five related products, because the full-width grid is five columns and a four-card row would leave
+   * an empty track under a product (owner decision, 2026-10-23: five across). A category with fewer
+   * products shows fewer cards - the row is never padded.
+   */
   const related = catalog.products
     .filter((item) => item.categoryId === product.categoryId && item.id !== product.id)
-    .slice(0, 4);
+    .slice(0, 5);
 
   return <ProductDetailView product={product} category={category} related={related} />;
 }

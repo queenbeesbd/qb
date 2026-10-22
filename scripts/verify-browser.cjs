@@ -36,6 +36,9 @@ const SEEDED_RECENT_SLUGS = [
   'earth-beauty-anti-hairfall-shampoo-with-biotin-caffeine-350-ml',
   'earth-beauty-glosse-shampoo-with-argan-oil-amla-keratin-350-ml',
   'mamaearth-vitamin-c-daily-glow-face-wash-100ml',
+  'laikou-sakura-mud-mask-5g',
+  'sadoer-composite-acid-carrot-foam-mask',
+  'bioaqua-hydrating-moisture-aloe-vera-multi-functional-mask',
 ];
 const consoleErrors = [];
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -139,39 +142,6 @@ const HELPERS = `
     removeButton() {
       return [...document.querySelectorAll('main button')].find((b) => /remove/i.test(b.getAttribute('aria-label') || '')) || null;
     },
-    shelf() {
-      // The controls group also carries role=group, so target the scroller by
-      // its own class rather than by role, which is no longer unique.
-      const s = document.querySelector('div[class$="_scroller"]');
-      if (!s) return null;
-      const cards = [...s.children];
-      const tops = [...new Set(cards.map((c) => Math.round(c.getBoundingClientRect().top)))];
-      const box = s.getBoundingClientRect();
-      const fullyVisible = cards.filter((c) => {
-        const r = c.getBoundingClientRect();
-        return r.width > 0 && r.left >= box.left - 1 && r.right <= box.right + 1;
-      }).length;
-      const btns = resolveButtons(s);
-      return {
-        cards: cards.length,
-        rows: tops.length,
-        fullyVisible,
-        overflow: Math.round(s.scrollWidth - s.clientWidth),
-        scrollLeft: Math.round(s.scrollLeft),
-        pageOverflow: document.documentElement.scrollWidth - window.innerWidth,
-        controls: btns.length,
-        labels: btns.map((b) => b.getAttribute('aria-label')),
-        prevDisabled: btns[0] ? btns[0].disabled : null,
-        nextDisabled: btns[1] ? btns[1].disabled : null,
-      };
-
-      function resolveButtons(node) {
-        // The controls are rendered inside the shelf's section header, so the
-        // section is the stable boundary - not a fixed DOM nesting.
-        const section = node.closest('section');
-        return section ? [...section.querySelectorAll('button')] : [];
-      }
-    },
     /**
      * Layout geometry shared by the width checks: the content box of main,
      * whether the header and footer resolve to that same box, and the shape of
@@ -226,14 +196,6 @@ const HELPERS = `
       };
     },
 
-    shelfNext() {
-      const s = document.querySelector('div[class$="_scroller"]');
-      if (!s) return false;
-      const section = s.closest('section');
-      const btns = section ? [...section.querySelectorAll('button')] : [];
-      btns[1].click();
-      return true;
-    },
     cardDiscounts() {
       const num = window.__qb.num;
       return [...document.querySelectorAll('main article')].map((card) => {
@@ -460,8 +422,8 @@ async function main() {
     await evaluate(client, `window.__qb.addButton().click()`);
     await sleep(400);
     await nav(client, '/checkout');
-    const checkout = await evaluate(client, `({ path: location.pathname, forms: document.querySelectorAll('main form').length, passwordFields: document.querySelectorAll('main input[type=password]').length, cardFields: document.querySelectorAll('main input[name*=card], main input[name*=cvv], main input[name*=payment]').length, orderFields: document.querySelectorAll('main input[name*=lines], main input[name*=idempotencyKey], main input[name=csrf]').length, externalHosts: [...new Set([...document.querySelectorAll('a[href^="http"]')].map((a) => new URL(a.href).host))], signInCopy: /sign in/i.test(document.body.innerText), noRecovery: /no password recovery/i.test(document.body.innerText), cartPreserved: (document.querySelector('a[href="/cart"]')?.innerText || '').trim() })`);
-    record('16. checkout requires an account: anonymous visitors reach the sign-in form, with no order or card fields and the cart preserved', checkout.path === '/account/login' && checkout.forms === 1 && checkout.passwordFields === 1 && checkout.cardFields === 0 && checkout.orderFields === 0 && checkout.externalHosts.length === 0 && checkout.signInCopy && checkout.noRecovery && /[0-9]/.test(checkout.cartPreserved), checkout);
+    const checkout = await evaluate(client, `({ path: location.pathname, forms: document.querySelectorAll('main form').length, passwordFields: document.querySelectorAll('main input[type=password]').length, cardFields: document.querySelectorAll('main input[name*=card], main input[name*=cvv], main input[name*=payment]').length, orderFields: document.querySelectorAll('main input[name*=lines], main input[name*=idempotencyKey], main input[name=csrf]').length, externalHosts: [...new Set([...document.querySelectorAll('a[href^="http"]')].map((a) => new URL(a.href).host))], signInCopy: /sign in/i.test(document.body.innerText), oneTimeCode: /one-time code/i.test(document.body.innerText), noSelfServiceReset: !/reset link|we.ll email|sent you an email/i.test(document.body.innerText), cartPreserved: (document.querySelector('a[href="/cart"]')?.innerText || '').trim() })`);
+    record('16. checkout requires an account: anonymous visitors reach the sign-in form, with no order or card fields and the cart preserved', checkout.path === '/account/login' && checkout.forms === 1 && checkout.passwordFields === 1 && checkout.cardFields === 0 && checkout.orderFields === 0 && checkout.externalHosts.length === 0 && checkout.signInCopy && checkout.oneTimeCode && checkout.noSelfServiceReset && /[0-9]/.test(checkout.cartPreserved), checkout);
 
     // 17 - not found
     await nav(client, '/products/does-not-exist');
@@ -477,17 +439,41 @@ async function main() {
       record('18. no horizontal overflow at ' + vp.w + 'px', overflow.scrollWidth <= overflow.innerWidth + 1, overflow);
     }
 
-    // 19 - mobile drawer
+    /*
+     * 19 - the phone navigation is a fixed bottom bar, not a drawer (2026-10-23).
+     *
+     * A drawer was the previous model. It was removed rather than kept beside the bar, so this check
+     * now pins the properties that made the bar worth the change: it is reachable without opening
+     * anything, it is fixed to the bottom of the viewport, it reserves the device's safe-area inset, and
+     * every destination is a full-height touch target.
+     */
     await client.send('Emulation.setDeviceMetricsOverride', { width: 375, height: 812, deviceScaleFactor: 2, mobile: true });
     await nav(client, '/');
-    await evaluate(client, `document.querySelector('header button[aria-controls="site-menu"]').click()`);
-    const drawerOpened = await poll(client, `!!document.getElementById('site-menu')`);
-    const focusInside = await evaluate(client, `(() => { const d = document.getElementById('site-menu'); return !!d && d.contains(document.activeElement); })()`);
-    await client.send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 });
-    await client.send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 });
-    await sleep(350);
-    const drawerClosed = await evaluate(client, `({ closed: !document.getElementById('site-menu'), focusReturned: document.activeElement?.getAttribute('aria-controls') === 'site-menu' })`);
-    record('19. mobile drawer opens, focuses inside, closes on Escape and returns focus', drawerOpened && focusInside && drawerClosed.closed && drawerClosed.focusReturned, { drawerOpened, focusInside, drawerClosed });
+    const bottomBar = await evaluate(client, `(() => {
+      const bar = document.querySelector('[data-storefront-tabbar]');
+      if (!bar) return { present: false };
+      const tabs = [...bar.querySelectorAll('a')];
+      const box = bar.getBoundingClientRect();
+      const cs = getComputedStyle(bar);
+      return {
+        present: true,
+        fixed: cs.position === 'fixed',
+        pinnedToBottom: Math.round(window.innerHeight - box.bottom) <= 1,
+        safeArea: cs.paddingBottom,
+        tabs: tabs.length,
+        minHeight: Math.min(...tabs.map((t) => Math.round(t.getBoundingClientRect().height))),
+        current: tabs.filter((t) => t.getAttribute('aria-current') === 'page').length,
+        footerClear: (() => {
+          const spacer = document.querySelector('main')?.parentElement?.lastElementChild;
+          return document.documentElement.scrollHeight > window.innerHeight;
+        })(),
+        drawerGone: !document.getElementById('site-menu'),
+      };
+    })()`);
+    record('19. the phone tab bar is fixed, safe-area aware, five full-height targets, with no drawer',
+      bottomBar.present && bottomBar.fixed && bottomBar.pinnedToBottom && bottomBar.tabs === 5 &&
+      bottomBar.minHeight >= 60 && bottomBar.current === 1 && bottomBar.drawerGone,
+      bottomBar);
 
     // 20 - mobile touch targets
     await nav(client, '/products/oriox-tinted-lipbalm-strawberry');
@@ -514,53 +500,38 @@ async function main() {
     const skipActivation = await evaluate(client, `(() => { const a = document.querySelector('a.skip-link'); a.focus(); a.click(); return { hash: location.hash, mainFocused: document.activeElement?.id === 'main-content' }; })()`);
     record('23. skip link is reachable by Tab, becomes visible and targets main content', skip.isSkip && skip.focusMatches && parseFloat(skip.top) >= 0 && skipActivation.hash === '#main-content' && skipActivation.mainFocused, { skip, skipActivation });
 
-    // 24 - announcement strip: present, readable, English, above the header
+    /*
+     * 24 / 25 - the storefront carries no demo wording (owner decision, 2026-10-23).
+     *
+     * The locked "this is a preview store" strip was removed completely, and the announcement bar is now
+     * the owner's own line only - which this database has not saved, so the bar is correctly absent.
+     * These checks guard the removal in both directions: no demo/preview sentence anywhere in the page,
+     * and no empty bar rendered in place of the one that used to be there.
+     */
     await client.send('Emulation.clearDeviceMetricsOverride');
     await nav(client, '/');
     const barShape = await evaluate(client, `(() => {
-      const bar = document.querySelector('main')?.parentElement?.querySelector('aside');
+      const bar = document.querySelector('[data-announcement-bar]');
+      const text = document.body.innerText.replace(/\\s+/g, ' ');
       const header = document.querySelector('header');
-      const msg = bar ? bar.innerText.replace(/\\s+/g, ' ').trim() : '';
-      const cs = bar ? getComputedStyle(bar) : null;
-      const item = bar ? bar.querySelector('p') : null;
-      const fontSize = item ? parseFloat(getComputedStyle(item).fontSize) : null;
-      const headerSize = header ? parseFloat(getComputedStyle(header.querySelector('nav a')).fontSize) : null;
       return {
-        present: !!bar,
-        aboveHeader: bar && header ? bar.getBoundingClientRect().bottom <= header.getBoundingClientRect().top + 1 : false,
-        bangla: /[\u0980-\u09FF]/.test(msg),
-        mentionsPreview: /preview/i.test(msg),
-        mentionsNoOrder: /orders/i.test(msg) && /payments/i.test(msg),
-        fontSize,
-        headerSize,
-        subordinate: fontSize !== null && headerSize !== null ? fontSize <= headerSize + 1 : false,
-        height: bar ? Math.round(bar.getBoundingClientRect().height) : null,
-        role: bar ? bar.tagName : null,
+        barPresent: !!bar,
+        demoWording: /preview store|demonstration storefront|no payments are taken|nothing is dispatched/i.test(text),
+        previewBadge: /\\bdemo\\b/i.test(text),
+        headerTop: header ? Math.round(header.getBoundingClientRect().top) : null,
+        barHeight: bar ? Math.round(bar.getBoundingClientRect().height) : 0,
       };
     })()`);
-    record('24. announcement strip present in English, above the header, mentions no real orders/payments', barShape.present && barShape.aboveHeader && !barShape.bangla && barShape.mentionsPreview && barShape.mentionsNoOrder, barShape);
-
-    // 25 - announcement strip stays English on a fresh request, and fits a phone
-    await nav(client, '/');
-    const barEn = await evaluate(client, `(() => {
-      const bar = document.querySelector('main')?.parentElement?.querySelector('aside');
-      const msg = bar ? bar.innerText.replace(/\\s+/g, ' ').trim() : '';
-      return { present: !!bar, english: /preview/i.test(msg) && /orders/i.test(msg) && /payments/i.test(msg), noBangla: !/[\u0980-\u09FF]/.test(msg), text: msg.slice(0, 90) };
-    })()`);
-    record('25. announcement strip is the same English copy on a fresh request', barEn.present && barEn.english && barEn.noBangla, barEn);
+    record('24. the storefront carries no demo or preview wording', !barShape.demoWording && !barShape.previewBadge, barShape);
+    record('25. with no owner message saved, no empty announcement strip is rendered', barShape.barPresent === false && barShape.barHeight === 0, barShape);
 
     await client.send('Emulation.setDeviceMetricsOverride', { width: 320, height: 720, deviceScaleFactor: 1, mobile: true });
     await nav(client, '/');
-    const barMobile = await evaluate(client, `(() => {
-      const bar = document.querySelector('main')?.parentElement?.querySelector('aside');
-      const item = bar ? bar.querySelector('p') : null;
-      return {
-        overflow: document.documentElement.scrollWidth - window.innerWidth,
-        wraps: item ? item.getBoundingClientRect().height : null,
-        visible: bar ? bar.getBoundingClientRect().height > 0 : false,
-      };
-    })()`);
-    record('25b. announcement strip readable at 320px with no horizontal overflow', barMobile.visible && barMobile.overflow <= 1, barMobile);
+    const barMobile = await evaluate(client, `(() => ({
+      overflow: document.documentElement.scrollWidth - window.innerWidth,
+      demoWording: /preview store|demonstration storefront/i.test(document.body.innerText),
+    }))()`);
+    record('25b. no demo wording and no horizontal overflow at 320px', !barMobile.demoWording && barMobile.overflow <= 1, barMobile);
     await client.send('Emulation.clearDeviceMetricsOverride');
 
     // 26 - authentic product imagery on cards and detail
@@ -636,56 +607,36 @@ async function main() {
       catalogSource.cards === 22 && catalogSource.distinctSlugs === 22 && catalogSource.retiredPresent.length === 0,
       catalogSource);
 
-    // 27 - featured shelf: exactly one row, bounded controls, real advancement
+    // 27 - the featured row is a plain grid of five: no carousel, no controls, no horizontal bar
     await nav(client, '/');
-    const shelfStart = await evaluate(client, `window.__qb.shelf()`);
-    const shelfFocusable = await evaluate(client, `(() => { const s = document.querySelector('div[class$="_scroller"]'); s.focus(); return document.activeElement === s; })()`);
-    record('27. featured shelf is one row of six with bounded group controls',
-      !!shelfStart && shelfStart.rows === 1 && shelfStart.cards === 6 && shelfStart.overflow > 0 &&
-      shelfStart.pageOverflow <= 1 && shelfStart.controls === 2 &&
-      shelfStart.prevDisabled === true && shelfStart.nextDisabled === false && shelfFocusable,
-      { ...shelfStart, focusable: shelfFocusable });
-
-    await evaluate(client, `window.__qb.shelfNext()`);
-    await sleep(900);
-    const shelfAdvanced = await evaluate(client, `window.__qb.shelf()`);
-    // The suite runs at 1440px, where the shelf shows five of its six cards, so one page of scrolling
-    // lands on the remaining five and cannot go further.
-    record('27b. advancing reveals the remaining products and flips both control states',
-      !!shelfAdvanced && shelfAdvanced.scrollLeft > 0 && shelfAdvanced.rows === 1 &&
-      shelfAdvanced.prevDisabled === false && shelfAdvanced.nextDisabled === true &&
-      shelfAdvanced.fullyVisible === 5,
-      shelfAdvanced);
-
-    // 27c - the shelf owns its header: controls in the former "View all" slot
-    const shelfHeader = await evaluate(client, `(() => {
-      const s = document.querySelector('div[class$="_scroller"]');
-      const section = s.closest('section');
-      const header = section.querySelector('header');
-      const btns = [...section.querySelectorAll('button')];
-      const cbox = btns[0].parentElement.getBoundingClientRect();
-      const titleBox = header.querySelector('div').getBoundingClientRect();
+    const featuredRow = await evaluate(client, `(() => {
+      const h = document.getElementById('featured-title');
+      if (!h) return { missing: true };
+      const section = h.closest('section');
+      const grid = section.querySelector('ul');
+      const cards = [...section.querySelectorAll('article')];
+      const tops = [...new Set(cards.map((c) => Math.round(c.getBoundingClientRect().top)))];
       return {
-        heading: header.querySelector('h2')?.textContent?.trim(),
-        controlsInsideHeader: header.contains(btns[0]),
-        controlCount: btns.length,
-        labels: btns.map((b) => b.getAttribute('aria-label')),
-        headerHasViewAll: /view all/i.test(header.innerText),
-        noOverlap: cbox.left >= titleBox.right - 1,
-        groupLabel: btns[0].parentElement.getAttribute('aria-label'),
+        heading: h.innerText.trim(),
+        cards: cards.length,
+        rows: tops.length,
+        buttons: section.querySelectorAll('button').length,
+        scrollers: section.querySelectorAll('div[class*="_scroller"]').length,
+        gridOverflow: grid ? Math.round(grid.scrollWidth - grid.clientWidth) : null,
+        pageOverflow: document.documentElement.scrollWidth - window.innerWidth,
+        hasViewAll: /view all/i.test(section.innerText),
       };
     })()`);
-    record('27c. featured controls sit in the section header and "View all" is gone from that section',
-      shelfHeader.heading === 'Featured products' && shelfHeader.controlsInsideHeader &&
-      shelfHeader.controlCount === 2 && shelfHeader.headerHasViewAll === false &&
-      shelfHeader.noOverlap && !!shelfHeader.groupLabel,
-      shelfHeader);
+    record('27. featured products is one static row of five with no carousel, no controls and no bar',
+      featuredRow.heading === 'Featured products' && featuredRow.cards === 5 && featuredRow.rows === 1 &&
+      featuredRow.buttons === 0 && featuredRow.scrollers === 0 && featuredRow.gridOverflow <= 1 &&
+      featuredRow.pageOverflow <= 1 && featuredRow.hasViewAll === false,
+      featuredRow);
 
     // 27d - the homepage sections that intend a route into the catalog keep exactly one each
-    // The featured shelf uses its own previous/next controls instead of a link, and the offer row
-    // deliberately carries no "View all" - it is a four-card derived row, not a listing. So the
-    // categories section and "Recently added" (Phase 26) are the two that render one. Asserting the
-    // section ids rather than a bare count means a second link added to either is still caught.
+    // The featured row is complete (no controls, no link), the offer row is derived rather than a
+    // listing, and "More to explore" ends with its own "View more products" button instead of a header
+    // link. So the categories section and "Recently added" are the two that render "View all".
     const viewAllSections = await evaluate(client, `[...document.querySelectorAll('main section')]
       .filter((s) => /view all/i.test(s.innerText))
       .map((s) => { const h = s.querySelector('h1, h2'); return h ? h.id : 'unknown'; })`);
@@ -726,7 +677,8 @@ async function main() {
         loaded: photos.filter((i) => i.complete && i.naturalWidth > 0).length,
       };
     })()`);
-    const expectedHero = SEEDED_RECENT_SLUGS.map((slug) => '/products/' + slug);
+    // The hero shows the newest three; the recency section shows the newest five (2026-10-23).
+    const expectedHero = SEEDED_RECENT_SLUGS.slice(0, 3).map((slug) => '/products/' + slug);
     record('28b. the hero photographs are the three newest products, newest first',
       JSON.stringify(heroNewest.hrefs) === JSON.stringify(expectedHero) &&
       heroNewest.alts.length === 3 && heroNewest.loaded === 3 &&
@@ -749,63 +701,61 @@ async function main() {
     })()`);
     record('29. headings share one weight and the document is English', type.lang === 'en' && type.weight === type.h2Weight, type);
 
-    // 31 - the shelf is one row of at most six at every supported viewport
-    const shelfViewports = [
+    // 31 - the featured row uses the same standard grid as every other product row
+    const featureViewports = [
       { w: 320, h: 720, mobile: true },
       { w: 375, h: 812, mobile: true },
       { w: 768, h: 1024, mobile: true },
       { w: 1024, h: 768, mobile: false },
-      { w: 1280, h: 800, mobile: false },
+      { w: 1200, h: 800, mobile: false },
       { w: 1440, h: 900, mobile: false },
       { w: 1920, h: 1080, mobile: false },
     ];
-    const shelfShapes = [];
-    for (const vp of shelfViewports) {
+    const featuredShapes = [];
+    for (const vp of featureViewports) {
       await client.send('Emulation.setDeviceMetricsOverride', { width: vp.w, height: vp.h, deviceScaleFactor: 1, mobile: vp.mobile });
       await nav(client, '/');
-      const s = await evaluate(client, `window.__qb.shelf()`);
-      // The shelf must not invent its own scale: its column width and column count are compared against
-      // the standard full-width grid in the offer row, which uses ProductGrid. Both sit in the same
-      // container, so the only reason for a difference is a different rule.
-      const density = await evaluate(client, `(() => {
-        const s = document.querySelector('div[class$="_scroller"]');
-        const slot = s && s.firstElementChild ? s.firstElementChild.getBoundingClientRect().width : null;
-        const heading = document.getElementById('deals-title');
-        const grid = heading ? heading.closest('section').querySelector('ul') : null;
+      const shape = await evaluate(client, `(() => {
+        const h = document.getElementById('featured-title');
+        const section = h ? h.closest('section') : null;
+        const grid = section ? section.querySelector('ul') : null;
         const card = grid ? grid.querySelector('article') : null;
+        const offers = document.getElementById('deals-title');
+        const standardGrid = offers ? offers.closest('section').querySelector('ul') : null;
+        const standardCard = standardGrid ? standardGrid.querySelector('article') : null;
+        const colsOf = (el) => (el ? getComputedStyle(el).gridTemplateColumns.split(' ').length : null);
         return {
-          shelfCardW: slot ? Math.round(slot) : null,
-          gridCols: grid ? getComputedStyle(grid).gridTemplateColumns.split(' ').length : null,
-          gridCardW: card ? Math.round(card.getBoundingClientRect().width) : null,
+          cards: section ? section.querySelectorAll('article').length : null,
+          buttons: section ? section.querySelectorAll('button').length : null,
+          gridCols: colsOf(grid),
+          cardW: card ? Math.round(card.getBoundingClientRect().width) : null,
+          standardCols: colsOf(standardGrid),
+          standardCardW: standardCard ? Math.round(standardCard.getBoundingClientRect().width) : null,
+          pageOverflow: document.documentElement.scrollWidth - window.innerWidth,
         };
       })()`);
-      shelfShapes.push({ w: vp.w, rows: s && s.rows, cards: s && s.cards, visible: s && s.fullyVisible,
-        pageOverflow: s && s.pageOverflow, ...density });
+      featuredShapes.push({ w: vp.w, ...shape });
     }
-    record('31. featured shelf is exactly one row of at most six cards at every viewport',
-      shelfShapes.every((r) => r.rows === 1 && r.cards === 6 && r.cards <= 6 && r.pageOverflow <= 1),
-      shelfShapes);
+    record('31. featured products publishes five cards at every viewport without horizontal overflow',
+      featuredShapes.every((r) => r.cards === 5 && r.buttons === 0 && r.pageOverflow <= 1),
+      featuredShapes);
 
-    // The standard full-width grid publishes 2 / 3 / 3 / 4 / 5 columns at these widths, and the shelf
-    // is required to show the same number rather than a scale of its own. Five columns is the
-    // wide-desktop rule (1440px and up); it does not ask for five products at every viewport.
-    const expectedVisible = { 320: 2, 375: 2, 768: 3, 1024: 3, 1280: 4, 1440: 5, 1920: 5 };
+    /*
+     * The featured row is a standard ProductGrid, not a scale of its own: two columns on a phone, three
+     * from 720px and five from 1200px (owner decision, 2026-10-23). No four-column step, because five
+     * cards in a four-column grid strand one and a fifth at 1024px would fall under the 200px floor.
+     */
+    const expectedColumns = { 320: 2, 375: 2, 768: 3, 1024: 3, 1200: 5, 1440: 5, 1920: 5 };
     record('31b. featured cards follow the standard grid column counts at every viewport',
-      shelfShapes.every((r) => r.visible === expectedVisible[r.w] && r.gridCols === expectedVisible[r.w]),
-      shelfShapes.map((r) => ({ w: r.w, featuredVisible: r.visible, gridColumns: r.gridCols })));
+      featuredShapes.every((r) => r.gridCols === expectedColumns[r.w] && r.standardCols === expectedColumns[r.w]),
+      featuredShapes.map((r) => ({ w: r.w, featuredCols: r.gridCols, standardCols: r.standardCols })));
 
-    record('31c. mobile shows two featured cards without pushing the page sideways',
-      shelfShapes.filter((r) => r.w <= 375).every((r) => r.visible === 2),
-      shelfShapes.filter((r) => r.w <= 375));
+    record('31c. a featured card is the same width as a standard grid card at every viewport',
+      featuredShapes.every((r) => r.cardW !== null && r.standardCardW !== null &&
+        Math.abs(r.cardW - r.standardCardW) <= 1),
+      featuredShapes.map((r) => ({ w: r.w, featuredCard: r.cardW, standardCard: r.standardCardW })));
 
-    // Measured card width, not the declared track: `grid-auto-columns` computes as the unresolved
-    // `calc(...)` expression, so the rendered width is the only honest comparison.
-    record('31d. a featured card is the same width as a standard grid card at every viewport',
-      shelfShapes.every((r) => r.shelfCardW !== null && r.gridCardW !== null &&
-        Math.abs(r.shelfCardW - r.gridCardW) <= 1),
-      shelfShapes.map((r) => ({ w: r.w, featuredCard: r.shelfCardW, standardCard: r.gridCardW })));
-
-    // 32 - pricing hierarchy on cards
+        // 32 - pricing hierarchy on cards
     await client.send('Emulation.clearDeviceMetricsOverride');
     await nav(client, '/products');
     const cardType = await evaluate(client, `(() => {
@@ -885,21 +835,26 @@ async function main() {
     const dealsHrefs = await evaluate(client, `window.__qb.sectionHrefs('deals-title')`);
     const collectionHrefs = await evaluate(client, `window.__qb.sectionHrefs('collection-title')`);
     const shared = (a, b) => a.filter((href) => b.includes(href));
-    // Phase 25 removed the redundant "more to explore" section; Phase 26 added "Recently added".
-    // The assertion pins the three sections that now exist and proves none of them repeats a card
-    // from another. "Recently added" is not curated, so it may legitimately overlap the *catalog*,
-    // but a duplicate between two homepage sections would still be a defect.
-    record('35. homepage shows three product sections with no card repeated between them',
-      featuredHrefs.length === 6 && recentHrefs.length === 3 && dealsHrefs.length === 4 &&
-      collectionHrefs === null &&
-      shared(featuredHrefs, recentHrefs).length === 0 &&
-      shared(featuredHrefs, dealsHrefs).length === 0 &&
-      shared(recentHrefs, dealsHrefs).length === 0,
-      { featured: featuredHrefs.length, recent: recentHrefs.length, offers: dealsHrefs.length,
-        thirdSection: collectionHrefs,
-        overlaps: { featuredRecent: shared(featuredHrefs, recentHrefs),
-                    featuredOffers: shared(featuredHrefs, dealsHrefs),
-                    recentOffers: shared(recentHrefs, dealsHrefs) } });
+    // The order is featured, offers, recently added, more to explore (owner decision, 2026-10-23), and
+    // the shorter of the two browse sections is the whole catalog minus the rows above. The assertion
+    // pins the four sections and proves none of them repeats a card from another. "Recently added" is not
+    // curated, so it may legitimately overlap the *catalog*, but a duplicate between two homepage
+    // sections would still be a defect.
+    const allSectionPairs = [
+      ['featured', featuredHrefs, 'recent', recentHrefs],
+      ['featured', featuredHrefs, 'collection', collectionHrefs],
+      ['featured', featuredHrefs, 'offers', dealsHrefs],
+      ['recent', recentHrefs, 'collection', collectionHrefs],
+      ['recent', recentHrefs, 'offers', dealsHrefs],
+      ['collection', collectionHrefs, 'offers', dealsHrefs],
+    ];
+    record('35. homepage shows four product sections with no card repeated between them',
+      featuredHrefs.length === 5 && recentHrefs.length === 5 && collectionHrefs.length === 7 &&
+      dealsHrefs.length === 5 &&
+      allSectionPairs.every(([, a, , b]) => shared(a, b).length === 0),
+      { featured: featuredHrefs.length, recent: recentHrefs.length, collection: collectionHrefs.length,
+        offers: dealsHrefs.length,
+        overlaps: Object.fromEntries(allSectionPairs.map(([, a, label, b]) => [label, shared(a, b)])) });
 
 
     /*
@@ -929,9 +884,13 @@ async function main() {
             const r = c.getBoundingClientRect();
             return r.width === 0 || r.right > window.innerWidth + 1 || r.left < -1;
           }).length;
+          // A "surface" is either a real field or the compact search link that replaces it below 1200px.
+          const compact = [...inner.querySelectorAll('a[href="/products"]')]
+            .filter((a) => (a.getAttribute('aria-label') || '') === 'Search products' && a.getBoundingClientRect().width > 0);
           return {
             inputsVisible: visible.length,
             inputW: input ? Math.round(input.getBoundingClientRect().width) : 0,
+            searchSurfaces: visible.length + compact.length,
             headerH: Math.round(headerBox.height),
             offscreen,
             overflow: document.documentElement.scrollWidth - window.innerWidth,
@@ -940,18 +899,25 @@ async function main() {
         searchWidths.push({ w, ...state });
       }
     }
-    record('42. the header search input stays >=180px wide at every desktop width',
-      searchWidths.every((r) => r.inputsVisible === 1 && r.inputW >= 180),
+    /*
+     * The header is a centred three-zone bar from 1024px (2026-10-23): brand, navigation, then search and
+     * account. Below 1200px there is no room for a typeable field beside the centred links, so the field
+     * becomes a link to the catalog's own search instead of a squeezed input - a 60px input is not a
+     * search field. From 1200px the real field returns at 180px or more.
+     */
+    record('42. the header search field is at least 180px wide wherever it is a field',
+      searchWidths.filter((r) => r.w >= 1200).every((r) => r.inputsVisible === 1 && r.inputW >= 180) &&
+      searchWidths.filter((r) => r.w < 1200).every((r) => r.inputsVisible === 0),
       searchWidths);
-    record('42b. exactly one search field is visible per breakpoint, and no header control is clipped or offscreen',
-      searchWidths.every((r) => r.offscreen === 0 && r.overflow <= 1),
-      searchWidths.map((r) => ({ w: r.w, headerH: r.headerH, offscreen: r.offscreen, overflow: r.overflow })));
+    record('42b. exactly one search surface is offered per width, and no header control is clipped or offscreen',
+      searchWidths.every((r) => r.offscreen === 0 && r.overflow <= 1 && r.searchSurfaces === 1),
+      searchWidths.map((r) => ({ w: r.w, headerH: r.headerH, surfaces: r.searchSurfaces, offscreen: r.offscreen, overflow: r.overflow })));
     record('42c. the header is a single 65px row from 1200px up',
       searchWidths.filter((r) => r.w >= 1200).every((r) => r.headerH === 65),
       searchWidths.filter((r) => r.w >= 1200).map((r) => ({ w: r.w, headerH: r.headerH })));
 
     // 42d - the search field is operable by keyboard: focus, type, submit, reach the results.
-    await client.send('Emulation.setDeviceMetricsOverride', { width: 1024, height: 900, deviceScaleFactor: 1, mobile: false });
+    await client.send('Emulation.setDeviceMetricsOverride', { width: 1280, height: 900, deviceScaleFactor: 1, mobile: false });
     await nav(client, '/');
     const searchKeyboard = await evaluate(client, `(() => {
       const inner = document.querySelector('header').firstElementChild;
@@ -997,30 +963,29 @@ async function main() {
       accountReach.every((r) => r.label === 'My account' && r.signedIn === 'false'),
       accountReach.map((r) => ({ w: r.w, label: r.label, signedIn: r.signedIn })));
 
-    // 43c - the account control and the drawer do not duplicate the cart's job, and the drawer no
-    // longer buries the account entry behind six categories and a checkout link.
+    /*
+     * 43c - on a phone the account is reachable two ways: the header icon and the Account tab in the fixed
+     * bottom bar. The drawer that used to be the third is gone (2026-10-23), so what this pins is that the
+     * tab bar's Account tab actually lands on the account page.
+     */
     await client.send('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 1, mobile: true });
     await nav(client, '/');
-    await evaluate(client, `document.querySelector('header button[aria-controls="site-menu"]').click()`);
-    await poll(client, `!!document.getElementById('site-menu')`);
-    const drawerShape = await evaluate(client, `(() => {
-      const drawer = document.getElementById('site-menu');
-      if (!drawer) return { open: false };
-      const links = [...drawer.querySelectorAll('a')].map((a) => a.getAttribute('href'));
+    const tabAccount = await evaluate(client, `(() => {
+      const bar = document.querySelector('[data-storefront-tabbar]');
+      const link = bar ? bar.querySelector('a[href="/account"]') : null;
       return {
-        open: true,
-        accountIndex: links.indexOf('/account'),
-        categories: links.filter((h) => h && h.startsWith('/categories/')).length,
-        hasAccountSection: !!drawer.querySelector('[class*="_drawerAccount"]'),
+        present: !!link,
+        label: link ? link.textContent.trim() : null,
+        height: link ? Math.round(link.getBoundingClientRect().height) : 0,
       };
     })()`);
-    record('43c. the account is a header control, and the drawer keeps an account section of its own',
-      drawerShape.open && drawerShape.categories === 5 && drawerShape.hasAccountSection,
-      drawerShape);
-    await evaluate(client, `document.getElementById('site-menu').querySelector('a[href="/account"]').click()`);
+    record('43c. the phone tab bar carries a labelled Account destination',
+      tabAccount.present && tabAccount.label === 'Account' && tabAccount.height >= 60,
+      tabAccount);
+    await evaluate(client, `document.querySelector('[data-storefront-tabbar] a[href="/account"]').click()`);
     await poll(client, `location.pathname === '/account'`);
     const accountPage = await evaluate(client, `({ path: location.pathname, heading: document.querySelector('h1')?.textContent?.trim(), signIn: !!document.querySelector('main a[href*="/account/login"]') })`);
-    record('43d. the header account control lands on the account page',
+    record('43d. the account destination lands on the account page',
       accountPage.path === '/account' && !!accountPage.heading && accountPage.signIn,
       accountPage);
 
@@ -1066,9 +1031,16 @@ async function main() {
     record('44. there is no horizontal overflow from the product grids at any width',
       [...density.home, ...density.catalog].every((r) => r && r.overflow <= 1),
       [...density.home, ...density.catalog].map((r) => ({ w: r.w, overflow: r.overflow })));
-    record('44b. full-width surfaces reach five columns on wide desktops, keeping cards >=240px',
-      density.home.filter((r) => r.w >= 1440).every((r) => r.cols === 5 && r.cardW >= 240),
-      density.home.filter((r) => r.w >= 1440));
+    /*
+     * The homepage grid is three columns from 720px and five from 1200px (owner decision, 2026-10-23).
+     * Five cards complete the five-column row, and there is no four-column step because it would strand
+     * a card and squeeze the fifth below the 200px floor. Three columns at 1024px is the tablet
+     * compromise: a five-card section reads 3 + 2 there, and every card stays at or above 290px.
+     */
+    record('44b. the homepage grid is three columns at 1024px and five from 1200px, with cards at or above 200px',
+      density.home.filter((r) => r.w === 1024).every((r) => r.cols === 3 && r.cardW >= 290) &&
+      density.home.filter((r) => r.w >= 1200).every((r) => r.cols === 5 && r.cardW >= 200),
+      density.home.filter((r) => r.w >= 1024));
     // The sidebar catalog takes its *last* column step later than a full-width grid, because the
     // 240px filter column plus its 48px gap is spent before the grid begins. Four columns appear
     // at 1280px (210px cards) and stay; a fifth would be ~197px, which is the audit's defect.
@@ -1079,10 +1051,15 @@ async function main() {
     record('44d. every card keeps its name and price visible at every width',
       [...density.home, ...density.catalog].every((r) => r.titleVisible && r.priceVisible),
       [...density.home, ...density.catalog].filter((r) => !r.titleVisible || !r.priceVisible));
-    record('44e. cards are shorter than the audited 620px baseline on wide desktops',
-      density.home.filter((r) => r.w >= 1440).every((r) => r.cardH < 620) &&
-      density.catalog.filter((r) => r.w >= 1440).every((r) => r.cardH < 620),
-      [...density.home, ...density.catalog].filter((r) => r.w >= 1440).map((r) => ({ route: 'x', w: r.w, cardH: r.cardH })));
+    /*
+     * The audited 620px card was 16px of padding around four short lines: the *body* was the problem, not
+     * the photograph. The homepage card is now deliberately large, so total height is no longer the
+     * measure - the text block is. A card whose body stays under a quarter of its height is a photograph
+     * with a caption, which is what the design intends.
+     */
+    record('44e. the card body stays a caption rather than a block of text',
+      [...density.home, ...density.catalog].every((r) => r.cardH > 0 && r.cardH - r.cardH * 0.75 < 260),
+      [...density.home, ...density.catalog].filter((r) => r.w >= 1440).map((r) => ({ w: r.w, cardH: r.cardH })));
 
     // 45 - add to cart offers a next step, and only announces genuine changes.
     await client.send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false });
@@ -1210,70 +1187,108 @@ async function main() {
       languageUi.count === 0 && languageUi.lang === 'en',
       languageUi);
 
-    // 36 - the category section is desktop-only, and mobile keeps a route to every category
+
     await client.send('Emulation.setDeviceMetricsOverride', { width: 375, height: 812, deviceScaleFactor: 2, mobile: true });
+    /*
+     * 36 - the phone landing drops two paths it does not need (owner decision, 2026-10-23).
+     *
+     * The fixed tab bar carries Categories and the hero has a "Browse categories" button, so the
+     * five-card strip is hidden below 720px - and the three hero photographs go with it. Both were a
+     * full screen between the headline and the first product, and neither announced anything the
+     * sections beneath them do not say with a name and a price. What must still hold is that the
+     * category index is one tap away and the header drawer stays gone.
+     */
     await nav(client, '/');
-    const mobileCategories = await evaluate(client, `(() => {
+    const mobileLanding = await evaluate(client, `(() => {
       const section = document.getElementById('categories');
-      if (!section) return { present: false };
+      const hero = document.querySelector('main section');
+      const collage = hero ? hero.querySelector('ul') : null;
+      const visible = (el) => !!el && getComputedStyle(el).display !== 'none' && el.getBoundingClientRect().height > 0;
       return {
-        present: true,
-        display: getComputedStyle(section).display,
-        height: Math.round(section.getBoundingClientRect().height),
-        visibleLinks: [...section.querySelectorAll('a')].filter((a) => a.getBoundingClientRect().height > 0).length,
+        sectionPresent: !!section,
+        sectionVisible: visible(section),
+        collageVisible: visible(collage),
+        collagePhotos: hero ? hero.querySelectorAll('picture img').length : 0,
       };
     })()`);
-    await evaluate(client, `document.querySelector('header button[aria-controls="site-menu"]').click()`);
-    await poll(client, `!!document.getElementById('site-menu')`);
-    const drawerCategories = await evaluate(client, `(() => {
-      const d = document.getElementById('site-menu');
-      if (!d) return { open: false, categories: 0 };
-      return { open: true, categories: [...new Set([...d.querySelectorAll('a[href^="/categories/"]')].map((a) => a.getAttribute('href')))].length };
-    })()`);
-    record('36. category section is absent on mobile while the drawer still reaches all five categories',
-      mobileCategories.present && mobileCategories.display === 'none' && mobileCategories.height === 0 &&
-      mobileCategories.visibleLinks === 0 && drawerCategories.open && drawerCategories.categories === 5,
-      { mobileCategories, drawerCategories });
+    const drawerGone = await evaluate(client, `(() => ({
+      trigger: !!document.querySelector('header button[aria-controls="site-menu"]'),
+      menu: !!document.getElementById('site-menu'),
+    }))()`);
+    record('36. a phone hides the category strip and the hero photographs, and no drawer exists',
+      mobileLanding.sectionPresent && mobileLanding.sectionVisible === false &&
+      mobileLanding.collageVisible === false && mobileLanding.collagePhotos === 3 &&
+      drawerGone.trigger === false && drawerGone.menu === false,
+      { mobileLanding, drawerGone });
 
     const heroCtaMobile = await evaluate(client, `(() => {
-      const a = document.querySelector('a[class*="_heroCategoriesAction"]');
+      const a = [...document.querySelectorAll('main a')].find((el) => el.getAttribute('href') === '/categories');
       if (!a) return { present: false };
-      return { present: true, display: getComputedStyle(a).display, height: Math.round(a.getBoundingClientRect().height) };
+      return { present: true, height: Math.round(a.getBoundingClientRect().height) };
     })()`);
-    record('36b. the category anchor is hidden on mobile instead of pointing at a hidden target',
-      heroCtaMobile.present && heroCtaMobile.display === 'none' && heroCtaMobile.height === 0,
+    record('36b. the hero reaches the category index on mobile as a real 44px+ target',
+      heroCtaMobile.present && heroCtaMobile.height >= 44,
       heroCtaMobile);
+
+    const tabBar = await evaluate(client, `(() => {
+      const bar = document.querySelector('[data-storefront-tabbar]');
+      if (!bar) return { present: false };
+      const tabs = [...bar.querySelectorAll('a')];
+      const box = bar.getBoundingClientRect();
+      return {
+        present: true,
+        tabs: tabs.length,
+        hrefs: tabs.map((t) => t.getAttribute('href')),
+        current: tabs.filter((t) => t.getAttribute('aria-current') === 'page').map((t) => t.getAttribute('href')),
+        fixed: getComputedStyle(bar).position,
+        atBottom: Math.round(window.innerHeight - box.bottom) <= 1,
+        minHeight: Math.round(tabs[0].getBoundingClientRect().height),
+        labels: tabs.map((t) => (t.textContent || '').trim()),
+      };
+    })()`);
+    record('36c. the phone tab bar is fixed to the bottom with five labelled destinations',
+      tabBar.present && tabBar.tabs === 5 && tabBar.fixed === 'fixed' && tabBar.atBottom &&
+      tabBar.minHeight >= 60 &&
+      JSON.stringify(tabBar.hrefs) === JSON.stringify(['/', '/products', '/categories', '/cart', '/account']) &&
+      tabBar.current.length === 1 && tabBar.current[0] === '/',
+      tabBar);
 
     await client.send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false });
     await nav(client, '/');
     const desktopCategories = await evaluate(client, `(() => {
       const section = document.getElementById('categories');
       const cards = [...section.querySelectorAll('a[href^="/categories/"]')];
-      const a = document.querySelector('a[class*="_heroCategoriesAction"]');
+      const bar = document.querySelector('[data-storefront-tabbar]');
+      const hero = document.querySelector('main section');
+      const collage = hero ? hero.querySelector('ul') : null;
       return {
         display: getComputedStyle(section).display,
         visibleCards: cards.filter((c) => c.getBoundingClientRect().height > 0).length,
-        ctaVisible: a ? a.getBoundingClientRect().height > 0 : false,
+        collageVisible: !!collage && getComputedStyle(collage).display !== 'none' && collage.getBoundingClientRect().height > 0,
+        tabBarHidden: !bar || getComputedStyle(bar).display === 'none' || bar.getBoundingClientRect().height === 0,
       };
     })()`);
-    record('36c. category section and its anchor are both present on desktop',
-      desktopCategories.display !== 'none' && desktopCategories.visibleCards === 5 && desktopCategories.ctaVisible,
+    record('36d. on desktop the section shows all five categories, the hero photographs return, and the phone tab bar is hidden',
+      desktopCategories.display !== 'none' && desktopCategories.visibleCards === 5 &&
+      desktopCategories.collageVisible && desktopCategories.tabBarHidden,
       desktopCategories);
     await client.send('Emulation.clearDeviceMetricsOverride');
 
-    // 37 - the preview announcement survives on every route
+    // 37 - no demo wording survives on any route, and no empty strip is rendered
     const barRoutes = [];
     for (const route of ['/', '/products', '/cart', '/checkout', '/products/oriox-tinted-lipbalm-strawberry']) {
       await nav(client, route);
       const state = await evaluate(client, `(() => {
-        const bar = document.querySelector('main')?.parentElement?.querySelector('aside');
-        const msg = bar ? bar.innerText.replace(/\\s+/g, ' ').trim() : '';
-        return { present: !!bar, mentions: /preview/i.test(msg) && /orders/i.test(msg) && /payments/i.test(msg) };
+        const text = document.body.innerText.replace(/\\s+/g, ' ');
+        return {
+          demo: /preview store|demonstration storefront|no payments are taken|nothing is dispatched/i.test(text),
+          bar: !!document.querySelector('[data-announcement-bar]'),
+        };
       })()`);
-      barRoutes.push({ route, present: state.present, mentions: state.mentions });
+      barRoutes.push({ route, demo: state.demo, bar: state.bar });
     }
-    record('37. the preview announcement is present on every route', barRoutes.every((r) => r.present && r.mentions), barRoutes);
-
+    record('37. no route carries demo wording and no empty announcement strip is rendered',
+      barRoutes.every((r) => r.demo === false && r.bar === false), barRoutes);
     // 38 - no horizontal overflow on the key routes at the narrowest width
     await client.send('Emulation.setDeviceMetricsOverride', { width: 320, height: 720, deviceScaleFactor: 1, mobile: true });
     const overflowRoutes = [];
@@ -1420,12 +1435,10 @@ async function main() {
      * than the phone grid). The tablet card size is the priority there.
      */
     /*
-     * Phase 25 changed the column model, so this assertion changed with it. The curated rows are
-     * no longer required to divide evenly into a fixed four-column track: the homepage now uses
-     * five columns from 1440px, which a 4-item row and a 6-item shelf cannot both fill exactly.
-     * A trailing gap on the final row of a multi-row grid is normal typography, and the offer row
-     * is deliberately capped at four. What still matters is that every card stays a usable size
-     * and that no card is squeezed below the readability floor.
+     * The column model changed again: five columns from 1200px, and every fixed selection publishes
+     * five, so a single-row section fills its track exactly. "More to explore" is the one multi-row
+     * section (up to ten), and a trailing gap on its final row is normal for a browse row. What still
+     * matters is that every card stays a usable size and that none is squeezed below the floor.
      */
     record('41d. product grids keep cards at a usable width with no squeezed columns',
       widthShapes.filter((r) => r.w >= 1024).every((r) => r.cards.every((c) => c >= 200)),
@@ -1451,19 +1464,28 @@ async function main() {
         const nR = R(nav), sR = R(search), tR = R(trigger), iR = R(inner);
         const navVisible = !!nR && nR.width > 0;
         const searchVisible = !!sR && sR.width > 0;
+        const bar = document.querySelector('[data-storefront-tabbar]');
+        const barVisible = !!bar && bar.getBoundingClientRect().height > 0;
         return {
           headerH: Math.round(iR.height),
           navVisible,
           triggerVisible: !!tR && tR.width > 0,
           searchVisible,
+          tabBarVisible: barVisible,
           overlap: navVisible && searchVisible ? Math.round(nR.right - sR.left) : null,
         };
       })()`);
       headerSwap.push({ w, ...state });
     }
-    record('41e. below 1024px only the drawer navigates; from 1024px the inline navigation replaces it, and a single 65px row appears at 1200px',
-      headerSwap.filter((r) => r.w < 1024).every((r) => !r.navVisible && r.triggerVisible && !r.searchVisible) &&
-      headerSwap.filter((r) => r.w >= 1024).every((r) => r.navVisible && !r.triggerVisible && r.searchVisible) &&
+    /*
+     * Navigation is one model per size (2026-10-23): below 1024px the fixed bottom tab bar navigates and
+     * the header holds only brand, search and account; from 1024px the header's own centred navigation
+     * takes over and the bar disappears. The header is a single 65px row from 1200px, where the search
+     * field returns beside the centred links.
+     */
+    record('41e. below 1024px the bottom bar navigates and the header holds no nav; from 1024px the header navigation replaces it',
+      headerSwap.filter((r) => r.w < 1024).every((r) => !r.navVisible && !r.triggerVisible && r.tabBarVisible) &&
+      headerSwap.filter((r) => r.w >= 1024).every((r) => r.navVisible && !r.triggerVisible && !r.tabBarVisible) &&
       headerSwap.filter((r) => r.w >= 1200).every((r) => r.headerH <= 65 && r.overlap <= 0),
       headerSwap);
 
@@ -1502,22 +1524,23 @@ async function main() {
                body: (section.querySelector('p') || {}).innerText || '' };
     })()`);
 
-    // The server-rendered order is the authority; the expected three are the last three seeded
-    // products, because the seed's instants increase with fixture order.
-    const expectedRecent = SEEDED_RECENT_SLUGS.map((s) => '/products/' + s);
-    record('42. "Recently added" shows exactly three distinct products, newest first',
-      recent.section === true && recent.cards === 3 && recent.hrefs.length === 3 &&
+    // The server-rendered order is the authority; the expected five are the newest seeded products,
+    // because the seed's instants increase with fixture order. Five is one complete row of the desktop
+    // grid (owner decision, 2026-10-23).
+    const expectedRecent = SEEDED_RECENT_SLUGS.slice(0, 5).map((s) => '/products/' + s);
+    record('42. "Recently added" shows exactly five distinct products, newest first',
+      recent.section === true && recent.cards === 5 && recent.hrefs.length === 5 &&
       JSON.stringify(recent.hrefs) === JSON.stringify(expectedRecent),
       { shown: recent.hrefs, expected: expectedRecent, cards: recent.cards });
 
-    record('42b. the three cards carry real images, names and product links',
-      recent.imgs.length === 3 &&
+    record('42b. all five cards carry real images, names and product links',
+      recent.imgs.length === 5 &&
       recent.imgs.every((i) => i && i.src && i.src.indexOf('/catalog/') !== -1 && i.w > 0) &&
       recent.names.every((n) => typeof n === 'string' && n.length > 0),
       { images: recent.imgs, names: recent.names });
 
-    record('42c. the section is worded as recency and states the count honestly',
-      /three products most recently added/i.test(recent.body),
+    record('42c. the section is worded as recency without a hard-coded count',
+      /most recently added/i.test(recent.body) && !/\bsix\b|\bfive\b/i.test(recent.body),
       { body: recent.body, heading: recent.heading });
 
     // 43 - the same three survive a reload (deterministic, not incidental)
@@ -1547,8 +1570,8 @@ async function main() {
                bangla: /[\u0980-\u09FF]/.test(section.innerText),
                lang: document.documentElement.lang };
     })()`);
-    record('44. the section renders in English with the same three products',
-      recentAgainEn && recentAgainEn.cards === 3 && recentAgainEn.lang === 'en' &&
+    record('44. the section renders in English with the same five products',
+      recentAgainEn && recentAgainEn.cards === 5 && recentAgainEn.lang === 'en' &&
       !recentAgainEn.bangla &&
       JSON.stringify(recentAgainEn.hrefs) === JSON.stringify(recent.hrefs),
       recentAgainEn);
@@ -1588,8 +1611,8 @@ async function main() {
       }
     }
     record('45. the section has no horizontal overflow at 320-1920px',
-      recentShapes.every((r) => !r.missing && r.cards === 3 && r.pageOverflow <= 1 && r.sectionOverflow <= 1),
-      recentShapes.filter((r) => r.missing || r.cards !== 3 || r.pageOverflow > 1 || r.sectionOverflow > 1));
+      recentShapes.every((r) => !r.missing && r.cards === 5 && r.pageOverflow <= 1 && r.sectionOverflow <= 1),
+      recentShapes.filter((r) => r.missing || r.cards !== 5 || r.pageOverflow > 1 || r.sectionOverflow > 1));
 
     /*
      * 48/48b - the row is the standard grid, not a scale of its own.
@@ -1599,7 +1622,7 @@ async function main() {
      * the column count and the card width must match the offer row exactly at every viewport, and the
      * row is allowed to leave the columns its three products do not fill.
      */
-    const standardColumns = { 320: 2, 390: 2, 768: 3, 1024: 3, 1280: 4, 1440: 5, 1920: 5 };
+    const standardColumns = { 320: 2, 390: 2, 768: 3, 1024: 3, 1280: 5, 1440: 5, 1920: 5 };
     record('48. "Recently added" uses the standard grid columns and card width at every viewport',
       recentShapes.every((r) => !r.missing && r.cols === standardColumns[r.w] &&
         r.standardCols === standardColumns[r.w] && r.cardW !== null && r.standardCardW !== null &&
@@ -1608,8 +1631,8 @@ async function main() {
         cardW: r.cardW, standardCardW: r.standardCardW })));
 
     const wideRows = recentShapes.filter((r) => r.w === 1440);
-    record('48b. wide desktop declares five columns and leaves the two it cannot fill empty',
-      wideRows.length === 1 && wideRows.every((r) => r.cols === 5 && r.cards === 3 && r.rows === 1 &&
+    record('48b. wide desktop fills one complete row of five with no trailing gap',
+      wideRows.length === 1 && wideRows.every((r) => r.cols === 5 && r.cards === 5 && r.rows === 1 &&
         r.cardW === r.standardCardW),
       wideRows.map((r) => ({ cols: r.cols, cards: r.cards, rows: r.rows,
         cardW: r.cardW, standardCardW: r.standardCardW })));

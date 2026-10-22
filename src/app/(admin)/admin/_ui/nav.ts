@@ -15,4 +15,10 @@ export type AdminNavItem = {
   labelKey: TranslationKey;
   group: AdminNavGroup;
   icon: AdminIconName;
+  /**
+   * Position in the phone bottom bar (1-4), or absent when the destination belongs only in the
+   * rail and the More sheet. Ranked explicitly rather than by sidebar order because the phone is
+   * used for a different first move: decide the queue, then check stock, then look up an order.
+   */
+  mobileRank?: 1 | 2 | 3 | 4;
 };

@@ -1,59 +1,247 @@
+/* ---------------------------------------------------------------------------
+ * Account surfaces
+ *
+ * Sign in, create an account, redeem a code, and the account hub. Two panels
+ * where there is a form (an intro panel and the form), a card grid where there is
+ * an overview. Tokens only; the lavender is the storefront's own --color-action-soft,
+ * so these pages belong to the shop rather than to a separate login system.
+ * ------------------------------------------------------------------------- */
+
 .page {
   display: grid;
   gap: var(--space-5);
 }
 
+/* The orders and order-detail views still call this `header`; one rule, two names, so the three
+   account surfaces cannot drift apart. */
+.pageHeader,
 .header {
   display: grid;
-  gap: var(--space-2);
-  border-bottom: 1px solid var(--color-border);
+  gap: var(--space-1);
   padding-bottom: var(--space-4);
+  border-bottom: 1px solid var(--color-border);
 }
 
-.narrow {
-  display: grid;
-  gap: var(--space-4);
-  max-width: 44ch;
+.pageHeader h1,
+.header h1 {
+  font-size: var(--text-2xl);
+  letter-spacing: -0.02em;
 }
 
-.card {
-  display: grid;
-  gap: var(--space-3);
-  padding: var(--space-5);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  background: var(--color-surface);
-}
-
-.placed {
-  display: grid;
-  gap: var(--space-2);
-  padding: var(--space-5);
-  border: 1px solid var(--color-action);
-  border-radius: var(--radius-lg);
-  background: var(--color-surface);
-}
-
-/* What happens next: a plain statement of the stored order state. */
-.nextStep {
+.pageKicker {
   margin: 0;
-  padding-top: var(--space-3);
-  border-top: 1px solid var(--color-border);
   font-size: var(--text-sm);
   font-weight: 600;
+  color: var(--color-action);
 }
 
-.muted {
+/* ---------- Auth: sign in / register / redeem ---------- */
+
+.authPage {
+  /* The form panel is the page's whole job, so it is allowed a little more air
+     than the rest of the storefront and is capped so a wide screen never turns
+     the inputs into 900px-wide bars. */
+  max-width: 960px;
+  margin: 0 auto;
+  padding: var(--space-2) 0 var(--space-6);
+}
+
+.authShell {
+  display: grid;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: var(--color-surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.authAside {
+  display: grid;
+  align-content: start;
+  gap: var(--space-4);
+  padding: var(--space-5);
+  background: var(--color-action-soft);
+  border-bottom: 1px solid var(--color-admin-sidebar-border);
+}
+
+.authBrand {
+  display: inline-flex;
+  width: fit-content;
+}
+
+.authBrand img {
+  height: 26px;
+  width: auto;
+  object-fit: contain;
+}
+
+.authAsideTitle {
+  font-size: var(--text-lg);
+  line-height: var(--leading-snug);
+  letter-spacing: -0.01em;
+  color: var(--color-ink);
+  max-width: 28ch;
+}
+
+.authPoints {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-3);
+}
+
+.authAsideFoot {
+  margin: auto 0 0;
+  padding-top: var(--space-5);
+  font-size: var(--text-sm);
+}
+
+.authAsideFoot a {
+  font-weight: 600;
+  color: var(--color-action);
+}
+
+.authAsideFoot a:hover {
+  text-decoration: underline;
+}
+
+.authPoints li {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--color-ink-muted);
+  line-height: var(--leading-snug);
+}
+
+.authPointIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  flex: none;
+  margin-top: 1px;
+  border-radius: var(--radius-pill);
+  background: var(--color-surface);
+  color: var(--color-action);
+}
+
+.authPanel {
+  display: grid;
+  align-content: start;
+  gap: var(--space-4);
+  padding: var(--space-5);
+}
+
+.authHeader {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.authHeader h1 {
+  font-size: var(--text-xl);
+  letter-spacing: -0.015em;
+}
+
+.authFooter {
+  display: grid;
+  gap: var(--space-2);
+  margin-top: var(--space-1);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--color-border);
+  font-size: var(--text-sm);
+}
+
+.authFooter p {
+  margin: 0;
+}
+
+.authFooter a {
+  font-weight: 600;
+  color: var(--color-action);
+}
+
+.authFooter a:hover {
+  text-decoration: underline;
+}
+
+/* ---------- Forms ---------- */
+
+.form {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.field {
+  display: grid;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.field > span {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--color-ink);
+}
+
+.field em {
+  font-style: normal;
+  font-weight: 400;
   color: var(--color-ink-muted);
 }
 
-.notice {
-  padding: var(--space-3) var(--space-4);
-  border: 1px solid var(--color-danger);
-  border-radius: var(--radius-md);
-  background: var(--color-danger-soft);
-  color: var(--color-ink);
+.field small {
+  color: var(--color-ink-muted);
+  font-size: var(--text-xs);
 }
+
+/*
+ * `width: 100%` and `min-width: 0` are both required. An `input` carries an intrinsic default width
+ * (roughly 20 characters) that is wider than half of the form panel, so the two-password row overflowed
+ * the panel's right edge until the input was told to fill its track and allowed to shrink.
+ */
+.field input {
+  width: 100%;
+  min-width: 0;
+  min-height: 48px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-ink);
+  font: inherit;
+  font-size: var(--text-md);
+}
+
+.field input::placeholder {
+  color: var(--color-ink-subtle);
+}
+
+.field input:hover {
+  border-color: var(--color-ink-subtle);
+}
+
+.field input:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 1px;
+  border-color: var(--color-focus);
+}
+
+/* Two short fields side by side where there is room; stacked on a phone. */
+.fieldPair {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.fieldHint {
+  margin: calc(-1 * var(--space-2)) 0 0;
+  font-size: var(--text-xs);
+  color: var(--color-ink-muted);
+}
+
+/* ---------- Buttons ---------- */
 
 .actions {
   display: flex;
@@ -68,21 +256,27 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 46px;
+  min-height: 48px;
   padding: 0 var(--space-5);
   border-radius: var(--radius-md);
   font-weight: 600;
+  font-size: var(--text-base);
   cursor: pointer;
 }
 
 .primaryAction {
   background: var(--color-action);
   color: #fff;
+  transition: background-color 140ms ease, transform 120ms ease-out;
 }
 
 .primaryAction:hover {
   background: var(--color-action-hover);
   color: #fff;
+}
+
+.primaryAction:active {
+  transform: scale(0.99);
 }
 
 .secondaryAction,
@@ -102,46 +296,100 @@
   margin: 0;
 }
 
-.form {
+/* ---------- Notices ---------- */
+
+.muted {
+  margin: 0;
+  color: var(--color-ink-muted);
+}
+
+.notice {
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-danger);
+  border-radius: var(--radius-md);
+  background: var(--color-danger-soft);
+  color: var(--color-ink);
+  font-size: var(--text-sm);
+  line-height: var(--leading-snug);
+}
+
+/* ---------- Account hub ---------- */
+
+/* Two full-width actions in the signed-out panel: stacked on a phone, side by side above 480px. */
+.authChoice {
+  display: grid;
+  gap: var(--space-3);
+}
+
+@media (min-width: 480px) {
+  .authChoice {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.accountGrid {
   display: grid;
   gap: var(--space-4);
+  align-items: start;
 }
 
-.field {
+.accountCard,
+.accountCardQuiet {
   display: grid;
-  gap: var(--space-1);
-}
-
-.field > span {
-  font-size: var(--text-sm);
-  font-weight: 600;
-}
-
-.field em {
-  font-style: normal;
-  font-weight: 400;
-  color: var(--color-ink-muted);
-}
-
-.field small {
-  color: var(--color-ink-muted);
-  font-size: var(--text-xs);
-}
-
-.field input {
-  min-height: 46px;
-  padding: 0 var(--space-3);
-  border: 1px solid var(--color-border-strong);
-  border-radius: var(--radius-md);
+  align-content: start;
+  gap: var(--space-3);
+  padding: var(--space-5);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
   background: var(--color-surface);
-  color: var(--color-ink);
-  font: inherit;
 }
 
-.field input:focus-visible {
-  outline: 2px solid var(--color-action);
-  outline-offset: 1px;
+/* The session card is the least important thing on the page and says so. */
+.accountCardQuiet {
+  background: var(--color-page);
 }
+
+.accountCardHead h2 {
+  font-size: var(--text-md);
+  letter-spacing: -0.005em;
+}
+
+.cardAction {
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  font-weight: 600;
+  font-size: var(--text-sm);
+  color: var(--color-action);
+}
+
+.cardAction:hover {
+  text-decoration: underline;
+}
+
+.cardNote {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  margin: 0;
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--color-action-soft);
+  font-size: var(--text-sm);
+  color: var(--color-ink);
+  line-height: var(--leading-snug);
+}
+
+.cardNoteIcon {
+  display: inline-flex;
+  flex: none;
+  margin-top: 1px;
+  color: var(--color-action);
+}
+
+/* ---------- Facts and order summaries ---------- */
 
 .facts,
 .orderBreakdown {
@@ -171,6 +419,38 @@
 .facts dd,
 .orderMeta dd {
   margin: 0;
+  font-weight: 600;
+  color: var(--color-ink);
+  overflow-wrap: anywhere;
+  text-align: end;
+}
+
+/* ---------- Orders ---------- */
+
+.card {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-5);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+}
+
+.placed {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-5);
+  border: 1px solid var(--color-action);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+}
+
+/* What happens next: a plain statement of the stored order state. */
+.nextStep {
+  margin: 0;
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--color-border);
+  font-size: var(--text-sm);
   font-weight: 600;
 }
 
@@ -283,4 +563,60 @@
 .totalRow dd {
   font-size: var(--text-xl);
   font-weight: 700;
+}
+
+/* ---------- Breakpoints ---------- */
+
+/*
+ * On a phone the panel stacks above the form, so every line in it is a line the customer scrolls past
+ * before reaching the field they came for. The brand and the one-sentence promise stay - they say whose
+ * page this is - and the supporting list is dropped, because the form's own labels already carry the
+ * same information at the point it matters.
+ */
+@media (max-width: 879px) {
+  .authPoints,
+  .authAsideFoot {
+    display: none;
+  }
+
+  .authAside {
+    gap: var(--space-3);
+  }
+}
+
+@media (min-width: 640px) {
+  .fieldPair {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 880px) {
+  .authShell {
+    grid-template-columns: minmax(0, 0.9fr) minmax(0, 1fr);
+  }
+
+  .authAside {
+    padding: var(--space-6);
+    border-bottom: 0;
+    border-inline-end: 1px solid var(--color-admin-sidebar-border);
+    /* Aligned to the top like the form's heading, so the two columns start on one line. */
+    align-content: start;
+  }
+
+  .authPanel {
+    padding: var(--space-7) var(--space-6);
+  }
+
+  .authBrand img {
+    height: 30px;
+  }
+
+  .authAsideTitle {
+    font-size: var(--text-xl);
+  }
+
+  .accountGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-5);
+  }
 }

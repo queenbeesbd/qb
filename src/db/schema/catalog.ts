@@ -94,7 +94,13 @@ export const product = pgTable(
     categoryId: bigint('category_id', { mode: 'number' })
       .notNull()
       .references(() => category.id, { onDelete: 'restrict' }),
-    nameBn: text('name_bn').notNull(),
+    /**
+     * Optional since the owner's 2026-10-23 decision: the shop is English-first and a Bangla name is
+     * no longer required to create a product. Null means "the owner did not supply one" - it is never
+     * back-filled with the English name, because a Bangla column holding English text would be a lie
+     * the next reader (or a future Bangla interface) would have to discover.
+     */
+    nameBn: text('name_bn'),
     nameEn: text('name_en').notNull(),
     descriptionBn: text('description_bn'),
     descriptionEn: text('description_en'),
@@ -137,7 +143,10 @@ export const product = pgTable(
       .on(t.availability)
       .where(sql`${t.deletedAt} is null and ${t.isPublished}`),
     check('product_slug_format', sql`${t.slug} ~ '^[a-z0-9]+(-[a-z0-9]+)*$'`),
-    check('product_name_bn_len', sql`char_length(${t.nameBn}) between 1 and 200`),
+    check(
+      'product_name_bn_len',
+      sql`${t.nameBn} is null or char_length(${t.nameBn}) between 1 and 200`,
+    ),
     check('product_name_en_len', sql`char_length(${t.nameEn}) between 1 and 200`),
     check('product_published_needs_timestamp', sql`${t.isPublished} = false or ${t.publishedAt} is not null`),
     check('product_deleted_not_published', sql`${t.deletedAt} is null or ${t.isPublished} = false`),

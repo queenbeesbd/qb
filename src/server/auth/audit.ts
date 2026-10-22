@@ -73,6 +73,14 @@ export type AuditAction =
   | 'delivery.default_updated'
   | 'delivery.district_saved'
   | 'delivery.district_deactivated'
+  | 'promo.created'
+  | 'promo.updated'
+  | 'promo.activated'
+  | 'promo.deactivated'
+  | 'integration.telegram_recipient_added'
+  | 'integration.telegram_recipient_updated'
+  | 'integration.telegram_recipient_activated'
+  | 'integration.telegram_recipient_paused'
   | 'admin.action_denied';
 
 export type AuditEntry = {

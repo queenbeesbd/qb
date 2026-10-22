@@ -2,37 +2,33 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from '@/i18n/useTranslation';
 import type { CatalogCategory } from '@/lib/types';
 import { useCart } from '@/features/cart/useCart';
-import { CartIcon, CloseIcon, MenuIcon, SearchIcon, UserIcon } from './icons';
+import { CartIcon, SearchIcon, UserIcon } from './icons';
 import styles from './Header.module.css';
 
 type Customer = { email: string; displayName: string | null } | null;
 
 /**
- * Compact responsive header. The mobile drawer traps focus, closes on Escape and
- * returns focus to its trigger so keyboard users are never stranded.
+ * The storefront header.
  *
- * The header is laid out in **three gantries** rather than one elastic grid, because a
- * single row cannot hold brand, seven navigation links, a search field and three actions
- * at 1024px without the search collapsing to an untypeable sliver (measured 15px in
- * Bangla before this change):
+ * **One row, navigation beside the brand (2026-10-23 redesign).** On desktop the header runs in reading
+ * order: the logo, the category navigation immediately after it, then the search field and account
+ * controls pushed to the far end. The links are **centred vertically** on the bar - each is a 40px
+ * control, so the row reads as one axis rather than as text sitting on a baseline. They keep their own
+ * horizontal padding and a filled soft background on hover and on the current section, so the row has
+ * rhythm instead of six words crowded against the logo.
  *
- *   A  < 1024px          brand row (drawer trigger, brand, actions)
- *                          + a full-width search row beneath it
- *   B  1024-1199px       brand row (brand, actions + search trigger)
- *                          + a second row with the category navigation and the search
- *   C  >= 1200px         one row: brand, navigation, search, actions
+ * **The mobile drawer is gone.** Below 1024px the navigation moved to the fixed bottom tab bar
+ * (`StorefrontTabBar`), which is the pattern the owner asked for and the one the admin shell already
+ * uses. A hamburger and a bottom bar are two navigation models for one screen; the drawer was removed
+ * rather than kept beside it. What remains in the mobile header is the brand, the account and cart
+ * controls, and a full-width search field - the three things a shopper reaches for before the tabs.
  *
- * Search is a real field, not an icon, at every width where it is shown, and the narrow
- * layout trade is explicit: below 1200px it costs a second header row instead of
- * shrinking the field below a usable size.
- *
- * Categories and the customer arrive as server-resolved props, so navigation can never
- * drift from the catalog the storefront actually serves and the account control can never
- * disagree with the session the server read.
+ * Categories and the customer arrive as server-resolved props, so navigation can never drift from the
+ * catalog the storefront actually serves and the account control can never disagree with the session
+ * the server read.
  */
 export function Header({
   categories,
@@ -44,56 +40,7 @@ export function Header({
   const { t, pick } = useTranslation();
   const { itemCount } = useCart();
   const pathname = usePathname();
-  const [menuOpen, setMenuOpen] = useState(false);
-  const [term, setTerm] = useState('');
-  const drawerRef = useRef<HTMLDivElement | null>(null);
-  const triggerRef = useRef<HTMLButtonElement | null>(null);
 
-  /**
-   * Any route change closes the drawer, including browser back/forward. This
-   * uses React's documented "adjust state during render" pattern (a state
-   * variable, not a ref) so no extra effect render is scheduled.
-   */
-  const [lastPath, setLastPath] = useState(pathname);
-  if (lastPath !== pathname) {
-    setLastPath(pathname);
-    if (menuOpen) setMenuOpen(false);
-  }
-
-  useEffect(() => {
-    if (!menuOpen) return;
-    const drawer = drawerRef.current;
-    if (!drawer) return;
-
-    const focusables = drawer.querySelectorAll<HTMLElement>(
-      'a[href], button:not([disabled]), input, select, [tabindex]:not([tabindex="-1"])',
-    );
-    focusables[0]?.focus();
-
-    function onKeyDown(event: KeyboardEvent) {
-      if (event.key === 'Escape') {
-        setMenuOpen(false);
-        triggerRef.current?.focus();
-        return;
-      }
-      if (event.key !== 'Tab' || focusables.length === 0) return;
-      const first = focusables[0];
-      const last = focusables[focusables.length - 1];
-      if (!first || !last) return;
-      if (event.shiftKey && document.activeElement === first) {
-        event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && document.activeElement === last) {
-        event.preventDefault();
-        first.focus();
-      }
-    }
-
-    document.addEventListener('keydown', onKeyDown);
-    return () => document.removeEventListener('keydown', onKeyDown);
-  }, [menuOpen]);
-
-  const closeMenu = () => setMenuOpen(false);
   const cartLabel = `${t('nav.cart')} (${itemCount})`;
   /**
    * The account control states which of the two honest states it is in: signed out
@@ -105,28 +52,24 @@ export function Header({
   const accountLabel =
     accountIdentity === null ? t('nav.account') : t('nav.accountSignedInAs', { name: accountIdentity });
 
-  const searchForm = (idPrefix: string, variant: 'inline' | 'row' | 'drawer') => (
+  /** A section is current for its own route and everything beneath it. */
+  const isCurrent = (href: string) =>
+    href === '/' ? pathname === '/' : pathname === href || pathname.startsWith(`${href}/`);
+
+  const searchField = (id: string, variant: 'inline' | 'row') => (
     <form
-      className={
-        variant === 'inline' ? styles.search : variant === 'row' ? styles.searchRow : styles.drawerSearch
-      }
+      className={variant === 'inline' ? styles.search : styles.mobileSearch}
       role="search"
       action="/products"
       method="get"
     >
-      <label className="sr-only" htmlFor={`${idPrefix}-search`}>
+      <label className="sr-only" htmlFor={id}>
         {t('search.label')}
       </label>
       <input
-        id={`${idPrefix}-search`}
+        id={id}
         type="search"
         name="q"
-        {...(variant === 'drawer'
-          ? {}
-          : {
-              value: term,
-              onChange: (event: React.ChangeEvent<HTMLInputElement>) => setTerm(event.target.value),
-            })}
         placeholder={t('search.placeholder')}
         autoComplete="off"
         maxLength={80}
@@ -140,18 +83,6 @@ export function Header({
   return (
     <header className={styles.header}>
       <div className={styles.inner}>
-        <button
-          ref={triggerRef}
-          className={styles.menuTrigger}
-          type="button"
-          aria-expanded={menuOpen}
-          aria-controls="site-menu"
-          aria-label={menuOpen ? t('nav.closeMenu') : t('nav.openMenu')}
-          onClick={() => setMenuOpen((open) => !open)}
-        >
-          {menuOpen ? <CloseIcon /> : <MenuIcon />}
-        </button>
-
         <Link href="/" className={styles.brand} aria-label={t('common.brand')}>
           <img src="/brand/logo.svg" alt={t('common.brand')} width={173} height={40} />
         </Link>
@@ -159,22 +90,38 @@ export function Header({
         <nav className={styles.primaryNav} aria-label={t('nav.categories')}>
           <ul className={styles.navList}>
             <li>
-              <Link href="/products">{t('nav.shop')}</Link>
+              <Link href="/products" aria-current={isCurrent('/products') ? 'page' : undefined}>
+                {t('nav.shop')}
+              </Link>
             </li>
-            {categories.map((category) => (
-              <li key={category.id}>
-                <Link href={`/categories/${category.slug}`}>{pick(category.name)}</Link>
-              </li>
-            ))}
+            {categories.map((category) => {
+              const href = `/categories/${category.slug}`;
+              return (
+                <li key={category.id}>
+                  <Link href={href} aria-current={isCurrent(href) ? 'page' : undefined}>
+                    {pick(category.name)}
+                  </Link>
+                </li>
+              );
+            })}
           </ul>
         </nav>
 
-        <div className={styles.searches}>
-          {searchForm('site', 'row')}
-          {searchForm('inline', 'inline')}
-        </div>
-
         <div className={styles.actions}>
+          {searchField('site-search', 'inline')}
+          {/*
+            Between 1024px and 1199px there is no room for a typeable field beside the centred
+            navigation, so the field becomes a link to the catalog's own search rather than a squeezed
+            input. The full field returns at 1200px.
+          */}
+          <Link
+            href="/products"
+            className={styles.compactSearch}
+            aria-label={t('search.label')}
+            title={t('search.label')}
+          >
+            <SearchIcon />
+          </Link>
           <Link
             href="/account"
             className={`${styles.iconButton} ${styles.accountButton}`}
@@ -197,54 +144,7 @@ export function Header({
         </div>
       </div>
 
-      {menuOpen && (
-        <div className={styles.drawer} id="site-menu" ref={drawerRef} role="dialog" aria-label={t('nav.menu')}>
-          <div className={styles.drawerInner}>
-            <form className={styles.drawerSearch} role="search" action="/products" method="get">
-              <label className="sr-only" htmlFor="drawer-search">
-                {t('search.label')}
-              </label>
-              <input
-                id="drawer-search"
-                type="search"
-                name="q"
-                placeholder={t('search.placeholder')}
-                autoComplete="off"
-                maxLength={80}
-              />
-              <button type="submit">{t('search.submit')}</button>
-            </form>
-
-            <ul className={styles.drawerList}>
-              <li>
-                <Link href="/products" onClick={closeMenu}>{t('nav.shop')}</Link>
-              </li>
-              {categories.map((category) => (
-                <li key={category.id}>
-                  <Link href={`/categories/${category.slug}`} onClick={closeMenu}>
-                    {pick(category.name)}
-                  </Link>
-                </li>
-              ))}
-              <li>
-                <Link href="/checkout" onClick={closeMenu}>{t('cart.checkout')}</Link>
-              </li>
-            </ul>
-
-            {/*
-              The account link lives in the header action cluster at every width, so the
-              drawer does not repeat it as a ninth item. It keeps the account section at the
-              end instead, where the signed-in identity is stated in full.
-            */}
-            <div className={styles.drawerAccount}>
-              <Link href="/account" onClick={closeMenu} className={styles.drawerAccountLink}>
-                <UserIcon width={18} height={18} />
-                <span>{accountLabel}</span>
-              </Link>
-            </div>
-          </div>
-        </div>
-      )}
+      {searchField('mobile-search', 'row')}
     </header>
   );
 }

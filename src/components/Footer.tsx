@@ -6,10 +6,12 @@ import type { CatalogCategory } from '@/lib/types';
 import styles from './Footer.module.css';
 
 /**
- * Footer contains only verified information. The demo notice is always present
- * so the storefront can never be mistaken for a live ordering channel, and no
- * shipping, return or payment promise is published because no merchant policy
- * has been approved yet.
+ * Footer contains only verified information: the shop's own catalog, the account surfaces that exist,
+ * and the year. No shipping, return or payment promise is published, because the only approved
+ * delivery policy is the owner-configured charge shown at checkout.
+ *
+ * The demonstration notice that used to sit here was removed with the rest of the demo wording
+ * (owner decision, 2026-10-23).
  *
  * Categories arrive as a server-resolved prop so the shop column always matches
  * the catalog the storefront serves.
@@ -23,7 +25,7 @@ export function Footer({ categories }: { categories: readonly CatalogCategory[] 
       <div className={styles.inner}>
         <div className={styles.brandColumn}>
           <span className={styles.brandName}>{t('common.brand')}</span>
-          <p className={styles.demoNote}>{t('footer.demoNote')}</p>
+          <p className={styles.tagline}>{t('footer.tagline')}</p>
         </div>
 
         <nav className={styles.column} aria-labelledby="footer-shop">
@@ -53,12 +55,14 @@ export function Footer({ categories }: { categories: readonly CatalogCategory[] 
             <li>
               <Link href="/checkout">{t('checkout.title')}</Link>
             </li>
+            <li>
+              <Link href="/account">{t('nav.account')}</Link>
+            </li>
           </ul>
         </nav>
       </div>
 
       <div className={styles.bottomBar}>
-        <p>{t('footer.rights')}</p>
         <p>
           © {year} {t('common.brand')}
         </p>

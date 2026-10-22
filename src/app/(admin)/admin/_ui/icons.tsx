@@ -32,6 +32,7 @@ export type AdminIconName =
   | 'audit'
   | 'storefront'
   | 'menu'
+  | 'more'
   | 'close'
   | 'search'
   | 'phone'
@@ -40,13 +41,29 @@ export type AdminIconName =
   | 'clock'
   | 'plus'
   | 'settings'
+  | 'bell'
   | 'logout'
+  | 'analytics'
+  | 'tag'
   | 'arrowUp'
   | 'arrowDown'
   | 'image';
 
 export function AdminIcon({ name, ...props }: IconProps & { name: AdminIconName }) {
   switch (name) {
+    case 'analytics':
+      return (
+        <svg {...base} {...props}>
+          <path d="M4 19V11M10 19V5M16 19v-6M3 19h18" />
+        </svg>
+      );
+    case 'tag':
+      return (
+        <svg {...base} {...props}>
+          <path d="M20.5 13.3 12.8 21a1.9 1.9 0 0 1-2.7 0L3 13.9V3h10.9l6.6 6.6a1.9 1.9 0 0 1 0 2.7Z" />
+          <circle cx="7.6" cy="7.6" r="1.3" />
+        </svg>
+      );
     case 'overview':
       return (
         <svg {...base} {...props}>
@@ -117,6 +134,14 @@ export function AdminIcon({ name, ...props }: IconProps & { name: AdminIconName 
           <path d="M4 7h16M4 12h16M4 17h16" />
         </svg>
       );
+    case 'more':
+      return (
+        <svg {...base} {...props}>
+          <circle cx="5" cy="12" r="1.7" fill="currentColor" stroke="none" />
+          <circle cx="12" cy="12" r="1.7" fill="currentColor" stroke="none" />
+          <circle cx="19" cy="12" r="1.7" fill="currentColor" stroke="none" />
+        </svg>
+      );
     case 'close':
       return (
         <svg {...base} {...props}>
@@ -167,6 +192,13 @@ export function AdminIcon({ name, ...props }: IconProps & { name: AdminIconName 
         <svg {...base} {...props}>
           <circle cx="12" cy="12" r="3" />
           <path d="M12 3.5v2M12 18.5v2M3.5 12h2M18.5 12h2M6 6l1.5 1.5M16.5 16.5 18 18M18 6l-1.5 1.5M7.5 16.5 6 18" />
+        </svg>
+      );
+    case 'bell':
+      return (
+        <svg {...base} {...props}>
+          <path d="M6.5 9.5a5.5 5.5 0 0 1 11 0c0 4 1.5 5.5 2 6.5H4.5c.5-1 2-2.5 2-6.5Z" />
+          <path d="M10 19a2 2 0 0 0 4 0" />
         </svg>
       );
     case 'arrowUp':

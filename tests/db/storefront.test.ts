@@ -51,10 +51,10 @@ describe('storefront catalog (database)', { skip: toolingAvailable ? false : SKI
   });
 
   it('returns the two curated selections as disjoint product-id lists', () => {
-    assert.equal(catalog.featuredIds.length, 6);
-    assert.equal(catalog.collectionIds.length, 8);
-    assert.equal(new Set(catalog.featuredIds).size, 6, 'no product repeats on the featured shelf');
-    assert.equal(new Set(catalog.collectionIds).size, 8, 'no product repeats in the collection');
+    assert.equal(catalog.featuredIds.length, 5);
+    assert.equal(catalog.collectionIds.length, 5);
+    assert.equal(new Set(catalog.featuredIds).size, 5, 'no product repeats on the featured shelf');
+    assert.equal(new Set(catalog.collectionIds).size, 5, 'no product repeats in the collection');
     assert.deepEqual(
       catalog.featuredIds.filter((id) => catalog.collectionIds.includes(id)),
       [],

@@ -135,7 +135,7 @@ export async function revenueSummary(tx: Transaction): Promise<RevenueSummary> {
 }
 
 export type CodOrderItem = {
-  readonly nameBn: string;
+  readonly nameBn: string | null;
   readonly nameEn: string;
   readonly quantity: number;
   readonly unitPriceMinor: number;
@@ -427,4 +427,48 @@ export async function customerDetail(tx: Transaction, customerId: number): Promi
     orders,
     orderTotal: counted[0]?.total ?? 0,
   };
+}
+
+/**
+ * The last few orders placed, for the dashboard's "what just came in" list.
+ *
+ * A plain recency read over the order's own row: no ranking, no revenue filter, and no product join -
+ * the dashboard already has the money facts above it, and this list exists to show the owner that the
+ * shop is moving and what state each order is in.
+ */
+export type RecentOrderRow = {
+  readonly orderId: number;
+  readonly orderNumber: string;
+  readonly placedAt: Date;
+  readonly totalMinor: number;
+  readonly status: string;
+  readonly customerName: string | null;
+  readonly customerEmail: string;
+};
+
+export async function recentOrders(tx: Transaction, limit: number): Promise<RecentOrderRow[]> {
+  const rows = await tx
+    .select({
+      orderId: order.id,
+      orderNumber: order.orderNumber,
+      placedAt: order.placedAt,
+      totalMinor: order.totalMinor,
+      status: order.status,
+      customerName: customer.displayName,
+      customerEmail: customer.email,
+    })
+    .from(order)
+    .innerJoin(customer, sql`${customer.id} = ${order.customerId}`)
+    .orderBy(sql`${order.placedAt} desc, ${order.id} desc`)
+    .limit(limit);
+
+  return rows.map((row) => ({
+    orderId: row.orderId,
+    orderNumber: row.orderNumber,
+    placedAt: row.placedAt,
+    totalMinor: row.totalMinor,
+    status: row.status,
+    customerName: row.customerName,
+    customerEmail: row.customerEmail,
+  }));
 }

@@ -1,49 +1,96 @@
+/*
+ * The announcement strip: a news ticker on the page canvas, not a coloured band.
+ *
+ * There is no background and no second rule: the line travels across the same surface as the rest of
+ * the page, so it reads as the shop's own news rather than as a promotion banner. The item's own
+ * `data-variant` stays in the markup for a future notice that needs to state its kind, but it paints
+ * no colour.
+ *
+ * The mechanics are deliberately dull: one animation on the track, two identical groups, a fixed
+ * -50% travel. Nothing measures the DOM, so nothing can disagree with the layout after a resize.
+ */
 .bar {
-  background: var(--color-action-soft);
-  border-bottom: 1px solid var(--color-border);
+  background: transparent;
+  /* The moving line is clipped by its own viewport; keeping the bar out of the scroll chain means a
+     ticker can never add a horizontal scrollbar to an already-tight phone layout. */
+  overflow: hidden;
 }
 
-.bar[data-variant='info'],
-.item[data-variant='info'] {
-  background: var(--color-accent-soft);
-}
-
-.inner {
+.viewport {
   max-width: var(--container);
   margin: 0 auto;
-  padding: var(--space-2) var(--gutter);
-  display: grid;
-  gap: var(--space-2);
+  /* Air above and below the line, so it reads as a strip rather than a word floating over the header. */
+  padding: 10px var(--gutter);
+  overflow: hidden;
+}
+
+.track {
+  display: flex;
+  width: max-content;
+  animation: ticker var(--ticker-duration, 20s) linear infinite;
+}
+
+/* Reading is the point: a pointer resting on the line stops it rather than sliding the words away. */
+.track:hover {
+  animation-play-state: paused;
+}
+
+.group {
+  display: flex;
+  flex: none;
 }
 
 .item {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
+  display: block;
   margin: 0;
-  /* Small but comfortably readable; Bangla line-height comes from the locale rule. */
+  /* One line, always: a wrapped message cannot scroll predictably. */
+  white-space: nowrap;
   font-size: var(--text-sm);
   line-height: 1.5;
+  font-weight: 500;
   color: var(--color-ink);
-  /* Long messages wrap rather than forcing horizontal overflow. */
-  flex-wrap: wrap;
-  overflow-wrap: anywhere;
+  /*
+   * The gap between repeats belongs to the item, not to the flex container: with `gap` the two
+   * copies would differ by exactly one gap, and the -50% loop would tear at the seam.
+   */
+  padding-inline-end: var(--space-8);
 }
 
-.badge {
-  flex: none;
-  background: var(--color-action);
-  color: #fff;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  padding: 2px var(--space-2);
-  border-radius: var(--radius-sm);
-  font-size: 11px;
-  line-height: 1.6;
+@keyframes ticker {
+  from {
+    transform: translateX(0);
+  }
+
+  to {
+    transform: translateX(-50%);
+  }
 }
 
-.message {
-  min-width: 0;
-}
+/*
+ * Reduced motion: the strip goes back to the static, wrapping line it was before. Long messages wrap
+ * rather than being clipped, because nothing is moving to bring the rest into view.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .track {
+    display: block;
+    width: auto;
+    animation: none;
+  }
 
+  .group {
+    display: grid;
+    gap: var(--space-1);
+  }
+
+  .group[data-duplicate='true'],
+  .item[data-repeat='true'] {
+    display: none;
+  }
+
+  .item {
+    white-space: normal;
+    overflow-wrap: anywhere;
+    text-wrap: pretty;
+    padding-inline-end: 0;
+  }
+}

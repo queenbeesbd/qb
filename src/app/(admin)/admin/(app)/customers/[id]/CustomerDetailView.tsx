@@ -6,6 +6,7 @@ import { useTranslation } from '@/i18n/useTranslation';
 import { paymentLabel, statusLabel } from '@/features/account/order-labels';
 import { ConfirmSubmit } from '../../../_ui/ConfirmSubmit';
 import { PageHeader } from '../../../_ui/PageHeader';
+import { RequiredMark } from '../../../_ui/RequiredMark';
 import { StatusPill } from '../../../_ui/StatusPill';
 import styles from '../../../admin.module.css';
 import { INTL_LOCALE } from '@/i18n/config';
@@ -71,7 +72,6 @@ export function CustomerDetailView({
   return (
     <>
       <PageHeader
-        eyebrow={t('admin.customers.detailEyebrow')}
         title={customer.displayName ?? customer.email}
         description={customer.email}
         actions={
@@ -254,7 +254,9 @@ export function CustomerDetailView({
                 <input type="hidden" name="csrf" value={csrfToken} />
                 <input type="hidden" name="customerId" value={customer.customerId} />
                 <label className={styles.field}>
-                  <span>{t('admin.customers.recovery.reasonLabel')}</span>
+                  <span>
+                    {t('admin.customers.recovery.reasonLabel')} <RequiredMark />
+                  </span>
                   <textarea
                     name="reason"
                     required

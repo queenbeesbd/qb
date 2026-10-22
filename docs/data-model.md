@@ -815,8 +815,9 @@ Both are guarded by `WHERE state = 'held'` and are therefore idempotent (13.10.6
 | `payment_state` | text | NOT NULL | Money: `awaiting_payment` \| `awaiting_verification` \| `verified` \| `rejected` \| `falsely_claimed` \| `expired` \| `not_applicable` (COD only) |
 | `cod_state` | text | NOT NULL | `not_applicable` \| `cod_pending_approval` \| `cod_approved` \| `cod_collected` \| `cod_failed` \| `cod_reconciled`. **The four approved D9 COD state names are used verbatim.** `cod_reconciled` is the one addition, required by D9's rule that cash reconciliation is a separate state from collection (11.6); it renames nothing |
 | `items_subtotal_minor` | integer | NOT NULL | Sum of frozen line totals. `CHECK (>= 0)` |
+| `discount_minor` | integer | NOT NULL | Default `0`. Integer poisha taken off by a promotion code (Phase 38, ADR 0021). `CHECK (discount_minor >= 0 and discount_minor <= items_subtotal_minor)`; **immutable after insert** - the immutability trigger covers it. Orders placed before Phase 38 carry `0` |
 | `shipping_minor` | integer | NOT NULL | Default `0`. `CHECK (>= 0)`. **The historical delivery-charge snapshot** required by **ADR 0014 decision 10**: once written it is never recomputed, so a later settings change cannot alter an old order. Since Phase 19 it is resolved server-side from the active area override or the required default; pre-Phase-19 orders retain `0` |
-| `total_minor` | integer | NOT NULL | `CHECK (total_minor = items_subtotal_minor + shipping_minor)` - the authoritative charged amount |
+| `total_minor` | integer | NOT NULL | `CHECK (total_minor = items_subtotal_minor - discount_minor + shipping_minor)` - the authoritative charged amount |
 | `placed_at` | timestamptz | NOT NULL | `now()`. **The expiry clock would start here if expiry were scheduled** |
 | `expires_at` | timestamptz | NULL | `placed_at + 24 hours`; NULL once a claim exists or the order is resolved. **Unused at launch (ADR 0014): the expiry timer is deferred and no scheduler is added.** Phase 15 still sets it; nothing reads it, and **no writer may target an order that has a submitted claim** |
 | `confirmed_at` / `shipped_at` / `delivered_at` / `completed_at` | timestamptz | NULL | Fulfilment timestamps |
@@ -1067,6 +1068,82 @@ dropped, and no cost is saved whose receipt was refused.
 **What it is not.** It is not a line on the customer's invoice, not a refund, not a ledger entry and
 not subtracted from any stored figure. Every net figure is derived on read (16.10).
 
+### 7.8 `promo_code` and `promo_code_redemption`
+
+**Why they exist (Phase 38, ADR 0021).** The owner publishes a code that takes money off a cart. The
+**rule** and the **use** are separate facts with separate lifetimes: a rule is edited, paused and
+re-priced, while a use is a historical event that must never move. One table for each keeps that
+distinction structural rather than a convention.
+
+**`promo_code` - the rule**
+
+| Column | Type | Null | Notes |
+| --- | --- | --- | --- |
+| `id` | bigint identity | PK | |
+| `code` | text | NOT NULL | Unique. `CHECK (code ~ '^[A-Z0-9][A-Z0-9_-]{2,31}$')` - stored uppercase, so `flat10` and `FLAT10` are one code |
+| `description` | text | NULL | The owner's own note. Never shown to a customer |
+| `kind` | text | NOT NULL | `percent` \| `fixed`. Exactly one shape is populated, enforced by a `CHECK` |
+| `percent_off` | integer | NULL | 1-100 when `kind = 'percent'` |
+| `amount_off_minor` | integer | NULL | Integer poisha `> 0` when `kind = 'fixed'` |
+| `min_order_minor` | integer | NOT NULL | Default `0`. The subtotal a cart must reach |
+| `max_discount_minor` | integer | NULL | Caps a percentage. Only permitted on a percentage code, and only `> 0` |
+| `starts_at` / `ends_at` | timestamptz | NULL | Evaluated at use. `ends_at` is the midnight **after** the last usable day, so a date the owner typed is inclusive |
+| `max_redemptions` | integer | NULL | NULL means unlimited. `CHECK > 0` |
+| `is_active` | boolean | NOT NULL | Default `true`. **Paused, never deleted** - there is no delete path |
+| `created_by_staff_id` / `updated_by_staff_id` | bigint | NOT NULL | FK `staff_user(id)` `RESTRICT` |
+| `created_at` / `updated_at` | timestamptz | NOT NULL | |
+
+**`promo_code_redemption` - the use**
+
+| Column | Type | Null | Notes |
+| --- | --- | --- | --- |
+| `id` | bigint identity | PK | |
+| `promo_code_id` | bigint | NOT NULL | FK `promo_code(id)` `RESTRICT` |
+| `order_id` | bigint | NOT NULL | **Unique** - one code per order, so stacking is impossible by constraint |
+| `customer_id` | bigint | NOT NULL | FK `customer(id)` `RESTRICT` |
+| `discount_minor` | integer | NOT NULL | What the order actually received. `CHECK > 0` |
+| `created_at` | timestamptz | NOT NULL | |
+
+**How a use is counted.** `count(*)` over the redemption rows for a code. There is **no counter column**,
+so the number of uses and the orders that carry the code are the same fact. `max_redemptions` is checked
+inside the order transaction **after** the code row is locked (`SELECT ... FOR UPDATE`), so two
+simultaneous checkouts cannot both take the last use.
+
+**Immutability.** `promo_code_redemption` refuses `UPDATE` and `DELETE` by trigger: a redemption is a
+fact, and deleting one would silently refund a use. `order.discount_minor` is frozen with the rest of
+the charged amount by `order_immutable_columns`.
+
+**Authorization.** Read and write with **`settings.write`** (a code sets what a customer is asked to
+pay). The customer-facing preview endpoint and order creation read the same row; neither accepts an
+amount from the browser. Audited as `promo.created` / `promo.updated` / `promo.activated` /
+`promo.deactivated`. **A redemption is not audited** - the order and its event log are the record.
+
+**What it is not.** It is not a coupon link, not an automatic campaign, not a stacking rule, not a
+per-customer limit and not a delivery discount. Each is a new owner decision.
+
+
+### 7.9 `telegram_recipient` (Phase 39, ADR 0022)
+
+**What it holds.** One row per outbound Telegram destination: `label` (1-80 characters, how the owner
+recognises it), `chat_id` (numeric, `^-?[0-9]{5,20}$` - negative for a group), `is_active`, and the
+`created_by` / `updated_by` staff ids with their timestamps.
+
+**Why a table and not a setting.** Several owners may each register their own id, and every **active**
+row receives every order notification - the fan-out rule is `where is_active`, not a per-order decision.
+The unique index on `chat_id` is what stops the same destination being registered twice and the owner
+receiving two identical messages for one order.
+
+**What it deliberately does not hold.** The bot token. That is a deployment secret (`TELEGRAM_BOT_TOKEN`
+in the process environment) and appears in no table, no page and no log: a database row is copied into
+backups, exports and support pastes, and a credential must not be.
+
+**Lifecycle.** A row is **paused, not deleted** (`is_active = false`), because the common mistake is a
+mistyped id and re-typing it is worse than resuming it; the id itself is editable. There is no delete
+path. Every change is audited as `integration.telegram_recipient_added` / `_updated` / `_activated` /
+`_paused`.
+
+**Authorization.** `settings.write` for every operation. The table is read by one code path - the
+post-order notification - which runs after the response and cannot fail an order.
 ## 8. Payments, claims and refunds
 
 > **Status (ADR 0015, 2026-10-17).** Cash on Delivery is the **only payment method** in this release.

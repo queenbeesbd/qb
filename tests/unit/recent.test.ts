@@ -1,10 +1,11 @@
 /**
  * "Recently added" selection logic (D6, Phase 26).
  *
- * The homepage publishes exactly three products "most recently added". That is a factual claim about
- * arrival order, so the selection is tested directly rather than only through a rendered page: the
- * ordering must come from `createdAt`, ties must resolve deterministically, undated records must not
- * participate, and the row must never be padded to three.
+ * The homepage publishes a fixed number of products "most recently added" - five since the 2026-10-23
+ * revision, one complete row of the five-column grid. That is a factual claim about arrival order, so
+ * the selection is tested directly rather than only through a rendered page: the ordering must come
+ * from `createdAt`, ties must resolve deterministically, undated records must not participate, and the
+ * row must never be padded to the limit.
  */
 
 import assert from 'node:assert/strict';
@@ -46,20 +47,16 @@ function item(
 }
 
 describe('selectRecentlyAdded', () => {
-  it('publishes exactly three products', () => {
-    const catalog = [
-      item('1', '2026-10-01T00:00:00.000Z'),
-      item('2', '2026-10-02T00:00:00.000Z'),
-      item('3', '2026-10-03T00:00:00.000Z'),
-      item('4', '2026-10-04T00:00:00.000Z'),
-      item('5', '2026-10-05T00:00:00.000Z'),
-    ];
+  it('publishes exactly the section size', () => {
+    const catalog = Array.from({ length: 8 }, (_, index) =>
+      item(String(index + 1), `2026-10-0${index + 1}T00:00:00.000Z`),
+    );
     const selected = selectRecentlyAdded(catalog);
-    assert.equal(RECENT_LIMIT, 3);
-    assert.equal(selected.length, 3);
+    assert.equal(RECENT_LIMIT, 5);
+    assert.equal(selected.length, 5);
   });
 
-  it('returns the three newest, newest first', () => {
+  it('returns the newest products, newest first', () => {
     const catalog = [
       item('1', '2026-10-01T00:00:00.000Z'),
       item('5', '2026-10-05T00:00:00.000Z'),
@@ -69,7 +66,7 @@ describe('selectRecentlyAdded', () => {
     ];
     assert.deepEqual(
       selectRecentlyAdded(catalog).map((product) => product.id),
-      ['6', '5', '4'],
+      ['6', '5', '4', '3', '1'],
     );
   });
 
@@ -94,7 +91,7 @@ describe('selectRecentlyAdded', () => {
     const first = selectRecentlyAdded(tied).map((product) => product.id);
     const second = selectRecentlyAdded([...tied].reverse()).map((product) => product.id);
 
-    assert.deepEqual(first, ['9', '8', '7'], 'higher id wins when instants are equal');
+    assert.deepEqual(first, ['9', '8', '7', '1'], 'higher id wins when instants are equal');
     assert.deepEqual(first, second, 'the result does not depend on input order');
   });
 
@@ -120,13 +117,13 @@ describe('selectRecentlyAdded', () => {
     );
   });
 
-  it('returns every dated product when fewer than three exist, without padding', () => {
+  it('returns every dated product when fewer than the section size exist, without padding', () => {
     const catalog = [
       item('1', '2026-10-01T00:00:00.000Z'),
       item('2', '2026-10-02T00:00:00.000Z'),
     ];
     const selected = selectRecentlyAdded(catalog);
-    assert.equal(selected.length, 2, 'two real products, not three slots filled');
+    assert.equal(selected.length, 2, 'two real products, not five slots filled');
     assert.equal(new Set(selected.map((product) => product.id)).size, 2, 'no duplicate entries');
   });
 
@@ -135,7 +132,7 @@ describe('selectRecentlyAdded', () => {
     assert.deepEqual(selectRecentlyAdded([]), []);
   });
 
-  it('never repeats a product across the three slots', () => {
+  it('never repeats a product across the section slots', () => {
     const catalog = Array.from({ length: 8 }, (_, index) =>
       item(String(index + 1), `2026-10-${String(index + 10)}T00:00:00.000Z`),
     );

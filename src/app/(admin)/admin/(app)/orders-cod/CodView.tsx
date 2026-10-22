@@ -74,7 +74,6 @@ export function CodView({
   return (
     <>
       <PageHeader
-        eyebrow={t('admin.nav.group.commerce')}
         title={t('admin.cod.title')}
         description={t('admin.cod.body')}
       />

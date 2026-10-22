@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useTranslation } from '@/i18n/useTranslation';
 import { PASSWORD_MIN_LENGTH } from '@/lib/password-policy';
 import styles from '@/app/account.module.css';
+import { AuthShell } from './AuthShell';
 
 /**
  * Customer registration form.
@@ -45,12 +46,17 @@ export function RegisterView({
   const text = message();
 
   return (
-    <div className={styles.narrow}>
-      <header className={styles.header}>
-        <h1>{t('account.registerTitle')}</h1>
-        <p className={styles.muted}>{t('account.registerBody')}</p>
-      </header>
-
+    <AuthShell
+      heading={t('account.registerTitle')}
+      lead={t('account.registerBody')}
+      asideTitle={t('account.authRegisterAside')}
+      footer={
+        <p className={styles.muted}>
+          {t('account.haveAccount')}{' '}
+          <Link href={`/account/login?next=${encodeURIComponent(next)}`}>{t('account.signIn')}</Link>
+        </p>
+      }
+    >
       {text !== null && (
         <p className={styles.notice} role="alert">
           {text}
@@ -63,37 +69,53 @@ export function RegisterView({
           <span>
             {t('account.displayName')} <em>{t('common.optional')}</em>
           </span>
-          <input type="text" name="displayName" autoComplete="name" maxLength={80} />
+          <input
+            type="text"
+            name="displayName"
+            autoComplete="name"
+            maxLength={80}
+            placeholder={t('account.namePlaceholder')}
+          />
         </label>
         <label className={styles.field}>
           <span>{t('account.email')}</span>
-          <input type="email" name="email" autoComplete="email" required maxLength={254} />
-        </label>
-        <label className={styles.field}>
-          <span>{t('account.password')}</span>
           <input
-            type="password"
-            name="password"
-            autoComplete="new-password"
+            type="email"
+            name="email"
+            autoComplete="email"
             required
-            minLength={PASSWORD_MIN_LENGTH}
+            maxLength={254}
+            placeholder={t('account.emailPlaceholder')}
           />
-          <small>{t('account.passwordHelp', { min: PASSWORD_MIN_LENGTH })}</small>
         </label>
-        <label className={styles.field}>
-          <span>{t('account.confirmPassword')}</span>
-          <input type="password" name="confirmPassword" autoComplete="new-password" required />
-        </label>
+        <div className={styles.fieldPair}>
+          <label className={styles.field}>
+            <span>{t('account.password')}</span>
+            <input
+              type="password"
+              name="password"
+              autoComplete="new-password"
+              required
+              minLength={PASSWORD_MIN_LENGTH}
+              placeholder="••••••••"
+            />
+          </label>
+          <label className={styles.field}>
+            <span>{t('account.confirmPassword')}</span>
+            <input
+              type="password"
+              name="confirmPassword"
+              autoComplete="new-password"
+              required
+              placeholder="••••••••"
+            />
+          </label>
+        </div>
+        <p className={styles.fieldHint}>{t('account.passwordHelp', { min: PASSWORD_MIN_LENGTH })}</p>
         <button type="submit" className={styles.primaryAction}>
           {t('account.registerSubmit')}
         </button>
       </form>
-
-      <p className={styles.muted}>
-        {t('account.haveAccount')}{' '}
-        <Link href={`/account/login?next=${encodeURIComponent(next)}`}>{t('account.signIn')}</Link>
-      </p>
-      <p className={styles.muted}>{t('account.noRecoveryBody')}</p>
-    </div>
+    </AuthShell>
   );
 }

@@ -50,7 +50,9 @@ export default async function OrderPage({
     postcode: detail.contact.postcode,
     deliveryNote: detail.contact.deliveryNote,
     items: detail.items.map((item) => ({
-      name: item.productNameEn || item.productNameBn,
+      // The English name is required on every product, so it is the name the customer reads. The
+      // Bangla snapshot is optional and is never needed as a fallback.
+      name: item.productNameEn,
       sku: item.sku,
       unitPriceMinor: item.unitPriceMinor,
       quantity: item.quantity,

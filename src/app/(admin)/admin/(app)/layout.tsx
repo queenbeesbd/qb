@@ -3,15 +3,18 @@ import { redirect } from 'next/navigation';
 
 import {
   ADMIN_ROOT,
+  ANALYTICS_PATH,
   CATALOG_PATH,
   CATEGORIES_PATH,
   COD_PATH,
   CUSTOMERS_PATH,
   ANNOUNCEMENT_SETTINGS_PATH,
   DELIVERY_SETTINGS_PATH,
+  INTEGRATIONS_PATH,
   LOGIN_PATH,
   ORDERS_PATH,
   OWNERS_PATH,
+  PROMO_CODES_PATH,
 } from '@/server/auth/constants';
 import { currentStaffPrincipal } from '@/server/auth/guard';
 import { hasPermission } from '@/server/authz/principal';
@@ -46,15 +49,43 @@ export default async function AdminShellLayout({ children }: { children: React.R
   // commercial destination because it is the one that waits on a person. Each entry is gated by the
   // same permission its page requires, so the rail cannot advertise a refusal.
   const items: AdminNavItem[] = [
-    { href: ADMIN_ROOT, labelKey: 'admin.nav.overview', group: 'overview', icon: 'overview' },
+    {
+      href: ADMIN_ROOT,
+      labelKey: 'admin.nav.overview',
+      group: 'overview',
+      icon: 'overview',
+      mobileRank: 1,
+    },
   ];
   if (hasPermission(principal, PERMISSIONS.orderRead)) {
-    items.push({ href: COD_PATH, labelKey: 'admin.nav.cod', group: 'commerce', icon: 'orders' });
-    items.push({ href: ORDERS_PATH, labelKey: 'admin.nav.orders', group: 'commerce', icon: 'list' });
+    items.push({ href: ANALYTICS_PATH, labelKey: 'admin.nav.analytics', group: 'overview', icon: 'analytics' });
+    items.push({
+      href: COD_PATH,
+      labelKey: 'admin.nav.cod',
+      group: 'commerce',
+      icon: 'orders',
+      mobileRank: 2,
+    });
+    items.push({
+      href: ORDERS_PATH,
+      labelKey: 'admin.nav.orders',
+      group: 'commerce',
+      icon: 'list',
+      mobileRank: 4,
+    });
   }
   if (hasPermission(principal, PERMISSIONS.catalogWrite)) {
-    items.push({ href: CATALOG_PATH, labelKey: 'admin.nav.catalog', group: 'commerce', icon: 'package' });
+    items.push({
+      href: CATALOG_PATH,
+      labelKey: 'admin.nav.catalog',
+      group: 'commerce',
+      icon: 'package',
+      mobileRank: 3,
+    });
     items.push({ href: CATEGORIES_PATH, labelKey: 'admin.nav.categories', group: 'commerce', icon: 'categories' });
+  }
+  if (hasPermission(principal, PERMISSIONS.settingsWrite)) {
+    items.push({ href: PROMO_CODES_PATH, labelKey: 'admin.nav.promo', group: 'commerce', icon: 'tag' });
   }
   if (hasPermission(principal, PERMISSIONS.customerRead)) {
     items.push({ href: CUSTOMERS_PATH, labelKey: 'admin.nav.customers', group: 'customers', icon: 'customers' });
@@ -71,6 +102,13 @@ export default async function AdminShellLayout({ children }: { children: React.R
       labelKey: 'admin.nav.announcement',
       group: 'settings',
       icon: 'list',
+    });
+    // Integrations is a hub, so the sidebar gains one entry however many providers exist later.
+    items.push({
+      href: INTEGRATIONS_PATH,
+      labelKey: 'admin.nav.integrations',
+      group: 'settings',
+      icon: 'bell',
     });
   }
   if (hasPermission(principal, PERMISSIONS.staffRead)) {

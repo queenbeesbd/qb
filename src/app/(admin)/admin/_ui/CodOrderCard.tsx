@@ -3,16 +3,18 @@
 import Link from 'next/link';
 
 import { deliveryAreaName } from '@/lib/delivery-areas';
+import { orderDiscountMinor } from '@/lib/money';
 import { useTranslation } from '@/i18n/useTranslation';
 import { AdminIcon } from './icons';
 import { ConfirmSubmit } from './ConfirmSubmit';
+import { RequiredMark } from './RequiredMark';
 import { StatusPill } from './StatusPill';
 import { SubmitButton } from './SubmitButton';
 import styles from '../admin.module.css';
 import { INTL_LOCALE } from '@/i18n/config';
 
 export type CodOrderItem = {
-  nameBn: string;
+  nameBn: string | null;
   nameEn: string;
   quantity: number;
   lineTotalMinor: number;
@@ -61,6 +63,7 @@ export function CodOrderCard({
   canApprove,
   canCancel,
   decided,
+  compact = false,
 }: {
   /** The request clock, read once by the server page. Client components stay pure. */
   nowIso: string;
@@ -69,6 +72,12 @@ export function CodOrderCard({
   canApprove: boolean;
   canCancel: boolean;
   decided?: { decision: 'approved' | 'rejected'; decidedAt: string };
+  /**
+   * The dashboard's version of the card: one recorded line, no street address, totals next to the
+   * decision. The queue page keeps the full card; the dashboard is a triage surface, and the owner
+   * must be able to reach Accept on a phone without scrolling past every line of the order.
+   */
+  compact?: boolean;
 }) {
   const { t, price, pick } = useTranslation();
   const age = ageOf(row.placedAt, new Date(nowIso).getTime());
@@ -96,8 +105,16 @@ export function CodOrderCard({
         }).format(new Date(decided.decidedAt));
 
   return (
-    <article className={decided === undefined ? styles.orderCard : `${styles.orderCard} ${styles.orderCardDecided}`}>
-      <div>
+    <article
+      className={[
+        styles.orderCard,
+        decided === undefined ? '' : styles.orderCardDecided,
+        compact ? styles.orderCardCompact : '',
+      ]
+        .filter(Boolean)
+        .join(' ')}
+    >
+      <div className={styles.orderMain}>
         <div className={styles.orderTop}>
           <span className={styles.orderRef}>{row.orderNumber}</span>
           {decided === undefined ? (
@@ -136,12 +153,14 @@ export function CodOrderCard({
               {row.recipientPhone}
             </a>
           </div>
-          <p className={styles.orderAddress}>
-            {row.addressLine}, {row.districtCode === null ? '' : `${deliveryAreaName(row.districtCode)}, `}
-            {row.area}, {row.city}
-          </p>
+          {!compact && (
+            <p className={styles.orderAddress}>
+              {row.addressLine}, {row.districtCode === null ? '' : `${deliveryAreaName(row.districtCode)}, `}
+              {row.area}, {row.city}
+            </p>
+          )}
           <ul className={styles.orderItems} aria-label={t('admin.cod.itemsTitle')}>
-            {row.items.map((item, index) => (
+            {(compact ? row.items.slice(0, 1) : row.items).map((item, index) => (
               <li className={styles.orderItem} key={`${item.nameEn}-${index}`}>
                 <span className={styles.orderItemName}>
                   {pick({ bn: item.nameBn, en: item.nameEn }) ?? item.nameEn}
@@ -151,17 +170,29 @@ export function CodOrderCard({
                 </span>
               </li>
             ))}
+            {compact && row.items.length > 1 && (
+              <li className={styles.orderItemMore}>
+                {t('admin.cod.moreItems', { count: row.items.length - 1 })}
+              </li>
+            )}
           </ul>
         </div>
       </div>
 
       <div className={styles.orderSide}>
-        <div>
-          <dl className={styles.orderTotals}>
+        <dl className={styles.orderTotals}>
             <div>
               <dt>{t('cart.subtotal')}</dt>
               <dd>{price(row.itemsSubtotalMinor)}</dd>
             </div>
+            {orderDiscountMinor(row.itemsSubtotalMinor, row.shippingMinor, row.totalMinor) > 0 && (
+              <div>
+                <dt>{t('orders.discount')}</dt>
+                <dd>
+                  −{price(orderDiscountMinor(row.itemsSubtotalMinor, row.shippingMinor, row.totalMinor))}
+                </dd>
+              </div>
+            )}
             <div>
               <dt>{t('cart.delivery')}</dt>
               <dd>
@@ -172,11 +203,16 @@ export function CodOrderCard({
               <dt>{t('admin.cod.total')}</dt>
               <dd className={styles.orderTotal}>{price(row.totalMinor)}</dd>
             </div>
-          </dl>
-        </div>
-        {decided === undefined ? (
-          <div className={styles.orderActions}>
-            <form action="/api/admin/orders-cod" method="post" className={styles.approveForm}>
+        </dl>
+      </div>
+
+      {decided === undefined ? (
+        <div className={styles.orderFooter}>
+          <form
+            action="/api/admin/orders-cod"
+            method="post"
+            className={`${styles.approveForm} ${styles.approveFormRow}`}
+          >
               <input type="hidden" name="csrf" value={csrfToken} />
               <input type="hidden" name="orderId" value={row.orderId} />
               <input type="hidden" name="decision" value="approve" />
@@ -187,7 +223,9 @@ export function CodOrderCard({
                 * (Phase 24 A-14 / F-05).
                 */}
               <details className={styles.noteDetails} open>
-                <summary>{t('admin.cod.noteSummary')}</summary>
+                <summary>
+                  {t('admin.cod.noteSummary')} <RequiredMark />
+                </summary>
                 <label className="sr-only" htmlFor={`reason-${row.orderId}`}>
                   {t('admin.cod.approveReason')}
                 </label>
@@ -199,13 +237,16 @@ export function CodOrderCard({
                   minLength={10}
                   maxLength={500}
                   defaultValue={t('admin.cod.approveReasonDefault')}
+                  aria-describedby={`reason-hint-${row.orderId}`}
                 />
+                <p className={styles.hint} id={`reason-hint-${row.orderId}`}>
+                  {t('admin.cod.noteSummaryHint')}
+                </p>
               </details>
               <SubmitButton
                 label={t('admin.cod.approve')}
                 pendingLabel={t('admin.common.working')}
                 disabled={!canApprove}
-                wide
               />
             </form>
 
@@ -230,9 +271,8 @@ export function CodOrderCard({
                 }}
               />
             ) : null}
-          </div>
-        ) : null}
-      </div>
+        </div>
+      ) : null}
     </article>
   );
 }

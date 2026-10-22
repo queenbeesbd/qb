@@ -3,50 +3,54 @@
   gap: var(--space-7);
 }
 
+/* ---------------------------------------------------------------------------
+ * Hero
+ *
+ * No band. The copy and the photographs sit on the page canvas like every section below them, which
+ * is what the storefront looked like before a tinted panel was tried: the shop is one surface, not a
+ * sequence of coloured blocks, and a pastel strip behind the first screen read as a promotion rather
+ * than as the shop itself.
+ *
+ * Padding is vertical only, so the hero shares the shell's gutter with every other section.
+ * ------------------------------------------------------------------------- */
 .hero {
   display: grid;
   gap: var(--space-5);
   align-items: center;
-  padding: var(--space-5) 0 var(--space-3);
+  padding: var(--space-5) 0 var(--space-2);
 }
 
 .heroCopy {
-  max-width: 56ch;
-}
-
-.eyebrow {
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  font-size: var(--text-xs);
-  font-weight: 600;
-  color: var(--color-action);
+  max-width: 40ch;
 }
 
 .heroTitle {
-  margin-top: var(--space-3);
-  /* Mobile-first: the display size steps up only where the measure allows it. */
   font-size: var(--text-2xl);
-  letter-spacing: -0.02em;
+  letter-spacing: -0.025em;
+  line-height: 1.1;
+  text-wrap: balance;
 }
 
 .heroBody {
-  margin-top: var(--space-4);
+  margin-top: var(--space-3);
   color: var(--color-ink-muted);
-  max-width: 52ch;
+  max-width: 46ch;
 }
 
+/* Equal-width buttons on a phone: two actions of different widths in one column look accidental. */
 .heroActions {
   margin-top: var(--space-5);
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--space-3);
 }
 
 .primaryAction {
   display: inline-flex;
   align-items: center;
-  min-height: 46px;
-  padding: 0 var(--space-5);
+  justify-content: center;
+  min-height: 48px;
+  padding: 0 var(--space-4);
   border-radius: var(--radius-md);
   background: var(--color-action);
   color: #fff;
@@ -67,10 +71,12 @@
 .secondaryAction {
   display: inline-flex;
   align-items: center;
-  min-height: 46px;
-  padding: 0 var(--space-5);
+  justify-content: center;
+  min-height: 48px;
+  padding: 0 var(--space-4);
   border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-md);
+  background: var(--color-surface);
   font-weight: 600;
   color: var(--color-ink);
 }
@@ -81,30 +87,43 @@
 }
 
 /**
- * The category section is desktop-only (see .categoriesSection below), so the
- * hero anchor that jumps to it is hidden on the same breakpoint rather than
- * pointing at a target that is not rendered.
- */
-.heroCategoriesAction {
-  display: none;
-}
-
-/**
- * Hero product composition. Three real product photographs arranged as a
- * curated trio with intentional scale and negative space - no decorative
- * shapes, no floating UI cards, no invented promotional content.
+ * Hero product composition: three real product photographs with intentional scale
+ * and negative space - no decorative shapes, no floating UI cards, no invented
+ * promotional content.
  */
 .heroCollage {
   display: block;
+  min-width: 0;
 }
 
+/*
+ * A phone does not get the teaser strip.
+ *
+ * At 390px the three frames pushed the first product row below the second screen while saying nothing
+ * the sections beneath them do not say with a name and a price. They are hidden rather than removed, so
+ * the markup, the image sources and the desktop composition stay one thing.
+ */
+@media (max-width: 719px) {
+  .heroCollage {
+    display: none;
+  }
+}
+
+/*
+ * Three photographs in one row, from 720px up.
+ *
+ * A full-width lead image was tried and rejected: at 390px it took a 3:4 frame ~460px tall, which pushed
+ * the first category off the second screen. A row of three is a teaser strip - it says "there is stock,
+ * and it looks like this" - and below 720px even that strip is hidden, because the first product matters
+ * more than a preview of the stock.
+ */
 .collageList {
   list-style: none;
   margin: 0;
   padding: 0;
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: var(--space-3);
+  gap: var(--space-2);
   align-items: start;
 }
 
@@ -129,6 +148,9 @@
   display: block;
 }
 
+/* ---------------------------------------------------------------------------
+ * Sections
+ * ------------------------------------------------------------------------- */
 
 .section {
   display: grid;
@@ -138,11 +160,32 @@
 .sectionHeader {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-3);
+  gap: var(--space-2) var(--space-3);
   align-items: flex-end;
   justify-content: space-between;
   border-bottom: 1px solid var(--color-border);
   padding-bottom: var(--space-4);
+}
+
+/*
+ * The title block shrinks before the link does. Without `min-width: 0` the block's own
+ * max-content width forced a wrap, which dropped "View all" onto its own line at the left
+ * edge on a phone - it read as a stray link rather than the section's way out.
+ */
+.sectionHeader > div {
+  /*
+   * A 12rem basis rather than `auto`. With `auto` the basis is the block's *max-content* width, and the
+   * body sentence is wider than a phone - so the flex line broke before shrinking was considered and
+   * "View all" wrapped onto its own line. A small explicit basis makes the block shrinkable in the same
+   * line as the link.
+   */
+  flex: 1 1 12rem;
+  min-width: 0;
+}
+
+.sectionHeader h2 {
+  font-size: var(--text-xl);
+  letter-spacing: -0.01em;
 }
 
 .sectionBody {
@@ -156,7 +199,16 @@
   font-size: var(--text-sm);
   font-weight: 600;
   color: var(--color-action);
+  white-space: nowrap;
 }
+
+.viewAll:hover {
+  text-decoration: underline;
+}
+
+/* ---------------------------------------------------------------------------
+ * Categories
+ * ------------------------------------------------------------------------- */
 
 .categoryGrid {
   list-style: none;
@@ -164,17 +216,31 @@
   padding: 0;
   display: grid;
   gap: var(--space-3);
-  grid-template-columns: 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.categoryItem {
+  min-width: 0;
+  display: flex;
+}
+
+/*
+ * An odd category count leaves one card alone on the last phone row; letting it take
+ * the whole row is what keeps the block a rectangle instead of a staircase.
+ */
+.categoryItem[data-fill='true'] {
+  grid-column: 1 / -1;
 }
 
 .categoryCard {
   display: flex;
   align-items: center;
-  gap: var(--space-4);
+  gap: var(--space-3);
   padding: var(--space-4);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
   background: var(--color-surface);
+  width: 100%;
   height: 100%;
   transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
 }
@@ -189,8 +255,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 48px;
-  height: 48px;
+  width: 44px;
+  height: 44px;
   flex: none;
   border-radius: var(--radius-md);
   background: var(--color-action-soft);
@@ -200,6 +266,7 @@
 .categoryText {
   display: grid;
   gap: 2px;
+  min-width: 0;
 }
 
 .categoryName {
@@ -209,6 +276,48 @@
 .categoryBlurb {
   font-size: var(--text-xs);
   color: var(--color-ink-muted);
+  line-height: var(--leading-snug);
+}
+
+/* ---------------------------------------------------------------------------
+ * Empty states
+ * ------------------------------------------------------------------------- */
+
+/*
+ * "More to explore" is the page's way out, so its action is a button rather than the small text link
+ * the headers carry. Centred under the grid, full 48px touch height, quiet secondary treatment: it
+ * closes the page without competing with the featured row above.
+ */
+.viewMoreRow {
+  display: flex;
+  justify-content: center;
+  margin-top: var(--space-2);
+}
+
+.viewMore {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  min-width: 220px;
+  padding: 0 var(--space-6);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  font-weight: 600;
+  color: var(--color-ink);
+  transition: border-color var(--transition-fast), color var(--transition-fast),
+    background var(--transition-fast);
+}
+
+.viewMore:hover {
+  border-color: var(--color-action);
+  color: var(--color-action);
+  background: var(--color-action-soft);
+}
+
+.viewMore:active {
+  transform: scale(0.99);
 }
 
 .emptyNote {
@@ -231,39 +340,35 @@
   font-size: var(--text-sm);
 }
 
-/**
- * Mobile-first breakpoint for the category section.
+/* ---------------------------------------------------------------------------
+ * Breakpoints
+ * ------------------------------------------------------------------------- */
+
+/*
+ * The category strip is a phone-down omission (owner decision, 2026-10-23).
  *
- * Below 720px the header collapses into a drawer that already lists every
- * category, so the section would be a second navigation surface occupying most
- * of the first screen. 720px is deliberately the same breakpoint at which the
- * header's own category navigation appears, so a category link is always on
- * screen through exactly one of the two surfaces.
+ * On the smallest screen the tab bar already carries Categories and the hero has a "Browse categories"
+ * button, so a strip of five cards is a third route to the same index - and it is most of a screen
+ * between the customer and the first products. The section is named so this rule can hide it alone.
  */
 .categoriesSection {
-  display: none;
+  min-width: 0;
+}
+
+@media (max-width: 719px) {
+  .categoriesSection {
+    display: none;
+  }
 }
 
 @media (min-width: 720px) {
-  .categoriesSection {
-    display: grid;
+  .page {
+    gap: var(--space-8);
   }
 
-  .categoryGrid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-
-  .heroCategoriesAction {
-    display: inline-flex;
-  }
-}
-
-@media (min-width: 880px) {
   .hero {
-    grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
-    gap: var(--space-7);
-    padding: var(--space-7) 0 var(--space-5);
-    align-items: center;
+    padding-top: var(--space-6);
+    padding-bottom: var(--space-3);
   }
 
   .heroTitle {
@@ -271,7 +376,21 @@
   }
 
   .collageList {
-    gap: var(--space-4);
+    gap: var(--space-3);
+  }
+
+  .heroActions {
+    display: flex;
+    flex-wrap: wrap;
+  }
+}
+
+@media (min-width: 880px) {
+  .hero {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr);
+    gap: var(--space-7);
+    padding-top: var(--space-7);
+    padding-bottom: var(--space-5);
   }
 
   .collageItem[data-position='second'] .collageLink {
@@ -282,8 +401,17 @@
     margin-top: var(--space-3);
   }
 
+  /*
+   * Five categories in one row of five is what the catalog actually has, and it reads as a
+   * department strip rather than a card grid. The odd-count fill above is a phone-only rule,
+   * so it is switched off here.
+   */
   .categoryGrid {
-    grid-template-columns: repeat(5, 1fr);
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+
+  .categoryItem[data-fill='true'] {
+    grid-column: auto;
   }
 
   .categoryCard {
