@@ -29,7 +29,8 @@
     "test": "node --import tsx --test tests/unit/*.test.ts",
     "test:db": "node --import tsx --test tests/db/*.test.ts",
     "test:all": "npm run test && npm run test:db",
-    "db:seed:delivery": "tsx --env-file-if-exists=.env.local --env-file-if-exists=.env scripts/seed-delivery.ts"
+    "db:seed:delivery": "tsx --env-file-if-exists=.env.local --env-file-if-exists=.env scripts/seed-delivery.ts",
+    "import:zatiq": "tsx --env-file-if-exists=.env.local --env-file-if-exists=.env scripts/import-zatiq.ts"
   },
   "dependencies": {
     "@neondatabase/serverless": "1.2.0",

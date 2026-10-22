@@ -251,3 +251,13 @@ real order depends on it. Schema **45 -> 46 tables** (migration `0009`, additive
 `typecheck`, `lint`, `check:i18n` (1221 keys), `db:validate`, live `getMe`, a real send handled as a
 failure for an unregistered id, and an HTTP walk-through of every operation. **Not verified:** delivery to
 a real Telegram account, and `after()` under a deployed runtime.
+**Phase 43 (import of the owner's previous store) is implemented locally and is not deployed.** The local
+catalog is now the real one: 1,477 published products, 245 brands, 15 categories, 1,919 images (622 MB,
+gitignored until object storage exists), 528 customers and 559 orders (confirmed 379, pending 138,
+cancelled 30, completed 9, delivered 3) with 1,648 line items. Money reconciles for every order
+(total = items - discount + shipping); 26 orders carry a recorded price difference as a discount, and the
+vendor's own figures for each order are preserved in its `order_placed` payload. 481 customers have a
+synthetic `@import.invalid` address and **none** has a credential, so every imported account needs an owner
+reset before it can sign in. Verified: unit **194/194**, db **258/258**, `typecheck`, `lint`, `check:i18n`,
+`check:catalog`, `db:validate`. **Known consequence:** the catalog listing does not paginate, so
+`/products` now returns 4.0 MB of HTML. See `docs/migrations/zatiq-easy-import.md`.

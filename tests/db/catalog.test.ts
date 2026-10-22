@@ -351,11 +351,18 @@ describe('catalog management', { skip: toolingAvailable ? false : SKIP_REASON },
     );
   });
 
-  it('refuses a product that is missing one of its two names', async () => {
-    await assert.rejects(
-      withTransaction((tx) => createProduct(tx, owner, productInput({ nameEn: 'English Only', nameBn: '' }))),
-      ValidationError,
+  /**
+   * The English name is required and the Bangla name is optional - `product.name_bn` is nullable,
+   * because a product the owner bought from a supplier may have no Bangla name at all. This asserts
+   * the rule that is implemented rather than a stricter one: an English-only product is created, and
+   * a Bangla-only one is refused because the required name is the English one.
+   */
+  it('requires the English name and accepts a product with no Bangla name', async () => {
+    const created = await withTransaction((tx) =>
+      createProduct(tx, owner, productInput({ nameEn: 'English Only', nameBn: '' })),
     );
+    assert.ok(created.productId > 0);
+
     await assert.rejects(
       withTransaction((tx) => createProduct(tx, owner, productInput({ nameBn: 'শুধু বাংলা', nameEn: '' }))),
       ValidationError,

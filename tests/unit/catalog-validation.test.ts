@@ -185,9 +185,16 @@ describe('image metadata read from the file', () => {
     for (const key of keys) {
       const asset = await readAsset(key);
       assert.ok(asset !== null, `expected ${key} to be readable`);
-      // The declared aspect ratio, read from the JPEG header rather than from a constant.
       assert.equal(asset.width, 600, `${key}: width`);
-      assert.equal(asset.height, 800, `${key}: height`);
+      /*
+       * The fixture photography is 3:4 portrait, which is where IMAGE_ASPECT comes from. Photography
+       * imported from the owner's previous store keeps its own aspect ratio (the source frames vary
+       * from square to portrait), so the 3:4 assertion covers the fixture keys only - the imported
+       * set is asserted on the invariant that actually holds for it: a 600-wide JPEG primary and
+       * four generated variants, both checked below.
+       */
+      if (!key.startsWith('zq-')) assert.equal(asset.height, 800, `${key}: height`);
+      assert.ok(asset.height > 0, `${key}: height`);
       assert.equal(asset.contentType, 'image/jpeg');
       assert.ok(asset.byteSize > 0);
       assert.equal(asset.variants.length, 4, `${key}: expected four generated variants`);

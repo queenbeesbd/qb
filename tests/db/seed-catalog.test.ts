@@ -181,9 +181,14 @@ describe('catalog seed', { skip: toolingAvailable ? false : SKIP_REASON }, () =>
     const fixtureKeys = products.flatMap((item) => item.images.map((image) => image.key));
     const present = fixtureKeys.filter((key) => assetKeys.includes(key));
 
-    // No fixture key is missing, and no asset in the inventory goes unused: the two sets are equal.
+    // The asset directory also holds photography imported from the owner's previous store (`zq-*`
+    // keys). The seed only knows the fixture, so "no asset goes unused" is asserted over the fixture
+    // half of the inventory; the imported half is attached by the import, not by this seed.
+    const fixtureInventory = assetKeys.filter((key) => !key.startsWith('zq-'));
+
+    // No fixture key is missing, and no fixture asset goes unused: the two sets are equal.
     assert.equal(present.length, fixtureKeys.length, 'every fixture key exists on disk');
-    assert.equal(present.length, assetKeys.length, 'every inventory asset is attached to a product');
+    assert.equal(present.length, fixtureInventory.length, 'every fixture inventory asset is attached');
 
     const rows = await withTransaction((tx) =>
       tx.select({ n: sql<number>`count(*)::int` }).from(productImage),

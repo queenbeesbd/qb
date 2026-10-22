@@ -1306,3 +1306,31 @@ remains the owner's action.
 image-rights clearance for the 22 products tagged `merchant_source_pending_confirmation`, and the
 length-of-retention decision. Each is an **owner decision with its own authorization**, not an
 implementation task, and none is implied by any approval to date.
+
+**Phase 43 - the real catalog, order history and customer list (implemented locally, 2026-10-22).** The
+owner authorized a one-off export of their previous store (Zatiq Easy, shop 42239) and asked for the local
+catalog to be replaced by it. `scripts/import-zatiq.ts` imports a captured export: **1,477 published
+products** (+128 unpublished archive rows for items the vendor deleted but an order still references),
+245 brands, 15 categories, **1,919 product images** (downloaded and re-encoded to the four variants each
+asset needs, 622 MB), **528 customers** and **559 orders** with 1,648 line items and one `order_placed`
+event each carrying the vendor's original figures. `npm run import:zatiq -- --reset` is repeatable and
+reports every count it writes. Full mapping, deviations and known consequences are in
+`docs/migrations/zatiq-easy-import.md`. Verified: **unit 194/194**, **db 258/258**, `typecheck`, `lint`,
+`check:i18n`, `check:catalog`, `db:validate` (46 tables, 168 checks), and three served storefront routes
+(homepage, listing, product detail) returning 200 with real images. **Three stale test assertions were
+corrected, not weakened:** the table count (45 -> 46, the Telegram table), the fixture-only 3:4 aspect rule
+(imported photography keeps its own ratio), and the product-name rule (the English name is required, the
+Bangla one is optional by schema). **Not verified:** browser interaction (no hydration on this dev server),
+and nothing is deployed.
+
+### The next step this import forces
+
+**Phase 44 - paginate the catalog listing (recommended, needs owner approval).** The listing was built for
+22 products and now serves 1,477: `/products` returns **4.0 MB of HTML**, of which ~1.4 MB is the
+serialized catalog in the React payload that **every** route carries. *Why now:* the imported catalog is
+unusable on a phone until this changes, and no further data work fixes it. *Prerequisites:* an owner
+decision on page size and URL shape (numbered pages vs "load more"), and on whether a product page should
+carry the whole catalog in its payload at all. *Acceptance:* `/products` serves a bounded first page, the
+per-route payload no longer grows with catalog size, filters and search still compose from the URL, and
+`verify:browser` covers the new paging.
+

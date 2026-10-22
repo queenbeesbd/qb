@@ -50,8 +50,9 @@ describe('schema constraints against real PostgreSQL', { skip: toolingAvailable 
     const report = await validateSchema(fixture.cluster.url);
     const failures = report.checks.filter((check) => !check.ok);
     assert.deepEqual(failures, [], `schema validation failed: ${JSON.stringify(failures)}`);
-    // 42 before Phase 22 added `order_additional_cost`.
-    assert.equal(report.counts.tables, 45);
+    // 42 before Phase 22 added `order_additional_cost`, 43 after Phase 22, 45 after Phase 38's
+    // promotion tables, 46 after Phase 39 added `telegram_recipient`.
+    assert.equal(report.counts.tables, 46);
   });
 
   it('seeds a complete order graph', async () => {
