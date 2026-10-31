@@ -63,6 +63,38 @@ TRUSTED - NOT BUILT YET
 
 The frontend is never authoritative for price, discount, stock, permissions, totals, payment status or orders. Every value shown is a display projection of the catalog the server reads from the database; the browser never supplies a price, a discount, an availability state or a total.
 
+## Response security controls (2026-11-01)
+
+These are implemented and were verified against a served production build in headless Chromium, not
+merely specified.
+
+| Control | Where | What it stops |
+| --- | --- | --- |
+| **Nonce-based Content-Security-Policy** | `src/proxy.ts`, a fresh 128-bit nonce per request | Script injection. `script-src 'self' 'nonce-…' 'strict-dynamic'` means an injected `<script>` cannot execute: it would have to guess a value that changes every request. `unsafe-eval` is development-only because React's debug tooling uses `eval`; production does not. |
+| `style-src 'self' 'unsafe-inline'` | same | A deliberate, documented limit. Nine components use React `style` attributes, and a nonce cannot authorise a style **attribute**, only an element. Rewriting those for a style-only win would not address script execution, which the script policy already controls. |
+| `img-src` includes the storage origin | same, from `CATALOG_ASSET_BASE_URL` | Images are redirected to object storage, so the final fetch is cross-origin. The origin is configuration, never hardcoded, so a branch change cannot silently break or widen the policy. |
+| `object-src 'none'`, `base-uri 'self'`, `form-action 'self'`, `frame-ancestors 'none'` | same | Plugin content, base-tag hijacking, form exfiltration to a foreign origin, and framing. |
+| `upgrade-insecure-requests` | same | An accidental `http:` subresource. |
+| `X-Frame-Options: DENY` | `next.config.ts` | Framing in browsers that do not implement `frame-ancestors`. |
+| `X-Content-Type-Options: nosniff` | same | MIME confusion, where a JSON or text response is reinterpreted as script. |
+| `Referrer-Policy: strict-origin-when-cross-origin` | same | Leaking a path or query (which can carry a token) to another site. |
+| `Permissions-Policy` denies camera, microphone, geolocation, payment, USB, motion sensors and screen capture | same | A compromised dependency requesting a capability the application never uses. |
+| `Cross-Origin-Opener-Policy: same-origin` | same | Retaining a window handle into a cross-origin document, and the Spectre-class read side channel with it. |
+| `Cross-Origin-Resource-Policy: same-origin` | same | Another site embedding this application's responses as a subresource. |
+| `Strict-Transport-Security` | same | Protocols downgrade. Asserted here rather than relying on the host, so a different host cannot serve the app without it. |
+
+**Verified** on the served build: 8 headers present; **24 of 26** scripts carried the nonce and the two
+that did not were loaded by `strict-dynamic`; nonces differed between two requests; the `x-nonce`
+request header did not appear in the rendered HTML; **zero console errors and zero CSP violations**
+across `/`, `/products`, a product page, `/cart`, `/checkout`, `/admin/login` and six admin screens;
+24/24 images loaded after scrolling; and a real state-changing admin POST (availability toggle) succeeded
+under `form-action 'self'`.
+
+**Not covered.** Precisely what the policy does not do: it does not protect against a server-side
+template injection that can set headers, and it is not a substitute for the authorization checks below.
+Real iOS Safari, Android Chrome and screen-reader behaviour remain unverified, as everywhere else in
+this repository.
+
 ## Threats that remain open (production phase)
 
 | Threat | Required control before release |

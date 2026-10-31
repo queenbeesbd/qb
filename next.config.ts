@@ -3,26 +3,45 @@ import type { NextConfig } from 'next';
 /**
  * Security headers.
  *
- * Only headers that are true of this application are set. A Content-Security-Policy is deliberately
- * **not** set: Next's client runtime and the CSS Modules build need a nonce or a hash inventory, and a
- * policy that silently breaks the storefront would be worse than none. Phase 12 does not claim CSP,
- * and `docs/security.md` records it as an open requirement for Phase 19.
+ * The **Content-Security-Policy is not set here**: it needs a fresh nonce per request, which a static
+ * header list cannot produce, so it is emitted by `src/proxy.ts` instead. Everything below is a fixed
+ * policy that is true of every response.
  */
 const securityHeaders = [
   // The application is never framed. Nothing here is embeddable, and clickjacking an admin form is
-  // the classic reason this matters.
+  // the classic reason this matters. `frame-ancestors` in the CSP is the modern control; this header
+  // remains for browsers that do not implement it.
   { key: 'X-Frame-Options', value: 'DENY' },
   // Never sniff a content type: a JSON or text response must not be interpreted as script.
   { key: 'X-Content-Type-Options', value: 'nosniff' },
   // Send the origin only, and never the path or query, to other sites.
   { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
-  // No camera, microphone or geolocation is used by any surface.
-  { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=(), payment=()' },
+  // Deny every capability this application never uses, so a compromised dependency cannot request
+  // one. Nothing here uses a camera, microphone, location, payment API, USB, motion sensor or
+  // screen capture.
+  {
+    key: 'Permissions-Policy',
+    value:
+      'camera=(), microphone=(), geolocation=(), payment=(), usb=(), magnetometer=(), gyroscope=(), accelerometer=(), display-capture=()',
+  },
+  // Ask the browser to keep this origin isolated from cross-origin documents it embeds or is
+  // embedded by, which closes the Spectre-class cross-origin read side channel.
+  { key: 'Cross-Origin-Opener-Policy', value: 'same-origin' },
+  { key: 'Cross-Origin-Resource-Policy', value: 'same-origin' },
+  // Vercel terminates TLS and sets HSTS itself, but the value is asserted here too so a different
+  // host cannot silently serve the application without it.
+  { key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains; preload' },
 ];
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
+  /**
+   * `next build` refuses to finish while the installed version is affected by a published advisory,
+   * and recommends the upgrade. Setting the policy to `security` states that an advisory-driven
+   * upgrade is the intended response, so the reminder does not have to be re-interpreted each time.
+   */
+  experimental: { agentUpgrade: 'security' },
   // Production builds stay on Turbopack. The empty block states that deliberately: without it,
   // Turbopack refuses to build because a webpack config exists (used only by `dev`).
   turbopack: {},
