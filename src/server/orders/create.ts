@@ -187,7 +187,7 @@ export async function createOrder(tx: Transaction, input: CreateOrderInput): Pro
       throw new OrderRefusalError('idempotency_conflict', 'this submission is still being processed');
     }
 
-    const replayed = await loadCreatedOrder(tx, input.customerId ?? 0, existing.resultRef);
+    const replayed = await loadCreatedOrder(tx, input.customerId, existing.resultRef);
     if (replayed === null) {
       throw new OrderRefusalError('idempotency_conflict', 'the original order could not be loaded');
     }
@@ -349,10 +349,17 @@ export async function createOrder(tx: Transaction, input: CreateOrderInput): Pro
   };
 }
 
-/** Loads a customer's own order by number, for the idempotent-replay path. */
+/**
+ * The order a repeated submission already created.
+ *
+ * `customerId` is **null for a guest**, and the match uses `is not distinct from` so null matches the
+ * `customer_id is null` row it was written with. The previous `customer_id = 0` sentinel guaranteed a
+ * guest's replay found nothing, which turned a double submission into "that submission was already
+ * processed" on a screen with no order list to send the guest to.
+ */
 async function loadCreatedOrder(
   tx: Transaction,
-  customerId: number,
+  customerId: number | null,
   orderNumber: string,
 ): Promise<Omit<CreatedOrder, 'replayed'> | null> {
   const rows = await tx
@@ -367,7 +374,9 @@ async function loadCreatedOrder(
       placedAt: order.placedAt,
     })
     .from(order)
-    .where(sql`${order.customerId} = ${customerId} and ${order.orderNumber} = ${orderNumber}`);
+    .where(
+      sql`${order.customerId} is not distinct from ${customerId} and ${order.orderNumber} = ${orderNumber}`,
+    );
 
   return rows[0] ?? null;
 }

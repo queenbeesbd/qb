@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useTranslation } from '@/i18n/useTranslation';
 import type { TranslationKey } from '@/i18n/dictionaries';
 import { buildQueryHref } from '@/lib/admin-query';
+import { imageVariantPath } from '@/lib/images';
 import { formatMoney } from '@/lib/money';
 import { AdminIcon } from '../../_ui/icons';
 import { AvailabilitySwitch } from '../../_ui/AvailabilitySwitch';
@@ -131,7 +132,6 @@ export function CatalogView({
       <section className={styles.section} aria-labelledby="list-heading">
         <div className={styles.sectionHead}>
           <h2 id="list-heading">{t('admin.catalog.listTitle')}</h2>
-          <p>{t('admin.catalog.listBody')}</p>
         </div>
 
         <ListToolbar>
@@ -180,21 +180,43 @@ export function CatalogView({
           />
         ) : (
           <ul className={styles.recordList} data-admin-list="">
+            {/*
+              No monogram. It printed the name's first character, so a catalogue full of vendor names
+              starting with a digit showed 1,1,2,2,3,3 down the list and every row read as a row
+              number. The title gets the space instead.
+            */}
             {products.map((product) => (
-              <li className={styles.record} key={product.id}>
-                <span className={styles.recordThumb} aria-hidden="true">
-                  {product.nameEn.slice(0, 1).toUpperCase()}
+              <li className={`${styles.record} ${styles.recordProduct}`} key={product.id}>
+                {/*
+                  The product's own photograph, small, so the owner recognises a row by sight rather
+                  than by reading a 40-character vendor name. Decorative here: the row's title is the
+                  name, and an alt repeating it would make every row announce twice.
+                */}
+                <span className={styles.recordPhoto} aria-hidden="true">
+                  {product.primaryImageKey !== null && (
+                    <img
+                      src={imageVariantPath(product.primaryImageKey)}
+                      alt=""
+                      width={48}
+                      height={64}
+                      loading="lazy"
+                      decoding="async"
+                    />
+                  )}
                 </span>
                 <div className={styles.recordMain}>
                   <span className={styles.recordTitle}>
-                    <Link className={styles.recordLink} href={`/admin/catalog/${product.id}`}>
+                    <Link
+                      className={`${styles.recordLink} ${styles.recordTitleLink}`}
+                      href={`/admin/catalog/${product.id}`}
+                    >
                       {product.nameEn}
                     </Link>
                   </span>
                   <span className={styles.recordMeta}>
                     <span>{product.categoryNameEn}</span>
                     <span>{product.brandNameEn}</span>
-                    <span className={styles.mono}>{product.slug}</span>
+                    <span className={`${styles.mono} ${styles.recordSlug}`}>{product.slug}</span>
                     {!product.isPublished && <span className={styles.tagMuted}>{t('admin.catalog.unpublished')}</span>}
                     {product.imageCount === 0 && <span className={styles.tagWarn}>{t('admin.catalog.noImagesBadge')}</span>}
                   </span>

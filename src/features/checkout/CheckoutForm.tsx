@@ -1,12 +1,20 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import type { TranslationKey } from '@/i18n/dictionaries';
+import {
+  contactProblems,
+  type ContactFieldName,
+  type ContactValues,
+} from '@/lib/checkout-fields';
 import { quoteDelivery } from '@/lib/delivery';
 import { DELIVERY_AREAS } from '@/lib/delivery-areas';
 import { useTranslation } from '@/i18n/useTranslation';
 import { useCart } from '@/features/cart/useCart';
+import { resolveCartLines } from '@/features/cart/cart-lines';
+import { useCartProjection } from '@/features/cart/useCartProjection';
+import type { CartProduct } from '@/features/cart/cart-product';
 import styles from './CheckoutForm.module.css';
 
 const REFUSAL_KEYS: Record<string, TranslationKey> = {
@@ -32,7 +40,45 @@ const PROMO_REASON_KEYS: Record<string, TranslationKey> = {
   unavailable: 'checkout.notice.unavailable',
   invalid_cart: 'checkout.promo.failed',
   network: 'checkout.promo.failed',
+  // A session that ended while the form was open. Reachable once guest ordering is off.
+  unauthenticated: 'checkout.promo.signInRequired',
 };
+
+/**
+ * One sentence per field the shared checkout rules can refuse.
+ *
+ * The rules live in `src/lib/checkout-fields.ts` and are the same ones the order route applies, so the
+ * summary can never name a field the server would accept, or stay silent about one it would refuse.
+ */
+const FIELD_PROBLEM_KEYS: Record<ContactFieldName, TranslationKey> = {
+  recipientName: 'checkout.problem.recipientName',
+  recipientPhone: 'checkout.problem.recipientPhone',
+  addressLine: 'checkout.problem.addressLine',
+  districtCode: 'checkout.problem.district',
+  area: 'checkout.problem.area',
+  city: 'checkout.problem.city',
+  postcode: 'checkout.problem.postcode',
+  deliveryNote: 'checkout.problem.deliveryNote',
+};
+
+/** Reads the contact block as plain strings. Missing values become empty strings, never `undefined`. */
+function readContactValues(form: HTMLFormElement): ContactValues {
+  const data = new FormData(form);
+  const text = (name: ContactFieldName): string => {
+    const value = data.get(name);
+    return typeof value === 'string' ? value : '';
+  };
+  return {
+    recipientName: text('recipientName'),
+    recipientPhone: text('recipientPhone'),
+    addressLine: text('addressLine'),
+    districtCode: text('districtCode'),
+    area: text('area'),
+    city: text('city'),
+    postcode: text('postcode'),
+    deliveryNote: text('deliveryNote'),
+  };
+}
 
 type AppliedPromo = {
   readonly code: string;
@@ -63,6 +109,7 @@ export function CheckoutForm({
   notice,
   customerEmail,
   delivery,
+  products,
 }: {
   /** Null for a guest: there is no session to bind a token to, and the route checks the origin. */
   csrfToken: string | null;
@@ -71,14 +118,29 @@ export function CheckoutForm({
   /** Null for a guest: nothing is signed in, and the page does not claim otherwise. */
   customerEmail: string | null;
   delivery: { defaultMinor: number | null; overrides: Record<string, number> };
+  /** The compact catalog projection, supplied by the server page because this route draws lines. */
+  products: readonly CartProduct[];
 }) {
-  const { t, pick, price } = useTranslation();
+  const { t, price } = useTranslation();
   const cart = useCart();
+  const resolved = useMemo(() => resolveCartLines(cart.lines, products), [cart.lines, products]);
+  const projection = useCartProjection(cart.lines, products);
   const [districtCode, setDistrictCode] = useState('');
   const [promoInput, setPromoInput] = useState('');
   const [promo, setPromo] = useState<AppliedPromo | null>(null);
   const [promoReason, setPromoReason] = useState<string | null>(null);
   const [promoBusy, setPromoBusy] = useState(false);
+  /**
+   * The fields the last submit attempt would be refused for, or `null` before the first attempt.
+   *
+   * `null` matters: the summary must not appear on a page the customer has not tried to submit yet, and
+   * an empty array is the "tried, and everything is fine" state - it keeps the summary mounted long
+   * enough to clear itself rather than flashing.
+   */
+  const [problems, setProblems] = useState<readonly ContactFieldName[] | null>(null);
+  const formRef = useRef<HTMLFormElement | null>(null);
+  const invalid = (field: ContactFieldName): true | undefined =>
+    problems?.includes(field) === true ? true : undefined;
 
   const rates = {
     defaultMinor: delivery.defaultMinor,
@@ -91,21 +153,49 @@ export function CheckoutForm({
    * the cart is built from, and the server refuses such an order anyway - so the form says so here
    * instead of letting the customer fill in an address for an order that cannot be placed.
    */
-  const unavailableCount = cart.entries.filter((entry) => entry.product.availability !== 'in_stock').length;
+  const unavailableCount = resolved.entries.filter((entry) => entry.product.availability !== 'in_stock').length;
 
   // Derived, not stored: the cart is the source of truth, so a quote from an older basket simply stops
   // counting the moment the basket changes. No effect and no second copy of the total.
-  const promoIsCurrent = promo !== null && promo.subtotalMinor === cart.subtotalMinor;
+  const promoIsCurrent = promo !== null && promo.subtotalMinor === resolved.subtotalMinor;
   const discountMinor = promoIsCurrent && promo !== null ? promo.discountMinor : 0;
   const previewTotal =
-    quote?.ok === true ? cart.subtotalMinor - discountMinor + quote.quote.chargeMinor : null;
+    quote?.ok === true ? resolved.subtotalMinor - discountMinor + quote.quote.chargeMinor : null;
 
   const refusal = notice === null ? null : (REFUSAL_KEYS[notice] ?? 'checkout.notice.invalid');
   const promoMessage =
     promoReason === null ? null : (PROMO_REASON_KEYS[promoReason] ?? 'checkout.promo.failed');
-  const lines = JSON.stringify(
-    cart.entries.map((entry) => ({ productId: entry.product.id, quantity: entry.quantity })),
+  const linePayload = JSON.stringify(
+    resolved.entries.map((entry) => ({ productId: entry.product.id, quantity: entry.quantity })),
   );
+
+  /**
+   * The single client-side reporter.
+   *
+   * The form is `noValidate`, so the browser no longer stops the submit before this handler runs and
+   * never shows a transient bubble whose wording the shop does not own. A refusal is a list of fields,
+   * stated in the page, with focus moved to the first one - and the server still validates the same
+   * values again, because this is reporting, not authority.
+   */
+  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    const found = contactProblems(readContactValues(event.currentTarget));
+    if (found.length === 0) {
+      setProblems([]);
+      return;
+    }
+    event.preventDefault();
+    setProblems(found);
+    const first = found[0];
+    if (first !== undefined) {
+      formRef.current?.querySelector<HTMLElement>(`[name="${first}"]`)?.focus();
+    }
+  }
+
+  /** Once a summary is on screen it follows the fields, so a corrected field stops being listed. */
+  function handleInput(event: React.FormEvent<HTMLFormElement>) {
+    if (problems === null) return;
+    setProblems(contactProblems(readContactValues(event.currentTarget)));
+  }
 
   async function applyPromotion() {
     if (promoInput.trim() === '' || promoBusy) return;
@@ -113,7 +203,7 @@ export function CheckoutForm({
     setPromoReason(null);
     const payload = new FormData();
     if (csrfToken !== null) payload.set('csrf', csrfToken);
-    payload.set('lines', lines);
+    payload.set('lines', linePayload);
     payload.set('promoCode', promoInput);
     try {
       const response = await fetch('/api/checkout/promo', { method: 'POST', body: payload });
@@ -123,7 +213,7 @@ export function CheckoutForm({
         setPromo({
           code: result.code ?? promoInput.trim().toUpperCase(),
           discountMinor: result.discountMinor,
-          subtotalMinor: cart.subtotalMinor,
+          subtotalMinor: resolved.subtotalMinor,
         });
         setPromoInput('');
       } else {
@@ -153,10 +243,34 @@ export function CheckoutForm({
         </p>
       )}
 
-      <form className={styles.layout} action="/api/checkout/order" method="post">
+      {/*
+        The problem list sits above the form, in page order, so a customer on a phone reads it before
+        scrolling into the fields. It is always mounted once a submit has been attempted, which is what
+        lets it clear itself as fields are corrected instead of disappearing in one jump.
+      */}
+      {problems !== null && problems.length > 0 && (
+        <div className={styles.problems} role="alert">
+          <p className={styles.problemsTitle}>{t('checkout.problem.summary')}</p>
+          <ul>
+            {problems.map((field) => (
+              <li key={field}>{t(FIELD_PROBLEM_KEYS[field])}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      <form
+        ref={formRef}
+        className={styles.layout}
+        action="/api/checkout/order"
+        method="post"
+        noValidate
+        onSubmit={handleSubmit}
+        onInput={handleInput}
+      >
         {csrfToken !== null && <input type="hidden" name="csrf" value={csrfToken} />}
         <input type="hidden" name="idempotencyKey" value={idempotencyKey} />
-        <input type="hidden" name="lines" value={lines} />
+        <input type="hidden" name="lines" value={linePayload} />
         {discountMinor > 0 && promo !== null && (
           <input type="hidden" name="promoCode" value={promo.code} />
         )}
@@ -177,7 +291,15 @@ export function CheckoutForm({
               <h2 id="checkout-contact">{t('checkout.contactTitle')}</h2>
               <label className={styles.field}>
                 <span>{t('checkout.field.recipientName')}</span>
-                <input type="text" name="recipientName" required minLength={2} maxLength={120} autoComplete="name" />
+                <input
+                  type="text"
+                  name="recipientName"
+                  required
+                  minLength={2}
+                  maxLength={120}
+                  autoComplete="name"
+                  aria-invalid={invalid('recipientName')}
+                />
               </label>
               <label className={styles.field}>
                 <span>{t('checkout.field.recipientPhone')}</span>
@@ -189,6 +311,7 @@ export function CheckoutForm({
                   pattern="01[3-9][0-9]{8}"
                   placeholder="01XXXXXXXXX"
                   maxLength={11}
+                  aria-invalid={invalid('recipientPhone')}
                 />
                 <small>{t('checkout.field.recipientPhoneHelp')}</small>
               </label>
@@ -201,6 +324,7 @@ export function CheckoutForm({
                   minLength={5}
                   maxLength={300}
                   autoComplete="street-address"
+                  aria-invalid={invalid('addressLine')}
                 />
               </label>
               <label className={styles.field}>
@@ -209,6 +333,7 @@ export function CheckoutForm({
                   name="districtCode"
                   required
                   value={districtCode}
+                  aria-invalid={invalid('districtCode')}
                   onChange={(event) => setDistrictCode(event.target.value)}
                 >
                   <option value="">{t('checkout.field.districtPrompt')}</option>
@@ -222,11 +347,24 @@ export function CheckoutForm({
               <div className={styles.row}>
                 <label className={styles.field}>
                   <span>{t('checkout.field.area')}</span>
-                  <input type="text" name="area" required maxLength={80} />
+                  <input
+                    type="text"
+                    name="area"
+                    required
+                    maxLength={80}
+                    aria-invalid={invalid('area')}
+                  />
                 </label>
                 <label className={styles.field}>
                   <span>{t('checkout.field.city')}</span>
-                  <input type="text" name="city" required maxLength={80} autoComplete="address-level2" />
+                  <input
+                    type="text"
+                    name="city"
+                    required
+                    maxLength={80}
+                    autoComplete="address-level2"
+                    aria-invalid={invalid('city')}
+                  />
                 </label>
               </div>
               <div className={styles.row}>
@@ -234,13 +372,24 @@ export function CheckoutForm({
                   <span>
                     {t('checkout.field.postcode')} <em>{t('common.optional')}</em>
                   </span>
-                  <input type="text" name="postcode" maxLength={20} autoComplete="postal-code" />
+                  <input
+                    type="text"
+                    name="postcode"
+                    maxLength={20}
+                    autoComplete="postal-code"
+                    aria-invalid={invalid('postcode')}
+                  />
                 </label>
                 <label className={styles.field}>
                   <span>
                     {t('checkout.field.deliveryNote')} <em>{t('common.optional')}</em>
                   </span>
-                  <input type="text" name="deliveryNote" maxLength={300} />
+                  <input
+                    type="text"
+                    name="deliveryNote"
+                    maxLength={300}
+                    aria-invalid={invalid('deliveryNote')}
+                  />
                 </label>
               </div>
             </section>
@@ -255,9 +404,9 @@ export function CheckoutForm({
             <aside className={styles.summary} aria-labelledby="checkout-summary">
               <h2 id="checkout-summary">{t('checkout.summary')}</h2>
               <ul className={styles.lines}>
-                {cart.entries.map((entry) => (
+                {resolved.entries.map((entry) => (
                   <li key={entry.product.id}>
-                    <span>{pick(entry.product.name)}</span>
+                    <span>{entry.product.name}</span>
                     <span className={styles.lineMeta}>&times; {entry.quantity}</span>
                     <span className={styles.lineTotal}>{price(entry.lineTotalMinor)}</span>
                   </li>
@@ -330,7 +479,7 @@ export function CheckoutForm({
               <dl className={styles.totals}>
                 <div>
                   <dt>{t('cart.subtotal')}</dt>
-                  <dd>{price(cart.subtotalMinor)}</dd>
+                  <dd>{price(resolved.subtotalMinor)}</dd>
                 </div>
                 {discountMinor > 0 && promo !== null && (
                   <div className={styles.discountRow}>
@@ -372,10 +521,26 @@ export function CheckoutForm({
                   {t('checkout.unavailableNotice')}
                 </p>
               )}
+              {/*
+                A line with no product would be missing from the submitted payload, so the order would
+                be placed without it. The button is refused until the page can draw every line - the
+                same rule as an out-of-stock item, and for the same reason: never charge for a basket
+                that is not the one on screen.
+              */}
+              {projection.unresolvedCount > 0 && (
+                <p className={styles.notice} role="alert">
+                  {projection.stalled ? t('cart.unresolved') : t('checkout.loadingLines')}
+                </p>
+              )}
               <button
                 type="submit"
                 className={styles.primaryAction}
-                disabled={!deliveryConfigured || unavailableCount > 0 || promoBusy}
+                disabled={
+                  !deliveryConfigured ||
+                  unavailableCount > 0 ||
+                  projection.unresolvedCount > 0 ||
+                  promoBusy
+                }
               >
                 {t('checkout.submit')}
               </button>

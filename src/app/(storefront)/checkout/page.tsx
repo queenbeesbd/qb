@@ -3,10 +3,13 @@ import { randomUUID } from 'node:crypto';
 import { cookies } from 'next/headers';
 
 import { withTransaction } from '@/db/client';
+import { CART_COOKIE_NAME, parseCartIds } from '@/features/cart/cart-cookie';
+import { selectCartProducts } from '@/features/cart/cart-product';
 import { CheckoutForm } from '@/features/checkout/CheckoutForm';
+import { getStorefrontCatalog } from '@/server/catalog/storefront';
 import { loadDeliveryRates } from '@/server/delivery/service';
 import { CHECKOUT_PATH, CUSTOMER_SESSION_COOKIE } from '@/server/customer-auth/constants';
-import { requireCustomerPage } from '@/server/customer-auth/guard';
+import { currentCustomerPrincipal, requireCustomerPage } from '@/server/customer-auth/guard';
 import { loadCheckoutSettings } from '@/server/settings/checkout';
 
 export const metadata: Metadata = {
@@ -37,38 +40,47 @@ export default async function CheckoutPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   /*
-   * Guest ordering (Phase 42) is the owner's switch, not a default. With no session cookie there is
-   * nothing to sign in with, so the only question is whether the owner allows a guest to order; when
-   * they do not, this is the D12 behaviour unchanged - sign in, come back, cart intact.
+   * Guest ordering (Phase 42) is the owner's switch, not a default. With no session there is nothing to
+   * sign in with, so the only question is whether the owner allows a guest to order; when they do not,
+   * this is the D12 behaviour unchanged - sign in, come back, cart intact.
    *
-   * A stale or invalid cookie still goes through the guard below, so a signed-out browser is never
-   * quietly treated as a guest.
+   * The session is **resolved**, not assumed from the cookie's presence. A cookie that no longer
+   * resolves - expired, revoked, rotated - is not a session, and reading it as one sent that visitor to
+   * the sign-in page even with guest ordering on, while the order route treated the very same request as
+   * anonymous. The page and the route now agree: no principal means a guest, and only the owner's own
+   * policy can send that visitor to sign in.
    */
   const sessionCookie = (await cookies()).get(CUSTOMER_SESSION_COOKIE)?.value;
-  const anonymous = sessionCookie === undefined || sessionCookie === '';
-  const checkoutPolicy = anonymous
-    ? await withTransaction((tx) => loadCheckoutSettings(tx))
-    : { guestOrders: false };
+  const hasSessionCookie = sessionCookie !== undefined && sessionCookie !== '';
+  const principal = hasSessionCookie ? await currentCustomerPrincipal() : null;
 
-  if (anonymous && !checkoutPolicy.guestOrders) {
-    await requireCustomerPage(CHECKOUT_PATH);
+  if (principal === null) {
+    const { guestOrders } = await withTransaction((tx) => loadCheckoutSettings(tx));
+    if (!guestOrders) await requireCustomerPage(CHECKOUT_PATH);
   }
 
-  const principal = anonymous ? null : await requireCustomerPage(CHECKOUT_PATH);
   const params = await searchParams;
   const notice = typeof params.notice === 'string' ? params.notice : null;
   const rates = await withTransaction((tx) => loadDeliveryRates(tx));
+  /*
+   * Checkout draws the cart's lines, so it is the other route that needs product records - and, like
+   * /cart, it asks for the ones the cart names rather than for the whole catalog (Phase 45b). The
+   * cookie's ids are validated against the catalog before anything is projected.
+   */
+  const cartIds = parseCartIds((await cookies()).get(CART_COOKIE_NAME)?.value);
+  const catalog = await getStorefrontCatalog();
 
   return (
     <CheckoutForm
-      csrfToken={principal === null ? null : principal.csrfToken}
+      csrfToken={principal?.csrfToken ?? null}
       idempotencyKey={randomUUID()}
       notice={notice}
-      customerEmail={principal === null ? null : principal.email}
+      customerEmail={principal?.email ?? null}
       delivery={{
         defaultMinor: rates.defaultMinor,
         overrides: Object.fromEntries(rates.overrides),
       }}
+      products={selectCartProducts(catalog.products, cartIds)}
     />
   );
 }

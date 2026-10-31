@@ -24,13 +24,15 @@
     "db:seed:catalog": "tsx --env-file-if-exists=.env.local --env-file-if-exists=.env scripts/seed-catalog.ts",
     "staff:bootstrap": "tsx --env-file-if-exists=.env.local --env-file-if-exists=.env scripts/staff.ts bootstrap",
     "staff:list": "tsx --env-file-if-exists=.env.local --env-file-if-exists=.env scripts/staff.ts list",
+    "verify:ui": "node scripts/verify-ui-fixes.cjs",
     "verify:admin": "tsx scripts/verify-admin.ts",
     "verify:storefront": "tsx scripts/verify-storefront.ts",
     "test": "node --import tsx --test tests/unit/*.test.ts",
     "test:db": "node --import tsx --test tests/db/*.test.ts",
     "test:all": "npm run test && npm run test:db",
     "db:seed:delivery": "tsx --env-file-if-exists=.env.local --env-file-if-exists=.env scripts/seed-delivery.ts",
-    "import:zatiq": "tsx --env-file-if-exists=.env.local --env-file-if-exists=.env scripts/import-zatiq.ts"
+    "import:zatiq": "tsx --env-file-if-exists=.env.local --env-file-if-exists=.env scripts/import-zatiq.ts",
+    "db:purge:imported-orders": "tsx --env-file-if-exists=.env.local --env-file-if-exists=.env scripts/purge-imported-orders.ts"
   },
   "dependencies": {
     "@neondatabase/serverless": "1.2.0",

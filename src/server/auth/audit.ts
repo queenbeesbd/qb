@@ -83,6 +83,7 @@ export type AuditAction =
   | 'integration.telegram_recipient_updated'
   | 'integration.telegram_recipient_activated'
   | 'integration.telegram_recipient_paused'
+  | 'integration.telegram_recipient_removed'
   | 'admin.action_denied';
 
 export type AuditEntry = {

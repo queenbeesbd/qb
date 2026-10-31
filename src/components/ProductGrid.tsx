@@ -21,9 +21,20 @@ import styles from './ProductGrid.module.css';
 export function ProductGrid({
   children,
   density = 'full',
+  oddLast = 'stretch',
 }: {
   children: React.ReactNode;
   density?: 'full' | 'sidebar';
+  /*
+   * What the spanning last card does with its width.
+   *
+   * 'stretch' (the default) is the homepage composition: the card is the same portrait card as its
+   * neighbours, one column wider. 'wide' turns that card into two columns - photograph on the left at
+   * a normal card's width, body beside it - which is what a related-products row needs, because there
+   * the spanning card drew a 343x451 card with a 273px-tall photograph next to 165x309 siblings. It is
+   * opt-in so the homepage rows are untouched.
+   */
+  oddLast?: 'stretch' | 'wide';
 }) {
   const count = Children.count(children);
   return (
@@ -31,6 +42,7 @@ export function ProductGrid({
       className={styles.grid}
       data-density={density}
       data-count-odd={count % 2 === 1 ? 'true' : undefined}
+      data-odd-last={oddLast}
     >
       {Children.map(children, (child, index) => (
         <li key={index}>{child}</li>

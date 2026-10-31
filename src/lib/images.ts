@@ -43,6 +43,20 @@ export type ImageSources = {
   height: number;
 };
 
+/**
+ * One generated variant's path, derived from the key.
+ *
+ * The admin list and the media panel need a single URL rather than a source set. Deriving it here keeps
+ * the rule that a rendered path comes from the record's key and never from a stored URL - and it means
+ * the two admin surfaces cannot disagree about which width they ask for.
+ */
+export function imageVariantPath(
+  key: string,
+  width: (typeof IMAGE_WIDTHS)[number] = IMAGE_WIDTHS[0],
+): string {
+  return `/catalog/${key}-${width}.jpg`;
+}
+
 function buildSrcSet(key: string, extension: 'webp' | 'jpg'): string {
   return IMAGE_WIDTHS.map((width) => `/catalog/${key}-${width}.${extension} ${width}w`).join(', ');
 }

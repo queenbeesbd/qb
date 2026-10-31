@@ -97,7 +97,7 @@ Supporting documents produced in Phase 8: `docs/platform-architecture.md` (archi
 
 ## Production readiness
 
-**Not production-ready, and not deployed.** The public application is still the explicitly `noindex` demo, but the backend now exists **locally**: the database foundation (Phase 11), owner authentication and catalog management (Phases 12-13), the database-backed storefront catalog (Phase 14), and customer accounts with atomic order creation (Phase 15). **Cash on Delivery is the only payment method (ADR 0015)**; delivery charges, courier recording, cash collection/reconciliation and the post-dispatch lifecycle are not built, and **no cloud resource, credential or deployment exists**. Frontend checks do not establish backend, payment, privacy, operational or production security. Do not remove the demo warning or `noindex`, and do not submit real orders.
+**Not production-ready, and not deployed.** The public application serves the imported catalogue and stays `noindex` until the owner chooses to launch (it is no longer presented as a demonstration - ADR 0020), and the backend exists **locally**: the database foundation (Phase 11), owner authentication and catalog management (Phases 12-13), the database-backed storefront catalog (Phase 14), and customer accounts with atomic order creation (Phase 15). **Cash on Delivery is the only payment method (ADR 0015)**; delivery charges, courier recording, cash collection/reconciliation and the post-dispatch lifecycle are not built, and **no cloud resource, credential or deployment exists**. Frontend checks do not establish backend, payment, privacy, operational or production security. Do not remove `noindex` (that is the owner's launch decision, AUD-08), and do not submit real orders.
 
 ## Current phase and gate
 
@@ -107,172 +107,42 @@ Supporting documents produced in Phase 8: `docs/platform-architecture.md` (archi
 
 **Owner decisions recorded (2026-10-12, ADR 0009).** **D10 is settled:** administration is **owner-only**, multiple owners are permitted and each has full access, there are no staff or support roles, and no permission-management system is in the launch surface. **D13 is settled in shape:** owner authentication is first-party **email and password**, with **Resend email verification and Google sign-in deferred** until the client confirms them. **D19:** product availability is an **owner-controlled In Stock / Out of Stock state**, and an out-of-stock product cannot be ordered. **D20:** the owner may **ban a customer after a confirmed fake order**, with a defined server-side enforcement boundary (sessions revoked, new orders and checkout refused). **D23:** customer/business activity records are kept separate from internal administrative and security records. One deliberate inconsistency is created and recorded: the Phase 12 role-management screen is **outside the approved launch surface** and needs a follow-up change (ADR 0009 section 3).
 
-**Owner decisions recorded (2026-10-15, ADR 0012 and ADR 0013).** **D17 is settled: customer authentication is first-party.** Email and password with **scrypt** hashing, opaque 256-bit session tokens stored only as a **SHA-256 hash**, httpOnly `SameSite=Lax` cookies with idle and absolute expiry, account- and source-keyed throttling, customer-scoped CSRF, and **strict separation from owner/admin credentials, sessions and permissions**. **Email is the sole registration and sign-in identifier**, and a phone number is optional contact. Email verification is deferred and **no external provider, mail service, OAuth client or SMS gateway is authorized**. **There is no self-service password recovery at launch** - a documented limitation, stated in the interface rather than hidden - and any operational reset is an **owner-operated** process with one-time credentials, audit logging and session revocation. **D19's ordering gate is settled (ADR 0013):** availability is the **only** ordering gate; order creation writes **no** reservation, allocation, deduction or automatic availability change; separate valid submissions may create separate orders; idempotency prevents duplicate processing of a submission, not reservation; and **overselling is accepted** rather than prevented. The D11 inventory tables remain implemented and unused. **Neither decision provisioned anything**: no dependency, provider, mail service, credential, bucket or deployment was created by recording them, and **Phase 15 now awaits explicit implementation authorization rather than a decision**.
 
-**Denied-action auditing was fixed (Phase 12 follow-up).** A refusal recorded inside the failing transaction was rolled back by the refusal itself, so a privilege-escalation attempt left no trace. Denials are now written in their own transaction, bounded per actor, and never stored for an anonymous request. Regression-tested at the database level and end-to-end over HTTP.
+[Showing lines 1-109 of 421 (50.0KB limit). Use offset=110 to continue.]
+## Phase 47 - checkout integrity, guest promo parity, explicit validation (2026-10-30)
 
-**Phase 10 was complete as a design.** The schema, the eight state machines, the transaction and concurrency design, the authorization matrix and the threat model are documented in `docs/data-model.md` and `docs/security.md`, and are internally consistent with the approved D9 and D11 rules. **Nothing is implemented:** no database, migration, dependency, configuration change, credential, bucket or deployment exists.
+**The defect was real and it was on the money path.** An approved feature (guest ordering, ADR 0024) could
+not use another approved feature (promotion codes, ADR 0021): the promo preview route kept the
+session-only guard after guest checkout shipped, so a guest could fill in the whole form and every code
 
-**Phase 12 (Owner/Admin Authentication & Dashboard Foundation) is implemented, locally.** It concerns the **private administrative interface for this store's owner**, not merchant onboarding. The owner signs in with a hashed credential (scrypt, no new dependency), and the admin surface is protected server-side: opaque 256-bit session tokens stored only as a SHA-256 digest in an httpOnly cookie, a 30-minute sliding idle limit inside an 8-hour absolute ceiling, revocation on logout, role change, credential change and administrative action, login throttling by account **and** by source, an owner-issued single-use credential token as the recovery path (no mail provider is authorized, so recovery cannot depend on email delivery), per-permission enforcement on every admin page and mutation, and an append-only audit trail written with the authenticated actor. Migration `0002` adds `staff_recovery_token`, taking the schema to **40 tables**. `npm run verify:admin` drives the real production build over HTTP and asserts the refusals, the CSRF binding, the per-permission denials **and their database effects**; it passes 57/57. **Nothing is deployed and no QueenBee's-bound cloud resource exists**, so provisioning authorization remains a separate owner decision. **D17 (customer authentication) was settled on 2026-10-15 in ADR 0012**, so customer-facing authentication is no longer blocked on a decision.
 
-**One acceptance criterion is deliberately unmet.** A14 in `docs/data-model.md` section 17.5 records that the concurrency guarantees are reasoned and structurally constrained but **have not been executed**, because no database exists. They must be proven by test during implementation.
-**Delivery charges are configured (2026-10-23, D-item 5).** The owner supplied the three amounts and they
-are saved through the real screen: **Dhaka Tk 100, Chattogram Tk 60, other districts Tk 120**. Verified by
-reading them back through the server resolver (`dhaka -> 10000`, `chattogram -> 6000`, `others -> 12000`
-poisha) and by the panel rendering 120 / 100 / 60; an invalid amount is still refused. `npm run
-**Phase 42 (guest checkout, owner switch) is implemented locally (ADR 0024).** Ordering needs an account
-by default; `checkout.guest_orders` (Settings -> Other settings) lets the owner allow guests. Off -> sign-in
-redirect as before. On -> name, mobile number, area, city and address are enough, and the order records
-`customer_id = null` (migration 0010) with a `guest` order event (migration 0011). No session means no CSRF
-token: that path relies on the same-origin check plus the per-render idempotency key, and a signed-in
-request with a bad token is refused rather than downgraded. Guest confirmations are capability URLs - a
-customer's order number returns 404 to an anonymous reader. Verified: off -> 307; on -> 200 and a real guest
-order `QBBFC7E4396F6C7FA6` (customer_id null, shipping 10000 Dhaka, total = subtotal + shipping, event actor
-guest); cross-site POST 403; `typecheck`, `lint`, `check:i18n`, `db:validate`. **Not built:** per-source
-throttle (the honest gap), claiming a guest order into an account, guest lookup by phone. **Not verified:**
-browser interaction with the guest form.
-**Phase 41 (a ban is reversible) is implemented locally (ADR 0023).** The owner decided a ban can be
-restored. `restoreCustomer` mirrors `suspendCustomer`: a guarded `suspended -> active` transition, a
-required reason (10-500 characters) and one audit record `customer.ban_reversed` with actor and reason; a
-restore of a non-suspended account is a conflict. It deliberately does not resurrect a revoked session
-(the customer signs in again), does not touch orders, refunds, reservations or payments, and does not clear
-the review flag. The route requires an explicit `operation` (`ban` | `restore`), so an ambiguous form is
-refused rather than defaulting. Both actions sit behind `customer.suspend` on the customer list and profile.
-Verified: `tests/db/customer-auth` **12/12** (two new tests), `typecheck`, `check:i18n` (1226 keys), and an
-HTTP walk-through against the running app, including the restored customer signing in again and the audit
-trail showing the reversal. **Not verified:** the confirmation dialog's interaction, because the dev server
-serves a stale production `.next` and no page hydrates.
-**Phase 40 (ban control verification) is complete; no feature was added.** An earlier plan entry claimed
-the owner-facing ban control did not exist. It has existed since Phase 18 - `/api/admin/customers` calls
-`suspendCustomer`, both customer screens carry a reason-requiring confirmation (10-500 characters), the
-route is gated on `customer.suspend`, and the audit action is `customer.banned`. Phase 40 therefore verified
-it instead of duplicating it, against a throwaway customer: ban with a reason -> `/account` no longer
-resolves to the account, sign-in refused, second ban **conflict**, short reason **invalid**, audit row
-carrying the reason and actor `Demo Owner`; positive control confirmed a signed-in customer's page does show
-their address. **Schema unchanged.** The one real gap is **no reversal path** - `status` only moves
-`active -> suspended`, so a mistaken ban needs a database edit; whether a restore action exists is an owner
-decision, recorded in the plan.
-db:seed:delivery` seeds the same figures into a fresh database and is idempotent **and non-destructive** -
-it writes nothing when a default already exists, so it can never overwrite a figure the owner later chose.
-**Checkout is no longer blocked by configuration**: this was the one documented owner input that prevented
-a real customer from completing a real purchase end to end. The owner can change any figure at Settings ->
-Delivery charges.
+[Showing lines 1-117 of 153 (50.0KB limit). Use offset=118 to continue.]
+## Phase 50 - the product page shows every photograph (2026-10-30)
 
-**Phase 13 (Product & Category Management) is implemented, locally.** The owner can create and edit products, categories and brands, and operate the **In Stock / Out of Stock** availability state (D19); the role-management screen the owner ruled out of launch was **removed** and its four API routes and page now 404; owner accounts are managed on a minimal screen where the role is forced rather than chosen, with the last-active-owner guard enforced under a row lock; product imagery is associated from **existing local assets only**, with `content_type`, `width`, `height` and `byte_size` read from the **file bytes**; and a database-backed read layer plus an authenticated read API exist. **The authoritative orderability check refuses an unpublished, archived or out-of-stock product from database state alone.** Migration `0003` adds `product.availability` - **purely additive**, and the schema stays at **40 tables**. `npm run verify:admin` now passes **97/97**, and 37 new database tests cover the catalog and owner-account behaviour. **Nothing is deployed and no QueenBee's-bound cloud resource exists.**
+**The gap:** the catalog holds 1,919 image derivatives, the admin panel orders multiple images per product,
+and the storefront render used only `images[0]` - so an owner who added a second photograph could not tell
+whether it had been saved, and customers could not see it at all.
 
-**Three things Phase 13 deliberately did not do, and says so.** (1) **The storefront was not cut over at that point** - `src/data/catalog.ts` and its synchronous accessors were unchanged and the storefront still rendered the local fixture catalog. *(Superseded by Phase 14, which performs the cutover; the fixture is now retained only as the local/test seed and a development-only opt-in.)* (2) **No inventory movement, deduction or reservation is written** - availability is a state, not a quantity (ADR 0010), so `inventory_balance`, `inventory_movement` and `stock_reservation` remain implemented and **unused**, and **this phase does not prevent overselling** once ordering exists. (3) **No image is uploaded** - no object storage, no derivative generation from an upload, no curation editor, and no customer account, checkout or order. Two bugs were found and fixed during verification: correlated subqueries that resolved to the wrong table (returning wrong prices and counts) and an ambiguous price parser that read a numeric input as poisha while reading typed text as BDT - a 100x money error. Both are now covered by tests.
+**The change:** a thumbnail strip under the main frame on `/products/[slug]`, rendered only when a product
+has more than one image. Each thumbnail is a real button (keyboard operable) with `aria-pressed`
+marking the chosen one; the main `ProductPhoto` swaps to the chosen image and keeps a product description
+as its alt text. The strip scrolls inside its own box (`overflow-x: auto`, `contain: layout paint`) so a
+17-photograph product cannot widen the page, and thumbnails are 72px at 3:4 - above the phone's 40px
+touch floor and small enough that five fit across 390px. Two keys added (i18n 1277).
 
-**Phase 14 (Storefront Catalog Cutover) is implemented, locally.** The storefront renders the catalog from **PostgreSQL**, read **server-side only** through the server-only typed accessor contract (`src/server/catalog/storefront.ts`), with **no public catalog endpoint** (ADR 0011). Catalog values reach the `'use client'` views as props from a server component, and every record carries a `source: 'database' | 'fixture'` discriminator, so a fixture record can never be presented as a database record. Storefront routes are `force-dynamic` and share **one cached catalog snapshot per request**, which is why `npm run build` performs no database access. Curation stays **id lists** held in `collection`/`collection_item` by `position`; search resolves from **name (both locales), brand and pack size only** - there is **no tags feature**. The 22 fixture products seed the local/test database idempotently (`npm run db:seed:catalog`, **not** a migration), and the fixture survives only as that seed and as an explicit **development-only** opt-in (`QUEENBEES_STOREFRONT_FIXTURE=1`, off by default, refused outside development, **never** triggered by a database read failure). An empty or unavailable catalog renders a **stated gap**, never a zero-filled grid and never stale fixture rows.
+**Verified 2026-10-30:** `typecheck`, `lint` 0 errors (3 pre-existing warnings), `check:i18n` 1277 keys,
+unit **208/208**, `build` green. Against the real imported catalogue: `/products/facial-sheet-mask`
+renders **17** thumbnails and a single-photograph product renders **0**; headless Chromium at 390px **6/6**
+(17 thumbnails, one pressed initially, no overflow, choosing the fifth moves `aria-pressed` and swaps the
+main frame, alt text preserved). The admin list's row photographs were re-checked on the same catalogue
+(25 rows / 25 images on page one).
 
-**Verified 2026-10-15, against a disposable local cluster and the real production build:** `typecheck`; `lint` (0 errors, 2 pre-existing unused-import warnings); `check:catalog`; `check:i18n` (344 keys); `check:secrets`; `test` **86/86** (17 suites); `test:db` **144/144** (22 suites); `db:rehearsal`; `build`; `verify:admin` **97/97**; and `verify:storefront` **65/65** browser checks, which provision the cluster, migrate, seed, build, serve and then assert that the served 22-product catalog **is the database, not the fixture**. The chain was proven adversarially, not just green: the seeder inserts nothing on a second run and refuses a production environment; against an **unseeded** database the loader returns `source: 'database'` with zero products and zero categories and does **not** fall back to fixture rows; and the orchestrator deletes `QUEENBEES_STOREFRONT_FIXTURE` from the child environment so a passing run cannot be explained by the opt-in. One browser check asserts a product page emits no external link.
+**Also recorded here - the local demo session:** the project is running at `http://localhost:3000` against
+the persistent development cluster (1,605 products). Because no password was recorded for
+`demo@queenbees.test`, a single-use credential token was issued for it through the application's own
+issuer and redeemed at `/admin/redeem`; the password is **`queenbees-demo-2026` in this local database
+only**, and other sessions for that account were revoked. `127.0.0.1` must not be used for the dev server:
+Next 16 blocks its own dev resources on a foreign host and no page hydrates.
 
-**Phase 14 changed no database structure.** There is no new migration: the schema stays at **40 tables** and migrations `0000`-`0003` are untouched, so a catalog read is the only new database traffic and it is read-only. An independent review of the diff found no high-severity issue; three findings were fixed before commit (category-slug whitespace that widened a listing, missing published/active guards on curated selections, and a seed assertion reserving the sentinel brand slug) and four are recorded below as open findings.
-
-**Phase 15 (Cart Validation, Customer Authentication and Order Creation) is implemented locally.** Customer authentication is first-party (D17, ADR 0012): email and password with **scrypt** hashing, opaque 256-bit session tokens stored only as a **SHA-256 digest** in an httpOnly `SameSite=Lax` cookie with a sliding idle limit inside a 30-day absolute ceiling, throttling by account **and** by source, session-bound CSRF on every state-changing route, and strict separation from the owner surface (separate tables, separate cookie, separate CSRF label). **There is no self-service password recovery**, stated on the sign-in screen and on the account page rather than implied; no external identity, mail, OAuth or SMS provider exists. Checkout requires an account (D12), so an anonymous visitor is sent to sign in with the checkout path preserved, and the browser cart survives the step. Order creation is **server-authoritative and atomic**: the transaction claims an idempotency key, refuses a suspended or deleted account **inside the transaction** (D20), checks `checkOrderability` per product, prices every line from `product_variant.price_minor`, and writes the order, its items, its contact row and its `order_event` together - or nothing. A repeated submission returns the original order; a reused key with a different body is a conflict. **No inventory reservation, deduction or movement is written** (ADR 0013), so availability is the only stock gate and **overselling between separate valid submissions is accepted**, not prevented. Customer orders are read only through the session's `customer_id`, so another customer's order number is a 404 rather than a 403. The **D20 ban is enforced** by refusing a non-active account in `createOrder` and by refusing its sessions on the next request (`resolveCustomerSession` joins the account status); the administrative primitive `suspendCustomer` sets `suspended`, revokes every live session and writes an audited staff record, but **no owner-facing customer-management screen exists yet** - that is a recorded gap, not a claim.
-
-**Phase 16 decision record accepted (ADR 0014, 2026-10-16) - documentation and read-only review only.** The owner's checkout and payment decisions (COD owner confirmation by phone; bKash/Nagad claim submission then owner verification; a mismatch hold; rejection distinct from a confirmed false claim; bans manageable, reasoned, audited and session-revoking), the delivery-charge requirement, the deferred 24-hour expiry and the deferred external notifications are recorded, with the remaining owner inputs listed. **No code, schema, migration or state value changed**; the conflicting reservation/expiry and stale field-name claims in `payment-workflow.md`, `data-model.md`, `admin-dashboard.md`, `security.md`, `platform-architecture.md`, `requirements.md`, `database.md`, `implementation-plan.md` and this file were corrected.
-
-The database schema is **unchanged: 40 tables, no new migration**. Verification on 2026-10-15: `test` **109/109**, `test:db` **165/165** (including 10 customer-authentication and 11 order-creation database tests), `verify:admin` **97/97**, `verify:storefront` **65/65** browser checks plus **16/16** customer-flow checks over real HTTP against the served build (anonymous checkout redirect, cross-origin registration refused, cookie flags, no-CSRF order refused, forged price ignored, idempotent replay, another customer's order not found, banned customer refused), plus `typecheck`, `lint` (0 errors), `check:i18n` (433 keys), `check:catalog`, `check:secrets`, `db:rehearsal` and `build`. **Stated limitations:** prepaid payment instructions and verification are Phase 16, so an order reaches `awaiting_payment` and the interface says the payment step is not built; delivery charges are unapproved, so shipping is zero and the total is the items subtotal (the UI says delivery is not determined rather than inventing one); the owner cannot yet ban a customer from the interface; and the cart is not reconciled server-side before checkout beyond id and quantity validation. **Nothing is deployed and no cloud resource, credential or DNS record was created.**
-
-**Phase 35 (product editor) is implemented locally.** The new-product and edit screens are their own routes (`/admin/catalog/new`, `/admin/catalog/[productId]`); the catalog list is now only a list. The editor uses the reference's two-column shape with a **live storefront preview** that shows only what was typed, a **sticky action bar**, a required summary that names the empty fields, a derived saving that is called out when the comparison price is not higher, one sentence for the combined publication outcome, explicit validation that states the missing set and focuses the first offender, and **real image ordering** written as a dense `sort_order` with the primary image kept separate. Owner decisions taken before the build: **short description only** (no SEO field), **no spec fields**, **association + ordering** for images (no upload), **one variant**. **Schema: one additive column** - `product.short_description`, nullable with a 1-500 CHECK, migration `0006_product_short_description`; **tables unchanged at 43**. One new audit action, `catalog.image_reordered`. Verified 2026-10-21: `verify:admin` **185/185** (11 new editor checks), `test` **165/165**, `test:db` **246/246**, plus `typecheck`, `lint` (0 errors), `check:i18n`, `check:catalog`, `check:secrets`, `db:validate`, `db:check`, `db:rehearsal`, `build` and `verify:storefront`. Screenshots at 1440 and 390px were inspected; three defects were found that way and fixed (duplicated heading, an overlaid second action bar, and brand missing from the required summary). **Nothing is deployed.**
-
-**Phase 30 (admin list-surface parity) is implemented locally.** The six admin lists - orders, the COD queue, products, categories, customers and the audit trail - now share one toolbar vocabulary (filter tabs, then search, then the date range), one control scale, one row anatomy and one footer, built from `ListToolbar` / `ListSearch` / `FilterTabs` / `DateRangeFilter` / `ActiveFilters` / `Pagination` and the pure helpers in `src/lib/admin-query.ts`. Orders gained a **server-side date range** over `placed_at` and a delivery sub-line; the COD waiting tab, catalog, categories and audit gained **pagination** they did not have; categories gained **search and a visibility filter**; every list gained a page-size control and active-filter chips. Filtering is SQL, every state is in the URL, and a filter or page-size change drops the page number. Invalid parameters are clamped, never refused. **No schema change, no migration, no permission, state machine, money figure or audit contract changed, and no owner-decision item was added.** Verified 2026-10-21 against a disposable local cluster and the real production build: `verify:admin` **172/172** (22 new checks including a toolbar sweep, server-side search and no-results, combined filters and chips, the date range, page size, out-of-range and invalid parameters, catalog/categories/audit pagination, footer alignment and 320/390/768/1024/1280/1440/1920px containment), `test` **165/165**, `test:db` **246/246**, plus `typecheck`, `lint` (0 errors), `check:i18n`, `check:catalog`, `check:secrets`, `build` and `verify:storefront`. Screenshots were captured and **visually inspected**; two defects were found that way and fixed - the eight status tabs and the date row were clipped at 390px, and the money cell's right alignment read as clipped once a row wrapped. **Nothing is deployed.**
-
-Phase 9 was **complete.** Every blocking decision is owner-approved (D1, D2, D3, D7, D8, D9, D11, D12). **No resource has been provisioned and no implementation has begun.**
-
-### Approved (owner, 2026-10-11)
-
-| ID | Decision | Recorded in |
-| --- | --- | --- |
-| D1 | Database - **Neon PostgreSQL**, Free initially, ~$15/mo upgrade when justified | ADR 0005 |
-| D2 | Hosting - **Vercel**, Hobby initially, **Pro** ~$20/mo when required | ADR 0005 |
-| D3 | Image storage - **Neon Object Storage**, Free (5 GB/project), $0.023/GB-month paid | ADR 0006 |
-| D7 | Payment methods - **manual bKash**, **manual Nagad**, and **COD as a distinct method**. No automated gateway | register |
-| D8 | Payment fields - **sender mobile number required**, **transaction reference required**, **no screenshot**. Recipient details owner-configurable | register |
-| D12 | Checkout - **account required** before ordering; cart preserved and customer returned to checkout | register |
-| D9 | Payment and order policy (**approved**; expiry **deferred by ADR 0014**; **refunds deferred by owner decision 2026-10-20**) - 24-hour verification maximum (internal, **not** a customer-facing promise); exceptions queue so a genuine payment is never silently discarded; fake-order findings with an audited reason and a separate customer review flag; `rejected` is not an accusation; cancellation via support; ~~manual refunds with separate `requested`/`processing`/`completed`/`failed` states~~ - **out of scope for this launch, the schema keeps the states unused**; COD owner approval before dispatch; state separation; **cancellation after the window as a pre-dispatch support decision or a post-dispatch return**; **full COD lifecycle**. **A submitted claim never expires or is released by a timer**; the 24-hour unpaid-order expiry is **not scheduled** | register; `docs/payment-workflow.md` 13.1-13.9; ADR 0014 |
-| D11 | Payment-claim priority (**approved**; superseded in effect by ADR 0013) - the **first submitted payment claim** is observed first, and there is **at most one active submitted claim per order**. **No reservation, allocation or deduction is written and overselling is accepted**, so there is no per-unit preemption or release; a return makes nothing sellable until physically received and inspected | register; `docs/payment-workflow.md` 13.10; ADR 0013 |
-
-**Cost policy:** keep initial costs as close to zero as reasonably possible; do not upgrade pre-emptively; justify any upgrade from measured usage, actual plan limits, reliability needs or business growth; recheck current provider pricing and plan terms before implementation and before any upgrade recommendation. The $15 and $20 figures are the owner's intended future budget, not guaranteed permanent prices.
-
-### Phase 10 gate - closed
-
-| # | Question | Answer (owner, 2026-10-11) |
-| --- | --- | --- |
-| 1 | **Unpaid-order expiry duration** | **24 hours from placement** in the design, applying only to orders with no submitted claim. An order awaiting verification never expires automatically. **Deferred by ADR 0014 (2026-10-16):** not a launch priority, no scheduler or expiry job is added, and under ADR 0013 there is no reservation to revive. |
-| 2 | **Cancellation after the 24-hour window** | Support decides **before dispatch**; after dispatch it becomes a **delivery cancellation / return**. |
-| 3 | **COD lifecycle** | Owner approval before dispatch; support cancellation before dispatch; the return workflow after; return-to-store on failure; **separate delivery, cash-collection and reconciliation states**. |
-| 4 | **D11 over-subscription bound** | **At most one active submitted claim per order** (implemented). **Re-scoped by ADR 0013:** no unit is reserved or allocated and overselling is accepted, so the bound governs the verification queue, not a physical unit. |
-
-**D11 is approved.** Priority goes to the **first submitted payment claim**, not to the earliest order and not to whoever the owner verifies first. A later claim therefore **preempts** an earlier order that has not submitted a claim; an order that **has** submitted a claim is never preempted and never released by a timer, and **at most one active submitted claim exists per unit**. The binding invariants are fixed: atomic allocation, no oversell, idempotent state-guarded release, returned goods restored to sellable only after physical inspection, and every movement auditable. **Accepted consequence:** a losing customer who transferred before submitting must be refunded manually through support, so the storefront claims the unit at submission, before showing payment instructions. The full analysis is in `docs/payment-workflow.md` section 13.10.
-
-The launch payment model is settled: **manual bKash and Nagad verification, plus COD as a distinct method** (`docs/payment-workflow.md`). **No automated gateway is authorized.**
-
-**Customer authentication is now a launch requirement** (D12): registration, login, sessions, account recovery, object-level authorization and cart preservation across the login step.
-
-Decisions that can be settled later without rework: staff authentication, ORM choice, single app versus split, background jobs, courier API integration, admin roles.
-
-**No resource has been provisioned.** No database, hosting account, object store, payment or courier onboarding, and no DNS change.
-
-**Standing prohibitions:** do not log into the merchant dashboard again (that authorization is spent), do not use Zatiq's private API, do not create real orders or payments, do not onboard payment or courier providers, and do not collect customer data.
-
-**Parallel work needing no approval:** visual review of the logo and widened layout, real-device and assistive-technology checks, Bangla content review, and image rights clearance.
-
-Last audit date: 2026-10-20.
-
-**Phase 38 (dashboard figures, analytics and promotion codes) is implemented locally and is not deployed (ADR 0021).** The owner compared the panel with Zatiq Easy and asked for three things; all three exist now. **The dashboard** leads with five derived figures, a revenue line and an order-status ring, then the COD worklist, then the recent-order list with money, catalog and promo cards. **`/admin/analytics`** reports a 7/30/90-day window - revenue, orders, items, customers, average order, discounts, the revenue series with its peak day, the fulfilment mix, what sold, the money split and promo usage - every figure an aggregate over order rows computed on read, with **money bucketed by `completed_at` and workload by `placed_at`** and **no traffic figure at all** (the screen says so). **Promotion codes** are real: `promo_code` (percentage with an optional cap, or fixed amount; optional minimum, window, usage limit; pause not delete) plus `promo_code_redemption` (one row per order, unique per order, append-only) plus an immutable `order.discount_minor`; usage is a derived `count(*)`, the last use is protected by locking the code row inside the order transaction, and checkout quotes and applies the discount through one shared evaluator. **Migration `0008` takes the schema 43 -> 45 tables** and widens the order immutability trigger. A code that cannot apply **refuses the order** rather than charging more than the preview stated. Verified 2026-10-23: `test` **178/178**, `test:db` **255/256** (the single failure is the pre-existing `catalog.test.ts` name rule, which the uncommitted migration `0007` invalidated), `check:i18n` (1148 keys), `check:catalog`, `typecheck`, `lint` (0 errors), `db:validate` (45 tables, 163 checks, 91 indexes, 12 triggers), and a Chromium walk-through from creating a code to reading the completed order's figures. **Not verified:** `verify:browser`/`verify:admin` against the new screens, real devices, screen readers. **Nothing is deployed and no cloud resource exists.**
-
-**Phone landing revision (2026-10-23, presentation only).** Below 720px the homepage now hides the category strip and the three hero photographs, and the hero no longer carries a tinted band. Both omissions are CSS-only (the section stays in the DOM), so the tablet/desktop composition, data and routes are untouched, and the phone keeps two category paths: the fixed tab bar and the hero's "Browse categories" button. `verify:browser` check 36 was rewritten to assert the omission and check 36d to assert the restoration; a broken selector in check 27 (`div[class$*="_scroller"]`, not valid CSS) was found while re-running the suite and corrected. Verified over CDP at 390 / 768 / 1440: strip and collage absent at 390 and present above, hero background transparent at every width, zero horizontal overflow.
-**Phase 36 (category editor parity) is implemented locally.** The category screens are three routes -
-the list, `/admin/categories/new` and `/admin/categories/[categoryId]` - and `?new=1` / `?edit=` are
-removed rather than kept as aliases. The editor uses the product/promo shell: one sticky action bar, a
-readiness sentence naming the empty fields, the shared two-column layout from 1080px, explicit
-validation in words, and a preview of the address the category will have. The two counts an archive is
-refused on - live products and live subcategories - are **derived** in SQL, shown in the editor and (the
-subcategory count) in the list, so the owner sees what is in the way before pressing Archive. A refused
-save returns to the editor it came from via an **allowlisted** `returnTo`, so typing survives. No parent
-picker: subcategory management is a depth decision the owner has not taken. **Schema unchanged (45
-tables, no migration).** Two defects fixed: a slug held by an **archived** category used to reach the
-unique index as a **500** (now a conflict notice), and the visibility checkbox could not actually hide a
-category because an unticked box posts nothing (the editor now posts an explicit `false`). Verified:
-`typecheck`, `lint` (0 errors, 2 pre-existing warnings), `check:i18n` (1172 keys), `tests/db/catalog.test.ts`
-**31/32** (the one failure is the pre-existing product-name test migration `0007` invalidated), and an HTTP
-walk-through of create -> update-to-hidden -> archive, a crafted `returnTo`, missing CSRF (403), archived
-and unknown ids (404), and old query parameters inert. **Not verified:** the editor's client-side layer -
-readiness summary, blocked-submit alert, live state - because the shared dev server on port 3000 serves a
-stale production `.next`, so **no page in the app hydrates** there (`/admin/catalog/new` behaves the same);
-restarting dev after removing `.next` is the fix. Headless Chromium only.
-**Phase 39 (Telegram order notifications) is implemented locally (ADR 0022).** Orders notify the owner
-through Telegram: recipients are rows (`telegram_recipient`, label + numeric chat id + active), every
-active row receives each order, and the bot token is a deployment secret (`TELEGRAM_BOT_TOKEN`) that the
-admin screen reports as configured or missing and never displays. The send runs in `after()` and cannot
-fail an order; a replayed checkout does not notify twice; a test button proves a chat id works before a
-real order depends on it. Schema **45 -> 46 tables** (migration `0009`, additive). Verified: unit **16/16**,
-`typecheck`, `lint`, `check:i18n` (1221 keys), `db:validate`, live `getMe`, a real send handled as a
-failure for an unregistered id, and an HTTP walk-through of every operation. **Not verified:** delivery to
-a real Telegram account, and `after()` under a deployed runtime.
-**Phase 43 (import of the owner's previous store) is implemented locally and is not deployed.** The local
-catalog is now the real one: 1,477 published products, 245 brands, 15 categories, 1,919 images (622 MB,
-gitignored until object storage exists), 528 customers and 559 orders (confirmed 379, pending 138,
-cancelled 30, completed 9, delivered 3) with 1,648 line items. Money reconciles for every order
-(total = items - discount + shipping); 26 orders carry a recorded price difference as a discount, and the
-vendor's own figures for each order are preserved in its `order_placed` payload. 481 customers have a
-synthetic `@import.invalid` address and **none** has a credential, so every imported account needs an owner
-reset before it can sign in. Verified: unit **194/194**, db **258/258**, `typecheck`, `lint`, `check:i18n`,
-`check:catalog`, `db:validate`. **Known consequence:** the catalog listing does not paginate, so
-`/products` now returns 4.0 MB of HTML. See `docs/migrations/zatiq-easy-import.md`.
-**Phase 44 (the storefront survives the real catalog) is implemented locally (2026-10-23).** The import
-broke three things and this fixes exactly those, without a redesign. The header drew all fifteen
-departments (row 182-1662px, tail under the search field, every page scrolling sideways at 1440 and 1024);
-it now shows the **four busiest departments plus "All categories"**, and the nav cannot widen the document
-again. The listing rendered all 1,477 products (4.0 MB, **22,752 DOM nodes**, 145,604px tall); it now pages
-at **48** with a numbered pager, filters reset to page one, and a stale page lands on the last page -
-**1,508 nodes**. Unbounded lists fell back into bounds: the homepage strip is four tiles with an honest
-caption, the footer lists five departments then the index, and the 245-brand facet scrolls in its own panel.
-Also fixed: the overview read the COD queue off its five-row preview ("Waiting 25" beside a queue of 138),
-the oldest wait printed hours where the chips printed days, the tab-bar spacer cleared the footer by 1px,
-and long vendor category names clipped mid-word. **Verified: 0 of 44 route x width combinations overflow**,
-plus typecheck, lint (0 errors), check:i18n (1245 keys) and unit 194/194. **Not fixed, and measured:**
-every route still ships 1,477 products in the React payload (about 2.0 MB, 267 KB gzipped) because the
-layout's cart provider resolves cart lines from the whole catalog - that is the next phase.
-
+**Not done, and not claimed:** `verify:browser`, `verify:admin`, `verify:ui`, real devices and screen
+readers. Nothing is deployed.

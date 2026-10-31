@@ -10,7 +10,7 @@
 }
 
 .card:hover {
-  border-color: var(--color-primary);
+  border-color: var(--brand-primary);
   box-shadow: var(--shadow-sm);
 }
 
@@ -48,14 +48,31 @@
 .brand {
   font-size: var(--text-xs);
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  /*
+   * No tracking: the brand is catalogue data and may be Bengali, where letter-spacing distorts
+   * conjunct clusters (AGENTS.md). Uppercase simply has no effect on Bengali, so the caption still
+   * reads as a caption without damaging the script.
+   */
+  letter-spacing: normal;
   color: var(--color-ink-subtle);
+  /* One reserved line, so a product without a brand does not lift its title above its neighbours. */
+  min-height: 1.6em;
 }
 
 .title {
   font-size: var(--text-base);
   font-weight: 600;
   line-height: var(--leading-snug);
+  /*
+   * Two lines, always. Imported vendor names run to three or four lines; without a clamp one card
+   * in a row is twice as tall as its neighbours and the price baselines scatter. The full name is
+   * on the product page, and the truncation is a real ellipsis rather than a cut word.
+   */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  min-height: 2.8em;
 }
 
 .title a:hover {
@@ -65,6 +82,7 @@
 .pack {
   font-size: var(--text-xs);
   color: var(--color-ink-muted);
+  min-height: 1.6em;
 }
 
 /**
@@ -74,7 +92,11 @@
  * decoration.
  */
 .pricing {
-  margin-top: auto;
+  /*
+   * No auto margin. The price follows the fixed brand/title/pack block, so every card in a row
+   * puts its price on the same baseline; bottom-anchoring it made a short card open a 90px gap
+   * between its title and its price while its neighbour had none.
+   */
   padding-top: var(--space-2);
   display: flex;
   align-items: baseline;

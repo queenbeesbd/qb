@@ -206,6 +206,55 @@ export function OverviewView({
         }
       />
 
+      {/*
+        The queue is the front door, so it comes first - above the figures. The product rule and the
+        CSS comment both said so while the DOM put five KPI tiles and a chart ahead of it, which put
+        the calls waiting 1.3 screens down a phone.
+      */}
+      {canReadOrders && (
+        <section className={styles.queuePanel} aria-labelledby="cod-heading">
+          <div className={styles.queueHead}>
+            <div className={styles.queueIntro}>
+              <div className={styles.queueTitleRow}>
+                <h2 id="cod-heading" className={styles.queueTitle}>
+                  {t('admin.overview.worklistTitle')}
+                </h2>
+                {pendingCount > 0 && <span className={styles.queueBadge}>{pendingCount}</span>}
+                <Link className={styles.queueLink} href="/admin/orders-cod">
+                  {t('admin.overview.viewQueue')}
+                  <span aria-hidden="true">→</span>
+                </Link>
+              </div>
+              <p className={styles.queueSub}>{queueSummary}</p>
+            </div>
+          </div>
+
+          {/* An empty queue is a sentence, not a panel: the strip above already says nothing waits,
+              and an empty state with another button would compete with the rail for the same click. */}
+          {pending.length > 0 && (
+            <div className={styles.worklist}>
+              {pending.map((row) => (
+                <CodOrderCard
+                  key={row.orderId}
+                  nowIso={nowIso}
+                  row={row}
+                  csrfToken={csrfToken}
+                  canApprove={canApprove}
+                  canCancel={canCancel}
+                  compact
+                />
+              ))}
+              {moreCount > 0 && (
+                <p className={styles.queueMore}>
+                  {t('admin.overview.moreInQueue', { count: moreCount })}{' '}
+                  <Link href="/admin/orders-cod">{t('admin.overview.viewQueue')}</Link>
+                </p>
+              )}
+            </div>
+          )}
+        </section>
+      )}
+
       {analytics !== null && (
         <div className={styles.kpiGrid}>
           <div className={styles.kpi}>
@@ -293,50 +342,6 @@ export function OverviewView({
             )}
           </section>
         </div>
-      )}
-
-      {canReadOrders && (
-        <section className={styles.queuePanel} aria-labelledby="cod-heading">
-          <div className={styles.queueHead}>
-            <div className={styles.queueIntro}>
-              <div className={styles.queueTitleRow}>
-                <h2 id="cod-heading" className={styles.queueTitle}>
-                  {t('admin.overview.worklistTitle')}
-                </h2>
-                {pendingCount > 0 && <span className={styles.queueBadge}>{pendingCount}</span>}
-                <Link className={styles.queueLink} href="/admin/orders-cod">
-                  {t('admin.overview.viewQueue')}
-                  <span aria-hidden="true">→</span>
-                </Link>
-              </div>
-              <p className={styles.queueSub}>{queueSummary}</p>
-            </div>
-          </div>
-
-          {/* An empty queue is a sentence, not a panel: the strip above already says nothing waits,
-              and an empty state with another button would compete with the rail for the same click. */}
-          {pending.length > 0 && (
-            <div className={styles.worklist}>
-              {pending.map((row) => (
-                <CodOrderCard
-                  key={row.orderId}
-                  nowIso={nowIso}
-                  row={row}
-                  csrfToken={csrfToken}
-                  canApprove={canApprove}
-                  canCancel={canCancel}
-                  compact
-                />
-              ))}
-              {moreCount > 0 && (
-                <p className={styles.queueMore}>
-                  {t('admin.overview.moreInQueue', { count: moreCount })}{' '}
-                  <Link href="/admin/orders-cod">{t('admin.overview.viewQueue')}</Link>
-                </p>
-              )}
-            </div>
-          )}
-        </section>
       )}
 
       <div className={styles.splitGrid}>

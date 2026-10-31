@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from '@/i18n/useTranslation';
 import type { TranslationKey } from '@/i18n/dictionaries';
 import type { CatalogCategory, CatalogItem } from '@/lib/types';
@@ -73,6 +73,15 @@ export function CatalogView({
   const { t, pick } = useTranslation();
   const router = useRouter();
   const [term, setTerm] = useState(query.q);
+  /**
+   * The header's compact search control (1024-1199px) links here with `#catalog-search`, because there
+   * is no room for a field in the bar at that width. Following the link should put the caret in the
+   * field rather than leave the shopper to find it, so the fragment is honoured once on arrival.
+   */
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
+  useEffect(() => {
+    if (window.location.hash === '#catalog-search') searchInputRef.current?.focus();
+  }, []);
   /**
    * The filter panel is collapsed on a phone, always.
    *
@@ -162,6 +171,7 @@ export function CatalogView({
             <div className={styles.searchField}>
               <input
                 id="catalog-search"
+                ref={searchInputRef}
                 type="search"
                 value={term}
                 onChange={(event) => setTerm(event.target.value)}

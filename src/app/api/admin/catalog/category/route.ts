@@ -43,6 +43,25 @@ function backTo(path: string, notice: string): Response {
   return redirectTo(`${path}?notice=${notice}`);
 }
 
+/**
+ * The visibility switch, read so that the ticked box wins.
+ *
+ * The editor posts **two** entries under this name: a hidden `false` and, when the box is ticked,
+ * `true`. `FormData.get()` returns the **first** entry in document order, so reading it that way made
+ * the hidden `false` decide every save: the owner could hide a category and never show it again, and
+ * the panel answered "updated". Reading the whole list fixes the direction the pair was designed for -
+ * "nothing" still means off, and an explicit `true` overrides it - while an absent field stays
+ * `undefined`, which is what lets the service keep its own default.
+ *
+ * Measured before the fix, with the exact entries a ticked box sends
+ * (`["false","true"]`): stored `false`. After: stored `true`.
+ */
+function readVisibility(form: FormData): boolean | undefined {
+  const values = form.getAll('isVisible');
+  if (values.length === 0) return undefined;
+  return values.includes('true');
+}
+
 export async function POST(request: Request): Promise<Response> {
   const guard = await guardMutation(request, PERMISSIONS.catalogWrite);
   if (!guard.ok) {
@@ -72,7 +91,7 @@ export async function POST(request: Request): Promise<Response> {
     descriptionBn: form.get('descriptionBn') ?? undefined,
     descriptionEn: form.get('descriptionEn') ?? undefined,
     sortOrder: form.get('sortOrder') ?? undefined,
-    isVisible: form.get('isVisible') ?? undefined,
+    isVisible: readVisibility(form),
   };
 
   try {

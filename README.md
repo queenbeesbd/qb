@@ -1,238 +1,198 @@
-# QueenBee's storefront (demo)
+# QueenBee's
 
-A bilingual (Bangla/English) cosmetics storefront for QueenBee's, a Bangladeshi cosmetics retailer. Built as a **client-ready frontend demonstration**: the shopping experience is complete and interactive, with authentic product photography, but no order, payment or delivery is real.
+A **single-store, owner-operated shop** ([ADR 0008](docs/decisions/0008-single-store-product-model.md)): one
+storefront on the public web and one private admin panel for the owner who runs it. Next.js App Router
+over PostgreSQL, with the catalog, customers, orders, promotions and analytics owned by this repository -
+Zatiq Easy was a UX reference, not a backend ([ADR 0004](docs/decisions/0004-independent-platform-direction.md)).
 
-> **Product model (approved 2026-10-11, [ADR 0008](docs/decisions/0008-single-store-product-model.md)).** QueenBee's is a **single-store, owner-operated shop**: one owner sells this store's own goods to this store's own customers. It is **not** a marketplace, multi-vendor platform or SaaS store builder - there are no third-party merchants, vendor onboarding, seller dashboards, commissions, payouts or tenant isolation. The private **admin dashboard** serves this store's owner (and, only where justified and approved, named staff).
->
-> **Direction (approved 2026-10-11).** QueenBee's is being built as an **independent e-commerce platform** - its own backend, database, admin dashboard, analytics and commerce workflows. The Zatiq Easy dashboard is a UX and feature reference only, not a target backend or a dependency. See [the decision](docs/decisions/0004-independent-platform-direction.md), [platform architecture](docs/platform-architecture.md), [admin dashboard scope](docs/admin-dashboard.md) and [migration plan](docs/migration-plan.md). None of it is built yet.
+**Status: implemented locally, deployed nowhere.** No cloud resource, credential, bucket or DNS record
+exists for this product, and provisioning is a separate owner authorization
+([ADR 0005](docs/decisions/0005-neon-postgresql-and-vercel-hosting.md)). The storefront carries a global
+`noindex`, and **Cash on Delivery is the only payment method** ([ADR 0015](docs/decisions/0015-cod-only-release.md)) -
+nothing is paid in the browser.
 
-- Public catalog source: https://queenbees.sellbd.shop/
-- Functional reference (patterns only, no assets copied): https://ghorerbazar.com/
-- Merchant backend: https://merchant.zatiqeasy.com/ - **reference only.** Audited read-only in Phase 7 and now explicitly not an integration target
+## What exists
 
-> **This is a demonstration.** A locked announcement strip says so on every route, and the site is
-> `noindex`. It is **not deployed**. Locally it runs a real backend: customer accounts, Cash on Delivery
-> checkout and an owner admin panel. **Cash on Delivery is the only payment method (ADR 0015)** - there is
-> no online payment, no gateway and nothing to pay in the browser. See
-> [Known limitations](#known-limitations).
+**Storefront** - the shop, on the real catalog (1,605 products, 15 categories, 245 brands):
+
+- Home, listing with search / category / brand / sort and pagination, category index and detail, product
+  detail, cart, checkout.
+- Customer accounts: register, sign in, order history and one order's confirmation.
+- Checkout is Cash on Delivery: delivery contact plus a delivery area (Dhaka / Chattogram / Other), priced
+  server-side and snapshotted on the order. Guest checkout is an owner switch.
+- Cart state is ids and quantities in `localStorage`; prices, names and availability are always re-read.
+
+**Admin panel** (`/admin`, owner-only - [ADR 0009](docs/decisions/0009-owner-decisions-availability-bans-and-owner-accounts.md)):
+
+- Overview with the COD worklist, refused actions and catalog counts; `/admin/analytics` for the last
+  7 / 30 / 90 days, derived from the shop's own rows.
+- Orders: the COD queue, the recallable order list, one order in full with its event history; approve,
+  cancel, dispatch, deliver, record a failed delivery, receive the return, mark Payment Received (which
+  completes the order) and record per-order courier costs.
+- Catalog: products (create, edit, availability, image association), categories, brands.
+- Customers, promo codes, delivery charges, announcement bar, integrations, audit trail, owner accounts.
+
+**Not built, deliberately:** any online payment or gateway, courier consignment/tracking, refunds (owner
+decision), image upload or object storage, email/SMS/OAuth providers, customer self-service password
+recovery, and deployment.
 
 ## Stack
 
 | Concern | Choice |
 | --- | --- |
-| Framework | Next.js 16.4.0 (App Router, Turbopack) |
+| Framework | Next.js 16.4.0 (App Router), React 19.3.0 |
 | Language | TypeScript 5.9.3, `strict` + `noUncheckedIndexedAccess` |
-| Runtime | Node >= 20.9.0 (verified on Node 26.11.1) |
-| Package manager | npm 12.2.0, lockfile committed |
-| Styling | CSS Modules + CSS custom-property tokens |
-| Rendering | Server Components by default; Client Components only for cart, locale, filters, drawer, shelf |
-| Data | PostgreSQL (Drizzle ORM) for the storefront catalog, orders, customers and admin; the Phase 1 fixture survives only as the local/test `db:seed:catalog` input |
-| Imagery | 22 product photos served locally as WebP + JPEG at 3:4, two widths; reuse rights pending written confirmation |
-| i18n | Central typed dictionaries, `useSyncExternalStore` locale store |
-| Fonts | Inter (Latin, variable) + Noto Sans Bengali, self-hosted via `next/font`; weights limited to 400/500/600/700 |
-| Tests | Zero-dependency integrity scripts, `node:test` unit and database suites, HTTP verification scripts, and a CDP-driven Chromium suite (65 storefront checks) |
-
-No database, ORM, auth provider, CMS, state-management library, UI component library or animation library is used. See [ADR 0001](docs/decisions/0001-nextjs-typescript-foundation.md).
+| Database | PostgreSQL 18 locally; Drizzle ORM 0.45.4 with committed SQL migrations ([ADR 0007](docs/decisions/0007-drizzle-and-database-driver.md)) |
+| Styling | CSS Modules plus CSS custom-property tokens in `src/app/globals.css` |
+| Interface language | English only, one typed dictionary ([Phase 28](docs/implementation-plan.md)) |
+| State | Two `useSyncExternalStore` modules (cart, locale) - no state library |
+| Tests | `node:test` unit and database suites, integrity scripts, and CDP-driven Chromium suites |
 
 ## Getting started
 
-The application needs a PostgreSQL database. Locally that is a **disposable cluster outside the
-repository**, started by a script; nothing is deployed and no cloud resource is involved.
+Local PostgreSQL is a disposable cluster outside the repository (`./.dev-pg`), started by a script.
 
 ```bash
 npm install
+npm run dev:db                 # cluster on 127.0.0.1:55432, matching .env.local
 
-# 1. A local development cluster on 127.0.0.1:55432 (matches .env.local).
-#    It never initialises over an existing data directory and never drops a database.
-npm run dev:db
+npm run db:migrate             # 12 reviewed migrations, 46 tables
+npm run db:seed                # permission catalogue + owner role
+npm run db:seed:catalog        # optional: the 22-product fixture seed
 
-# 2. Schema, permission catalogue, catalog and the first owner account.
-npm run db:migrate
-npm run db:seed
-npm run db:seed:catalog
-npm run staff:bootstrap -- you@example.test "Owner"   # prints a one-time token for /admin/redeem
+npm run staff:bootstrap -- you@example.test "Owner"   # prints a one-time token
+# open http://localhost:3000/admin/redeem, paste the token, choose a password
 
-# 3. Run it
-npm run dev          # http://localhost:3000   (admin at /admin)
+npm run dev                    # http://localhost:3000  (admin at /admin)
 ```
 
-`npm run db:migrate`, `db:seed`, `db:seed:catalog` and `staff:bootstrap` read `.env.local` (or `.env`) when
-it exists and never override a variable that is already set in the environment. Stop the cluster with
-`npm run dev:db -- --stop`; its data directory is kept, and nothing is deleted.
+The production build is what the project verifies: `npm run build` then `npm run start`. Both read
+`.env.local` (or `.env`) when present and never override a variable that is already set in the
+environment. `QUEENBEES_ENV` guards the database target: a loopback host is refused in production mode,
+so a local demo runs as `QUEENBEES_ENV=development`.
 
-Production build and serve:
-
-```bash
-npm run build
-npm run start        # http://localhost:3000
-```
-
-## Commands
-
-| Command | Purpose |
-| --- | --- |
-| `npm run dev` | Development server |
-| `npm run build` | Production build |
-| `npm run start` | Serve the production build |
-| `npm run lint` | ESLint (Next core-web-vitals + TypeScript rules) |
-| `npm run typecheck` | `tsc --noEmit` |
-| `npm run check:catalog` | Content integrity: ids, slugs, prices, categories, image files, provenance, locked demo warning |
-| `npm run check:i18n` | Bangla/English key parity and placeholder-token equality |
-| `npm run check:secrets` | Refuses tracked environment files and secret-shaped values |
-| `npm run dev:db` | Start (or `-- --stop`) the local development PostgreSQL cluster |
-| `npm run db:migrate` / `db:validate` / `db:status` / `db:grants` | Apply and validate migrations, report status and grants |
-| `npm run db:rehearsal` | Migration rehearsal against a disposable cluster |
-| `npm run db:seed` / `db:seed:catalog` | Permission catalogue and owner role / the 22-product catalog |
-| `npm run staff:bootstrap` / `staff:list` | Create the first owner account (one-time token) / list accounts |
-| `npm run test` / `test:db` | Unit suite / database suite against a disposable cluster |
-| `npm run verify:admin` | Admin HTTP + Chromium verification (needs a production build) |
-| `npm run verify:storefront` | Storefront browser suite plus the HTTP customer-flow checks |
-| `npm run verify:browser` | 65-check Chromium journey suite (requires a running server) |
-
-Browser suite usage:
-
-```bash
-npm run build
-npx next start -p 4311 &
-npm run verify:browser          # defaults to http://127.0.0.1:4311
-```
-
-It drives a local Chromium over the DevTools Protocol using only Node built-ins (`node:http` plus the global `WebSocket`), so no test dependency is added. It requires `chromium` on `PATH`; if it is unavailable, run the other five checks and treat browser behaviour as unverified.
+**A demo owner account exists in this local database** (`demo@queenbees.test`) - its password was set
+through `/admin/redeem` and is not recorded in the repository, because a working credential does not
+belong in a committed file. To work on a fresh database, use `staff:bootstrap` above. Accounts are only
+created from the host shell or by an owner; there is no web setup screen and no second provisioning
+channel.
 
 ## Routes
 
-| Route | Rendering | Notes |
-| --- | --- | --- |
-| `/` | Static | Hero with product composition, desktop-only category section, single-row featured shelf, verified offers, curated "more to explore" collection |
-| `/products` | Server-rendered | Search, category/brand filter, sort; all state in the query string |
-| `/categories/[slug]` | Server-rendered | Five reviewed categories |
-| `/products/[slug]` | Prerendered (22) | Product photos, price hierarchy, quantity, add to cart, related products |
-| `/cart` | Static | Quantity editing, removal, derived totals, empty state |
-| `/checkout` | Dynamic | Account-gated **Cash on Delivery** checkout: delivery contact, delivery area and cart lines only, no payment field (D12, ADR 0015) |
-| `/account`, `/account/login`, `/account/register` | Dynamic | Customer session, sign-in and registration |
-| `/account/orders`, `/account/orders/[orderNumber]` | Dynamic | The customer's own orders and one order's confirmation. Another customer's order number is a 404, never a 403 |
-| `/admin` | Dynamic | Owner overview: the COD worklist, anything refused, and reference counts |
-| `/admin/orders-cod` | Dynamic | The COD confirmation worklist: call, then approve or cancel |
-| `/admin/orders`, `/admin/orders/[orderNumber]` | Dynamic | Order history (search, status filter, pagination) and one order in full, with its event and audit history |
-| `/admin/catalog`, `/admin/categories` | Dynamic | Products (create, edit, availability, images) and categories |
-| `/admin/customers`, `/admin/customers/[id]` | Dynamic | Customer lookup, order history and the guarded suspension |
-| `/admin/settings/delivery` | Dynamic | The required default delivery charge and the Dhaka/Chattogram overrides |
-| `/admin/audit`, `/admin/owners` | Dynamic | The audit trail and owner-account management |
-| `/_not-found` | Static | Localized not-found |
+| Route | Notes |
+| --- | --- |
+| `/` | Hero, curated selections, derived discounts, "recently added", browse row |
+| `/products` | Search, category / brand filters, sort, pagination - all in the query string |
+| `/products/[slug]` | Product detail, availability, quantity, add to cart |
+| `/categories`, `/categories/[slug]` | Department index and one department |
+| `/cart` | Lines, quantity editing, removal, derived totals |
+| `/checkout` | Delivery contact and area, promo code, Cash on Delivery |
+| `/account`, `/account/login`, `/account/register`, `/account/recover` | Customer session and the owner-issued reset |
+| `/account/orders`, `/orders/[orderNumber]` | The customer's own order list, and the receipt for one order. The receipt is the canonical route for **both** viewers: a guest reaches it by its own number, a customer through the list, and another customer's number is a 404. `/account/orders/[orderNumber]` redirects to it. |
+| `/admin` | Overview: COD worklist, refused actions, catalog counts |
+| `/admin/orders-cod`, `/admin/orders`, `/admin/orders/[orderNumber]` | The COD queue, order history, one order in full |
+| `/admin/catalog`, `/admin/catalog/new`, `/admin/catalog/[productId]` | Products: list and full-height editor |
+| `/admin/categories`, `/admin/promo-codes`, `/admin/customers` | Taxonomy, codes and the customer list |
+| `/admin/analytics`, `/admin/audit`, `/admin/owners` | Derived figures, the audit trail, owner accounts |
+| `/admin/settings/{delivery,announcement,other,integrations}` | Delivery charges, announcement bar, checkout switches, integrations |
+| `/api/...` | Every mutation: checkout, account, and the `/api/admin/*` routes behind a session and a permission |
 
-Search, filter and sort are URL-driven, so every view is linkable, refreshable and back/forward-safe.
-
-## Internationalization
-
-Bangla is the default. The toggle in the header switches the entire interface and persists the choice in `localStorage` under `queenbees.locale.v1`. Interface copy lives in `src/i18n/dictionaries.ts`; components never hardcode text or branch on locale. Product and category content is `{ bn, en }` with a documented per-field fallback. Prices are stored as integer poisha and **never change with locale** - only the digit style and currency prefix do. See [ADR 0002](docs/decisions/0002-bilingual-content-strategy.md).
+The admin surface uses **one control scale** (40px / 34px, and 40px for both on a phone) and the
+storefront **never lets a phone zoom the page** - see [design system](docs/design-system.md).
 
 ## Project layout
 
 ```
 src/
-  app/                  routes, layout, shared chrome, global tokens
-  components/           header, footer, cards, stepper, icons
-  features/catalog/     query parsing, selection, home and catalog views
-  features/cart/        cart store, provider, view
-  features/checkout/    inert checkout preview
-  i18n/                 dictionaries, locale config, store, provider, hook
-  lib/                  domain types, integer money, formatting
-  data/                 reviewed demo catalog and categories
-scripts/                catalog and i18n integrity checks, browser suite
-docs/                   audit, requirements, design, security, plan, ADRs
-public/brand/           original SVG mark, outlined wordmark, favicon
-public/catalog/         22 product image sets (local WebP + JPEG variants)
+  app/
+    (storefront)/        public routes and their layouts
+    (admin)/admin/       owner routes: (app) shell and (auth) login/redeem
+    api/                 route handlers - every write goes through one
+    globals.css          design tokens; Shell.tsx / providers.tsx wrap both surfaces
+  components/            header, footer, tab bar, cards, photo, stepper, icons, ticker
+  features/              catalog, cart, checkout, account - the 'use client' views
+  lib/                   domain types, integer-poisha money, delivery, promo, search, formatting
+  server/                server-only services: auth, authz, catalog, orders, delivery, promotions,
+                         settings, analytics, integrations, customer-auth
+  db/                    the only database client, Drizzle schema, migrations driver, seeds
+  data/                  the deterministic fixture seed and the curation id lists
+scripts/                 migration, seed, import, purge, integrity and verification scripts
+drizzle/                 reviewed SQL migrations (0000-0011)
+docs/                    architecture, data model, security, plan, status, ADRs
+public/                  brand assets and the catalog image variants
 ```
+
+`src/server/` and `src/db/` are server-only: a client component importing one fails the build, and
+`npm run check:secrets` verifies the shipped bundle holds no server path or credential. Views depend on
+the accessor contract in `src/server/catalog/storefront.ts`, not on SQL.
+
+## Data
+
+46 tables in 12 reviewed migrations, with append-only `order_event`, `order_item`, `audit_event` and
+`inventory_movement` enforced twice (revoked grants and `BEFORE UPDATE OR DELETE` triggers). The state
+machines are designed in [data model](docs/data-model.md) and implemented in `src/db/schema/`.
+
+Current local contents: **1,605 products**, **528 customers**, **15 categories**, **245 brands**,
+**1,919 images**, **0 orders**. The imported order history was removed by an explicit owner decision
+([migration notes](docs/migrations/zatiq-easy-import.md)); the schema, checkout and COD workflow were kept,
+so dashboards start empty on this database and fill as orders are placed.
+
+## Commands
+
+| Command | Purpose |
+| --- | --- |
+| `npm run dev` / `build` / `start` | Development server / production build / serve the build |
+| `npm run typecheck` / `lint` | TypeScript and ESLint |
+| `npm run test` / `test:db` | Unit suite / database suite (real PostgreSQL) |
+| `npm run check:catalog` | Fixture, curation and image-variant integrity |
+| `npm run check:i18n` | Dictionary completeness and that no interface file carries Bengali |
+| `npm run check:secrets` | No tracked env file, no server path or secret in the client bundle |
+| `npm run dev:db` | Start (or `-- --stop`) the local cluster |
+| `npm run db:migrate` / `db:validate` / `db:status` / `db:check` / `db:grants` | Apply, validate, report |
+| `npm run db:seed` / `db:seed:catalog` / `db:seed:delivery` | Permissions and owner role / fixture catalog / sample delivery charges |
+| `npm run staff:bootstrap` / `staff:list` | Create the first owner (one-time token) / list accounts |
+| `npm run import:zatiq` | Re-run the captured vendor import (`-- --reset` to truncate first) |
+| `npm run db:purge:imported-orders` | Guarded removal of imported order history (`-- --confirm`) |
+| `npm run verify:admin` / `verify:storefront` / `verify:browser` | Rendered-behaviour suites (Chromium over CDP) |
+
+## Verification
+
+Run at every phase checkpoint: `typecheck`, `lint`, `check:catalog`, `check:i18n`, `check:secrets`,
+`test`, `test:db` and `build`, plus the browser suites against a served build.
+
+**Current, verified 2026-10-29:** unit **200/200**, database **258/258**, `typecheck`, `lint` (0 errors),
+`check:i18n` (1,249 keys), `check:catalog`, `check:secrets`, `build`, and a served production build
+answering on every storefront and admin route.
+
+**Stale, and known to be:** `verify:browser` and `verify:admin` are written against the 22-product
+fixture seed and the ordering/COD fixtures of Phases 14-42; against this imported catalog and an empty
+order table their expectations no longer match. Fixing them is the recommended next phase. Their
+replacement for now is a set of task-specific CDP probes, which is weaker than a suite that runs every time.
 
 ## Known limitations
 
-- **Checkout is real, and Cash on Delivery only.** A signed-in customer places a COD order with a delivery address; the owner approves or cancels it by phone. **No online payment exists** and no gateway is authorized. Nothing is deployed, so any order placed locally is test data.
-- **Photography rights are not confirmed in writing.** The 22 images were retrieved from the merchant's own public product pages for this same merchant's demo, and are tagged `merchant_source_pending_confirmation`. Public availability is not a licence. See [docs/catalog.md](docs/catalog.md).
-- **The merchant's photography is lifestyle-style, not studio packshots** - mixed backgrounds (banana leaf, outdoors, white fur), gloved hands, and occasional watermarks. Normalised with a uniform 3:4 crop and a neutral surface; not hidden.
-- **Placeholder fallbacks remain available** for any product without verified, permitted imagery.
-- **No "recently added" list.** The public storefront publishes no reliable date-added field. The section was renamed to "More to explore" and is presented as a curated collection rather than a recency claim.
-- **The homepage category section is hidden below 720px.** Category discovery on mobile goes through the header drawer, which lists every category. Category filtering and the category routes are unaffected.
-- **No product descriptions.** The public pages publish none; the product page says so rather than generating copy.
-- **Bangla product names are transliterations** prepared for this demo and require native review.
-- **Stock is a snapshot**, not live inventory. It reflects the public listing on the capture date.
-- **The owner's order operations stop where the business rules stop.** Approving or cancelling a COD order, then **dispatching, recording a delivery, recording a failed delivery with its return-to-store, receiving and inspecting the returned goods, recording cash collection and completing the order** are all built, audited and idempotent; they live on the owner's order detail (`/admin/orders/[orderNumber]`), and each control appears only in the state that permits it. Two things are still deliberately **not built**, because they are **unresolved owner decisions**: **reconciliation** (`cod_reconciled` is written by nothing - no figure is claimed to be reconciled) and **who bears the delivery charge when a delivery fails** (no transition touches the charged total, and the database refuses to rewrite it). A COD approval is never presented as proof that cash was received, and an inspection never marks stock sellable - the owner sets In Stock by hand. See [admin dashboard scope](docs/admin-dashboard.md).
-- **No backend is deployed.** The merchant platform was audited read-only in Phase 7 and is now a reference only. QueenBee's owns its own backend, database and admin dashboard: the database foundation, owner authentication, catalog management, the database-backed storefront catalog, customer accounts with atomic order creation, the COD owner queue, the redesigned operations dashboard and **three-area delivery pricing** are **implemented locally (Phases 11-19)**. Customers choose Dhaka, Chattogram or Other districts; the owner sets a required default and optional area charges at Settings → Delivery charges, and each order stores the applied charge as an immutable snapshot. The post-dispatch lifecycle - **dispatch, delivery, failed delivery to return-to-store, inspection, cash collection and completion** - is implemented locally (Phase 20); **courier consignment records and reconciliation remain unbuilt**, and nothing applies a failed-delivery charge. The **actual delivery amounts are owner inputs**; until the default is saved, checkout refuses orders rather than guessing. The manual bKash/Nagad flow built in Phase 16 was **removed in Phase 17** ([ADR 0015](docs/decisions/0015-cod-only-release.md)). No price, stock, discount, authorization or payment value from the client is trusted anywhere in this codebase.
-- **A plaintext credential sits in the working tree.** An untracked, gitignored `.env` file holds a credential for the withdrawn `merchant.zatiqeasy.com` vendor. No code reads it and it is not committed, but it should be treated as exposed; **rotating it at the provider and removing it from future use is an owner action**. See [docs/security.md](docs/security.md).
-- **Not verified:** real iOS Safari and Android Chrome devices, screen reader output on real assistive technology, and any production security control.
+- **Nothing is deployed.** A real customer cannot reach this build.
+- **Image rights are not cleared.** Every imported photograph is tagged
+  `merchant_source_pending_confirmation`; public availability is not a licence ([catalog](docs/catalog.md)).
+- **Cash on Delivery only**, and the owner confirms by phone before dispatch. No online payment, no
+  gateway, no provider credential.
+- **Refunds are out of scope** (owner decision) - the table and its states exist, nothing writes them.
+- **No courier integration**, no consignment record, no statement reconciliation. The owner records costs
+  by hand and the dashboard derives figures from rows rather than counters.
+- **No image upload** and no object storage; product images are associated from local assets whose
+  metadata is read from the file bytes.
+- **No traffic or page-view analytics** - there is no tracker, so the analytics screen says so instead of
+  estimating.
+- **No self-service password recovery** for customers; the owner issues a one-time code from the customer
+  screen. No mail provider is authorized.
+- **Not verified:** real iOS Safari, Android Chrome, screen readers, and production security controls.
 
 ## Documentation
 
-- [Agent rules](AGENTS.md)
-- [Repository and storefront audit](docs/project-audit.md)
-- [Reference pattern analysis](docs/reference-analysis.md)
-- [Requirements](docs/requirements.md)
-- [Design system](docs/design-system.md)
-- [Architecture](docs/architecture.md)
-- [Security and threat model](docs/security.md)
-- [Demo catalog provenance](docs/catalog.md)
-- [Merchant backend capability audit](docs/backend-capability-audit.md) (Phase 7 reference; not an integration target)
-- [Platform architecture](docs/platform-architecture.md)
-- [Data model and schema architecture](docs/data-model.md)
-- [Database foundation and operations](docs/database.md) (Phase 11; implemented locally, not deployed)
-- [Admin dashboard scope](docs/admin-dashboard.md)
-- [Catalog migration plan](docs/migration-plan.md)
-- [Implementation plan](docs/implementation-plan.md)
-- [Verified project status](docs/project-status.md)
-- [Decisions](docs/decisions/)
-
-## Current state and next step
-
-See [verified project status](docs/project-status.md) and the [implementation plan](docs/implementation-plan.md).
-
-Phases 0-8 are complete. The owner has approved an independent-platform direction, so the previous plan to integrate with the merchant platform is withdrawn.
-
-**Phase 9 is complete: every blocking decision is owner-approved.** The owner has approved ([ADR 0005](docs/decisions/0005-neon-postgresql-and-vercel-hosting.md), [ADR 0006](docs/decisions/0006-neon-object-storage.md), and the [decision register](docs/platform-architecture.md)):
-
-| ID | Decision | Detail |
-| --- | --- | --- |
-| D1 | Database - **Neon PostgreSQL** | **Free** initially; ~$15/mo upgrade when justified |
-| D2 | Hosting - **Vercel** | **Hobby** initially; **Pro** ~$20/mo when required |
-| D3 | Image storage - **Neon Object Storage** | Free (5 GB/project); $0.023/GB-month paid. Branches with the database, so preview environments cannot modify production imagery |
-| D7 | Payment methods | **Cash on Delivery only** ([ADR 0015](docs/decisions/0015-cod-only-release.md) narrowed the 2026-10-11 decision). No online gateway, no provider, nothing authorized |
-| D8 | Payment fields (withdrawn) | The prepaid claim fields - sender number, transaction reference, claimed amount - were **removed with the flow**. Nothing of the kind is collected or stored |
-| D9 | Payment and order policy (**approved**; expiry **deferred by ADR 0014**) | **24-hour verification maximum** as an internal service maximum, never a customer-facing promise; an exceptions queue so a genuine payment is never silently discarded; fake-order findings with an audited reason and a separate customer review flag; cancellation via support; manual refunds with separate requested/processing/completed/failed states; COD owner approval before dispatch; **cancellation after the window** as a pre-dispatch support decision or a post-dispatch return; and the **full COD lifecycle**. **A submitted claim never expires or is released by a timer**; the **24-hour unpaid-order expiry is deferred** and no scheduler is added |
-| D11 | Payment-claim priority (**approved**; superseded in effect by ADR 0013) | The **first submitted payment claim** is observed first, with **at most one active submitted claim per order**. **No reservation, allocation or deduction is written and overselling is accepted**, so there is no per-unit preemption or release; inspection-before-restoration still governs returned goods |
-| D12 | Checkout | **Account required.** Guests may browse and build a cart, then must log in or register to order; the cart is preserved and they return to checkout |
-| D17 | Customer authentication (**approved**, ADR 0012) | **First-party customer sessions.** Email and password (**scrypt**, never plaintext); opaque 256-bit session tokens stored only as a **SHA-256 hash**; httpOnly `SameSite=Lax` cookies with idle and absolute expiry; account- and source-keyed throttling; customer-scoped CSRF; **strict separation from owner/admin credentials, sessions and permissions**. **Email is the sole registration and sign-in identifier**; email verification deferred; **no self-service password recovery at launch** (owner-operated reset only). **No external identity, mail, OAuth or SMS provider is authorized** |
-
-Cost policy: keep initial costs as close to zero as reasonably possible, do not upgrade pre-emptively, and recheck provider pricing and plan terms before implementing or recommending an upgrade. The ~$15 and ~$20 figures are the owner's intended future budget, not guaranteed permanent prices.
-
-**Phase 11 is complete, locally.** The database foundation exists: a 39-table Drizzle schema (**40** since Phase 12), reviewed SQL migrations (a generated baseline plus a hand-written guards migration for append-only enforcement, order immutability, state-transition guards and the privileged-permission rule), a server-only typed data-access layer, strict environment validation, migration commands, least-privilege grants, and tests that exercise the schema constraints and the Phase 10 concurrency invariants against real PostgreSQL. See [database foundation](docs/database.md).
-
-**Owner decisions (2026-10-12, [ADR 0009](docs/decisions/0009-owner-decisions-availability-bans-and-owner-accounts.md)).** Product availability is an **owner-controlled In Stock / Out of Stock state**, and an out-of-stock product cannot be ordered. The owner may **ban a customer after a confirmed fake order**, enforced server-side. Administration is **owner-only**: multiple owners are permitted with full access each, and there are no staff or support roles or permission-management system at launch. Owner authentication is **email and password**; **Resend email verification and Google sign-in are deferred** until the client confirms them. Customer/business activity records are kept separate from internal administrative and security records. **[ADR 0010](docs/decisions/0010-availability-toggle-scope.md)** scoped availability to a bare owner toggle in Phase 13. **[ADR 0013](docs/decisions/0013-availability-only-ordering-gate.md) settles the ordering gate (2026-10-15): availability is the only ordering gate**, no reservation, allocation or deduction is written, and **overselling is accepted** rather than prevented. The D11 inventory tables remain implemented and unused.
-
-**Owner decisions (2026-10-17, [ADR 0015](docs/decisions/0015-cod-only-release.md) superseding the payment half of [ADR 0014](docs/decisions/0014-phase-16-checkout-payment-and-delivery-decisions.md)).** **Cash on Delivery is the only payment method in this release.** A COD order enters an **owner-confirmation queue** and the owner confirms by phone before processing - no automatic approval and no courier API. The **bKash/Nagad claim flow, its recipient configuration, its verification queue and its permissions were removed**, and the schema tables they used remain **unused**. **Bans are reasoned, audited and session-revoking and never automatic.** **Delivery charges are not configured:** the amounts, supported areas and matching policy are outstanding owner inputs, so shipping is zero and the interface says delivery is arranged on confirmation. The **24-hour expiry timer and external notifications are deferred**. **Automated online payment is a future roadmap item with no selected provider.** **Recording these decisions provisioned nothing and changed no schema.**
-
-**Owner decisions (2026-10-15, [ADR 0012](docs/decisions/0012-customer-authentication.md) and [ADR 0013](docs/decisions/0013-availability-only-ordering-gate.md)).** Customer authentication is **first-party**: email and password (**scrypt**), opaque 256-bit session tokens stored only as a **SHA-256 hash**, httpOnly `SameSite=Lax` cookies with idle and absolute expiry, account- and source-keyed throttling, customer-scoped CSRF, and strict separation from owner/admin credentials, sessions and permissions. **Email is the sole registration and sign-in identifier**; email verification is deferred; **there is no self-service password recovery at launch** (owner-operated reset only); and **no external identity, mail, OAuth or SMS provider is authorized**. Availability is the **only** ordering gate: no reservation, allocation, deduction or automatic availability change is written, and **overselling is accepted** rather than prevented. **Recording these decisions provisioned nothing** - no dependency, provider, credential, bucket or deployment was created.
-
-**Phase 12 (Owner/Admin Authentication & Dashboard Foundation) is implemented locally and is not deployed.** It protects the private administrative interface for this store's owner: owner login with a hashed credential, server-side sessions in an httpOnly cookie with expiry and revocation, owner-issued credential recovery, per-permission enforcement on every admin page and mutation, and an append-only audit trail. Migration `0002` adds `staff_recovery_token` (`docs/data-model.md` 4.9), taking the schema to **40 tables**. **Nothing is deployed and no QueenBee's-bound cloud resource exists** (see the note below). Customer authentication was a separate decision; **D17 is settled in [ADR 0012](docs/decisions/0012-customer-authentication.md)** and is not part of this phase.
-
-**Phase 13 (Product & Category Management) is implemented locally and is not deployed.** The owner can create and edit products, categories and brands, and operate the **In Stock / Out of Stock** state; the authoritative server-side orderability check refuses an unpublished, archived or out-of-stock product. Owner accounts are managed on a minimal screen with **no role picker** - the role is forced - and the last-active-owner guard is enforced under a row lock. Product imagery is associated from **existing local assets only**, with dimensions and content type read from the file. A database-backed read layer and an authenticated read API exist behind the **unchanged** storefront accessor contract. The Phase 12 staff and role screen, its navigation entry and its four API routes were **removed** and now return 404. Migration `0003` adds `product.availability` (purely additive; schema still **40 tables**), and `npm run verify:admin` passes **97/97**. **Deliberately not done in that phase:** the storefront was **not** cut over and still rendered the fixture catalog; **no inventory movement, deduction or reservation is written**, so overselling is not prevented; **no image is uploaded** and no object storage exists; there is no public catalog endpoint, and no customer account, checkout or order. See [ADR 0010](docs/decisions/0010-availability-toggle-scope.md) and the [roadmap](docs/implementation-plan.md).
-
-**Phase 14 (Storefront Catalog Cutover) is implemented locally and is not deployed.** The storefront now renders the catalog from the **database**, read **server-side only** through the typed accessor contract - there is deliberately **no public catalog endpoint**. Curation is seeded into the existing `collection` / `collection_item` tables rather than a flag on the product record. Search resolves from the product name (both locales), the brand and the pack size; there is no tags feature. The Phase 1 fixture is retained only as the deterministic **local/test seed** (`npm run db:seed:catalog`) and an explicit **development-only** opt-in (`QUEENBEES_STOREFRONT_FIXTURE=1`, off by default, refused outside development, and **never** a fallback after a database read failure - a failure surfaces through the storefront error boundary). An empty catalog states the gap rather than rendering a zero-filled grid. **Unchanged:** availability remains the owner-controlled **In Stock / Out of Stock** state, and this phase writes **no inventory movement, deduction or reservation**. That question is now **settled in [ADR 0013](docs/decisions/0013-availability-only-ordering-gate.md)**: availability is the **only** ordering gate and **overselling is accepted** rather than prevented. **Still not done:** no image upload and no object storage, no public catalog endpoint, no customer account, checkout or order. See [ADR 0011](docs/decisions/0011-local-catalog-authority-and-storefront-cutover.md).
-
-**Phase 15 (Cart Validation, Customer Authentication and Order Creation) is implemented locally and is not deployed.** Customers create an account with an **email and password** (scrypt hashing, never plaintext), sign in to an opaque 256-bit session token stored only as a **SHA-256 digest** in an httpOnly `SameSite=Lax` cookie with a sliding idle limit inside a 30-day ceiling, and are throttled **by account and by source**. **There is no self-service password recovery** - the limitation is stated on the sign-in screen, and no mail, OAuth or SMS provider exists. Ordering requires an account (D12), so an anonymous visitor at `/checkout` is sent to sign in with the checkout path preserved and the browser cart intact. Order creation is **server-authoritative**: the transaction claims a submission key, refuses a suspended or deleted account **inside the transaction** (D20), checks availability per product from database state, prices every line from the database, and writes the order with its items, contact and `order_event` together or not at all; a repeat submission returns the original order and a reused key with a different body is a conflict. The checkout form submits **ids, quantities, contact and a payment method only** - there is no price field, and submitted `priceMinor`/`totalMinor` values are ignored. **No inventory reservation, deduction or movement is written** (ADR 0013), so availability is the only stock gate and **overselling is accepted, not prevented**; an order sits at `awaiting_payment` because payment instructions and verification are Phase 16, and delivery charges remain unapproved so the total is the items subtotal. The schema is **unchanged at 40 tables** - no migration. Verified 2026-10-15: `test` **109/109**, `test:db` **165/165**, `verify:admin` **97/97**, `verify:storefront` **65/65** browser plus **16/16** HTTP customer-flow checks, plus `typecheck`, `lint`, `check:i18n`, `check:catalog`, `check:secrets`, `db:rehearsal` and `build`. **Not done:** no payment flow, no owner-facing customer-ban control, no deployment. See [ADR 0012](docs/decisions/0012-customer-authentication.md) and [ADR 0013](docs/decisions/0013-availability-only-ordering-gate.md).
-
-**Nothing is deployed and no QueenBee's-bound cloud resource exists** - no Neon project, branch, database, role, credential or bucket for this product, and none was created. The only Neon resource reachable from the account belongs to a **different product** and is **out of scope**; do not query or modify it. Neon PostgreSQL remains the approved future direction ([ADR 0005](docs/decisions/0005-neon-postgresql-and-vercel-hosting.md)), and **provisioning it requires its own explicit owner authorization** - approval of a provider is not approval to provision it.
-
-**Phase 10 was complete as a design.** [docs/data-model.md](docs/data-model.md) specifies the tables with their keys, constraints, indexes, retention rules and authorization boundaries, **eight separate state machines**, the transaction and concurrency design, the authorization matrix, the image-storage and upload architecture, the authentication architecture, and migration, rollback and operational safety. [docs/security.md](docs/security.md) carries the authorization matrix and a 16-part threat model. **The inventory reservation tables it designed are implemented and unused (ADR 0013), and the 24-hour expiry sweep is deferred (ADR 0014).**
-
-**Implemented locally (Phases 11-15), deployed nowhere.** The database foundation, owner authentication, catalog management, the database-backed storefront catalog read path, and customer accounts with atomic order creation all exist and are tested against a disposable local cluster. **No database provider resource, credential, bucket or deployment exists for this product**, and provisioning requires its own explicit owner authorization. One Phase 10 acceptance criterion remains deliberately unmet: where a guarantee depends on a resource that does not exist, it is recorded as unexecuted rather than claimed.
-
-The decisions that shaped the design ([payment workflow](docs/payment-workflow.md) sections 13.9 and 13.10.7, and [ADR 0014](docs/decisions/0014-phase-16-checkout-payment-and-delivery-decisions.md)):
-
-1. **Unpaid-order expiry** - **deferred (ADR 0014)**: 24 hours from placement in the design, applying only to orders with no submitted claim, but **no scheduler or expiry job is added** and the binding rule is that a **submitted claim never expires**. Under ADR 0013 there is no reservation to revive.
-2. **Cancellation after the window** - support decides before dispatch; after dispatch it becomes a **delivery cancellation / return**.
-3. **COD lifecycle** - owner approval before dispatch, the return workflow after, return-to-store on failure, and separate delivery, cash-collection and reconciliation states.
-4. **D11 bound** - **at most one active submitted claim per order**, governing the verification queue rather than a contested unit.
-
-**D11 is approved; superseded in effect for launch by ADR 0013:** the **first submitted payment claim** is observed first, and **at most one active submitted claim exists per order**. Because **no unit is reserved or allocated**, there is no per-unit preemption, no release on a timer, and **overselling is accepted** and managed operationally.
-
-**Binding invariants:** availability is the only ordering gate; **no reservation, allocation, deduction or movement is written and overselling is accepted**; a **submitted payment claim is never expired or released by a timer**; no automatic ban or flag follows a rejection or mismatch; prices and totals are computed server-side; and returned goods become sellable again only after physical receipt and inspection.
-
-**Customer-submitted details are never proof of payment:** an authorized owner must independently verify receipt. **No resource has been provisioned** - no provider database, no deployment, no domain change. The backend and admin surfaces that exist are **local only**.
+- [Architecture](docs/architecture.md) - what runs where, trust boundaries, data flow
+- [Data model](docs/data-model.md) - tables, constraints, state machines, transactions
+- [Security](docs/security.md) - authorization matrix and threat model
+- [Design system](docs/design-system.md) - tokens, control scales, surfaces, phone rules
+- [Admin dashboard](docs/admin-dashboard.md), [payment workflow](docs/payment-workflow.md)
+- [Implementation plan](docs/implementation-plan.md) and [verified status](docs/project-status.md)
+- [Decisions](docs/decisions/), [agent rules](AGENTS.md)

@@ -21,7 +21,7 @@ import { spawn, type ChildProcess } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { createServer } from 'node:net';
 import { existsSync, writeFileSync } from 'node:fs';
-import { sql } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 
 import { closeDb, withTransaction } from '../src/db/client';
 import {
@@ -48,6 +48,7 @@ import {
   staffRole,
   staffUser,
   storeSetting,
+  telegramRecipient,
 } from '../src/db/schema';
 import { seedReferenceData } from '../src/db/seed';
 import { activeAnnouncements } from '../src/data/announcements';
@@ -692,6 +693,7 @@ async function main(): Promise<void> {
         ['/api/admin/catalog/availability', { productId: '1', availability: 'in_stock' }],
         ['/api/admin/catalog/category', { operation: 'create', nameEn: 'X' }],
         ['/api/admin/catalog/image', { operation: 'attach', productId: '1', key: 'x' }],
+        ['/api/admin/integrations/telegram', { operation: 'remove', recipientId: '1' }],
       ] as [string, Record<string, string>][]) {
         const response = await call(base, path, { method: 'POST', form });
         record(`POST ${path} without a session is refused`, response.status === 401, `status ${response.status}`);
@@ -1576,7 +1578,14 @@ async function main(): Promise<void> {
              * the note affordance, so neither regression can come back quietly.
              */
             const heightSweep: Array<{ route: string; heights: number[] }> = [];
-            for (const route of ['/admin', '/admin/orders-cod', '/admin/catalog', '/admin/settings/delivery']) {
+            for (const route of [
+              '/admin',
+              '/admin/orders-cod',
+              '/admin/catalog',
+              '/admin/settings/delivery',
+              '/admin/settings/other',
+              '/admin/settings/integrations/telegram',
+            ]) {
               await browser.navigate(route);
               const heights = await browser.evaluate<number[]>(`(() => [...document.querySelectorAll(
                 'main button, main input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]), main select',
@@ -2751,6 +2760,101 @@ async function main(): Promise<void> {
             );
             await browser.screenshot('/tmp/qb-admin-categories.png');
 
+            /*
+             * The category visibility switch, in the direction that used to be impossible.
+             *
+             * The editor posts a hidden `isVisible=false` and, when the box is ticked, `isVisible=true`
+             * under the same name. `FormData.get()` returns the first entry in document order, so the
+             * hidden value decided every save: a category could be **hidden** and never shown again, and
+             * the panel still answered "updated". Both directions are asserted, because only the tick
+             * direction was broken - and the tick direction is the one a filter cannot notice.
+             */
+            const verifyCategoryRow = await withTransaction((tx) =>
+              tx
+                .select({ id: category.id })
+                .from(category)
+                .where(sql`${category.slug} = ${VERIFY_CATEGORY_SLUG}`),
+            );
+            const verifyCategoryId = verifyCategoryRow[0]?.id ?? 0;
+            const categoryVisibility = async (): Promise<boolean | null> => {
+              const rows = await withTransaction((tx) =>
+                tx
+                  .select({ isVisible: category.isVisible })
+                  .from(category)
+                  .where(sql`${category.id} = ${verifyCategoryId}`),
+              );
+              return rows[0]?.isVisible ?? null;
+            };
+
+            /*
+             * The wait is on the **stored value**, not on a notice in the URL: the editor already sits
+             * on `?notice=updated` from the first save, so waiting for that string matches immediately
+             * and reads the row before the second save has committed. A poll on the database is what
+             * makes each direction an observation rather than a race.
+             */
+            const waitForStoredVisibility = async (expected: boolean): Promise<boolean> => {
+              for (let attempt = 0; attempt < 60; attempt++) {
+                if ((await categoryVisibility()) === expected) return true;
+                await new Promise((resolve) => setTimeout(resolve, 150));
+              }
+              return false;
+            };
+
+            /*
+             * The switch is driven to a **known** DOM state before submitting, and the state is read back
+             * afterwards. A plain click on a checkbox inside its own `<label>` is not a reliable way to
+             * set it: the click can be forwarded to the control a second time, and the form then posts
+             * the value the check did not intend - which is a test that fails for its own reasons. The
+             * native setter plus a click event is what React's controlled input observes, so the posted
+             * value and the asserted value are the same one.
+             */
+            const setVisibility = async (desired: boolean): Promise<boolean> => {
+              await browser.navigate(`/admin/categories/${verifyCategoryId}`);
+              /*
+               * The **checkbox** specifically. This form also carries a hidden input of the same name
+               * (the explicit false the pair needs) and it comes first in document order, so a bare
+               * name selector addresses the hidden field: it reports checked as false forever and
+               * clicking it does nothing at all. That is what made the first version of this check fail
+               * against a switch that was working.
+               */
+              return browser.evaluate<boolean>(`(() => {
+                const box = document.querySelector('input[type="checkbox"][name="isVisible"]');
+                if (!(box instanceof HTMLInputElement)) return false;
+                if (box.checked !== ${desired}) {
+                  const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'checked').set;
+                  setter.call(box, ${desired});
+                  box.dispatchEvent(new Event('click', { bubbles: true }));
+                }
+                return box.checked === ${desired};
+              })()`);
+            };
+
+            // The seeded row's own state is the baseline: the pair is asserted as a transition in both
+            // directions rather than against an assumed starting value.
+            await browser.navigate(`/admin/categories/${verifyCategoryId}`);
+            const editorVisible = await browser.evaluate<boolean>(
+              `document.querySelector('input[type="checkbox"][name="isVisible"]')?.checked === true`,
+            );
+            const submitEditor = async (): Promise<void> => {
+              await browser.evaluate(
+                `document.querySelector('form[action="/api/admin/catalog/category"]')?.requestSubmit()`,
+              );
+            };
+
+            // Off, then on again: the second direction is the one reading `form.get()` could never store.
+            const setOff = await setVisibility(false);
+            await submitEditor();
+            const hidden = setOff && (await waitForStoredVisibility(false));
+            const setOn = await setVisibility(true);
+            await submitEditor();
+            const shown = setOn && (await waitForStoredVisibility(true));
+
+            record(
+              'the category visibility switch stores both the hidden and the visible state',
+              editorVisible === true && hidden && shown,
+              `started ${editorVisible}; hid it: ${hidden}; showed it again: ${shown}`,
+            );
+
             await browser.navigate('/admin/audit?size=10');
             const auditPage = await browser.evaluate<{ rows: number; total: boolean; size: boolean }>(`(() => ({
               rows: document.querySelectorAll('[data-admin-table] tbody tr').length,
@@ -3027,6 +3131,252 @@ async function main(): Promise<void> {
               `(document.body.textContent ?? '').includes(${JSON.stringify(issuedToken ?? '')})`,
             );
             record('the code is not shown again after a reload', stillVisible === false, String(stillVisible));
+
+            // ---- Phase 42: the guest-ordering switch, ticked through the real UI ----
+            /*
+             * This switch is the only control for D12's exception, and it shipped with a defect worth
+             * pinning: the form posted a hidden `guestOrders=false` beside the box, and
+             * `FormData.get()` returns the first entry in document order, so the route read `false`
+             * whichever way the owner set the switch. Guest ordering could be turned off and never on -
+             * the panel answered "saved" and checkout still asked the visitor to sign in.
+             *
+             * So the round trip is asserted in both directions, and at the storefront as well: a switch
+             * that stores the value but does not change what a visitor gets is not fixed. The block
+             * leaves the policy **off**, which is the state the storefront assertion further down
+             * assumes.
+             */
+            await browser.navigate('/admin/settings/other');
+            const otherUi = await browser.evaluate<{
+              title: string | null;
+              hasSwitch: boolean;
+              savedState: string;
+            }>(`(() => {
+              const form = document.querySelector('form[action="/api/admin/settings/checkout"]');
+              return {
+                title: document.querySelector('h1')?.textContent?.trim() ?? null,
+                hasSwitch:
+                  form !== null && form.querySelector('input[name="guestOrders"][type="checkbox"]') !== null,
+                savedState: (form?.textContent ?? '').includes('Account required') ? 'off' : 'unstated',
+              };
+            })()`);
+            record(
+              'the other settings screen offers the checkout policy switch and names the saved state',
+              otherUi.title === 'Other settings' && otherUi.hasSwitch && otherUi.savedState === 'off',
+              JSON.stringify(otherUi),
+            );
+
+            const storedGuestPolicy = async (): Promise<unknown> => {
+              const rows = await withTransaction((tx) =>
+                tx
+                  .select({ value: storeSetting.value })
+                  .from(storeSetting)
+                  .where(sql`${storeSetting.key} = 'checkout.guest_orders'`),
+              );
+              return rows[0]?.value ?? null;
+            };
+
+            // The owner's action: tick the box, press Save.
+            await browser.click('input[name="guestOrders"]');
+            await browser.evaluate(
+              `document.querySelector('form[action="/api/admin/settings/checkout"]')?.requestSubmit()`,
+            );
+            await browser.waitFor(
+              "location.pathname === '/admin/settings/other' && location.search.includes('notice=saved')",
+            );
+            const enabledPolicy = await storedGuestPolicy();
+            const anonymousCheckout = await call(base, '/checkout');
+            const enabledUi = await browser.evaluate<string>(
+              `document.querySelector('form[action="/api/admin/settings/checkout"]')?.textContent ?? ''`,
+            );
+            record(
+              'ticking the switch stores true and lets an anonymous visitor reach checkout',
+              enabledPolicy === true &&
+                anonymousCheckout.status === 200 &&
+                enabledUi.includes('Guest ordering is on'),
+              `stored ${JSON.stringify(enabledPolicy)}, /checkout status ${anonymousCheckout.status}, panel "${enabledUi.slice(0, 40)}"`,
+            );
+
+            // And back off: the setting, not the panel's wording, is what a visitor is answered with.
+            await browser.click('input[name="guestOrders"]');
+            await browser.evaluate(
+              `document.querySelector('form[action="/api/admin/settings/checkout"]')?.requestSubmit()`,
+            );
+            await browser.waitFor(
+              "location.pathname === '/admin/settings/other' && location.search.includes('notice=saved')",
+            );
+            const disabledPolicy = await storedGuestPolicy();
+            const refusedCheckout = await call(base, '/checkout');
+            record(
+              'unticking it stores false and sends the anonymous visitor back to sign-in',
+              disabledPolicy === false &&
+                /\/account\/login/.test(refusedCheckout.headers.get('location') ?? ''),
+              `stored ${JSON.stringify(disabledPolicy)}, /checkout → ${refusedCheckout.headers.get('location') ?? 'no redirect'}`,
+            );
+
+            // ---- Phase 39: a Telegram destination can be paused, and removed ----
+            /*
+             * The roster offered Pause and nothing else, so a test id registered while the bot was being
+             * set up stayed in the fan-out list for good. Both controls are driven through the real
+             * interface here, and the deletion is asserted against the **database** rather than the
+             * notice: a handler that redirected with `notice=removed` while the row survived would pass a
+             * notice-only check. The audit entry is asserted as well - the deleted row was the only place
+             * its chat id lived, so the trail is the surviving description of it.
+             */
+            const telegramRow = async (chatId: string): Promise<{ id: number; isActive: boolean } | null> => {
+              const rows = await withTransaction((tx) =>
+                tx
+                  .select({ id: telegramRecipient.id, isActive: telegramRecipient.isActive })
+                  .from(telegramRecipient)
+                  .where(eq(telegramRecipient.chatId, chatId)),
+              );
+              return rows[0] ?? null;
+            };
+
+            const removalAudits = async (recipientId: number): Promise<number> => {
+              const rows = await withTransaction((tx) =>
+                tx
+                  .select({ id: auditEvent.id })
+                  .from(auditEvent)
+                  .where(
+                    and(
+                      eq(auditEvent.action, 'integration.telegram_recipient_removed'),
+                      eq(auditEvent.entityId, recipientId),
+                    ),
+                  ),
+              );
+              return rows.length;
+            };
+
+            const FIRST_LABEL = 'Verify destination';
+            const FIRST_CHAT = '987654321';
+            const SECOND_LABEL = 'Verify pause target';
+            const SECOND_CHAT = '987654322';
+
+            const addDestination = async (label: string, chatId: string): Promise<boolean> => {
+              await browser.navigate('/admin/settings/integrations/telegram');
+              await browser.type('#telegramLabel', label);
+              await browser.type('#telegramChatId', chatId);
+              await browser.evaluate(
+                'document.querySelector("input[name=operation][value=add]").closest("form").requestSubmit()',
+              );
+              return browser.waitFor('location.search.includes("notice=added")');
+            };
+
+            /*
+             * Runs one of a row's own controls. The row is found by its label, so the click lands in the
+             * row under test, and the operation is matched on the hidden field the form posts. Submitting
+             * is what the owner does: for removal it opens the confirmation dialog rather than posting.
+             */
+            const submitRowOperation = async (label: string, operation: string): Promise<boolean> =>
+              browser.evaluate<boolean>(
+                '(() => {' +
+                  ' const row = [...document.querySelectorAll("main li")].find((el) => (el.textContent || "").includes(' +
+                  JSON.stringify(label) +
+                  '));' +
+                  ' if (row === undefined) return false;' +
+                  ' const input = [...row.querySelectorAll("input[name=operation]")].find((el) => el.value === ' +
+                  JSON.stringify(operation) +
+                  ');' +
+                  ' if (input === undefined || input === null) return false;' +
+                  ' input.closest("form").requestSubmit();' +
+                  ' return true;' +
+                  ' })()',
+              );
+
+            const confirmRemoval = async (): Promise<boolean> =>
+              browser.evaluate<boolean>(
+                '(() => {' +
+                  ' const dialog = document.querySelector("[role=dialog]");' +
+                  ' if (dialog === null) return false;' +
+                  ' const button = [...dialog.querySelectorAll("button")].find((el) => (el.textContent || "").trim() === "Remove");' +
+                  ' if (button === undefined) return false;' +
+                  ' button.click();' +
+                  ' return true;' +
+                  ' })()',
+              );
+
+            const added = await addDestination(FIRST_LABEL, FIRST_CHAT);
+            const addedRow = await telegramRow(FIRST_CHAT);
+            record(
+              'a Telegram destination can be registered from its settings screen',
+              added && addedRow !== null && addedRow.isActive === true,
+              'notice=added ' + String(added) + ', row ' + JSON.stringify(addedRow),
+            );
+
+            // Pause, then resume: the row control and the stored state it is supposed to change.
+            const pauseSubmitted = await submitRowOperation(FIRST_LABEL, 'setActive');
+            const paused = pauseSubmitted && (await browser.waitFor('location.search.includes("notice=paused")'));
+            const pausedRow = await telegramRow(FIRST_CHAT);
+            record(
+              'pausing a destination stores it off and keeps the row',
+              paused && pausedRow !== null && pausedRow.isActive === false,
+              'submitted ' + String(pauseSubmitted) + ', stored ' + JSON.stringify(pausedRow),
+            );
+
+            const resumeSubmitted = await submitRowOperation(FIRST_LABEL, 'setActive');
+            const resumed = resumeSubmitted && (await browser.waitFor('location.search.includes("notice=activated")'));
+            const resumedRow = await telegramRow(FIRST_CHAT);
+            record(
+              'resuming it stores it on again',
+              resumed && resumedRow !== null && resumedRow.isActive === true,
+              'submitted ' + String(resumeSubmitted) + ', stored ' + JSON.stringify(resumedRow),
+            );
+
+            // Removal: the confirmation names what it is about to delete, the row goes, the audit stays.
+            const removeSubmitted = await submitRowOperation(FIRST_LABEL, 'remove');
+            const dialogOpened = removeSubmitted && (await browser.waitFor('document.querySelector("[role=dialog]") !== null'));
+            const dialogText = await browser.evaluate<string>(
+              'document.querySelector("[role=dialog]")?.textContent ?? ""',
+            );
+            const removalConfirmed = await confirmRemoval();
+            const removalNotice = await browser.waitFor('location.search.includes("notice=removed")');
+            const removedRow = await telegramRow(FIRST_CHAT);
+            const audits = addedRow === null ? 0 : await removalAudits(addedRow.id);
+            const stillListed = await browser.evaluate<boolean>(
+              'document.body.textContent.includes(' + JSON.stringify(FIRST_LABEL) + ')',
+            );
+            record(
+              'the remove control confirms, names the destination, deletes the row and writes an audit record',
+              dialogOpened &&
+                dialogText.includes(FIRST_LABEL) &&
+                dialogText.includes(FIRST_CHAT) &&
+                removalConfirmed &&
+                removalNotice &&
+                removedRow === null &&
+                audits === 1 &&
+                stillListed === false,
+              'dialog ' + String(dialogOpened) + ', named ' + String(dialogText.includes(FIRST_LABEL)) + ', confirmed ' + String(removalConfirmed) + ', notice ' + String(removalNotice) + ', row ' + JSON.stringify(removedRow) + ', audits ' + String(audits) + ', still listed ' + String(stillListed),
+            );
+
+            /*
+             * The race a delete button always has: another owner removes the row while this page is still
+             * open, and the confirmation is pressed against a row that no longer exists. That must answer
+             * "already gone", not 500, and must delete nothing.
+             */
+            const secondAdded = await addDestination(SECOND_LABEL, SECOND_CHAT);
+            const secondRow = await telegramRow(SECOND_CHAT);
+            const staleOpened = await submitRowOperation(SECOND_LABEL, 'remove');
+            if (secondRow !== null) {
+              await withTransaction((tx) => tx.delete(telegramRecipient).where(eq(telegramRecipient.id, secondRow.id)));
+            }
+            const staleDialog = staleOpened && (await browser.waitFor('document.querySelector("[role=dialog]") !== null'));
+            const staleConfirmed = staleDialog && (await confirmRemoval());
+            const staleNotice = await browser.waitFor('location.search.includes("notice=missing")');
+            const secondAfter = await telegramRow(SECOND_CHAT);
+            record(
+              'confirming a removal for a row that is already gone answers "already gone" and deletes nothing',
+              secondAdded && secondRow !== null && staleDialog && staleConfirmed && staleNotice && secondAfter === null,
+              'added ' + String(secondAdded) + ', dialog ' + String(staleDialog) + ', confirmed ' + String(staleConfirmed) + ', notice=missing ' + String(staleNotice) + ', row ' + JSON.stringify(secondAfter),
+            );
+
+            const emptyRoster = await browser.evaluate<boolean>(
+              'document.body.textContent.includes("No Telegram account yet")',
+            );
+            record(
+              'the roster states its empty state once the last destination is removed',
+              emptyRoster,
+              String(emptyRoster),
+            );
 
             // ---- Phase 19: delivery charges, configured through the real UI ----
             await browser.navigate('/admin/settings/delivery');

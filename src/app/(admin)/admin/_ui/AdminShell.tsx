@@ -100,6 +100,35 @@ export function AdminShell({
     };
   }, [moreOpen]);
 
+  /*
+   * A focused field must never sit underneath the fixed bottom bar.
+   *
+   * `scroll-padding-bottom` in globals.css asks the browser to clear the bar, but Chromium and Safari do
+   * not always honour scroll padding when they reveal a focused control - the delivery amount and the
+   * product description were both reported fully hidden. This measures the focused control against the
+   * bar and scrolls only the overlap, so a field that is already visible never moves. One handler, on
+   * the document, is what keeps every form on the surface covered; no editor gets its own.
+   */
+  useEffect(() => {
+    const CLEARANCE_PX = 16;
+    const onFocusIn = (event: FocusEvent): void => {
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) return;
+      if (!(target instanceof HTMLInputElement || target instanceof HTMLSelectElement || target instanceof HTMLTextAreaElement)) {
+        return;
+      }
+      const bar = document.querySelector<HTMLElement>('[data-admin-bottom-nav]');
+      // `display: none` above 1023px, so a desktop focus never moves the page.
+      if (bar === null || bar.getClientRects().length === 0) return;
+      const barTop = bar.getBoundingClientRect().top;
+      const covered = target.getBoundingClientRect().bottom - (barTop - CLEARANCE_PX);
+      if (covered <= 0) return;
+      window.scrollBy(0, covered);
+    };
+    document.addEventListener('focusin', onFocusIn);
+    return () => document.removeEventListener('focusin', onFocusIn);
+  }, []);
+
   const active = items.find(
     (item) => pathname === item.href || (item.href !== '/admin' && pathname.startsWith(item.href + '/')),
   );
@@ -155,7 +184,7 @@ export function AdminShell({
       <a className="skip-link" href="#admin-main">
         {t('admin.skipToContent')}
       </a>
-      <div className={styles.shell}>
+      <div className={styles.shell} data-admin-shell="">
         <aside id="admin-rail" className={styles.sidebar} aria-label={t('admin.nav.label')}>
           <div className={styles.drawerHeader}>
             <Link href="/admin" className={styles.brand}>

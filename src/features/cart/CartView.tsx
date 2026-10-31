@@ -1,9 +1,12 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from '@/i18n/useTranslation';
 import { useCart } from './useCart';
+import { resolveCartLines } from './cart-lines';
+import { useCartProjection } from './useCartProjection';
+import type { CartProduct } from './cart-product';
 import { QuantityStepper } from '@/components/QuantityStepper';
 import { ProductPhoto } from '@/components/ProductPhoto';
 import { TrashIcon } from '@/components/icons';
@@ -63,11 +66,45 @@ function useCartAnnouncement(count: number): string | null {
  * catalog, and nothing is ever sent anywhere. This state is explicitly not
  * authoritative for a future real order.
  */
-export function CartView() {
-  const { t, pick, price } = useTranslation();
+/**
+ * The cart page.
+ *
+ * It receives the compact product projection from its own server page, which is the only place a
+ * cart line's name, price and picture can come from: the browser stores ids and quantities, never
+ * prices. The provider above it stays free of product records so every other route stays small.
+ */
+export function CartView({ products }: { products: readonly CartProduct[] }) {
+  const { t, price } = useTranslation();
   const cart = useCart();
-  const unavailableCount = cart.entries.filter((entry) => unavailable(entry.product)).length;
+  const resolved = useMemo(() => resolveCartLines(cart.lines, products), [cart.lines, products]);
+  const projection = useCartProjection(cart.lines, products);
+  const unavailableCount = resolved.entries.filter((entry) => unavailable(entry.product)).length;
   const announced = useCartAnnouncement(cart.itemCount);
+
+  /**
+   * Clearing the cart is the only destructive control a shopper has, and it used to remove every line
+   * on a single tap. It is now a two-step question with **no timer**: a confirmation that closes on its
+   * own can vanish while it is being read, and it would leave focus on a control that no longer exists.
+   *
+   * Focus moves to "Keep items" when the question opens, so the safe answer is the one a keyboard user
+   * lands on, and Escape or the keep control returns focus to the trigger. The question states how many
+   * items it would remove, and the count is part of the accessible name of the group rather than only
+   * text beside it.
+   */
+  const [confirmingClear, setConfirmingClear] = useState(false);
+  const clearTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const keepItemsRef = useRef<HTMLButtonElement | null>(null);
+  /** Distinguishes the first paint (which must not steal focus) from a closed confirmation. */
+  const clearQuestionOpened = useRef(false);
+
+  useEffect(() => {
+    if (confirmingClear) {
+      clearQuestionOpened.current = true;
+      keepItemsRef.current?.focus();
+      return;
+    }
+    if (clearQuestionOpened.current) clearTriggerRef.current?.focus();
+  }, [confirmingClear]);
 
   if (cart.isEmpty) {
     return (
@@ -85,17 +122,41 @@ export function CartView() {
     <div className={styles.page}>
       <header className={styles.header}>
         <h1>{t('cart.title')}</h1>
-        <p className={styles.count}>{t('cart.itemCount', { count: cart.itemCount })}</p>
+        <p className={styles.count}>
+          {cart.itemCount === 1 ? t('cart.itemCountOne') : t('cart.itemCount', { count: cart.itemCount })}
+        </p>
       </header>
 
       <p className={styles.liveRegion} role="status" aria-live="polite">
-        {announced === null ? '' : t('cart.updatedAnnouncement', { count: cart.itemCount })}
+        {announced === null
+          ? ''
+          : cart.itemCount === 1
+            ? t('cart.updatedAnnouncementOne')
+            : t('cart.updatedAnnouncement', { count: cart.itemCount })}
       </p>
+
+      {/*
+        A line this page could not draw is stated, never dropped in silence. The summary, the item
+        count above and the price beside each line are all derived from products, so a missing one
+        makes the total wrong - and a customer must not be shown a total that disagrees with the cart.
+      */}
+      {projection.stalled && (
+        <div className={styles.projectionNotice} role="alert">
+          <p>{t('cart.unresolved')}</p>
+          <button
+            type="button"
+            className={styles.secondaryAction}
+            onClick={() => window.location.reload()}
+          >
+            {t('cart.unresolvedReload')}
+          </button>
+        </div>
+      )}
 
       <div className={styles.layout}>
         <ul className={styles.lines}>
-          {cart.entries.map((entry) => {
-            const name = pick(entry.product.name) ?? entry.product.slug;
+          {resolved.entries.map((entry) => {
+            const name = entry.product.name;
             return (
               <li key={entry.product.id} className={styles.line}>
                 <Link
@@ -105,7 +166,15 @@ export function CartView() {
                   aria-hidden="true"
                 >
                   <ProductPhoto
-                    image={entry.product.images[0]}
+                    image={
+                      entry.product.imageKey === null
+                        ? undefined
+                        : {
+                            key: entry.product.imageKey,
+                            alt: { bn: null, en: entry.product.name },
+                            rights: entry.product.imageRights,
+                          }
+                    }
                     alt=""
                     sizes="88px"
                     className={styles.thumb}
@@ -169,7 +238,7 @@ export function CartView() {
           <dl className={styles.summaryList}>
             <div>
               <dt>{t('cart.subtotal')}</dt>
-              <dd>{price(cart.subtotalMinor)}</dd>
+              <dd>{price(resolved.subtotalMinor)}</dd>
             </div>
             <div>
               <dt>{t('cart.delivery')}</dt>
@@ -177,7 +246,7 @@ export function CartView() {
             </div>
             <div className={styles.totalRow}>
               <dt>{t('cart.total')}</dt>
-              <dd>{price(cart.subtotalMinor)}</dd>
+              <dd>{price(resolved.subtotalMinor)}</dd>
             </div>
           </dl>
           <Link className={styles.primaryAction} href="/checkout">
@@ -186,9 +255,57 @@ export function CartView() {
           <Link className={styles.secondaryAction} href="/products">
             {t('cart.continueShopping')}
           </Link>
-          <button type="button" className={styles.clearButton} onClick={cart.clear}>
-            {t('cart.clearCart')}
-          </button>
+          {confirmingClear ? (
+            <div
+              className={styles.clearConfirm}
+              role="group"
+              aria-labelledby="clear-cart-prompt"
+              onKeyDown={(event) => {
+                if (event.key === 'Escape') {
+                  event.stopPropagation();
+                  setConfirmingClear(false);
+                }
+              }}
+            >
+              <p id="clear-cart-prompt" className={styles.clearPrompt}>
+                {cart.itemCount === 1
+                  ? t('cart.clearConfirmTitleOne')
+                  : t('cart.clearConfirmTitle', { count: cart.itemCount })}
+              </p>
+              <p className={styles.clearHint}>{t('cart.clearConfirmBody')}</p>
+              <div className={styles.clearActions}>
+                <button
+                  type="button"
+                  className={styles.clearDanger}
+                  aria-describedby="clear-cart-prompt"
+                  onClick={() => {
+                    cart.clear();
+                    setConfirmingClear(false);
+                  }}
+                >
+                  {t('cart.clearConfirmAction')}
+                </button>
+                <button
+                  type="button"
+                  ref={keepItemsRef}
+                  className={styles.clearKeep}
+                  aria-describedby="clear-cart-prompt"
+                  onClick={() => setConfirmingClear(false)}
+                >
+                  {t('cart.clearKeep')}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button
+              type="button"
+              ref={clearTriggerRef}
+              className={styles.clearButton}
+              onClick={() => setConfirmingClear(true)}
+            >
+              {t('cart.clearCart')}
+            </button>
+          )}
         </aside>
       </div>
     </div>

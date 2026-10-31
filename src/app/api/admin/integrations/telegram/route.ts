@@ -1,9 +1,13 @@
 /**
- * POST /api/admin/integrations/telegram - register, edit, pause or test a Telegram destination.
+ * POST /api/admin/integrations/telegram - register, edit, pause, remove or test a Telegram destination.
  *
- * Four operations share one route because they share one permission (`settings.write`) and one form
+ * Five operations share one route because they share one permission (`settings.write`) and one form
  * vocabulary, exactly like the promotion-code route. Only a **notice code** travels back on the
  * redirect: never a chat id, never the bot token, never a description of Telegram's error.
+ *
+ * `remove` is the one destructive operation. It is offered behind a confirmation in the interface and
+ * refused without a session or a CSRF token like every other mutation; the service deletes the row and
+ * writes the only surviving description of it to the audit trail.
  *
  * The `test` operation is the point of the screen: a chat id that is typed correctly but has never
  * started a conversation with the bot silently receives nothing, and there is no way to notice that
@@ -20,6 +24,7 @@ import {
   addTelegramRecipient,
   loadActiveRecipients,
   readTelegramToken,
+  removeTelegramRecipient,
   sendTelegramMessage,
   setTelegramRecipientActive,
   updateTelegramRecipient,
@@ -28,7 +33,7 @@ import { deny, redirectTo } from '../../responses';
 
 export const dynamic = 'force-dynamic';
 
-const OPERATIONS = ['add', 'update', 'setActive', 'test'] as const;
+const OPERATIONS = ['add', 'update', 'setActive', 'remove', 'test'] as const;
 
 function backTo(notice: string): Response {
   return redirectTo(`${TELEGRAM_SETTINGS_PATH}?notice=${notice}`);
@@ -74,6 +79,12 @@ export async function POST(request: Request): Promise<Response> {
       const active = form.get('active') === 'true';
       await withTransaction((tx) => setTelegramRecipientActive(tx, actor, form.get('recipientId'), active));
       return backTo(active ? 'activated' : 'paused');
+    }
+
+    if (operation === 'remove') {
+      const removed = await withTransaction((tx) => removeTelegramRecipient(tx, actor, form.get('recipientId')));
+      // A row that is already gone is answered as such: two owners, or a stale page, is not an error.
+      return backTo(removed ? 'removed' : 'missing');
     }
 
     // ---- test: one message to every active destination ----

@@ -26,6 +26,30 @@
   .grid[data-count-odd='true'] > li:last-child {
     grid-column: 1 / -1;
   }
+
+  /*
+   * The 'wide' spanning card: two columns instead of one stretched portrait.
+   *
+   * The approved odd-card rule stays - the last card still takes the row - but a card stretched to the
+   * full width drew its 5/4 photograph across the whole row, 273px tall against a 131px sibling image.
+   * Laid out sideways, the photograph keeps a normal card's width and the body reads beside it, so the
+   * card's height stays comparable to its neighbours and no blank well opens where an image is missing.
+   * No product is repeated, added or hidden to change the count.
+   */
+  .grid[data-count-odd='true'][data-odd-last='wide'] > li:last-child > * {
+    flex-direction: row;
+    gap: var(--space-3);
+  }
+
+  /*
+   * The photograph keeps its own width and its own aspect ratio - it is not stretched to the card's
+   * height, because a 5/4 crop forced to a taller box would either letterbox or crop the product.
+   */
+  .grid[data-count-odd='true'][data-odd-last='wide'] > li:last-child > * > :first-child {
+    flex: 0 0 44%;
+    max-width: 11rem;
+    align-self: flex-start;
+  }
 }
 
 /*

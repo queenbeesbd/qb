@@ -14,11 +14,24 @@
   display: grid;
   gap: var(--space-5);
   align-items: start;
+  /*
+   * A grid item's automatic minimum is its min-content, and one long unbreakable row inside the
+   * summary (the promotion field beside its button) used to make the whole column 395px wide on a
+   * 390px phone. The form then drew past the right edge and every price in the summary was clipped.
+   * Letting the items shrink is what keeps the layout inside the viewport; the rows below also
+   * gained explicit shrinkable tracks so nothing is merely hidden.
+   */
+  min-width: 0;
+}
+
+.layout > * {
+  min-width: 0;
 }
 
 .card {
   display: grid;
   gap: var(--space-4);
+  min-width: 0;
   padding: var(--space-5);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
@@ -60,6 +73,8 @@
   background: var(--color-surface);
   color: var(--color-ink);
   font: inherit;
+  /* 16px below 720px, so focusing a field never zooms the checkout on a phone. */
+  font-size: var(--text-control);
 }
 
 .field input:focus-visible,
@@ -83,6 +98,35 @@
   color: var(--color-ink);
 }
 
+/*
+ * The submit refusal, stated in the page rather than in a browser bubble. It lists the fields in the
+ * order they appear, so reading it top to bottom is reading the form top to bottom.
+ */
+.problems {
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-danger);
+  border-radius: var(--radius-md);
+  background: var(--color-danger-soft);
+}
+
+.problemsTitle {
+  margin: 0;
+  font-weight: 600;
+}
+
+.problems ul {
+  margin: var(--space-2) 0 0;
+  padding-inline-start: 1.15rem;
+  display: grid;
+  gap: var(--space-1);
+}
+
+/* A field named in the summary is also marked where it is, so the two agree at a glance. */
+.field input[aria-invalid='true'],
+.field select[aria-invalid='true'] {
+  border-color: var(--color-danger);
+}
+
 .muted {
   color: var(--color-ink-muted);
 }
@@ -90,6 +134,7 @@
 .summary {
   display: grid;
   gap: var(--space-3);
+  min-width: 0;
   padding: var(--space-5);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
@@ -212,12 +257,18 @@
 }
 
 .promoRow {
-  display: flex;
+  /*
+   * A grid, not a flex row, so the input can genuinely shrink to the space left by Apply.
+   * `minmax(0, 1fr)` removes the input's intrinsic width from the minimum, which is what pushed a
+   * 390px checkout to 411px. It still fills the row on a wide screen.
+   */
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   gap: var(--space-2);
 }
 
 .promoRow input {
-  flex: 1 1 auto;
+  width: 100%;
   min-width: 0;
   min-height: 40px;
   padding: 0 var(--space-3);
@@ -226,6 +277,7 @@
   background: var(--color-surface);
   color: var(--color-ink);
   font: inherit;
+  font-size: var(--text-control);
 }
 
 .promoRow input:focus-visible {

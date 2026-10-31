@@ -212,6 +212,53 @@ export async function setTelegramRecipientActive(
   });
 }
 
+/**
+ * Removes a destination outright.
+ *
+ * Pausing is the reversible way to stop notifications, and it is what the row offers first. Removal
+ * exists for a row that should not be in the fan-out list at all - the test id an owner typed while
+ * setting the bot up, a manager who has left - because a roster that can only ever grow is a roster
+ * nobody trusts. The row is the only place the chat id lived, so the audit record is the surviving
+ * description of what was deleted; the id is still on the screen before the dialog opens, and the
+ * unique index lets the same id be registered again.
+ */
+export async function removeTelegramRecipient(
+  tx: Transaction,
+  actor: ActorContext,
+  rawId: unknown,
+): Promise<boolean> {
+  const id = typeof rawId === 'string' ? Number.parseInt(rawId, 10) : Number.NaN;
+  if (!Number.isSafeInteger(id) || id <= 0) throw new ValidationError('a recipient id is required');
+  await requirePermission(actor, PERMISSIONS.settingsWrite, 'telegram_recipient', id);
+
+  const removed = await tx
+    .delete(telegramRecipient)
+    .where(sql`${telegramRecipient.id} = ${id}`)
+    .returning({
+      id: telegramRecipient.id,
+      label: telegramRecipient.label,
+      chatId: telegramRecipient.chatId,
+      isActive: telegramRecipient.isActive,
+    });
+  const row = removed[0];
+  // Nothing to delete is a **false**, not an error: the id was well formed and the row was already gone
+  // (another owner removed it, or the page was stale). The route answers "already gone"; only a
+  // malformed id is a refusal.
+  if (row === undefined) return false;
+
+  await recordAudit(tx, {
+    actorType: 'staff',
+    actorStaffId: actor.staffUserId,
+    actorRoleCodes: actor.roleCodes,
+    action: 'integration.telegram_recipient_removed',
+    entityType: 'telegram_recipient',
+    entityId: row.id,
+    before: { label: row.label, chatId: row.chatId, isActive: row.isActive },
+  });
+
+  return true;
+}
+
 export type OrderNotification = {
   readonly orderNumber: string;
   readonly totalMinor: number;

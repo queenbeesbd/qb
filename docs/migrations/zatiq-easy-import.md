@@ -153,3 +153,43 @@ is optional, which is what the schema and `normalizeProductInput` already implem
 3. **1,481 customers cannot sign in** until the owner issues a reset, and 481 have no real email at all.
 4. The storefront's placeholder hero and curated rows lost their content when the collections were
    truncated.
+## Order history removed (2026-10-29)
+
+The owner asked to keep the imported **products and customer list** and drop the imported **order history**.
+`scripts/purge-imported-orders.ts` does exactly that, and it is a one-off operator command rather than a
+migration because it is a data decision about this database, not schema history.
+
+```
+pg_dump "$DATABASE_URL" > before-order-purge.sql     # taken first; 705 KB custom-format dump
+npm run db:purge:imported-orders                     # dry run, deletes nothing
+npm run db:purge:imported-orders -- --confirm        # applies it
+```
+
+Result, printed by the command:
+
+```
+Before: orders 559, order items 1648, order events 559, order contacts 559, products 1605, customers 528
+After:  orders 0,   order items 0,    order events 0,   order contacts 0,   products 1605, customers 528
+```
+
+**How it is allowed to delete append-only rows.** `order_event` and `order_item` carry `BEFORE UPDATE OR
+DELETE` triggers that refuse row deletes by design. The command uses `TRUNCATE ... CASCADE`, a table-level
+operation that fires no row trigger - the same technique `scripts/import-zatiq.ts --reset` already uses, for
+the same reason. It is not a routine delete path and is not used by the application.
+
+**Guards, so it cannot destroy real work.** It refuses without `--confirm`; refuses outside
+development/test; refuses unless **every** order carries an `order_placed` event with
+`source = zatiq-easy`; refuses if any record of real owner work exists (additional courier cost, payment
+claim, refund, cancellation request, customer return, operational exception, promo redemption or customer
+flag); and rolls the transaction back if the product or customer count changes. Order-scoped idempotency
+keys are removed with the orders so a replay cannot point at a missing one.
+
+**Kept:** 1,605 products, 245 brands, 15 categories, 1,919 image derivatives, 528 customers and their
+credentials, collections, promo rules, delivery charges, store settings, owner accounts and the append-only
+audit trail. **Six historical audit records now name an order that no longer exists** (`cod.approved`,
+`cod.collected`, three order transitions and one completion); the trail is append-only and was deliberately
+not edited. The dashboard, COD queue and analytics now truthfully read zero, and the customer detail screens
+show no recorded orders.
+
+**Re-importing orders is possible but is a new owner decision:** `npm run import:zatiq -- --reset` would also
+truncate the catalog and the customers, which is not what this purge wanted.

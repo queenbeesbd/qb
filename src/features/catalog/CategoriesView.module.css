@@ -48,7 +48,7 @@
 }
 
 .card:hover {
-  border-color: var(--color-primary);
+  border-color: var(--brand-primary);
   box-shadow: var(--shadow-sm);
   color: var(--color-ink);
 }

@@ -27,7 +27,15 @@ export const telegramRecipient = pgTable(
      * text because it is an identifier, not a quantity - no arithmetic is ever performed on it.
      */
     chatId: text('chat_id').notNull(),
-    /** Paused instead of deleted: the id can be restored without re-typing it. */
+    /**
+     * Off means paused, and pausing is the first way to stop a notification: the id survives, so the
+     * destination can be resumed without re-typing it.
+     *
+     * A row that should not exist at all (a test id, someone who has left) is **removed** - the roster
+     * offers that beside Pause, behind a confirmation and an audit record. The id is on the screen
+     * before the dialog opens, so removal stays recoverable by registering it again; what it avoids is
+     * a dead destination sitting in the fan-out list forever.
+     */
     isActive: boolean('is_active').notNull().default(true),
     createdByStaffId: bigint('created_by_staff_id', { mode: 'number' })
       .notNull()

@@ -132,7 +132,14 @@ export async function listPublishedProducts(tx: Transaction): Promise<CatalogPro
     .where(sql`${product.deletedAt} is null and ${product.isPublished}`)
     .orderBy(desc(product.createdAt), desc(product.id));
 
-  return Promise.all(rows.map((row) => projectProduct(tx, row)));
+  // One image query for the whole result, not one per product. The per-product form turned a catalog
+  // read into 1,476 sequential round trips, which is 80+ seconds against a remote database and longer
+  // than the page's own timeout.
+  const imagesByProduct = await listImagesForProducts(
+    tx,
+    rows.map((row) => row.id),
+  );
+  return rows.map((row) => projectProduct(row, imagesByProduct.get(String(row.id)) ?? []));
 }
 
 /** One published product by slug, or `null`. Used by a future product route adapter. */
@@ -171,7 +178,43 @@ export async function getPublishedProductBySlug(
 
   const row = rows[0];
   if (row === undefined) return null;
-  return projectProduct(tx, row);
+  const imagesByProduct = await listImagesForProducts(tx, [row.id]);
+  return projectProduct(row, imagesByProduct.get(String(row.id)) ?? []);
+}
+
+/**
+ * Every live image for the given products, grouped by product id.
+ *
+ * The order inside a group is the owner's: the primary image first, then `sort_order`. It is decided
+ * in SQL rather than in JavaScript so the grouping cannot reorder what the owner arranged.
+ */
+async function listImagesForProducts(
+  tx: Transaction,
+  productIds: readonly number[],
+): Promise<Map<string, CatalogImageRow[]>> {
+  const grouped = new Map<string, CatalogImageRow[]>();
+  if (productIds.length === 0) return grouped;
+
+  const rows = await tx
+    .select({
+      productId: productImage.productId,
+      key: productImage.baseKey,
+      altBn: productImage.altBn,
+      altEn: productImage.altEn,
+      rightsStatus: productImage.rightsStatus,
+    })
+    .from(productImage)
+    .where(sql`${productImage.productId} in ${productIds} and ${productImage.deletedAt} is null`)
+    .orderBy(sql`${productImage.productId}, ${productImage.isPrimary} desc, ${productImage.sortOrder}`);
+
+  for (const row of rows) {
+    const id = String(row.productId);
+    const list = grouped.get(id);
+    const image = { key: row.key, altBn: row.altBn, altEn: row.altEn, rightsStatus: row.rightsStatus };
+    if (list === undefined) grouped.set(id, [image]);
+    else list.push(image);
+  }
+  return grouped;
 }
 
 /** Visible, non-deleted categories in display order. */
@@ -317,8 +360,16 @@ function toRightsStatus(raw: string): ImageRightsStatus {
     : 'unknown';
 }
 
-async function projectProduct(
-  tx: Transaction,
+/** One image row as stored, before projection. */
+type CatalogImageRow = {
+  readonly key: string;
+  readonly altBn: string | null;
+  readonly altEn: string | null;
+  readonly rightsStatus: string;
+};
+
+/** Projects one product row into the customer-facing shape. Images are supplied, never fetched here. */
+function projectProduct(
   row: {
     id: number;
     slug: string;
@@ -337,18 +388,8 @@ async function projectProduct(
     compareAtPriceMinor: number | null;
     createdAt: Date;
   },
-): Promise<CatalogProduct> {
-  const images = await tx
-    .select({
-      key: productImage.baseKey,
-      altBn: productImage.altBn,
-      altEn: productImage.altEn,
-      rightsStatus: productImage.rightsStatus,
-    })
-    .from(productImage)
-    .where(sql`${productImage.productId} = ${row.id} and ${productImage.deletedAt} is null`)
-    .orderBy(sql`${productImage.isPrimary} desc, ${productImage.sortOrder}`);
-
+  imageRows: readonly CatalogImageRow[],
+): CatalogProduct {
   return {
     id: String(row.id),
     slug: row.slug,
@@ -366,7 +407,7 @@ async function projectProduct(
     // The schema's CHECK constraint is the guarantee; this narrows the string the driver returns.
     availability: row.availability === 'in_stock' ? 'in_stock' : 'out_of_stock',
     createdAt: row.createdAt,
-    images: images.map((image) => ({
+    images: imageRows.map((image) => ({
       key: image.key,
       alt: { bn: image.altBn, en: image.altEn },
       rights: toRightsStatus(image.rightsStatus),

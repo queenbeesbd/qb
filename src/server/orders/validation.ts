@@ -12,6 +12,11 @@
 
 import { createHash } from 'node:crypto';
 
+import {
+  CONTACT_LIMITS,
+  RECIPIENT_PHONE_PATTERN,
+  normalizeContactText,
+} from '@/lib/checkout-fields';
 import { isDeliveryAreaCode } from '@/lib/delivery-areas';
 
 /** `order_item.quantity > 0`, and a bound on how large one order may be. */
@@ -24,7 +29,7 @@ export type CartLineInput = { readonly productId: string; readonly quantity: num
 
 export type ContactInput = {
   readonly recipientName: string;
-  /** Canonical district code from `src/lib/districts.ts` - never a customer-typed name. */
+  /** Canonical district code from `src/lib/delivery-areas.ts` - never a customer-typed name. */
   readonly districtCode: string;
   readonly recipientPhone: string;
   readonly addressLine: string;
@@ -37,8 +42,11 @@ export type ContactInput = {
 /** Product ids are decimal strings of a bigint identity; never a UUID and never free text. */
 const PRODUCT_ID_PATTERN = /^[1-9][0-9]{0,18}$/;
 
-/** `order_contact.recipient_phone` CHECK. */
-const PHONE_PATTERN = /^01[3-9][0-9]{8}$/;
+/*
+ * `order_contact.recipient_phone` CHECK: the shared `RECIPIENT_PHONE_PATTERN` from
+ * `src/lib/checkout-fields.ts`, so the checkout form and this parser cannot disagree about which
+ * numbers are acceptable.
+ */
 
 function clampQuantity(value: unknown): number | null {
   const parsed =
@@ -91,7 +99,7 @@ export function parseCartLines(value: unknown): CartLineInput[] | null {
 /** Reads a bounded, required single-line text field. Returns `null` when absent or out of bounds. */
 export function parseText(value: unknown, min: number, max: number): string | null {
   if (typeof value !== 'string') return null;
-  const normalized = value.replace(/\s+/g, ' ').trim();
+  const normalized = normalizeContactText(value);
   if (normalized.length < min || normalized.length > max) return null;
   return normalized;
 }
@@ -100,7 +108,7 @@ export function parseText(value: unknown, min: number, max: number): string | nu
 export function parseOptionalText(value: unknown, max: number): string | null | undefined {
   if (value === undefined || value === null) return null;
   if (typeof value !== 'string') return undefined;
-  const normalized = value.replace(/\s+/g, ' ').trim();
+  const normalized = normalizeContactText(value);
   if (normalized === '') return null;
   if (normalized.length > max) return undefined;
   return normalized;
@@ -120,14 +128,22 @@ export function parseContact(form: {
   postcode: unknown;
   deliveryNote: unknown;
 }): ContactInput | null {
-  const recipientName = parseText(form.recipientName, 2, 120);
+  const recipientName = parseText(
+    form.recipientName,
+    CONTACT_LIMITS.recipientName.min,
+    CONTACT_LIMITS.recipientName.max,
+  );
   const districtCode = isDeliveryAreaCode(form.districtCode) ? form.districtCode : null;
-  const addressLine = parseText(form.addressLine, 5, 300);
-  const area = parseText(form.area, 1, 80);
-  const city = parseText(form.city, 1, 80);
+  const addressLine = parseText(
+    form.addressLine,
+    CONTACT_LIMITS.addressLine.min,
+    CONTACT_LIMITS.addressLine.max,
+  );
+  const area = parseText(form.area, CONTACT_LIMITS.area.min, CONTACT_LIMITS.area.max);
+  const city = parseText(form.city, CONTACT_LIMITS.city.min, CONTACT_LIMITS.city.max);
   const phone = typeof form.recipientPhone === 'string' ? form.recipientPhone.trim() : '';
-  const postcode = parseOptionalText(form.postcode, 20);
-  const deliveryNote = parseOptionalText(form.deliveryNote, 300);
+  const postcode = parseOptionalText(form.postcode, CONTACT_LIMITS.postcode.max);
+  const deliveryNote = parseOptionalText(form.deliveryNote, CONTACT_LIMITS.deliveryNote.max);
 
   if (
     recipientName === null ||
@@ -138,7 +154,7 @@ export function parseContact(form: {
   ) {
     return null;
   }
-  if (!PHONE_PATTERN.test(phone)) return null;
+  if (!RECIPIENT_PHONE_PATTERN.test(phone)) return null;
   if (postcode === undefined || deliveryNote === undefined) return null;
 
   return {

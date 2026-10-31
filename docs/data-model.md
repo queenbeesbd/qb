@@ -1137,10 +1137,13 @@ receiving two identical messages for one order.
 in the process environment) and appears in no table, no page and no log: a database row is copied into
 backups, exports and support pastes, and a credential must not be.
 
-**Lifecycle.** A row is **paused, not deleted** (`is_active = false`), because the common mistake is a
-mistyped id and re-typing it is worse than resuming it; the id itself is editable. There is no delete
-path. Every change is audited as `integration.telegram_recipient_added` / `_updated` / `_activated` /
-`_paused`.
+**Lifecycle.** A row is **paused before it is ever removed** (`is_active = false`), because the common
+mistake is a mistyped id and the id is editable, so re-typing it is worse than resuming it. **Removal
+exists for a row that should not be in the list at all** - a test id, someone who has left - and deletes
+it (ADR 0022, amended 2026-10-29): it is confirmed in the interface, it is audited, and the same chat id
+can be registered again, because the unique index is the only thing that stops a duplicate and it holds
+nothing once the row is gone. Every change is audited as `integration.telegram_recipient_added` /
+`_updated` / `_activated` / `_paused` / `_removed`.
 
 **Authorization.** `settings.write` for every operation. The table is read by one code path - the
 post-order notification - which runs after the response and cannot fail an order.

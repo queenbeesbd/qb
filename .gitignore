@@ -20,6 +20,9 @@ coverage/
 .dev-pg/
 .tmp-*/
 
+# Browser-automation artefacts (screenshots, snapshots, session console logs) from local probes.
+.playwright-cli/
+
 # Local code-graph index (tool cache, 76MB, regenerable). Never part of the project.
 .codegraph/
 

@@ -30,10 +30,24 @@
   --text-xs: 0.75rem;
   --text-sm: 0.8125rem;
   --text-base: 0.9375rem;
+  /*
+   * The font size of a form control, not of body copy.
+   *
+   * 15px on a desktop is comfortable to type in. Below 720px it becomes 16px, and that is a
+   * correctness rule rather than a taste one: iOS Safari zooms the whole page when a control under
+   * 16px receives focus, which leaves the customer looking at a magnified checkout they then have to
+   * pinch back. The token is the one place that rule lives.
+   */
+  --text-control: 0.9375rem;
   --text-md: 1rem;
   --text-lg: 1.125rem;
   --text-xl: 1.375rem;
   --text-2xl: 1.75rem;
+  /*
+   * A page title. On a phone it is 24px rather than 22: at 22 it sat only 4px above an 18px section
+   * heading, so a long list page read as one flat wall instead of a titled screen.
+   */
+  --text-page-title: 1.75rem;
   --text-3xl: 2.125rem;
   --leading-tight: 1.2;
   --leading-snug: 1.4;
@@ -138,6 +152,21 @@ body {
   padding: 0;
 }
 
+html {
+  /*
+   * Safari on iOS inflates text in landscape unless told not to, which makes a phone layout jump
+   * between orientations. The interface is sized by the type scale, not by the device's guess.
+   */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  /*
+   * manipulation keeps panning and pinch, and removes the 300ms double-tap zoom. The viewport also
+   * refuses scaling (an owner decision recorded in docs/design-system.md), so a stray double tap can
+   * never magnify the shop or the admin panel.
+   */
+  touch-action: manipulation;
+}
+
 body {
   background: var(--color-page);
   color: var(--color-ink);
@@ -239,6 +268,46 @@ p {
 .skip-link:focus {
   top: var(--space-3);
   color: #fff;
+}
+
+/*
+ * Phones: the small admin control grows to the standard height.
+ *
+ * AGENTS.md and docs/design-system.md already state this rule; it had never been implemented, so a
+ * 34px control sat beside a 40px one on every phone list. One control scale means one control scale.
+ */
+@media (max-width: 720px) {
+  :root {
+    --admin-control-sm: 40px;
+    --text-control: 1rem;
+    --text-page-title: 1.5rem;
+  }
+
+  /*
+   * On a phone the admin has two sticky rows - the top bar and an editor's action bar - that together
+   * cover about 180px. Static CSS Modules cannot style the scroll container from a module, so the
+   * shell marks itself and this rule makes anything scrolled or focused into view clear both.
+   */
+  html:has([data-admin-shell]) {
+    scroll-padding-top: calc(var(--admin-topbar-height) + 7.5rem);
+  }
+}
+
+/*
+ * Below 1024px the admin navigation is a fixed bottom bar, so a focused control must clear it too.
+ *
+ * The document's own bottom padding protects the *end* of the page; it does not help a browser's
+ * focus scroll, which is what left the Dhaka delivery amount and a product description underneath the
+ * bar. `scroll-padding-bottom` is the same mechanism the top padding above already uses, in the other
+ * direction. The shell also scrolls a control into the clear region on `focusin` for the browsers that
+ * ignore scroll padding when they reveal a focused field.
+ */
+@media (max-width: 1023px) {
+  html:has([data-admin-shell]) {
+    scroll-padding-bottom: calc(
+      var(--admin-bottom-nav-height) + env(safe-area-inset-bottom) + var(--space-4)
+    );
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

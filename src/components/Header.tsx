@@ -124,11 +124,13 @@ export function Header({
           {searchField('site-search', 'inline')}
           {/*
             Between 1024px and 1199px there is no room for a typeable field beside the centred
-            navigation, so the field becomes a link to the catalog's own search rather than a squeezed
-            input. The full field returns at 1200px.
+            navigation, so the control is a link into the catalog's own search rather than a squeezed
+            input. It targets the field itself (`#catalog-search`), so a tap puts the caret in the input
+            instead of dropping the shopper at the top of the listing to find it again. The full field
+            returns at 1200px.
           */}
           <Link
-            href="/products"
+            href="/products#catalog-search"
             className={styles.compactSearch}
             aria-label={t('search.label')}
             title={t('search.label')}

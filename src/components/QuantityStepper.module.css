@@ -11,8 +11,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  min-height: 40px;
+  width: 44px;
+  min-height: 44px;
   border: none;
   background: transparent;
   color: var(--color-ink);
@@ -39,7 +39,9 @@
   font-variant-numeric: tabular-nums;
   background: var(--color-surface);
   color: var(--color-ink);
-  min-height: 40px;
+  /* 44px inside a 1px border = 46px total, the same height as the Add to cart button beside it. */
+  min-height: 44px;
+  font-size: var(--text-control);
   -moz-appearance: textfield;
 }
 

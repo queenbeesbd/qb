@@ -1,88 +1,167 @@
 # Architecture
 
-Status: current implementation is the Phase 1 frontend-demo architecture, refined through Phases 2-5; verified audit snapshot: 2026-10-11. Decisions recorded in `docs/decisions/`. This describes what exists, not a proposal.
+Status: the implementation as of **2026-10-29** (through Phase 45b). This describes what exists, not a
+proposal. Decisions live in `docs/decisions/`; the table and state design lives in
+[`data-model.md`](data-model.md); the authorization matrix and threat model in [`security.md`](security.md).
 
 ## Applied stack
 
-Next.js 16.4.0 (App Router, Turbopack), TypeScript 5.9.3 in strict mode with `noUncheckedIndexedAccess`, npm with committed lockfile, CSS Modules plus CSS custom-property tokens, Server Components by default. No database, ORM, auth provider, CMS, state library, UI kit or animation library. Rationale: [ADR 0001](decisions/0001-nextjs-typescript-foundation.md).
+Next.js 16.4.0 (App Router), React 19.3.0, TypeScript 5.9.3 in strict mode with `noUncheckedIndexedAccess`,
+npm with a committed lockfile, CSS Modules plus CSS custom-property tokens, Server Components by default.
+PostgreSQL 18 through Drizzle ORM 0.45.4 with reviewed SQL migrations in `drizzle/`.
+[ADR 0001](decisions/0001-nextjs-typescript-foundation.md), [ADR 0007](decisions/0007-drizzle-and-database-driver.md).
+
+No UI kit, state-management library, chart library, mail provider, OAuth provider or payment SDK is used,
+and none may be added without an owner decision. Charts are hand-drawn SVG ([ADR 0021](decisions/0021-promo-codes-and-analytics.md)).
+
+## Surfaces
+
+| Surface | Routes | Rendering | Session |
+| --- | --- | --- | --- |
+| Storefront | `/`, `/products`, `/categories`, `/cart`, `/checkout`, `/account` | Server Components, `force-dynamic` (the catalog is live) | none, or the customer session cookie |
+| Admin | `/admin/**` | Server Components reading the owner session, one permission check per page and per mutation | httpOnly owner session cookie |
+| API | `/api/**` | Route handlers only, every write goes through one | same cookies, plus CSRF for customer posts |
+
+Every route is rendered on demand; the only prerendered output is the generated `/_not-found` and error
+pages. There is **no public catalog endpoint**: the storefront reads the catalog server-side only
+([ADR 0011](decisions/0011-local-catalog-authority-and-storefront-cutover.md)).
 
 ## Module boundaries
 
 | Module | Responsibility |
 | --- | --- |
-| `src/lib/` | Domain types (`Product`, `Category`, `LocalizedText`, `CartLine`), integer-poisha money helpers, display formatting and search normalisation. No React, no framework imports. |
-| `src/data/` | Reviewed demo catalog and categories plus typed accessors. The only place product facts live. |
-| `src/i18n/` | Dictionaries, locale config, locale external store, provider, translation hook. |
-| `src/features/catalog/` | Query parsing/selection, homepage view, catalog view, product detail view. |
-| `src/features/cart/` | Cart external store, storage guards, provider with all derived money, cart view. |
-| `src/features/checkout/` | Inert demo checkout preview. |
-| `src/components/` | Shell components and presentational primitives (header, footer, card, stepper, icons). |
-| `src/app/` | Routes, root layout, global tokens, error/not-found boundaries. |
+| `src/lib/` | Domain types (`CatalogItem`, `CartLine`, `Money`, `DeliveryArea`), integer-poisha money, delivery quoting, promo evaluation, search normalisation, price/slug validation, password length policy. No React, no database, no framework imports. |
+| `src/server/catalog/` | The typed accessor contract the views depend on (`getStorefrontCatalog`, `checkOrderability`), backed by SQL. |
+| `src/server/orders/` | Order creation and the owner transitions: approve, cancel, dispatch, deliver, failed delivery, return, inspect, record payment, record cost. One transaction each. |
+| `src/server/auth/` | Owner credentials (scrypt), sessions, CSRF, throttling, recovery tokens, audit writes. |
+| `src/server/authz/` | Permission and role data, actor resolution, `requirePermission`, owner-account management. |
+| `src/server/customer-auth/` | Customer registration, sign-in, sessions and the owner-issued credential reset. Separate tables, cookie and CSRF label from the owner surface. |
+| `src/server/delivery/`, `src/server/promotions/`, `src/server/settings/`, `src/server/analytics/` | Delivery charges, promo rules, store settings, derived dashboard figures. |
+| `src/server/integrations/` | Telegram order alerts - advisory, env-only, failures swallowed in `after()` ([ADR 0022](decisions/0022-telegram-order-notifications.md)). |
+| `src/db/` | `client.ts` (the only connection), `schema/` (Drizzle), `migrate.ts`, `validate.ts`, seeds. |
+| `src/features/` | The `'use client'` views: catalog browsing, cart, checkout form, account forms. |
+| `src/components/` | Presentational chrome: header, footer, tab bar, product card, photo, stepper, ticker, icons. |
+| `src/data/` | The deterministic fixture seed (`db:seed:catalog`) and the curation id lists. Never a fallback. |
+| `src/i18n/` | One English dictionary and the translation hook; `check:i18n` enforces completeness. |
 
-Dependency direction is one-way: `app` and `features` may import `components`, `lib` and `data`; `lib` and `data` import nothing upward. Components never compute money - they read it from the cart provider or the money helpers.
+Dependency direction is one-way: `app` -> `features` -> `components`/`lib`; `app` -> `server` -> `db`.
+`src/db/` and `src/server/` are server-only, and the environment module throws if it is pulled into a
+browser bundle.
 
-## Rendering and data flow
+## Data flow
+
+### Storefront read path
 
 ```text
-Server                                   Client
-------                                   ------
-route params / searchParams
-  -> parseCatalogQuery (untrusted input -> safe defaults)
-  -> selectCatalog(products, query)      -> ProductCard / grid (presentational)
-  -> ProductDetailView (client)          -> useCart / useTranslation
+request -> storefront layout (force-dynamic)
+   -> getStorefrontCatalog()   (cache-wrapped: the page and its metadata share one read)
+      -> categories, products, curated selections  ---> props ---> Server Components
+                                                                    |
+                                          'use client' views <-------+
 ```
 
-- Routes resolve their own data on the server. `/products` and `/categories/[slug]` are server-rendered; the 22 product routes are prerendered via `generateStaticParams`; `/`, `/cart`, `/checkout` and `/_not-found` are static.
-- `parseCatalogQuery` treats `searchParams` as untrusted: it truncates lengths, validates the category against the real taxonomy, and falls back to `relevance` for an unknown sort. Malformed input cannot crash a listing page.
-- Client Components are limited to `Header`, `Footer`, `LanguageToggle`, `ProductCard`, `QuantityStepper`, `HomeView`, `CatalogView`, `ProductDetailView`, `CartView`, `CheckoutPreview`, the providers, and the error/not-found boundaries. Everything else is server-rendered.
+Views never import SQL. They receive plain JSON-serialisable values and depend on the accessor contract, so
+the source behind it can change without touching a view.
+
+### Cart
+
+```text
+localStorage  queenbees.cart.v1   ids + quantities (the cart)
+cookie        qb_cart             a mirror of those ids, so a server page can project products
+```
+
+The cart provider receives **ids only** from the layout; the badge counts stored quantities without a
+product lookup, and a restored line is validated against the ids the shop still sells. The two routes that
+draw lines - `/cart` and `/checkout` - read the `qb_cart` mirror, validate every id against the catalog
+and project only those products (`selectCartProducts`). That is why a product page carries no catalog and
+these two pages carry a basket rather than a shop (Phase 45, 45b).
+
+The mirror carries ids and nothing else, so it is untrusted in the strong sense: a forged value can change
+which products a page mentions, and cannot add a line, change a price or place an order. If the cart and the
+mirror disagree, `useCartProjection` writes the mirror from the live cart, refreshes the server tree once,
+and - if the gap survives - says so instead of drawing a short cart or enabling an order that would omit a
+line.
+
+### Checkout write path
+
+```text
+form post -> /api/checkout/order
+   -> same-origin check (guest) / session + CSRF (customer)
+   -> one transaction:
+        claim idempotency key
+        refuse a suspended or deleted account (D20)
+        orderability per product from database state (D19, ADR 0013)
+        price every line from product_variant, resolve delivery charge, evaluate the promo code
+        write order + order_item + order_contact + order_event, discount snapshot
+   -> redirect to the order confirmation
+```
+
+Nothing the browser sends is authoritative except ids, quantities, contact fields and a promo string. **No
+reservation, deduction or movement is written**, so overselling is accepted by decision
+([ADR 0013](decisions/0013-availability-only-ordering-gate.md)).
+
+### Admin write path
+
+```text
+/admin/** page  -> resolve session -> requirePermission(page permission)
+/api/admin/**   -> same-origin -> session -> CSRF -> requirePermission -> service (re-checks) -> audit
+```
+
+Authorization is checked twice on purpose, and the second check is what makes a caller that forgets the
+first fail closed. Denials are written in their own transaction, so a refusal cannot roll back its own
+record. The audit trail is append-only, enforced by revoked grants and a trigger.
 
 ## State model
 
-Two small external stores, both read with `useSyncExternalStore` so the server snapshot is deterministic and no effect has to write state on mount:
-
-| Store | Server snapshot | Client snapshot | Persistence |
+| State | Server snapshot | Client snapshot | Persistence |
 | --- | --- | --- | --- |
-| `src/i18n/locale-store.ts` | `'bn'` (approved default) | saved preference | `queenbees.locale.v1` |
-| `src/features/cart/cart-store.ts` | frozen empty list | restored lines | `queenbees.cart.v1` |
+| Cart (`src/features/cart/cart-store.ts`) | frozen empty list | restored lines | `localStorage` `queenbees.cart.v1`, mirrored to the `qb_cart` cookie |
+| Everything else | - | - | Server-side; `useSyncExternalStore` is used for the cart only |
 
-Persisted values are treated as untrusted on read: the cart filters against known product ids, de-duplicates, clamps quantities to `1..20` with a 40-line cap, and discards unparseable JSON; the locale store discards any value that is not `bn` or `en`. All derived cart money is computed in one place (`CartProvider`) in integer poisha.
+There is no locale store: the interface is English only (Phase 28). Persisted browser values are treated as
+untrusted on read: the cart filters against known ids, de-duplicates, clamps quantities to 1-20 and caps at
+40 lines; the cookie mirror validates id shape, de-duplicates and caps at the same 40 ids.
+
+## Database
+
+46 tables, 12 reviewed migrations, least-privilege grants, and append-only enforcement on `order_event`,
+`order_item`, `audit_event` and `inventory_movement` (revoked `UPDATE`/`DELETE` plus a
+`BEFORE UPDATE OR DELETE` trigger, so it holds regardless of role). Money is integer poisha everywhere.
+Five separate state concepts are never collapsed: fulfilment, prepaid payment (retained, unused), COD,
+refund (retained, unused) and the inventory reservation (retained, unused).
+
+Derived figures are `sum()`/`count(*)` over rows on read - there is no counter to double-count. Money is
+bucketed by `completed_at` and workload by `placed_at`, both in `Asia/Dhaka`, and the interface labels
+which is which.
 
 ## Trust boundaries
 
 ```text
-Untrusted: browser, URL, localStorage, product copy, future API payloads
+Untrusted: browser, URL, localStorage, cookies, product copy, request bodies
     |
     v
-Storefront: server-side catalog read -> pure functions -> rendered output
-    |  (no outbound requests; no order/payment path exists)
+Server:  session -> permission -> service -> one transaction -> database constraints and triggers
+    |
     v
-Trusted, NOT YET BUILT: our server -> inventory/orders -> payment provider
+Trusted, NOT PROVISIONED: Neon PostgreSQL, Neon Object Storage, Vercel (architecture approved only)
 ```
 
-The storefront contains no code path that contacts a payment provider, and no order path exists: the checkout route renders zero forms, zero inputs and zero submit buttons, so there is nothing to tamper with and no field to collect personal data. This is a structural guarantee, not a disabled control. The only server-side data read is the catalog (section "Catalog source"); a local database exists for the admin surface and the catalog since Phases 11-14, and **nothing is deployed and no cloud resource exists**.
+- Ownership comes from the session, never from a request parameter; another customer's order number is a 404.
+- Hiding a control is never the control: every mutation re-checks permission server-side.
+- A submitted artefact is never proof of payment; COD collects none.
+- Secrets come from the process environment. No secret is in the repository, a fixture, a log or a
+  `NEXT_PUBLIC_*` variable, and `check:secrets` verifies the built bundle.
+- No cloud resource for this product exists, and provisioning is a separate owner authorization.
 
-Every value the client holds - price, discount, stock, total - is a **display projection of catalog data resolved on the server**. It is explicitly not authoritative. A production checkout must recompute all of it on a trusted server; see `docs/security.md`.
+## Environment and execution
 
-## Catalog source
+One Node process serves both surfaces and the route handlers. Database connections go through
+`src/db/client.ts` (`withTransaction` for anything that writes). Telegram alerts run in `after()` so a
+notification failure can never fail an order. There is no scheduler, no worker and no background queue:
+nothing expires, sweeps or releases anything on a timer, by decision.
 
-Components depend on the `Product` type and the typed accessor contract (`getProductBySlug`, `getProductById`, `products`), not on the module internals. **Since Phase 14 (ADR 0011) the storefront reads the database catalog** through the server-only accessor in `src/server/catalog/storefront.ts`; there is **no public catalog endpoint**, and catalog data reaches the `'use client'` views as props from a server component. The Phase 1 fixture in `src/data/catalog.ts` is retained only as the deterministic local/test seed and as a **development-only opt-in** (`QUEENBEES_STOREFRONT_FIXTURE=1`, refused outside development) - it is **never a fallback** on a database read failure, which surfaces through the error boundary instead. Price and availability authority stay server-side, and the normalized shape (including explicit `null` for unknown optional fields) is preserved.
+## What is not here
 
-## Where the backend comes from (strategic reset)
-
-The Phase 7 audit found no supported integration surface on the merchant platform. The owner has therefore approved an **independent platform**: QueenBee's builds and owns its own backend, database and admin dashboard. See `docs/decisions/0004-independent-platform-direction.md` for the decision and `docs/platform-architecture.md` for the proposed architecture, evaluated options and the decisions still requiring owner approval.
-
-The Zatiq dashboard is now a **UX and feature reference only**. Nothing in this repository depends on its API, endpoints, cookies or tenant identifiers.
-
-### What does not change
-
-This document's implemented content stands as-is. In particular, the properties below were designed in from Phase 1 and are now load-bearing rather than hypothetical:
-
-- The frontend is **never** authoritative for price, discount, stock, totals or orders.
-- Catalog data is reached only through the typed accessor contract, which is now backed by the database (Phase 14, ADR 0011), so the components depend on the contract and the `Product` shape rather than on a data module. The **contract held; the delivery changed** - accessors became asynchronous and catalog data now arrives in the `'use client'` views as props instead of module imports.
-- Server Components resolve data on the server, so the trust boundary is already in the right place for a real backend.
-- The cart stores ids and quantities only, never prices, so totals are always recomputed.
-- The demo's inert checkout, locked announcement and `noindex` remain until a real, authorized checkout exists.
-
-### What is now this project's responsibility
-
-Database and schema, staff authentication and authorization, the admin dashboard, order integrity, payment verification, shipping and courier integration, image storage, analytics and operations. None of these exist yet, and none is implemented by this documentation change.
+Deployment, DNS, object storage, image upload, email/SMS/OAuth providers, online payment, courier
+consignment, refunds and traffic analytics. Each is either an owner decision that has not been taken or an
+authorization that has not been given; none is implied by anything in this repository.

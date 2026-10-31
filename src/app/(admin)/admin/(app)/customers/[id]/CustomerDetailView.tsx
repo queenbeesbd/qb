@@ -285,7 +285,7 @@ export function CustomerDetailView({
               <p className={styles.note} style={{ margin: 'var(--space-2) 0 var(--space-4)' }}>
                 {t('admin.customers.recovery.body')}
               </p>
-              <form action="/api/admin/customers/recovery" method="post">
+              <form className={styles.form} action="/api/admin/customers/recovery" method="post">
                 <input type="hidden" name="csrf" value={csrfToken} />
                 <input type="hidden" name="customerId" value={customer.customerId} />
                 <label className={styles.field}>
@@ -293,6 +293,7 @@ export function CustomerDetailView({
                     {t('admin.customers.recovery.reasonLabel')} <RequiredMark />
                   </span>
                   <textarea
+                    className={styles.textarea}
                     name="reason"
                     required
                     minLength={10}

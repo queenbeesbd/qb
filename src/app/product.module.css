@@ -38,6 +38,69 @@
   gap: var(--space-6);
 }
 
+/*
+ * The media column: one frame plus, when the product has more than one photograph, a strip of
+ * thumbnails under it. `min-width: 0` keeps a wide strip from stretching the grid column.
+ */
+.media {
+  display: grid;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.gallery {
+  min-width: 0;
+}
+
+/*
+ * A thumbnail strip is a scroller, not a page-widener: the list clips and scrolls inside its own box,
+ * and `contain` stops a long strip affecting the layout of anything around it.
+ */
+.galleryList {
+  list-style: none;
+  margin: 0;
+  padding: 0 0 2px;
+  display: flex;
+  gap: var(--space-2);
+  overflow-x: auto;
+  contain: layout paint;
+}
+
+/*
+ * 72px wide at the catalog's own 3:4 ratio - comfortably above the phone's 40px touch floor, and small
+ * enough that five photographs still fit across a 390px screen.
+ */
+.galleryThumb {
+  display: block;
+  width: 4.5rem;
+  aspect-ratio: 3 / 4;
+  padding: 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.galleryThumb img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* The chosen photograph is marked by shape as well as colour, so the state is not colour-only. */
+.galleryThumb[data-active='true'] {
+  border-color: var(--color-action);
+  outline: 2px solid var(--color-action);
+  outline-offset: -1px;
+}
+
+.galleryThumb:focus-visible {
+  outline: 2px solid var(--color-action);
+  outline-offset: 2px;
+}
+
 .figure {
   margin: 0;
   border: 1px solid var(--color-border);

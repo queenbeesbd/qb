@@ -41,6 +41,15 @@ export function ProductDetailView({
    * would leave a keyboard user focused on a control that no longer exists.
    */
   const [justAdded, setJustAdded] = useState(false);
+  /**
+   * Which stored photograph the page is showing.
+   *
+   * The catalog holds more than one image for many products and the admin panel already orders them, but
+   * this page used to render `images[0]` and nothing else - so an owner who added a second photograph
+   * could not tell it had been saved. The first image is shown until the customer picks another, and the
+   * index is clamped so a shorter list can never point past its end.
+   */
+  const [activeImage, setActiveImage] = useState(0);
 
   const name = pick(product.name) ?? product.slug;
   const description = pick(product.description);
@@ -51,7 +60,9 @@ export function ProductDetailView({
    * current price, so the page can never show a discount that does not exist.
    */
   const compareAt = saving === null ? null : product.compareAtPriceMinor;
-  const image = product.images[0];
+  const images = product.images;
+  const activeIndex = images.length === 0 ? 0 : Math.min(activeImage, images.length - 1);
+  const image = images[activeIndex];
   /**
    * Availability is the owner's binary In Stock / Out of Stock state and the only ordering gate the
    * server reads (ADR 0013), so the purchase control follows it here. This is presentation only: the
@@ -61,7 +72,7 @@ export function ProductDetailView({
    */
   const orderable = product.availability === 'in_stock';
   /** How many of this product the cart now holds, so the confirmation can state it. */
-  const cartQuantity = cart.entries.find((entry) => entry.product.id === product.id)?.quantity ?? 0;
+  const cartQuantity = cart.lines.find((line) => line.productId === product.id)?.quantity ?? 0;
 
   return (
     <div className={styles.page}>
@@ -90,6 +101,35 @@ export function ProductDetailView({
               fallbackLabel={t('product.imagePlaceholder')}
             />
           </figure>
+          {/*
+            A thumbnail strip only when there is a choice to make. Each control is a real button, so it
+            is operable by keyboard and announced as a pressed state; the image inside it is decorative
+            because the button's own label says which photograph it shows. The strip scrolls inside its
+            own box, so a product with many photographs cannot widen the page.
+          */}
+          {images.length > 1 && (
+            <div className={styles.gallery} role="group" aria-label={t('product.gallery')}>
+              <ul className={styles.galleryList}>
+                {images.map((candidate, index) => (
+                  <li key={candidate.key}>
+                    <button
+                      type="button"
+                      className={styles.galleryThumb}
+                      data-active={index === activeIndex ? 'true' : undefined}
+                      aria-pressed={index === activeIndex}
+                      aria-label={t('product.galleryThumb', {
+                        index: index + 1,
+                        count: images.length,
+                      })}
+                      onClick={() => setActiveImage(index)}
+                    >
+                      <ProductPhoto image={candidate} alt="" sizes="72px" />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
 
         <div className={styles.info}>
@@ -236,7 +276,7 @@ export function ProductDetailView({
       {related.length > 0 && (
         <section className={styles.related} aria-labelledby="related-title">
           <h2 id="related-title">{t('product.related')}</h2>
-          <ProductGrid>
+          <ProductGrid oddLast="wide">
             {related.map((item) => (
               <ProductCard key={item.id} product={item} />
             ))}

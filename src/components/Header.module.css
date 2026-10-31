@@ -44,10 +44,14 @@
   object-fit: contain;
 }
 
+/*
+ * Account and cart are two 40px targets that sit beside each other in the thumb zone. At 4px apart a
+ * thumb aimed at the cart reliably opened the account instead, so they keep a real gap.
+ */
 .actions {
   display: flex;
   align-items: center;
-  gap: var(--space-1);
+  gap: var(--space-2);
   margin-inline-start: auto;
 }
 
@@ -68,13 +72,18 @@
   color: var(--color-ink);
   cursor: pointer;
   transition: background var(--transition-fast), border-color var(--transition-fast),
-    color var(--transition-fast);
+    color var(--transition-fast), transform 120ms var(--ease-out-ui);
 }
 
 .iconButton:hover {
   background: var(--color-surface-sunken);
   border-color: var(--color-border);
   color: var(--color-action);
+}
+
+/* A press is acknowledged before the next page has painted. */
+.iconButton:active {
+  transform: scale(0.94);
 }
 
 .iconButton[aria-current='page'] {
@@ -120,7 +129,7 @@
   display: none;
   align-items: center;
   gap: var(--space-1);
-  width: 240px;
+  width: 256px;
   min-width: 0;
   border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-md);
@@ -144,6 +153,9 @@
   font-size: var(--text-sm);
   color: var(--color-ink);
   min-width: 0;
+  /* If a future placeholder is longer than the field, it ends in an ellipsis rather than a
+     half-drawn word pressed against the search button. */
+  text-overflow: ellipsis;
 }
 
 .search button {
@@ -193,7 +205,8 @@
   outline: none;
   background: transparent;
   font: inherit;
-  font-size: var(--text-base);
+  /* 16px below 720px so focusing the field never zooms the page on a phone. */
+  font-size: var(--text-control);
   color: var(--color-ink);
 }
 

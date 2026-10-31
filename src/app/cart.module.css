@@ -24,6 +24,23 @@
   min-height: 1.2em;
 }
 
+/*
+ * A line this page could not draw, stated before the list it affects. It is a state the customer can
+ * act on (reload, or clear the basket), so it is a bordered block rather than a muted sentence.
+ */
+.projectionNotice {
+  display: grid;
+  gap: var(--space-3);
+  justify-items: start;
+  padding: var(--space-4);
+  border: 1px solid var(--color-danger);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  color: var(--color-danger);
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+
 .layout {
   display: grid;
   gap: var(--space-6);
@@ -237,6 +254,79 @@
 
 .clearButton:hover {
   color: var(--color-danger);
+}
+
+/*
+ * The clear-cart question replaces the trigger in place rather than opening a dialog: this is the only
+ * destructive control on the page, and the answer belongs beside the summary it would remove. Nothing
+ * here closes on a timer, so it cannot disappear mid-read.
+ */
+.clearConfirm {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-danger);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.clearPrompt {
+  margin: 0;
+  font-weight: 600;
+}
+
+.clearHint {
+  margin: 0;
+  color: var(--color-ink-muted);
+  font-size: var(--text-sm);
+}
+
+.clearActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-1);
+}
+
+/*
+ * The destructive answer is drawn in the danger colour on the page surface rather than as a filled
+ * danger button, because white text on this palette's red does not meet contrast - the same rule the
+ * filled-action token exists for.
+ */
+.clearDanger,
+.clearKeep {
+  min-height: 40px;
+  padding: 0 var(--space-4);
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.clearDanger {
+  border: 1px solid var(--color-danger);
+  background: var(--color-surface);
+  color: var(--color-danger);
+}
+
+.clearDanger:hover {
+  background: var(--color-danger-soft);
+}
+
+.clearKeep {
+  border: 1px solid var(--color-border-strong);
+  background: none;
+  color: var(--color-ink);
+}
+
+.clearKeep:hover {
+  border-color: var(--color-action);
+  color: var(--color-action);
+}
+
+.clearDanger:focus-visible,
+.clearKeep:focus-visible {
+  outline: 2px solid var(--color-action);
+  outline-offset: 1px;
 }
 
 .empty {

@@ -31,6 +31,32 @@ const ERROR_NOTICES: readonly PromoNotice[] = ['denied', 'conflict', 'invalid', 
 
 import type { PromoFormValues } from './promo-form-values';
 
+/** The visible controls of the editor, named by their own `name` attribute. */
+type PromoField =
+  | 'code'
+  | 'percentOff'
+  | 'amountOff'
+  | 'minOrder'
+  | 'maxDiscount'
+  | 'maxRedemptions'
+  | 'startsAt'
+  | 'endsAt';
+
+function controlName(control: HTMLElement): string {
+  return control.getAttribute('name') ?? '';
+}
+
+function violatesConstraint(control: HTMLElement): boolean {
+  if (
+    control instanceof HTMLInputElement ||
+    control instanceof HTMLSelectElement ||
+    control instanceof HTMLTextAreaElement
+  ) {
+    return !control.checkValidity();
+  }
+  return false;
+}
+
 export type PromoFormStats = {
   isActive: boolean;
   redemptions: number;
@@ -66,7 +92,19 @@ export function PromoCodeForm({
 }) {
   const { t, price } = useTranslation();
   const [form, setForm] = useState<PromoFormValues>(initial);
-  const [showProblems, setShowProblems] = useState(false);
+  /*
+   * A refused submission is state, not a message the browser draws and forgets.
+   *
+   * The form is `noValidate` because native validation refuses the submit *before* `onSubmit` runs:
+   * an empty required Code produced no summary at all, so "Create code" appeared to do nothing. This
+   * holds the fields that blocked the save, which is what puts the summary on screen, marks the
+   * controls and decides where focus goes. Server-side validation stays authoritative.
+   */
+  const [blocked, setBlocked] = useState<{ fields: readonly string[]; unlisted: boolean }>({
+    fields: [],
+    unlisted: false,
+  });
+  const isFlagged = (field: PromoField): boolean => blocked.fields.includes(field);
 
   function set<K extends keyof PromoFormValues>(key: K, value: PromoFormValues[K]) {
     setForm((current) => ({ ...current, [key]: value }));
@@ -80,21 +118,28 @@ export function PromoCodeForm({
     form.maxDiscount.trim() === '' ? null : parseBdtInput(form.maxDiscount);
   const limitValue = form.maxRedemptions.trim() === '' ? null : Number(form.maxRedemptions.trim());
 
-  const problems: string[] = [];
-  if (!codeOk) problems.push(t('admin.promo.problemCode'));
+  /*
+   * Every problem names the control it belongs to, so the summary can mark the offender as well as
+   * describe it. `field` is the input's `name`, which is what the browser-invalid pass below also
+   * speaks, so one list drives both the message and the focus.
+   */
+  const problems: { field: PromoField; message: string }[] = [];
+  if (!codeOk) problems.push({ field: 'code', message: t('admin.promo.problemCode') });
   if (form.kind === 'percent' && (percentValue === null || percentValue < 1 || percentValue > 100)) {
-    problems.push(t('admin.promo.problemPercent'));
+    problems.push({ field: 'percentOff', message: t('admin.promo.problemPercent') });
   }
-  if (form.kind === 'fixed' && amountMinor === null) problems.push(t('admin.promo.problemAmount'));
-  if (minOrderMinor === null) problems.push(t('admin.promo.problemMinimum'));
+  if (form.kind === 'fixed' && amountMinor === null) {
+    problems.push({ field: 'amountOff', message: t('admin.promo.problemAmount') });
+  }
+  if (minOrderMinor === null) problems.push({ field: 'minOrder', message: t('admin.promo.problemMinimum') });
   if (form.kind === 'percent' && form.maxDiscount.trim() !== '' && maxDiscountMinor === null) {
-    problems.push(t('admin.promo.problemCap'));
+    problems.push({ field: 'maxDiscount', message: t('admin.promo.problemCap') });
   }
   if (limitValue !== null && (!Number.isSafeInteger(limitValue) || limitValue <= 0)) {
-    problems.push(t('admin.promo.problemLimit'));
+    problems.push({ field: 'maxRedemptions', message: t('admin.promo.problemLimit') });
   }
   if (form.startsAt !== '' && form.endsAt !== '' && form.endsAt < form.startsAt) {
-    problems.push(t('admin.promo.problemWindow'));
+    problems.push({ field: 'endsAt', message: t('admin.promo.problemWindow') });
   }
 
   // The preview runs the shipped evaluator, not a second copy of the arithmetic.
@@ -142,11 +187,26 @@ export function PromoCodeForm({
           className={styles.formCard}
           action="/api/admin/promo-codes"
           method="post"
+          /*
+           * The browser's own validation is taken over deliberately: with it on, an empty required
+           * Code stopped the submit before this handler ran and nothing was announced. `noValidate`
+           * hands the same constraints (required / min / max / maxLength) to one reporter, which lists
+           * the problems, marks the fields and focuses the first one. No rule was weakened, and the
+           * server still validates everything it is sent.
+           */
+          noValidate
           onSubmit={(event) => {
-            if (problems.length > 0) {
-              event.preventDefault();
-              setShowProblems(true);
-            }
+            const form = event.currentTarget;
+            const controls = [...form.querySelectorAll<HTMLElement>('input[name], select[name], textarea[name]')];
+            const browserInvalid = controls.filter(violatesConstraint).map(controlName);
+            const fields = [...new Set([...problems.map((problem) => problem.field), ...browserInvalid])];
+
+            setBlocked({ fields, unlisted: fields.length > 0 && problems.length === 0 });
+
+            if (fields.length === 0) return;
+
+            event.preventDefault();
+            form.querySelector<HTMLElement>(`[name="${fields[0] ?? ''}"]`)?.focus();
           }}
         >
           <input type="hidden" name="csrf" value={csrfToken} />
@@ -160,6 +220,7 @@ export function PromoCodeForm({
                 {t('admin.promo.fieldCode')} <RequiredMark />
               </span>
               <input
+                className={styles.input}
                 name="code"
                 type="text"
                 required
@@ -169,13 +230,16 @@ export function PromoCodeForm({
                 value={form.code}
                 onChange={(event) => set('code', event.target.value.toUpperCase())}
                 aria-describedby="promo-code-hint"
+                aria-invalid={isFlagged('code') || undefined}
               />
               <small id="promo-code-hint">{t('admin.promo.fieldCodeHint')}</small>
             </label>
 
             <label className={styles.field}>
               <span>{t('admin.promo.fieldKind')}</span>
-              <select name="kind" value={form.kind} onChange={(event) => set('kind', event.target.value as 'percent' | 'fixed')}>
+              <select
+                className={styles.select}
+                name="kind" value={form.kind} onChange={(event) => set('kind', event.target.value as 'percent' | 'fixed')}>
                 <option value="percent">{t('admin.promo.kindPercent')}</option>
                 <option value="fixed">{t('admin.promo.kindFixed')}</option>
               </select>
@@ -187,6 +251,7 @@ export function PromoCodeForm({
                   {t('admin.promo.fieldPercent')} <RequiredMark />
                 </span>
                 <input
+                  className={styles.input}
                   name="percentOff"
                   type="number"
                   min={1}
@@ -194,6 +259,7 @@ export function PromoCodeForm({
                   step={1}
                   value={form.percentOff}
                   onChange={(event) => set('percentOff', event.target.value)}
+                  aria-invalid={isFlagged('percentOff') || undefined}
                 />
                 <small>{t('admin.promo.fieldPercentHint')}</small>
               </label>
@@ -203,12 +269,14 @@ export function PromoCodeForm({
                   {t('admin.promo.fieldAmount')} <RequiredMark />
                 </span>
                 <input
+                  className={styles.input}
                   name="amountOff"
                   type="text"
                   inputMode="decimal"
                   placeholder="100"
                   value={form.amountOff}
                   onChange={(event) => set('amountOff', event.target.value)}
+                  aria-invalid={isFlagged('amountOff') || undefined}
                 />
                 <small>{t('admin.promo.fieldAmountHint')}</small>
               </label>
@@ -217,12 +285,14 @@ export function PromoCodeForm({
             <label className={styles.field}>
               <span>{t('admin.promo.fieldMinimum')}</span>
               <input
+                className={styles.input}
                 name="minOrder"
                 type="text"
                 inputMode="decimal"
                 placeholder="0"
                 value={form.minOrder}
                 onChange={(event) => set('minOrder', event.target.value)}
+                aria-invalid={isFlagged('minOrder') || undefined}
               />
               <small>{t('admin.promo.fieldMinimumHint')}</small>
             </label>
@@ -231,12 +301,14 @@ export function PromoCodeForm({
               <label className={styles.field}>
                 <span>{t('admin.promo.fieldCap')}</span>
                 <input
+                  className={styles.input}
                   name="maxDiscount"
                   type="text"
                   inputMode="decimal"
                   placeholder={t('admin.promo.fieldCapPlaceholder')}
                   value={form.maxDiscount}
                   onChange={(event) => set('maxDiscount', event.target.value)}
+                  aria-invalid={isFlagged('maxDiscount') || undefined}
                 />
                 <small>{t('admin.promo.fieldCapHint')}</small>
               </label>
@@ -245,6 +317,7 @@ export function PromoCodeForm({
             <label className={styles.field}>
               <span>{t('admin.promo.fieldLimit')}</span>
               <input
+                className={styles.input}
                 name="maxRedemptions"
                 type="number"
                 min={1}
@@ -252,6 +325,7 @@ export function PromoCodeForm({
                 placeholder={t('admin.promo.fieldLimitPlaceholder')}
                 value={form.maxRedemptions}
                 onChange={(event) => set('maxRedemptions', event.target.value)}
+                aria-invalid={isFlagged('maxRedemptions') || undefined}
               />
               <small>{t('admin.promo.fieldLimitHint')}</small>
             </label>
@@ -259,10 +333,12 @@ export function PromoCodeForm({
             <label className={styles.field}>
               <span>{t('admin.promo.fieldStarts')}</span>
               <input
+                className={styles.input}
                 name="startsAt"
                 type="date"
                 value={form.startsAt}
                 onChange={(event) => set('startsAt', event.target.value)}
+                aria-invalid={isFlagged('startsAt') || undefined}
               />
               <small>{t('admin.promo.fieldStartsHint')}</small>
             </label>
@@ -270,10 +346,12 @@ export function PromoCodeForm({
             <label className={styles.field}>
               <span>{t('admin.promo.fieldEnds')}</span>
               <input
+                className={styles.input}
                 name="endsAt"
                 type="date"
                 value={form.endsAt}
                 onChange={(event) => set('endsAt', event.target.value)}
+                aria-invalid={isFlagged('endsAt') || undefined}
               />
               <small>{t('admin.promo.fieldEndsHint')}</small>
             </label>
@@ -282,6 +360,7 @@ export function PromoCodeForm({
           <label className={styles.field}>
             <span>{t('admin.promo.fieldNote')}</span>
             <input
+              className={styles.input}
               name="description"
               type="text"
               maxLength={200}
@@ -291,14 +370,23 @@ export function PromoCodeForm({
             <small>{t('admin.promo.fieldNoteHint')}</small>
           </label>
 
-          {showProblems && problems.length > 0 && (
+          {blocked.fields.length > 0 && (
             <div className={styles.formBlocked} role="alert">
-              <p>{t('admin.promo.problemsTitle')}</p>
-              <ul>
-                {problems.map((problem) => (
-                  <li key={problem}>{problem}</li>
-                ))}
-              </ul>
+              <div>
+                <p>{t('admin.promo.problemsTitle')}</p>
+                {problems.length > 0 && (
+                  <ul>
+                    {problems.map((problem) => (
+                      <li key={problem.field}>{problem.message}</li>
+                    ))}
+                  </ul>
+                )}
+                {/*
+                  A constraint the list above does not name (a browser range or length rule) still has to
+                  say something, otherwise the summary would be an empty refusal.
+                */}
+                {blocked.unlisted && <p>{t('admin.promo.problemFields')}</p>}
+              </div>
             </div>
           )}
 

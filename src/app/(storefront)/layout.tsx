@@ -60,7 +60,13 @@ export default async function StorefrontLayout({ children }: { children: React.R
   }
 
   return (
-    <CartProvider products={catalog.products}>
+    /*
+     * The layout gives the cart what every page needs and nothing more: the ids, so a restored line is
+     * validated against what the shop actually sells. The product records a line draws are supplied by
+     * the two routes that render lines (/cart and /checkout), which is what keeps the whole catalog out
+     * of every other page's payload.
+     */
+    <CartProvider productIds={catalog.products.map((product) => product.id)}>
       <Shell
         categories={byDepartmentSize}
         departments={byDepartmentSize.slice(0, DEPARTMENTS_SHOWN)}

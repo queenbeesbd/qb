@@ -36,6 +36,11 @@ class Jar {
     this.cookies.clear();
   }
 
+  /** Seed a value directly, for a request that must carry a cookie the browser would have dropped. */
+  set(name: string, value: string): void {
+    this.cookies.set(name, value);
+  }
+
   /** Snapshot and restore, so a test can hold one session's cookie while another is exercised. */
   snapshot(): Map<string, string> {
     return new Map(this.cookies);
@@ -357,8 +362,8 @@ export async function runCustomerFlowChecks(options: { base: string; pool: Pool 
   // Split rather than match: the order number is the path segment between the route prefix and the
   // query string, and a string split has no escaping to get wrong.
   const orderNumber =
-    placedLocation.includes('/account/orders/') && placedLocation.includes('?placed=1')
-      ? (placedLocation.split('/account/orders/')[1] ?? '').split('?')[0] || null
+    placedLocation.includes('/orders/') && placedLocation.includes('?placed=1')
+      ? (placedLocation.split('/orders/')[1] ?? '').split('?')[0] || null
       : null;
   record(
     'a valid submission creates an order and redirects to its confirmation',
@@ -403,7 +408,7 @@ export async function runCustomerFlowChecks(options: { base: string; pool: Pool 
     },
   );
 
-  const confirmation = await get('/account/orders/' + orderNumber + '?placed=1');
+  const confirmation = await get('/orders/' + orderNumber + '?placed=1');
   const confirmationHtml = await body(confirmation);
   record(
     'the confirmation page renders the order for its owner',
@@ -466,7 +471,7 @@ export async function runCustomerFlowChecks(options: { base: string; pool: Pool 
   });
   await body(second);
   jar.store(second);
-  const foreignOrder = await get('/account/orders/' + orderNumber);
+  const foreignOrder = await get('/orders/' + orderNumber);
   await body(foreignOrder);
   record(
     'another customer order number is not found, not forbidden',
@@ -634,6 +639,177 @@ export async function runCustomerFlowChecks(options: { base: string; pool: Pool 
     'a used recovery code cannot be redeemed a second time',
     codeReplayLocation.includes('error=invalid'),
     { location: codeReplayLocation },
+  );
+
+  /*
+   * ---------- Guest ordering: the owner switch (D12, ADR 0024) ----------
+   *
+   * The switch is a row in `store_setting` (key `checkout.guest_orders`), and **an absent row means
+   * guests may not order** - the policy this product shipped with. These checks drive the served route,
+   * not the service: refused while the switch is absent, refused from another origin, accepted from this
+   * one, and readable only by its own order number.
+   *
+   * The setting key is written as a literal on purpose. Importing the server module would pull
+   * `src/db/client`, whose pool binds to the developer's own `DATABASE_URL` - a different database from
+   * this run's disposable cluster. The suite speaks to the cluster through `pool` and to the app over HTTP.
+   *
+   * Cleanup is TRUNCATE, not DELETE: `order_event` and `order_item` carry BEFORE UPDATE OR DELETE
+   * triggers that refuse row deletes by design, which is why `scripts/purge-imported-orders.ts` uses
+   * TRUNCATE for the same job. Every order this run created goes with it, and nothing after depends on one.
+   */
+  const GUEST_SETTING_KEY = 'checkout.guest_orders';
+  const orderCount = async (): Promise<number> => {
+    const rows = await pool.query<{ total: number }>('select count(*)::int as total from "order"');
+    return Number(rows.rows[0]?.total ?? 0);
+  };
+  const staffRows = await pool.query<{ id: string }>('select id from staff_user order by id limit 1');
+  const settingStaffId = staffRows.rows[0]?.id;
+  const setGuestSwitch = async (on: boolean): Promise<void> => {
+    if (!on) {
+      await pool.query('delete from store_setting where key = $1', [GUEST_SETTING_KEY]);
+      return;
+    }
+    await pool.query(
+      'insert into store_setting (key, value, value_type, updated_by_staff_id) values ($1, $2::jsonb, $3, $4) ' +
+        'on conflict (key) do update set value = $2::jsonb, value_type = $3, updated_by_staff_id = $4, updated_at = now()',
+      [GUEST_SETTING_KEY, JSON.stringify(true), 'boolean', settingStaffId],
+    );
+  };
+  const guestFields = (key: string): Record<string, string> => ({
+    lines: JSON.stringify([{ productId: productId, quantity: 1 }]),
+    recipientName: 'Guest Buyer',
+    districtCode: 'dhaka',
+    recipientPhone: '01712345677',
+    addressLine: 'House 9, Road 2',
+    area: 'Uttara',
+    city: 'Dhaka',
+    idempotencyKey: key,
+  });
+
+  jar.clear();
+  await setGuestSwitch(false);
+  const ordersBeforeGuest = await orderCount();
+  const refusedGuest = await post('/api/checkout/order', guestFields('flow-guest-refused-0000001'));
+  const refusedGuestLocation = refusedGuest.headers.get('location') ?? '';
+  await body(refusedGuest);
+  record(
+    'guest ordering is refused while the owner switch is absent, and writes no order',
+    refusedGuest.status >= 300 &&
+      refusedGuest.status < 400 &&
+      refusedGuestLocation.includes('/account/login') &&
+      (await orderCount()) === ordersBeforeGuest,
+    { status: refusedGuest.status, location: refusedGuestLocation, orders: await orderCount() },
+  );
+
+  await setGuestSwitch(true);
+  const crossGuest = await post('/api/checkout/order', guestFields('flow-guest-cross-00000001'), 'https://evil.example');
+  await body(crossGuest);
+  record(
+    'a cross-origin guest submission is refused and writes no order',
+    crossGuest.status === 403 && (await orderCount()) === ordersBeforeGuest,
+    { status: crossGuest.status, orders: await orderCount() },
+  );
+
+  jar.clear();
+  const guestPlaced = await post('/api/checkout/order', guestFields('flow-guest-placed-0000001'));
+  const guestLocation = guestPlaced.headers.get('location') ?? '';
+  await body(guestPlaced);
+  const guestNumber = /\/orders\/([^/?#]+)\?placed=1$/.exec(guestLocation)?.[1] ?? null;
+  const guestRow = guestNumber === null
+    ? null
+    : (await pool.query<{ customer_id: string | null }>(
+        'select customer_id from "order" where order_number = $1',
+        [guestNumber],
+      )).rows[0] ?? null;
+  // The event log is where a guest is visible as its own actor (create.ts writes actor_type = 'guest'
+  // for a principal-less order), and it is the durable record that this order had no account behind it.
+  const guestEvent = guestNumber === null
+    ? null
+    : (await pool.query<{ actor_type: string }>(
+        'select e.actor_type from order_event e join "order" o on o.id = e.order_id ' +
+          'where o.order_number = $1 and e.event_type = $2 limit 1',
+        [guestNumber, 'order_placed'],
+      )).rows[0] ?? null;
+  record(
+    'a guest places one order without an account, and no session is issued to them',
+    guestPlaced.status >= 300 &&
+      guestPlaced.status < 400 &&
+      guestNumber !== null &&
+      guestRow !== null &&
+      guestRow.customer_id === null &&
+      guestEvent !== null && guestEvent.actor_type === 'guest' &&
+      jar.header() === '',
+    { status: guestPlaced.status, location: guestLocation, order: guestRow, actor: guestEvent, cookies: jar.header() },
+  );
+
+  const guestPage = guestNumber === null ? null : await get('/orders/' + guestNumber);
+  const guestPageBody = guestPage === null ? '' : await body(guestPage);
+  const unknownPage = await get('/orders/QB-0000000000');
+  const unknownPageBody = await body(unknownPage);
+  const customerOrderRow = await pool.query<{ order_number: string }>(
+    'select order_number from "order" where customer_id is not null order by id desc limit 1',
+  );
+  const customerOrderNumber = customerOrderRow.rows[0]?.order_number ?? null;
+  const customerOrderAnonymously =
+    customerOrderNumber === null ? null : await get('/orders/' + customerOrderNumber);
+  const customerOrderBody = customerOrderAnonymously === null ? '' : await body(customerOrderAnonymously);
+  record(
+    'a guest receipt renders for its own number only: an unknown number and a customer order do not',
+    guestPage !== null &&
+      guestPage.status === 200 &&
+      guestPageBody.includes('Guest Buyer') &&
+      unknownPage.status === 404 &&
+      !unknownPageBody.includes('Guest Buyer') &&
+      (customerOrderNumber === null ||
+        (customerOrderAnonymously !== null &&
+          customerOrderAnonymously.status === 404 &&
+          !customerOrderBody.includes('Guest Buyer'))),
+    {
+      guestStatus: guestPage?.status ?? null,
+      unknownStatus: unknownPage.status,
+      customerOrderStatus: customerOrderAnonymously?.status ?? null,
+    },
+  );
+
+  /*
+   * A guest whose browser still holds a session cookie that no longer resolves - expired, revoked,
+   * rotated - is a guest, not a customer. The receipt page used to branch on the cookie's *presence*
+   * and sent exactly this visitor to sign in instead of showing the order they had just placed.
+   */
+  jar.set('qb_customer_session', 'A'.repeat(43));
+  const deadCookieReceipt = guestNumber === null ? null : await get('/orders/' + guestNumber);
+  const deadCookieBody = deadCookieReceipt === null ? '' : await body(deadCookieReceipt);
+  jar.clear();
+  record(
+    'a guest receipt still renders when the browser carries a session cookie that no longer resolves',
+    deadCookieReceipt !== null &&
+      deadCookieReceipt.status === 200 &&
+      deadCookieBody.includes('Guest Buyer'),
+    { status: deadCookieReceipt?.status ?? null },
+  );
+
+  /*
+   * The legacy account-scoped receipt address must send the visitor to the canonical one rather than
+   * render a second copy of the same page.
+   */
+  const legacyReceipt = guestNumber === null ? null : await get('/account/orders/' + guestNumber + '?placed=1');
+  record(
+    'the old account-scoped receipt address redirects to the canonical receipt',
+    legacyReceipt !== null &&
+      legacyReceipt.status >= 300 &&
+      legacyReceipt.status < 400 &&
+      (legacyReceipt.headers.get('location') ?? '').startsWith('/orders/' + guestNumber),
+    { status: legacyReceipt?.status ?? null, location: legacyReceipt?.headers.get('location') ?? null },
+  );
+
+  await setGuestSwitch(false);
+  await pool.query('truncate table "order" cascade');
+  const leftoverOrders = await orderCount();
+  const switchRow = await pool.query('select 1 from store_setting where key = $1', [GUEST_SETTING_KEY]);
+  record(
+    'the guest checks leave no order rows and restore the switch to its absent, closed state',
+    leftoverOrders === 0 && switchRow.rowCount === 0,
+    { orders: leftoverOrders, switchRows: switchRow.rowCount },
   );
 
   return checks;

@@ -81,7 +81,20 @@ export type OrderDetail = {
  * On a fresh placement (`placed`) it clears the browser cart, and only then: revisiting an older order
  * must never wipe a cart that belongs to a new one.
  */
-export function OrderDetailView({ order, placed }: { order: OrderDetail; placed: boolean }) {
+export function OrderDetailView({
+  order,
+  placed,
+  guest,
+}: {
+  order: OrderDetail;
+  placed: boolean;
+  /**
+   * True when no session resolved for this request. A guest has no order list and no account, so the
+   * page must not offer either - and must say plainly that this link is the only way back, because the
+   * shop publishes no self-service order lookup (an unanswered product question, OD-2).
+   */
+  guest: boolean;
+}) {
   const { t, price } = useTranslation();
 
   return (
@@ -96,11 +109,12 @@ export function OrderDetailView({ order, placed }: { order: OrderDetail; placed:
       )}
 
       <header className={styles.header}>
-        {!placed && <h1>{t('orders.title')}</h1>}
+        {!placed && <h1>{guest ? t('orders.guestTitle') : t('orders.title')}</h1>}
         <p className={styles.orderNumber}>
           {t('orders.orderNumber')} <strong>{order.orderNumber}</strong>
         </p>
         <p className={styles.muted}>{formatWhen(order.placedAt)}</p>
+        {guest && <p className={styles.muted}>{t('orders.guestKeepLink')}</p>}
       </header>
 
       <section className={styles.card} aria-labelledby="order-status">
@@ -187,9 +201,15 @@ export function OrderDetailView({ order, placed }: { order: OrderDetail; placed:
       </section>
 
       <div className={styles.actions}>
-        <Link className={styles.secondaryAction} href="/account/orders">
-          {t('orders.backToOrders')}
-        </Link>
+        {/*
+          A guest has no order list: `/account/orders` would send them to sign in for an account they do
+          not have. Only the customer sees the way back to their own orders.
+        */}
+        {!guest && (
+          <Link className={styles.secondaryAction} href="/account/orders">
+            {t('orders.backToOrders')}
+          </Link>
+        )}
         <Link className={styles.primaryAction} href="/products">
           {t('cart.continueShopping')}
         </Link>

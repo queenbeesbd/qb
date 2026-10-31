@@ -600,10 +600,17 @@ export async function listProductsForAdmin(
         select count(*)::int from "product_image"
         where "product_image"."product_id" = "product"."id" and "product_image"."deleted_at" is null
       )`,
+      /*
+       * The photograph the list draws beside a row: the flagged primary, or failing that the first
+       * image in the owner's order. Without the fallback, a product whose images exist but whose
+       * primary flag was never set would show the empty frame while its detail page showed a photo -
+       * a worse lie than no thumbnail at all.
+       */
       primaryImageKey: sql<string | null>`(
         select "base_key" from "product_image"
         where "product_image"."product_id" = "product"."id"
-          and "product_image"."deleted_at" is null and "product_image"."is_primary"
+          and "product_image"."deleted_at" is null
+        order by "product_image"."is_primary" desc, "product_image"."sort_order" asc, "product_image"."id" asc
         limit 1
       )`,
     })
@@ -1205,15 +1212,20 @@ export async function attachImage(
     imageId = inserted[0]?.id ?? '';
     if (imageId === '') throw new Error('product image insert returned no id');
 
-    await tx.insert(productImageDerivative).values(
-      asset.variants.map((variant) => ({
-        productImageId: imageId,
-        storageKey: variant.storageKey,
-        width: variant.width,
-        format: variant.format,
-        byteSize: variant.byteSize,
-      })),
-    );
+    // A new image must be uploaded from bytes the server has read, so it always carries a complete
+    // variant set. An empty list means the key was resolved from an existing record instead, and this
+    // branch cannot be reached then (the record is `found`, not `undefined`).
+    if (asset.variants.length > 0) {
+      await tx.insert(productImageDerivative).values(
+        asset.variants.map((variant) => ({
+          productImageId: imageId,
+          storageKey: variant.storageKey,
+          width: variant.width,
+          format: variant.format,
+          byteSize: variant.byteSize,
+        })),
+      );
+    }
   } else {
     imageId = found.id;
     await tx

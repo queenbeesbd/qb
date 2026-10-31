@@ -24,6 +24,10 @@
 import { readFile, readdir, stat } from 'node:fs/promises';
 import { join } from 'node:path';
 
+import { sql } from 'drizzle-orm';
+
+import { withTransaction } from '@/db/client';
+import { productImage } from '@/db/schema';
 import { IMAGE_WIDTHS } from '@/lib/images';
 
 import { readImageMetadata, type ImageFormat } from './image-metadata';
@@ -58,6 +62,30 @@ export type AssetDescriptor = {
 };
 
 /**
+ * The last completed directory scan, keyed by the directory's own modification time.
+ *
+ * `readdir` over `public/catalog` reads ~15.5 thousand entries, and the admin media panel asked for it
+ * on every render while `readAsset` asked again before reading eight variant files - so opening one
+ * product editor scanned the whole tree several times. The directory's mtime changes when an entry is
+ * added or removed, which is exactly when the allowlist can change; the scan is therefore reused until
+ * then. Nothing here is a durable cache: it lives in the process and disappears with it.
+ *
+ * The array is copied on the way out so a caller cannot edit the cached inventory.
+ */
+type Inventory = { readonly signature: number; readonly keys: readonly string[] };
+let inventory: Inventory | null = null;
+
+/** The directory's modification time, or `null` when the directory does not exist. */
+async function directorySignature(): Promise<number | null> {
+  try {
+    const info = await stat(CATALOG_ASSET_DIR);
+    return info.mtimeMs;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Keys with a complete generated variant set.
  *
  * "Complete" means every declared width exists in both formats - the same invariant
@@ -70,12 +98,56 @@ export type AssetDescriptor = {
  * see `docs/catalog.md`.
  */
 export async function listAssetKeys(): Promise<string[]> {
+  const local = await listLocalAssetKeys();
+  const recorded = await listRecordedAssetKeys();
+  if (recorded.length === 0) return local;
+
+  // The union, not a replacement: the local tree is the whole inventory in development, and it also
+  // holds assets created after the recorded set was last written.
+  const merged = new Set([...local, ...recorded]);
+  return [...merged].sort();
+}
+
+/**
+ * Keys already recorded in `product_image`, so the picker keeps working where the tree is absent.
+ *
+ * A deployment does not carry the 640 MB photo tree: the bytes live in object storage (ADR 0006) and
+ * are delivered through `/catalog/<key>-<width>.<ext>`. Without this, opening a product editor in a
+ * deployment would show an empty inventory and no stored image could be re-attached or re-ordered.
+ *
+ * This is a **recorded** set, never a guess: a key is here because a row names it, which means its
+ * metadata was already read from the bytes when it was attached.
+ */
+async function listRecordedAssetKeys(): Promise<string[]> {
+  try {
+    const rows = await withTransaction((tx) =>
+      tx
+        .selectDistinct({ key: productImage.baseKey })
+        .from(productImage)
+        .where(sql`${productImage.deletedAt} is null`),
+    );
+    return rows.map((row) => row.key);
+  } catch {
+    // A database that cannot be read here is an absent recorded set, not a failed admin screen: the
+    // local inventory still returns what it has.
+    return [];
+  }
+}
+
+async function listLocalAssetKeys(): Promise<string[]> {
+  const signature = await directorySignature();
+  if (signature === null) {
+    // A missing directory is an empty inventory, not a crash: the admin screen then shows its empty
+    // state rather than a 500. A cached scan from a tree that has since gone is dropped.
+    inventory = null;
+    return [];
+  }
+  if (inventory !== null && inventory.signature === signature) return [...inventory.keys];
+
   let entries: string[];
   try {
     entries = await readdir(CATALOG_ASSET_DIR);
   } catch {
-    // A missing directory is an empty inventory, not a crash: the admin screen then shows its empty
-    // state rather than a 500.
     return [];
   }
 
@@ -94,7 +166,9 @@ export async function listAssetKeys(): Promise<string[]> {
     if (complete) keys.add(key);
   }
 
-  return [...keys].sort();
+  const sorted = [...keys].sort();
+  inventory = { signature, keys: sorted };
+  return [...sorted];
 }
 
 /** True when the key is in the enumerated inventory. */
@@ -112,6 +186,16 @@ export async function isKnownAsset(key: string): Promise<boolean> {
 export async function readAsset(key: string): Promise<AssetDescriptor | null> {
   if (!(await isKnownAsset(key))) return null;
 
+  const fromDisk = await readAssetFromDisk(key);
+  if (fromDisk !== null) return fromDisk;
+
+  // A deployment has no photo tree, so a key that is already recorded is described by its own row:
+  // the metadata was read from the bytes when the image was attached, and re-attaching or re-ordering
+  // it must not require the file to be present again.
+  return readAssetFromRecord(key);
+}
+
+async function readAssetFromDisk(key: string): Promise<AssetDescriptor | null> {
   const variants: AssetVariant[] = [];
   let primary: { contentType: string; width: number; height: number; byteSize: number } | null = null;
 
@@ -161,6 +245,41 @@ export async function readAsset(key: string): Promise<AssetDescriptor | null> {
     byteSize: primary.byteSize,
     variants,
   };
+}
+
+/** One asset as its own database row records it. Used where the local tree is not deployed. */
+async function readAssetFromRecord(key: string): Promise<AssetDescriptor | null> {
+  try {
+    const rows = await withTransaction((tx) =>
+      tx
+        .select({
+          contentType: productImage.contentType,
+          width: productImage.width,
+          height: productImage.height,
+          byteSize: productImage.byteSize,
+        })
+        .from(productImage)
+        .where(sql`${productImage.baseKey} = ${key} and ${productImage.deletedAt} is null`)
+        .limit(1),
+    );
+    const row = rows[0];
+    if (row === undefined) return null;
+
+    return {
+      key,
+      contentType: row.contentType,
+      width: row.width,
+      height: row.height,
+      byteSize: row.byteSize,
+      // No variant rows are fabricated here. The row records the base variant's metadata only, and
+      // this path is reached only for an image that is **already** recorded - re-attaching it updates
+      // that row and writes no derivative, so an invented per-variant byte size would be a claim this
+      // module cannot support.
+      variants: [],
+    };
+  } catch {
+    return null;
+  }
 }
 
 /** Whether the asset directory exists and holds at least one selectable asset. */

@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useTranslation } from '@/i18n/useTranslation';
+import { orderReceiptPath } from '@/lib/order-paths';
 import { methodLabel, paymentLabel, statusLabel } from './order-labels';
 import styles from '@/app/account.module.css';
 import { INTL_LOCALE } from '@/i18n/config';
@@ -56,7 +57,7 @@ export function OrdersView({ orders }: { orders: readonly OrderListItem[] }) {
         {orders.map((order) => (
           <li key={order.orderNumber} className={styles.orderRow}>
             <div className={styles.orderHead}>
-              <Link className={styles.orderLink} href={`/account/orders/${order.orderNumber}`}>
+              <Link className={styles.orderLink} href={orderReceiptPath(order.orderNumber)}>
                 {order.orderNumber}
               </Link>
               <span className={styles.orderTotal}>{price(order.totalMinor)}</span>

@@ -4,6 +4,7 @@ import Link from 'next/link';
 
 import { useTranslation } from '@/i18n/useTranslation';
 import type { TranslationKey } from '@/i18n/dictionaries';
+import { ConfirmSubmit } from '../../../../_ui/ConfirmSubmit';
 import { EmptyState } from '../../../../_ui/EmptyState';
 import { Notice } from '../../../../_ui/Notice';
 import { PageHeader } from '../../../../_ui/PageHeader';
@@ -24,6 +25,8 @@ export type TelegramNotice =
   | 'updated'
   | 'activated'
   | 'paused'
+  | 'removed'
+  | 'missing'
   | 'testSent'
   | 'testPartial'
   | 'testFailed'
@@ -37,6 +40,8 @@ export const TELEGRAM_NOTICE_KEYS: Record<TelegramNotice, TranslationKey> = {
   updated: 'admin.integrations.notice.updated',
   activated: 'admin.integrations.notice.activated',
   paused: 'admin.integrations.notice.paused',
+  removed: 'admin.integrations.notice.removed',
+  missing: 'admin.integrations.notice.missing',
   testSent: 'admin.integrations.notice.testSent',
   testPartial: 'admin.integrations.notice.testPartial',
   testFailed: 'admin.integrations.notice.testFailed',
@@ -49,6 +54,7 @@ export const TELEGRAM_NOTICE_KEYS: Record<TelegramNotice, TranslationKey> = {
 const ERROR_NOTICES: readonly TelegramNotice[] = [
   'denied',
   'invalid',
+  'missing',
   'notConfigured',
   'noRecipients',
   'testFailed',
@@ -58,9 +64,11 @@ const ERROR_NOTICES: readonly TelegramNotice[] = [
 /**
  * Telegram order notifications.
  *
- * The screen is a roster, not a settings form: one row per destination, each of which can be paused
- * without losing the id. The bot itself is configured in the deployment environment, so the card at the
- * top states whether it is present and never shows it - a token on a screen is a token in a screenshot.
+ * The screen is a roster, not a settings form: one row per destination. Pausing keeps a destination in
+ * the list with its id intact; removing deletes the row, which is what a test id or a departed manager
+ * needs, and the id stays on screen before the dialog opens so it can be registered again. The bot
+ * itself is configured in the deployment environment, so the card at the top states whether it is
+ * present and never shows it - a token on a screen is a token in a screenshot.
  *
  * The test button exists because Telegram's failure mode is silence: a chat id is only usable once that
  * person has pressed Start in a conversation with the bot, and until they have, every send fails quietly.
@@ -100,7 +108,9 @@ export function TelegramSettingsView({
           <h2 id="telegram-bot">{t('admin.integrations.botTitle')}</h2>
           <p>{t('admin.integrations.botBody')}</p>
         </div>
-        <div className={styles.panel}>
+        {/* A form's own card: `formCard` carries the vertical rhythm that `panel` does not, so the
+            status row and the note under it cannot meet edge to edge. */}
+        <div className={styles.formCard}>
           <div className={styles.formActions}>
             <StatusPill tone={configured ? 'success' : 'neutral'}>
               {configured ? t('admin.integrations.botConfigured') : t('admin.integrations.botMissing')}
@@ -125,7 +135,7 @@ export function TelegramSettingsView({
           <h2 id="telegram-add">{t('admin.integrations.addTitle')}</h2>
           <p>{t('admin.integrations.addBody')}</p>
         </div>
-        <form className={styles.panel} action="/api/admin/integrations/telegram" method="post">
+        <form className={styles.formCard} action="/api/admin/integrations/telegram" method="post">
           <input type="hidden" name="csrf" value={csrfToken} />
           <input type="hidden" name="operation" value="add" />
           <div className={`${styles.formGrid} ${styles.formGridStart}`}>
@@ -204,7 +214,7 @@ export function TelegramSettingsView({
                       ? t('admin.integrations.active')
                       : t('admin.integrations.paused')}
                   </StatusPill>
-                  <div className={styles.recordActions}>
+                  <div className={`${styles.recordActions} ${styles.recordActionsSpaced}`}>
                     <form action="/api/admin/integrations/telegram" method="post">
                       <input type="hidden" name="csrf" value={csrfToken} />
                       <input type="hidden" name="operation" value="setActive" />
@@ -220,6 +230,25 @@ export function TelegramSettingsView({
                         variant="ghost"
                       />
                     </form>
+                    {/*
+                      * Removal sits in the row beside Pause because that is where the owner looks for
+                      * "get rid of this one", and it is confirmed before anything is deleted: the dialog
+                      * names the destination and the id it is about to lose.
+                      */}
+                    <ConfirmSubmit
+                      action="/api/admin/integrations/telegram"
+                      csrfToken={csrfToken}
+                      fields={{ operation: 'remove', recipientId: recipient.id }}
+                      triggerLabel={t('admin.integrations.remove')}
+                      title={t('admin.integrations.removeTitle')}
+                      body={t('admin.integrations.removeBody', {
+                        label: recipient.label,
+                        chatId: recipient.chatId,
+                      })}
+                      confirmLabel={t('admin.integrations.remove')}
+                      cancelLabel={t('admin.common.cancel')}
+                      pendingLabel={t('admin.common.working')}
+                    />
                   </div>
                 </div>
               </li>
@@ -228,7 +257,7 @@ export function TelegramSettingsView({
         )}
 
         {recipients.length > 0 && (
-          <p className={styles.hint}>{t('admin.integrations.editHint')}</p>
+          <p className={styles.hint}>{t('admin.integrations.rosterHint')}</p>
         )}
       </section>
 
@@ -241,7 +270,7 @@ export function TelegramSettingsView({
           </div>
           {recipients.map((recipient) => (
             <form
-              className={styles.panel}
+              className={styles.formCard}
               key={recipient.id}
               action="/api/admin/integrations/telegram"
               method="post"

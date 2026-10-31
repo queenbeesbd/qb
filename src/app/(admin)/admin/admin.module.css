@@ -352,13 +352,20 @@ html[lang='bn'] .navGroupLabel {
   width: 100%;
 }
 
+/*
+ * One page rhythm.
+ *
+ * The gap between blocks is 48px while a panel's own padding is 24px. They used to be 32 and 24 - an
+ * 8px difference - so two panels looked as tightly bound as the contents of one panel and the page had
+ * no grouping. On a phone the gap drops to 32, which still clears the 16px padding a phone panel uses.
+ */
 .content {
   width: 100%;
   max-width: var(--admin-content-width);
   margin: 0 auto;
   padding: var(--space-6) var(--space-5) var(--space-8);
   display: grid;
-  gap: var(--space-6);
+  gap: var(--space-7);
   align-content: start;
 }
 
@@ -584,7 +591,7 @@ html[lang='bn'] .navGroupLabel {
 
 .pageTitle {
   margin: 0;
-  font-size: var(--text-2xl);
+  font-size: var(--text-page-title);
   line-height: var(--leading-tight);
   letter-spacing: -0.015em;
 }
@@ -754,6 +761,11 @@ html[lang='bn'] .sectionHead h2 {
   display: grid;
   gap: 4px;
   min-width: 0;
+  /*
+   * Fill the panel head. Without this the block shrank to its text, so the title row - and the
+   * queue link that is pushed to the end of it - stopped in the middle of a very wide panel.
+   */
+  flex: 1 1 auto;
 }
 
 .queueTitleRow {
@@ -1614,6 +1626,12 @@ html[lang='bn'] .sectionHead h2 {
   position: relative;
   flex: 1 1 auto;
   min-width: 0;
+  /*
+   * A search box is a control, not a column. Left to grow it took 830px of a 1440px desktop row,
+   * which read as an empty band with a button stranded at its end; on a phone it still takes the
+   * full width.
+   */
+  max-width: 30rem;
 }
 
 .searchField svg {
@@ -1675,6 +1693,113 @@ html[lang='bn'] .sectionHead h2 {
 }
 
 .filterCount {
+  font-variant-numeric: tabular-nums;
+  color: var(--color-ink-subtle);
+  font-size: var(--text-xs);
+}
+
+/*
+ * The phone rendering of a list filter: one disclosure that names the filter in force.
+ *
+ * It exists for the same reason the date-range filter is a disclosure - a list's primary narrowing
+ * control must not cost three rows of a phone screen before the first record - and it is the control
+ * the segmented row becomes below 720px. Above that it is not rendered at all, so the two never fight.
+ */
+.filterDisclosure {
+  display: none;
+  min-width: 0;
+}
+
+.filterSummary {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--admin-control);
+  padding: 0 var(--space-3);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-ink);
+  font-size: var(--text-sm);
+  cursor: pointer;
+  list-style: none;
+}
+
+.filterSummary::-webkit-details-marker {
+  display: none;
+}
+
+.filterSummary::after {
+  content: '▾';
+  margin-inline-start: auto;
+  color: var(--color-ink-subtle);
+  font-size: var(--text-xs);
+}
+
+.filterDisclosure[open] .filterSummary::after {
+  content: '▴';
+}
+
+.filterSummaryLabel {
+  flex: 0 0 auto;
+  color: var(--color-ink-muted);
+  font-weight: 500;
+}
+
+/* The applied value is the point of the closed control, so it is the strongest thing on the row. */
+.filterSummaryValue {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--color-ink);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.filterList {
+  display: grid;
+  gap: 2px;
+  margin-top: var(--space-2);
+  /* No inline padding: a row's label must line up with the summary's, and the chosen row's fill must
+     reach the panel edge rather than float as an inset card. */
+  padding-block: var(--space-1);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.filterOption {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  min-height: var(--admin-control);
+  padding-inline: var(--space-3);
+  border-radius: var(--radius-sm);
+  color: var(--color-ink-muted);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.filterOption:hover {
+  background: var(--color-surface-sunken);
+  color: var(--color-ink);
+}
+
+.filterOptionActive {
+  background: var(--color-surface-sunken);
+  color: var(--color-ink);
+  font-weight: 600;
+}
+
+.filterOptionActive::after {
+  content: '✓';
+  color: var(--color-action);
+}
+
+.filterOptionCount {
   font-variant-numeric: tabular-nums;
   color: var(--color-ink-subtle);
   font-size: var(--text-xs);
@@ -1783,6 +1908,58 @@ html[lang='bn'] .sectionHead h2 {
   gap: var(--space-2);
   max-width: 100%;
   min-width: 0;
+}
+
+/*
+ * The date range is a disclosure, so the toolbar is one band instead of three stacked rows.
+ *
+ * The summary is a control-sized chip: it states the range when one is applied, and it never hides a
+ * filter the owner forgot about. The form inside keeps the plain GET submission the server relies on.
+ */
+.dateDisclosure {
+  min-width: 0;
+}
+
+.dateSummary {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--admin-control);
+  padding: 0 var(--space-3);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-ink);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  list-style: none;
+}
+
+.dateSummary::-webkit-details-marker {
+  display: none;
+}
+
+.dateSummary::after {
+  content: '▾';
+  color: var(--color-ink-subtle);
+  font-size: var(--text-xs);
+}
+
+.dateDisclosure[open] .dateSummary::after {
+  content: '▴';
+}
+
+.dateDisclosure[data-active='true'] .dateSummary {
+  border-color: var(--color-action);
+  color: var(--color-action);
+}
+
+.dateDisclosure[open] {
+  display: grid;
+  gap: var(--space-3);
+  width: 100%;
 }
 
 .dateField {
@@ -1920,18 +2097,31 @@ html[lang='bn'] .legend {
   color: var(--color-ink);
 }
 
+/*
+ * The value inside a control never decides the control's height.
+ *
+ * With the phone's 16px type and the inherited 1.6 line-height the content box came to 25.6px, plus
+ * 8px of padding either side - so a money field rendered 42px directly above a 40px Save button. An
+ * explicit height and a tighter leading keep every control on the two-height scale.
+ */
 .input,
 .select,
 .textarea {
   width: 100%;
+  height: var(--admin-control);
   min-height: var(--admin-control);
+  line-height: 1.25;
   padding: var(--space-2) var(--space-3);
   border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-md);
   background: var(--color-surface);
   color: var(--color-ink);
   font: inherit;
-  font-size: var(--text-sm);
+  /*
+   * 15px on a desktop, 16px below 720px. The second value is not cosmetic: iOS Safari magnifies
+   * the whole panel when a control under 16px is focused, and the admin panel is used on a phone.
+   */
+  font-size: var(--text-control);
 }
 
 .input:hover,
@@ -1949,6 +2139,7 @@ html[lang='bn'] .legend {
 }
 
 .textarea {
+  height: auto;
   min-height: 5rem;
   resize: vertical;
   line-height: var(--leading-snug);
@@ -2078,6 +2269,39 @@ html[dir='rtl'] .switchOn .switchKnob::after {
   border-top: 1px solid var(--color-border);
 }
 
+/*
+ * A product row carries a photograph instead of a monogram: thumb, text, actions. The image is a
+ * fixed 3:4 box so rows keep one rhythm whether or not a photograph exists.
+ */
+.record.recordProduct {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+}
+
+.recordPhoto {
+  display: block;
+  width: 48px;
+  height: 64px;
+  flex: none;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  /* Rows with no photograph show an empty frame rather than a broken icon or an invented image. */
+  background: var(--color-page);
+}
+
+.recordPhoto img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+@media (max-width: 720px) {
+  .record.recordProduct {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+}
+
 .record:first-child {
   border-top: 0;
 }
@@ -2110,12 +2334,35 @@ html[dir='rtl'] .switchOn .switchKnob::after {
   overflow-wrap: anywhere;
 }
 
+/*
+ * A record title that is also the way into the record gets a real target.
+ *
+ * A product name link measured 16px high beside a 40px Edit control - and 40px only when the name
+ * happened to wrap, so the target changed with the length of the name. The inline-flex box keeps the
+ * text on its own lines and gives every title the same height, whatever it says.
+ */
+.recordTitleLink {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--admin-control);
+}
+
+/*
+ * Two facts on one line need a separator, not only air. "Skincare  lebeleag" read as a single word,
+ * and category, brand and slug are three different things.
+ */
 .recordMeta {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-1) var(--space-3);
+  gap: 2px var(--space-2);
   font-size: var(--text-sm);
   color: var(--color-ink-muted);
+}
+
+.recordMeta > span + span::before {
+  content: '·';
+  margin-inline-end: var(--space-2);
+  color: var(--color-ink-subtle);
 }
 
 .recordSide {
@@ -2148,11 +2395,28 @@ html[dir='rtl'] .switchOn .switchKnob::after {
   justify-content: flex-end;
 }
 
+/* Row actions are controls, not captions. At 21px tall they were the smallest thing on a phone. */
 .recordActions {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
+  gap: var(--space-1);
+}
+
+/*
+ * Two controls in a row that are both buttons. `--space-1` is right between a text link and the button
+ * beside it; between a destructive control and the one the owner actually aims at, 4px puts both under
+ * one thumb. Used by the Telegram roster, which offers Pause/Resume and Remove side by side.
+ */
+.recordActionsSpaced {
   gap: var(--space-2);
+}
+
+.recordActions .recordLink {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--admin-control-sm);
+  padding: 0 var(--space-2);
 }
 
 .recordLink {
@@ -2172,6 +2436,44 @@ html[dir='rtl'] .switchOn .switchKnob::after {
   overflow-wrap: anywhere;
 }
 
+.tableSection {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+/*
+ * The cue is a sentence, not a decoration: a phone owner reading a clipped row has no way to know the
+ * target and the reason exist off-screen. It appears only while the table actually overflows.
+ */
+.tableHint {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--color-ink-muted);
+}
+
+.tableFrame {
+  position: relative;
+  min-width: 0;
+}
+
+/*
+ * The fade sits on the frame, not inside the scroll box, so it stays put while the columns move. It is
+ * drawn only between "there is more to the right" and "the far edge is reached", so it never claims
+ * hidden content that the reader has already seen, and a table that fits gets neither hint nor fade.
+ */
+.tableFrame[data-scrollable='true']:not([data-at-end='true'])::after {
+  content: '';
+  position: absolute;
+  inset-block: 1px;
+  inset-inline-end: 1px;
+  width: 3rem;
+  border-start-end-radius: var(--radius-lg);
+  border-end-end-radius: var(--radius-lg);
+  background: linear-gradient(to right, transparent, var(--color-surface));
+  pointer-events: none;
+}
+
 .tableWrap {
   overflow-x: auto;
   background: var(--color-surface);
@@ -2180,10 +2482,26 @@ html[dir='rtl'] .switchOn .switchKnob::after {
   contain: paint;
 }
 
+/* A keyboard user scrolls the wrapper itself, so it has to show where focus is. */
+.tableWrap:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 1px;
+}
+
 .table {
   width: 100%;
   border-collapse: collapse;
   font-size: var(--text-sm);
+  /*
+   * Five columns keep their reading width, and the wrapper scrolls. Without this the table
+   * compressed itself on a phone and the timestamp broke over three lines ("10/23/26," / "1:03:54" /
+   * "AM") beside a two-line actor, which is slower to scan than one sideways swipe.
+   */
+  min-width: 46rem;
+}
+
+.table td:first-child {
+  white-space: nowrap;
 }
 
 .table caption {
@@ -2591,8 +2909,16 @@ html[dir='rtl'] .switchOn .switchKnob::after {
     display: none;
   }
 
+  /*
+   * The mark is 32px; the link around it is the target, so the link grows to the 40px control height
+   * and the mark keeps its size. It measured 32x32, under this project's own phone rule.
+   */
   .mobileBrand {
     display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: var(--admin-control);
+    min-height: var(--admin-control);
     padding: 0;
   }
 
@@ -2625,15 +2951,91 @@ html[dir='rtl'] .switchOn .switchKnob::after {
   /* Every list control takes the full width on a phone, stacked rather than squeezed. */
   .toolbar {
     align-items: stretch;
+    min-width: 0;
   }
 
+  /*
+   * Every option is a chip, and the row wraps.
+   *
+   * The rail that used to live here hid four of the eight order statuses behind an edge fade, so
+   * "Returned" was unreachable unless an owner guessed that a control that looks like a segmented
+   * button also scrolls; an active filter past the fold never announced itself; and the fade dimmed
+   * the last reachable tab until it read as disabled. Owner feedback was blunt - hard to use - and
+   * it was right. At 390px the wrapping chips put all eight on screen at once, one tap each, with no
+   * gesture to discover.
+   *
+   * What makes the wrap readable is dropping the container: a sunken pill split across two rows
+   * looked like one broken control, while separate bordered chips read as a wrapped set. The chosen
+   * chip is filled rather than tinted, because a low-contrast tint is a state you cannot find at a
+   * glance on a row of nine controls.
+   */
   .filterTabs {
     width: 100%;
+    min-width: 0;
+    flex: 1 1 100%;
+    flex-wrap: wrap;
+    /* Wider than the desktop 2px: adjacent chips are separate targets, and a mis-tap filters the list. */
+    gap: var(--space-2);
+    padding: 0;
+    background: none;
   }
 
   .filterTab {
-    flex: 1 1 auto;
-    justify-content: center;
+    flex: 0 0 auto;
+    /* Each chip carries the edge the shared container used to draw. */
+    border: 1px solid var(--color-border-strong);
+    background: var(--color-surface);
+  }
+
+  .filterTabActive {
+    border-color: var(--color-action);
+    background: var(--color-action);
+    color: var(--color-surface);
+    box-shadow: none;
+  }
+
+  .filterTabActive .filterCount {
+    color: inherit;
+    opacity: 0.85;
+  }
+
+  /*
+   * A list filter is a disclosure on a phone, and its segmented row is not rendered.
+   *
+   * Eight order statuses as chips take three uneven rows above the search field and the first record
+   * fell below the second screen; as a rail they hid most of themselves. One 40px control that names
+   * the filter in force, opening into eight 40px rows, is the only shape that shows the state, hides
+   * nothing behind a gesture and still leaves the list on screen.
+   */
+  .filterSegmented {
+    display: none;
+  }
+
+  .filterDisclosure {
+    display: block;
+    flex: 1 1 100%;
+    width: 100%;
+  }
+
+  /* Two filter disclosures stacked in one column: a full-width row and a 168px row read as two
+     mismatched controls, so the date one takes the column too. The width goes on the <details>, because
+     that is the flex item - a summary at 100% of an intrinsic box stays intrinsic. */
+  .dateDisclosure {
+    width: 100%;
+  }
+
+  .dateSummary {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  /* A panel's "View all" is the way out of the panel, so on a phone it takes a real target. */
+  .sectionLink,
+  .overviewLink {
+    display: inline-flex;
+    align-items: center;
+    min-height: var(--admin-control);
+    margin-block: calc(-1 * var(--space-2));
   }
 
   .searchForm,
@@ -2641,12 +3043,32 @@ html[dir='rtl'] .switchOn .switchKnob::after {
     flex: 1 1 100%;
   }
 
+  /* On a phone the field is the row; the desktop cap would only waste the width it needs. */
+  .searchField {
+    max-width: none;
+  }
+
   .dateField {
     flex: 1 1 7rem;
   }
 
+  /*
+   * Two dates and their action on one phone row squeezed the native date text until the calendar
+   * glyph covered the year: "mm/dd/yy" with a control drawn on top of it. The dates share one row
+   * of equal halves and the action takes the row beneath, so each control keeps its full width.
+   */
+  .dateRange {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: end;
+  }
+
+  .dateRange > button {
+    grid-column: 1 / -1;
+  }
+
   .pageTitle {
-    font-size: var(--text-xl);
+    font-size: var(--text-page-title);
   }
 
   .orderCard {
@@ -2654,10 +3076,23 @@ html[dir='rtl'] .switchOn .switchKnob::after {
   }
 
   .orderSide {
-    justify-items: start;
+    /*
+     * The money column takes the card's full width and stays right-aligned.
+     *
+     * It used to be `justify-items: start`, which left a 192px totals block floating at the left
+     * of a 358px card: the Subtotal/Delivery values ended in the middle of nowhere and the Total
+     * rule stopped halfway across. Stretching the block means one right edge for every figure and
+     * a rule that spans the card, which is how the same card already reads on a desktop.
+     */
+    justify-items: stretch;
     min-width: 0;
     border-top: 1px solid var(--color-border);
     padding-top: var(--space-3);
+  }
+
+  .orderTotals {
+    width: 100%;
+    min-width: 0;
   }
 
   .orderActions {
@@ -2677,6 +3112,15 @@ html[dir='rtl'] .switchOn .switchKnob::after {
   .orderFooter .button,
   .orderFooter > form {
     width: 100%;
+  }
+
+  /*
+   * The slug is a search aid, not an identity the owner reads on a phone row. It wraps to three
+   * lines on a 358px card and doubles the height of every product, so it is hidden there and stays
+   * visible on the desktop list where the row has room.
+   */
+  .recordSlug {
+    display: none;
   }
 
   .record {
@@ -2714,6 +3158,11 @@ html[dir='rtl'] .switchOn .switchKnob::after {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  /* Five figures in two columns leave one tile alone; it takes the row instead of a half-width hole. */
+  .statRow > :last-child:nth-child(odd) {
+    grid-column: 1 / -1;
+  }
+
   .stat:nth-child(3) {
     border-inline-start: 0;
     border-top: 1px solid var(--color-border);
@@ -2742,8 +3191,14 @@ html[dir='rtl'] .switchOn .switchKnob::after {
     align-items: flex-start;
   }
 
+  /*
+   * The action row is a flex item of a wrapping header, so without `min-width: 0` it sized itself to
+   * its widest child and the analytics period rail (which is `width: 100%` inside it) overflowed the
+   * page at 320px - "Last 90 days" was cut off. Released, the rail keeps its own scroll box.
+   */
   .pageActions {
     width: 100%;
+    min-width: 0;
   }
 
   .pageActions .button {
@@ -3003,6 +3458,14 @@ html[dir='rtl'] .switchOn .switchKnob::after {
 .moneyInput {
   display: flex;
   align-items: center;
+  /*
+   * The wrapper is a flex item too, so it needs its own permission to be narrower than its content.
+   * At 320px the currency mark plus the input made a 292px intrinsic minimum inside a 271px card, and
+   * both price fields pushed the document 5px sideways. `min-width: 0` is the whole defect; the
+   * child input was already allowed to shrink.
+   */
+  min-width: 0;
+  max-width: 100%;
   min-height: var(--admin-control);
   border-radius: var(--radius-md);
   background: var(--color-surface);
@@ -3077,6 +3540,15 @@ html[dir='rtl'] .switchOn .switchKnob::after {
 }
 
 .productForm [aria-invalid='true']:focus-visible {
+  outline-color: var(--color-danger);
+}
+
+/* The promo editor takes the same refusal marking; the summary names the field, this shows it. */
+.promoEditor [aria-invalid='true'] {
+  border-color: var(--color-danger);
+}
+
+.promoEditor [aria-invalid='true']:focus-visible {
   outline-color: var(--color-danger);
 }
 
@@ -3418,8 +3890,17 @@ html[dir='rtl'] .switchOn .switchKnob::after {
 
 @media (max-width: 720px) {
   .formHeader {
-    position: static;
-    padding-top: 0;
+    /*
+     * The action bar stays with the owner on a phone, parked just under the sticky top bar.
+     *
+     * It used to go static below 720px, which meant that after filling a long product form the owner
+     * had to scroll back to the top to press Save - on the device they actually use to run the shop.
+     * The top offset is the top bar's height, so the two sticky rows stack rather than overlap.
+     */
+    position: sticky;
+    top: var(--admin-topbar-height);
+    z-index: 9;
+    padding-top: var(--space-3);
   }
 
   .formHeaderActions {
@@ -3547,6 +4028,30 @@ html[dir='rtl'] .switchOn .switchKnob::after {
   gap: var(--space-3);
 }
 
+/*
+ * A saved policy readout: the state as a token, and what that state means beside it.
+ *
+ * It owns no border and no background, on purpose. Rendered as a second bordered panel against the
+ * switch row's own border it read as a third control, and with no vertical gap between the form's
+ * children the two edges met exactly - the "boxes colliding" the owner reported on Settings -> Other.
+ * The forms themselves now use `formCard`, which supplies that gap, and this line is only the
+ * readout.
+ */
+.savedState {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  margin: 0;
+}
+
+.savedStateNote {
+  min-width: 0;
+  font-size: var(--text-sm);
+  color: var(--color-ink-muted);
+  line-height: var(--leading-snug);
+}
+
 /* ---- Announcement preview ------------------------------------------ */
 
 .announcementGrid {
@@ -3665,6 +4170,20 @@ html[dir='rtl'] .switchOn .switchKnob::after {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(10.5rem, 1fr));
   gap: var(--space-3);
+}
+
+/*
+ * Five figures, two columns: the fifth was left as a half-width tile and read as a broken row.
+ * auto-fit cannot know the count, so the lone last tile takes the row at phone widths.
+ */
+@media (max-width: 720px) {
+  .kpiGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .kpiGrid > :last-child:nth-child(odd) {
+    grid-column: 1 / -1;
+  }
 }
 
 .kpi {

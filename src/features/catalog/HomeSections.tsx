@@ -1,20 +1,13 @@
 'use client';
 
 import Link from 'next/link';
-import { discountAmount } from '@/lib/money';
 import { useTranslation } from '@/i18n/useTranslation';
 import type { CatalogCategory, CatalogItem } from '@/lib/types';
 import { CategoryIcon, InfoIcon } from '@/components/icons';
 import { ProductCard } from '@/components/ProductCard';
 import { ProductGrid } from '@/components/ProductGrid';
-import {
-  HOMEPAGE_SECTION_SIZE,
-  RECENT_LIMIT,
-  selectHeroProducts,
-  selectRecentlyAdded,
-} from './recent';
+import { RECENT_LIMIT } from './recent';
 import { ProductPhoto } from '@/components/ProductPhoto';
-import { selectDepartments } from './departments';
 import styles from '@/app/home.module.css';
 
 /*
@@ -23,15 +16,6 @@ import styles from '@/app/home.module.css';
  * hand-picked slug list, which was curation wearing the look of a product edit; recency is now a real
  * stored fact, so the composition follows the catalog instead of a constant.
  */
-
-/**
- * How many products "More to explore" publishes: two rows of the five-column desktop grid.
- *
- * It is a browse row, not a fixed selection, so it takes the shop's own collection first and then the
- * rest of the catalog that the rows above have not shown. A shorter catalog shows fewer cards rather
- * than a repeat; today the seed leaves seven.
- */
-const EXPLORE_LIMIT = 10;
 
 /**
  * Homepage composition.
@@ -60,75 +44,24 @@ const EXPLORE_LIMIT = 10;
  * layout - moving the recency section down the page does not let a curated row claim a newer product.
  */
 export function HomeView({
-  products,
-  categories,
-  featuredIds,
-  collectionIds,
+  departments,
+  heroProducts,
+  featured,
+  deals,
+  recentlyAdded,
+  explore,
+  isEmpty,
 }: {
-  products: readonly CatalogItem[];
-  categories: readonly CatalogCategory[];
-  featuredIds: readonly string[];
-  collectionIds: readonly string[];
+  departments: readonly CatalogCategory[];
+  heroProducts: readonly CatalogItem[];
+  featured: readonly CatalogItem[];
+  deals: readonly CatalogItem[];
+  recentlyAdded: readonly CatalogItem[];
+  explore: readonly CatalogItem[];
+  isEmpty: boolean;
 }) {
   const { t, pick } = useTranslation();
 
-  /*
-   * The strip shows the four departments the shop is actually made of, not all fifteen. With the
-   * imported catalog the full list was three rows of five with a stranded card, which pushed the
-   * first product row off the page - and a homepage is not an index. "/categories" carries the rest.
-   */
-  const departments = selectDepartments(categories, products);
-
-  const productById = new Map(products.map((product) => [product.id, product]));
-  const resolve = (ids: readonly string[]): CatalogItem[] =>
-    ids
-      .map((id) => productById.get(id))
-      .filter((product): product is CatalogItem => Boolean(product));
-
-  const recentlyAdded = selectRecentlyAdded(products);
-  const recentIds = new Set(recentlyAdded.map((product) => product.id));
-
-  const featured = resolve(featuredIds)
-    .filter((product) => !recentIds.has(product.id))
-    .slice(0, HOMEPAGE_SECTION_SIZE);
-  const featuredShown = new Set(featured.map((product) => product.id));
-
-  /**
-   * The offer row is derived rather than curated, so a short row means the catalog genuinely has fewer
-   * discounted products left to show - never a padded one. It yields to recency (a fact) and to the
-   * featured row (a choice shown above it).
-   */
-  const deals = products
-    .filter(
-      (product) =>
-        !recentIds.has(product.id) &&
-        !featuredShown.has(product.id) &&
-        discountAmount(product.priceMinor, product.compareAtPriceMinor) !== null,
-    )
-    .sort(
-      (a, b) =>
-        discountAmount(b.priceMinor, b.compareAtPriceMinor)! -
-        discountAmount(a.priceMinor, a.compareAtPriceMinor)!,
-    )
-    .slice(0, HOMEPAGE_SECTION_SIZE);
-
-  /**
-   * "More to explore": the shop's own collection first, then everything else the rows above did not
-   * show, capped at two desktop rows. It is the only section allowed to be longer than one row, and the
-   * only one with a button rather than a text link - it is the way out of the page.
-   */
-  const shownIds = new Set(
-    [...recentlyAdded, ...featured, ...deals].map((product) => product.id),
-  );
-  const curatedRest = resolve(collectionIds).filter((product) => !shownIds.has(product.id));
-  const curatedRestIds = new Set(curatedRest.map((product) => product.id));
-  const remainder = products.filter(
-    (product) => !shownIds.has(product.id) && !curatedRestIds.has(product.id),
-  );
-  const explore = [...curatedRest, ...remainder].slice(0, EXPLORE_LIMIT);
-
-  const heroProducts = selectHeroProducts(products);
-  const isEmpty = products.length === 0;
 
   return (
     <div className={styles.page}>

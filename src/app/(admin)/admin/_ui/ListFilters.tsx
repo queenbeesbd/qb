@@ -43,7 +43,20 @@ export function DateRangeFilter({
   const { t } = useTranslation();
   const active = from !== '' || to !== '';
 
+  /*
+   * A disclosure, not a row of controls.
+   *
+   * Two native date inputs plus a submit button took 263px of a 390px phone - a third of the screen
+   * before a single order row, beside a status rail and a search field. Behind a control-sized summary
+   * the toolbar stays one band, and the range is one tap away; the summary states the range when one
+   * is applied, so a hidden filter can never be forgotten.
+   */
   return (
+    <details className={styles.dateDisclosure} data-active={active ? 'true' : undefined}>
+      <summary className={styles.dateSummary}>
+        {t('admin.common.dateRangeLabel')}
+        {active ? `: ${from || '…'} – ${to || '…'}` : ''}
+      </summary>
     <form className={styles.dateRange} action={action} method="get" role="group" aria-label={label}>
       {Object.entries(hidden ?? {}).map(([name, value]) =>
         value === undefined || value === '' ? null : <input key={name} type="hidden" name={name} value={value} />,
@@ -83,6 +96,7 @@ export function DateRangeFilter({
         </Link>
       )}
     </form>
+    </details>
   );
 }
 

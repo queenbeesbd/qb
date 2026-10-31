@@ -187,10 +187,32 @@ async function main(): Promise<void> {
 
     await waitForReady(base, server, () => serverLog);
 
+    /*
+     * The newest five slugs, read from the rows this run seeded.
+     *
+     * "Recently added" and the hero publish a stored fact - `created_at` descending, `id` descending - and
+     * a browser can only see the result, never the rows. Passing the expectation down is what keeps the
+     * ordering assertion honest: the page is compared with the database rather than with another view of
+     * the same server. The accessor's ordering is repeated here deliberately, and it is the independent
+     * value the rendered page is checked against.
+     */
+    const recentRows = await fixture.pool.query<{ slug: string }>(
+      `select p.slug
+         from product p
+         join category c on c.id = p.category_id
+         join brand b on b.id = p.brand_id
+         join product_variant v on v.product_id = p.id and v.is_default and v.is_active
+        where p.deleted_at is null and p.is_published
+        order by p.created_at desc, p.id desc
+        limit 5`,
+    );
+    const expectedRecent = recentRows.rows.map((row) => row.slug);
+
     console.log('\nrunning the storefront browser suite against the served database catalog');
     const browserCode = await run('node', ['scripts/verify-browser.cjs'], {
       ...process.env,
       QUEENBEES_BASE_URL: base,
+      QUEENBEES_EXPECTED_RECENT: expectedRecent.join(','),
     });
     if (browserCode !== 0) {
       throw new Error(`the browser suite exited ${browserCode}`);

@@ -4,6 +4,7 @@ import { useTranslation } from '@/i18n/useTranslation';
 import { EmptyState } from '../../_ui/EmptyState';
 import { PageHeader } from '../../_ui/PageHeader';
 import { Pagination } from '../../_ui/Pagination';
+import { ScrollableTable } from '../../_ui/ScrollableTable';
 import styles from '../../admin.module.css';
 import { INTL_LOCALE } from '@/i18n/config';
 
@@ -61,7 +62,7 @@ export function AuditView({
         <EmptyState title={t('admin.audit.emptyTitle')} body={t('admin.audit.emptyBody')} icon="audit" />
       ) : (
         <>
-          <div className={styles.tableWrap}>
+          <ScrollableTable label={t('admin.audit.tableLabel')} hint={t('admin.audit.scrollHint')}>
             <table className={styles.table} data-admin-table="">
               <caption className="sr-only">{t('admin.audit.title')}</caption>
               <thead>
@@ -97,7 +98,7 @@ export function AuditView({
                 ))}
               </tbody>
             </table>
-          </div>
+          </ScrollableTable>
           <Pagination
             basePath="/admin/audit"
             query={{ size: size === defaultSize ? '' : String(size) }}

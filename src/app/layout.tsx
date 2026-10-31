@@ -35,6 +35,18 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
+  /*
+   * Zoom is disabled on purpose (owner decision, 2026-10-23).
+   *
+   * A phone is the main way the owner runs the shop, and a page that magnifies on a stray double
+   * tap - or on focusing a form field - reads as broken rather than as accessible. The cost is
+   * recorded instead of hidden: pinch-to-zoom is an accessibility aid, so this trades it for a
+   * stable, app-like surface. Every control is therefore sized for a thumb (>= 40px), text is at
+   * least 15px, and the layout reflows rather than relying on zoom. If the owner ever reverses this
+   * decision, these two lines are the only change.
+   */
+  maximumScale: 1,
+  userScalable: false,
   themeColor: '#ffffff',
 };
 

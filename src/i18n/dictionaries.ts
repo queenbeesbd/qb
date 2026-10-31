@@ -33,7 +33,7 @@ export const dictionary = {
   'nav.openMenu': 'Open menu',
 
   'search.label': 'Search products',
-  'search.placeholder': 'Search by product name or brand',
+  'search.placeholder': 'Search products or brands',
   'search.submit': 'Search',
   'search.clear': 'Clear search',
   'search.resultsFor': 'Results for “{query}”',
@@ -115,6 +115,8 @@ export const dictionary = {
   'product.save': 'Save {amount}',
   'product.wasPrice': 'Previous price',
   'product.imagePlaceholder': 'Image placeholder',
+  'product.gallery': 'Product photographs',
+  'product.galleryThumb': 'Show photograph {index} of {count}',
 
   'cart.title': 'Your cart',
   'cart.emptyTitle': 'Your cart is empty',
@@ -135,7 +137,16 @@ export const dictionary = {
     'Your cart contains a product that cannot be ordered right now. Remove it before placing the order.',
   'cart.checkout': 'Proceed to checkout',
   'cart.clearCart': 'Clear cart',
+  'cart.clearConfirmTitle': 'Clear all {count} items from your cart?',
+  'cart.clearConfirmTitleOne': 'Clear the only item from your cart?',
+  'cart.clearConfirmBody': 'Every line is removed. This cannot be undone.',
+  'cart.clearConfirmAction': 'Yes, clear cart',
+  'cart.clearKeep': 'Keep items',
   'cart.updatedAnnouncement': 'Cart updated: {count} items',
+  'cart.updatedAnnouncementOne': 'Cart updated: 1 item',
+  'cart.unresolved':
+    'Some items in your cart could not be loaded here. Reload the page to try again; if it keeps happening, clear the cart and add the items again.',
+  'cart.unresolvedReload': 'Reload the page',
 
   'checkout.title': 'Checkout',
   'checkout.summary': 'Order summary',
@@ -162,6 +173,7 @@ export const dictionary = {
     'Delivery charges are not configured yet, so orders cannot be placed. Please contact the store.',
   'checkout.unavailableNotice':
     'A product in your cart cannot be ordered right now. Return to the cart, remove it and try again.',
+  'checkout.loadingLines': 'Loading the items in your cart…',
   'checkout.deliveryDistrictNote': 'This district’s configured delivery charge applies.',
   'checkout.deliveryDefaultNote': 'This district has no separate charge, so the default applies.',
   'checkout.submit': 'Place order',
@@ -191,6 +203,16 @@ export const dictionary = {
     'Your promotion code is no longer valid. Remove it to place the order at the current total.',
   'checkout.notice.deliveryUnconfigured':
     'Orders cannot be placed until delivery charges are configured.',
+  'checkout.problem.summary': 'Check these delivery details before placing the order:',
+  'checkout.problem.recipientName': 'Enter the recipient’s name (2–120 characters).',
+  'checkout.problem.recipientPhone': 'Enter the mobile number as 11 digits starting with 01.',
+  'checkout.problem.addressLine': 'Enter the delivery address (at least 5 characters).',
+  'checkout.problem.district': 'Choose a delivery area.',
+  'checkout.problem.area': 'Enter the area.',
+  'checkout.problem.city': 'Enter the city.',
+  'checkout.problem.postcode': 'Keep the postcode to 20 characters or fewer.',
+  'checkout.problem.deliveryNote': 'Keep the delivery note to 300 characters or fewer.',
+  'checkout.promo.signInRequired': 'Sign in again to use a promotion code.',
 
   'search.chip': '“{query}”',
 
@@ -250,6 +272,8 @@ export const dictionary = {
   'admin.settings.other.guestLabel': 'Guests may order without an account',
   'admin.settings.other.guestHelp':
     'Off: a customer must sign in or register before checkout, and the cart survives the detour. On: anyone can order by giving a name, a mobile number and an address - no account, no password.',
+  'admin.settings.other.guestStateOn': 'Guest ordering is on',
+  'admin.settings.other.guestStateOff': 'Account required',
   'admin.settings.other.guestOn':
     'Guests can order. Their order is not attached to an account and cannot appear in order history, so the confirmation page is the only record they keep.',
   'admin.settings.other.guestOff':
@@ -484,7 +508,7 @@ export const dictionary = {
   'admin.cod.tabWaiting': 'Waiting',
   'admin.cod.tabDecided': 'Decided today',
   'admin.cod.searchLabel': 'Search orders',
-  'admin.cod.searchPlaceholder': 'Order number, name or phone',
+  'admin.cod.searchPlaceholder': 'Number, name or phone',
   'admin.cod.searchEmptyTitle': 'No orders match',
   'admin.cod.searchEmptyBody': 'Try another number or name, or clear the search.',
   'admin.cod.decidedEmptyTitle': 'Nothing decided today',
@@ -500,7 +524,6 @@ export const dictionary = {
   'admin.catalog.field.priceHelp': 'Enter Bangladeshi taka, for example 750.10.',
   'admin.catalog.newProduct': 'New product',
   'admin.catalog.editBody': 'Edit this product’s details, price and stock state.',
-  'admin.catalog.listBody': 'Every live product. Search matches name, slug or SKU.',
   'admin.catalog.searchLabel': 'Search products',
   'admin.catalog.searchPlaceholder': 'Name, slug or SKU',
   'admin.catalog.filterLabel': 'Filter by stock state',
@@ -567,10 +590,15 @@ export const dictionary = {
   'admin.integrations.paused': 'Paused',
   'admin.integrations.pause': 'Pause',
   'admin.integrations.resume': 'Resume',
+  'admin.integrations.remove': 'Remove',
+  'admin.integrations.removeTitle': 'Remove this Telegram account?',
+  'admin.integrations.removeBody':
+    '{label} ({chatId}) stops receiving order notifications and is deleted from this list. Orders already sent are not affected, and the same id can be registered again.',
   'admin.integrations.emptyTitle': 'No Telegram account yet',
   'admin.integrations.emptyBody':
     'Until one is added, order notifications are not sent anywhere. Add an account above and send a test message.',
-  'admin.integrations.editHint': 'A paused account keeps its id: resume it instead of typing it again.',
+  'admin.integrations.rosterHint':
+    'A paused account keeps its id: resume it instead of typing it again. Removing deletes the account from this list - the id above is all you need to register it again.',
   'admin.integrations.editTitle': 'Edit an account',
   'admin.integrations.editBody': 'Correct a name or replace a wrong id. A paused account still edits.',
   'admin.integrations.save': 'Save',
@@ -579,6 +607,9 @@ export const dictionary = {
   'admin.integrations.notice.updated': 'Account updated.',
   'admin.integrations.notice.activated': 'Account resumed - it will receive order notifications.',
   'admin.integrations.notice.paused': 'Account paused - it will not receive order notifications.',
+  'admin.integrations.notice.removed': 'Account removed - it no longer receives order notifications.',
+  'admin.integrations.notice.missing':
+    'That account was already gone, so nothing was removed. The list below is up to date.',
   'admin.integrations.notice.testSent': 'Test message delivered to every active account.',
   'admin.integrations.notice.testPartial':
     'Some accounts did not receive the test message. Check that each one has pressed Start in the bot chat.',
@@ -616,7 +647,7 @@ export const dictionary = {
   'admin.orders.title': 'All orders',
   'admin.orders.body': 'Every order the store has taken, newest first. Search by order number, name or phone — open an order to see it in full.',
   'admin.orders.searchLabel': 'Search orders',
-  'admin.orders.searchPlaceholder': 'Order number, name or phone',
+  'admin.orders.searchPlaceholder': 'Number, name or phone',
   'admin.orders.filterLabel': 'Filter by status',
   'admin.orders.filter.all': 'All',
   'admin.orders.filter.pending': 'Pending',
@@ -1120,6 +1151,8 @@ export const dictionary = {
   'admin.audit.target': 'Target',
   'admin.audit.reason': 'Reason',
   'admin.audit.system': 'System',
+  'admin.audit.tableLabel': 'Audit trail table. Scrolls sideways to show every column.',
+  'admin.audit.scrollHint': 'Scroll sideways for the target and the event detail.',
 
   'admin.forbidden.title': 'Page not found',
   'admin.forbidden.body': 'This page does not exist, or your account does not have permission to view it.',
@@ -1224,6 +1257,9 @@ export const dictionary = {
     'Cash on delivery: the owner approves the order before dispatch, and courier cash is reconciled separately.',
   'orders.legacyPaymentNote':
     'This order predates cash on delivery being the only method. Contact the store about its payment.',
+  'orders.guestTitle': 'Your order',
+  'orders.guestKeepLink':
+    'This order was placed without an account, so this page’s address is the only way to see it again. Keep it.',
   'orders.placedTitle': 'Order placed',
   'orders.placedBody':
     'Your order is recorded. Cash is paid to the courier on delivery — there is nothing to pay online.',
@@ -1403,6 +1439,8 @@ export const dictionary = {
   'admin.promo.problemCap': 'The maximum discount must be a taka amount above zero, or empty.',
   'admin.promo.problemLimit': 'The usage limit must be a whole number above zero, or empty.',
   'admin.promo.problemWindow': 'The end date must be after the start date.',
+  'admin.promo.problemFields':
+    'A field is missing or outside its allowed range. Check the highlighted fields.',
   'admin.promo.previewTitle': 'What the customer sees',
   'admin.promo.previewBody': 'Three cart totals, priced with the same rule checkout uses.',
   'admin.promo.previewCart': 'Cart {amount}',

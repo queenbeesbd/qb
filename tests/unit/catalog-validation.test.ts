@@ -208,4 +208,21 @@ describe('image metadata read from the file', () => {
   it('refuses an asset key that is not in the server’s own inventory', async () => {
     assert.equal(await readAsset('this-key-does-not-exist'), null);
   });
+
+  /*
+   * The inventory is cached between calls, keyed by the directory's modification time, because the
+   * admin media panel used to rescan ~15.5 thousand entries per render. The cache is only safe if a
+   * caller cannot edit it through the array it was handed, so that is the contract this pins: same
+   * content, a fresh array each time, and a mutation of one result does not reach the next.
+   */
+  it('hands out a copy of the cached asset inventory rather than the cache itself', async () => {
+    const first = await listAssetKeys();
+    const second = await listAssetKeys();
+    assert.deepEqual(second, first);
+    assert.notEqual(second, first, 'each call returns its own array');
+
+    first.length = 0;
+    const third = await listAssetKeys();
+    assert.deepEqual(third, second, 'mutating a returned array cannot empty the cache');
+  });
 });

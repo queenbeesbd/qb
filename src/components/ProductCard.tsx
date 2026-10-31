@@ -38,11 +38,23 @@ export function ProductCard({ product }: { product: CatalogItem }) {
       </Link>
 
       <div className={styles.body}>
-        {product.brand && <p className={styles.brand}>{product.brand}</p>}
+        {/*
+          Every optional line keeps its row, even when it is empty.
+          
+          A catalogue is read across a row: one card whose price sits a line higher because it has
+          no brand, or whose saving is missing, makes the whole grid look misaligned. Reserving the
+          row is what keeps the price, the saving and the availability on the same baselines from
+          card to card. The filler is a non-breaking space with aria-hidden, never invented content.
+        */}
+        <p className={styles.brand} aria-hidden={product.brand ? undefined : true}>
+          {product.brand ?? '\u00A0'}
+        </p>
         <h3 className={styles.title}>
           <Link href={`/products/${product.slug}`}>{name}</Link>
         </h3>
-        {product.pack && <p className={styles.pack}>{product.pack}</p>}
+        <p className={styles.pack} aria-hidden={product.pack ? undefined : true}>
+          {product.pack ?? '\u00A0'}
+        </p>
 
         <p className={styles.pricing}>
           <span className={styles.current}>{price(product.priceMinor)}</span>

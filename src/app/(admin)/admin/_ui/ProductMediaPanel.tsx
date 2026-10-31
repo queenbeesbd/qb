@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 
+import { imageVariantPath } from '@/lib/images';
 import { useTranslation } from '@/i18n/useTranslation';
 import { AdminIcon } from './icons';
 import { ConfirmSubmit } from './ConfirmSubmit';
@@ -88,7 +89,14 @@ export function ProductMediaPanel({
                     Association-only imagery: the key was validated against the server's own asset
                     inventory before it was stored, so it cannot name a path outside `public/catalog`.
                   */}
-                  <img src={`/catalog/${image.key}-600.jpg`} alt="" width={56} height={70} loading="lazy" />
+                  <img
+                    src={imageVariantPath(image.key)}
+                    alt=""
+                    width={56}
+                    height={70}
+                    loading="lazy"
+                    decoding="async"
+                  />
                 </span>
 
                 <div className={styles.galleryBody}>

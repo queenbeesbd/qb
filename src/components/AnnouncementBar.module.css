@@ -10,10 +10,59 @@
  * -50% travel. Nothing measures the DOM, so nothing can disagree with the layout after a resize.
  */
 .bar {
+  /*
+   * The ends are painted, not only masked. The gradient mask above fades the line, but the first
+   * frame still showed half a word against the glass on a phone, so two solid gradients - in the
+   * page's own colour - sit over the edges and guarantee the fade whatever the mask support is.
+   */
+  position: relative;
   background: transparent;
   /* The moving line is clipped by its own viewport; keeping the bar out of the scroll chain means a
      ticker can never add a horizontal scrollbar to an already-tight phone layout. */
   overflow: hidden;
+  /*
+   * Fade the two ends instead of slicing a word against the viewport edge.
+   *
+   * The line is always mid-travel when a page paints, so on a phone the first frame used to show
+   * half a word hard against the glass. A gradient mask reads as a ticker continuing past the edge
+   * rather than as text that has been cut off. The gutter is the fade distance, so it grows with the
+   * page and never eats more than the margin the rest of the layout already reserves.
+   */
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent 0,
+    #000 var(--gutter),
+    #000 calc(100% - var(--gutter)),
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    to right,
+    transparent 0,
+    #000 var(--gutter),
+    #000 calc(100% - var(--gutter)),
+    transparent 100%
+  );
+}
+
+.bar::before,
+.bar::after {
+  content: '';
+  position: absolute;
+  inset-block: 0;
+  /* Wider than the gutter: a 13px bold word survives a 16px fade as a legible fragment. */
+  width: calc(var(--gutter) + 1.5rem);
+  z-index: 1;
+  pointer-events: none;
+}
+
+.bar::before {
+  inset-inline-start: 0;
+  background: linear-gradient(to right, var(--color-page), transparent);
+}
+
+.bar::after {
+  inset-inline-end: 0;
+  background: linear-gradient(to left, var(--color-page), transparent);
 }
 
 .viewport {

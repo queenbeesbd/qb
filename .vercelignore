@@ -1,0 +1,28 @@
+# Deployment artifact boundary.
+#
+# Product photography for the imported catalogue is ~640 MB across 7,700 files and belongs in object
+# storage (ADR 0006), not in a deployment. The bytes are uploaded to the catalog bucket and
+# `/catalog/<key>-<width>.<ext>` resolves to them through `src/app/catalog/[...path]/route.ts`.
+#
+# A handful of committed placeholder assets stay in the build because they are part of the repository
+# and are served by `public/` before the route is reached.
+public/catalog/zq-*
+
+# Local-only state that is never part of a deployment.
+.dev-pg/
+.tmp-*/
+.playwright-cli/
+.codegraph/
+.pi/
+.next/
+coverage/
+
+# Documentation and the verification suites are not needed to serve the application.
+docs/
+tests/
+scripts/
+**/*.md
+
+# Editor and OS noise.
+.DS_Store
+*.tsbuildinfo

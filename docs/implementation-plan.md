@@ -1,5 +1,9 @@
 # Implementation plan
 
+> **This document is the historical record of Phases 0-46.** Phases 39-42 and 44-46 are written up in
+> `docs/project-status.md`; the **current** plan, re-audited from scratch on 2026-10-30, is
+> `docs/implementation-plan-2026-10-30.md` (phases 47 onward).
+
 Status: Phases 0-8 complete (2026-10-11). **Phase 9 is complete: every blocking decision is owner-approved** - D1 (Neon PostgreSQL), D2 (Vercel), D3 (Neon Object Storage), D7 (manual bKash + manual Nagad + COD), D8 (sender number and transaction reference required, no screenshot), D9 (payment and order policy), D11 (inventory reservation and release) and D12 (account-required checkout). **Phase 10 is complete: the data model, state machines and security architecture are designed and documented** in `docs/data-model.md` and `docs/security.md`. **Nothing is implemented** - no database, migration, dependency, credential or resource exists. **Phase 11 is unblocked but not started**, and nothing beyond Phase 10 is authorized to begin automatically. The owner has approved an **independent e-commerce platform** (`docs/decisions/0004-independent-platform-direction.md`); the previous plan to integrate with the Zatiq merchant platform is **withdrawn**, and Zatiq is now a UX reference only. Nothing beyond Phase 8 is authorized to begin automatically.
 
 **Roadmap revision (2026-10-17, Phase 17, ADR 0015):** the owner has made **Cash on Delivery the only payment method** for this release. The manual bKash/Nagad flow is **removed from the application** and the roadmap is rebased accordingly: **Phase 17** is this COD-only transition and audit (complete locally), **Phase 18** was the admin dashboard UX redesign (now complete locally), **Phase 19** is operational readiness and storefront completion, **Phase 20** is deployment, and an **automated gateway is a future item with no selected provider**. Sections describing earlier phases are kept as history; where they describe prepaid work as pending, that work is **superseded, not outstanding**.
@@ -1249,6 +1253,18 @@ walk-through of add / duplicate-refused / malformed-refused / test / pause / res
 Chromium pass asserting the token appears nowhere in the page. **Not verified:** delivery to a real
 Telegram account (no owner chat id was supplied), `after()` scheduling under a deployed runtime, and the
 Telegram app itself.
+
+**Status note (2026-10-29): the roster can remove a destination, and its cards no longer collide.** Pause
+was the only way to stop a notification, so a smoke-test id could never leave the list. *Remove* now sits
+beside Pause/Resume, opens a confirmation that names the destination and the id, deletes the row, and
+writes `integration.telegram_recipient_removed` (**ADR 0022, decision 3 amended**); a removal that finds no
+row is answered "already gone" rather than failing. The screen's three cards stopped using `panel` - which
+supplies padding but no vertical rhythm, so the status row met the note and the Add and Save buttons sat
+flush against the fields above them - and use `formCard`, the same fix the owner's Settings -> Other report
+produced.
+`verify:admin` now drives the delivered round trip (add, pause, resume, remove, an already-gone removal,
+the empty state), sweeps `/admin/settings/integrations/telegram` for control heights, and refuses an
+anonymous removal: **200/200**.
 **Delivery charges are configured (2026-10-23).** The owner supplied the three amounts and they are saved
 through the real screen: **Dhaka Tk 100, Chattogram Tk 60, other districts Tk 120**. Read back from the
 server resolver: `dhaka -> 10000`, `chattogram -> 6000`, `others -> 12000` poisha, and the panel shows
@@ -1364,4 +1380,164 @@ every page is the one cost of the import that pagination did not remove, and it 
 (the cart page then needs the rest) or a server-resolved cart. *Acceptance:* a product page's payload no
 longer grows with the catalog, the cart still validates ids against what the shop sells and still renders
 names, prices and images, and a route's gzipped HTML stays under ~60 KB.
+### Phase 45 - the catalog is no longer shipped on every route (implemented 2026-10-29)
+
+The cart provider no longer receives product records. The layout gives it the catalog's **ids** (for
+validation) and the lines; counts are derived from the lines, so the header and tab-bar badge are correct
+on every route. `resolveCartLines` turns lines into priced entries, and the two routes that draw lines
+(`/cart`, `/checkout`) receive the compact projection (`cart-product.ts`) from their own server pages.
+
+Measured against a production build: `/` **14 KB gz**, `/products` **22 KB gz**, a product page **~12 KB gz**,
+`/cart` **81 KB gz**, `/checkout` **82 KB gz**. Before this change every route carried the whole catalog
+(**267 KB gz**). A cart line still renders its name, picture, price and availability, and a restored line is
+still validated against what the shop sells. A regression found while verifying is fixed: the in-progress
+refactor had left the provider without product records, so the cart badge stayed at 0 and `/cart` rendered
+empty; it now works end to end (verified by clicking Add to cart and following the line to checkout).
+
+**Still over the 60 KB target: `/cart` and `/checkout`.** Both pass all 1,477 products so a line can be
+resolved after a client-side change; that projection is the whole remaining cost.
+
+## The next step
+
+**Phase 45b - resolve cart lines from the cart itself, not from the catalogue (recommended).** *Why:* the
+two cart routes are the last pages above ~60 KB gzipped, and their payload grows with the catalogue - a
+phone on a slow connection pays for 1,477 products to draw one line. *What:* mirror the cart's line ids and
+quantities into a small first-party cookie, read it in `/cart` and `/checkout`, tolerate a mismatch between
+the cookie and `localStorage` by validating every id against the catalogue, and project **only those
+products** into the page. *Prerequisites:* the owner's approval to introduce one more browser-persisted
+value and to choose its lifetime; no provisioning, deployment or new public endpoint. *Acceptance:* `/cart`
+and `/checkout` stay under ~60 KB gzipped with one line and with five; a line still shows its current name,
+price, picture and availability; a tampered or stale id is dropped rather than rendered; the cart survives
+sign-in and a guest's checkout.
+
+*Not authorized by this recommendation:* deploying, provisioning, DNS, credentials, remote database
+changes, deleting the order schema, courier integration or refunds. The imported order history was removed
+by an explicit owner decision recorded in `docs/migrations/zatiq-easy-import.md`; the schema and the COD
+workflow were deliberately kept.
+
+### Phase 45b - the cart page loads the cart, not the catalogue (implemented 2026-10-29)
+
+Phase 45 left two routes over the 60 KB target, and for one reason: `/cart` and `/checkout` received all
+**1,477 products**, because the server had no way to know which products a line needed. The lines live in
+`localStorage`, which a server component never sees.
+
+**The cart now mirrors its line ids into a first-party cookie** (`qb_cart`: ids only, `path=/`,
+`SameSite=Lax`, 30 days, removed rather than emptied when the cart is empty). `/cart` and `/checkout`
+read that list, validate every id against the catalog and project **only those products**
+(`selectCartProducts`). No quantity, price or name travels in the cookie, so a forged value can change
+which products a page mentions and nothing else - it cannot add a line, price one or place an order.
+
+**Measured on a production build** against the 1,605-product catalog, gzipped transfer:
+
+| Route | no lines | 1 line | 5 lines | before this phase |
+| --- | --- | --- | --- | --- |
+| `/cart` | 8.9 KB | 9.1 KB | **9.4 KB** | 81 KB |
+| `/checkout` | 9.1 KB | 9.3 KB | **9.6 KB** | 82 KB |
+
+**The mismatch is handled rather than hoped away.** The cart and its mirror can disagree - a browser that
+drops the cookie, a cart saved before the mirror existed, a tampered value. `useCartProjection` writes the
+mirror from the live cart and refreshes the server tree **once**; if the gap survives that, the page says a
+line could not be loaded and `/checkout` **disables Place order**, because the submitted payload is built
+from the lines the page could resolve and an order must never be placed with a line silently missing. The
+recovery is bounded to one attempt per distinct set of missing ids, so a browser that refuses the cookie
+cannot cause a refresh loop.
+
+Verified 2026-10-29: a headless Chromium click through the real cart produced `qb_cart=4838` and one
+rendered line; five stored lines rendered five names and a **Tk 4,110** subtotal; a deleted cookie recovered
+itself in one refresh; a browser made to refuse the cookie showed the notice with Place order disabled; a
+tampered cookie (`999999`, script text, path traversal fragments) returned 200 with nothing projected.
+New unit tests cover the parser (id shape, duplicates, the 40-id cap, truncation). `typecheck`, `lint`
+(0 errors), `check:i18n` (1,249 keys), unit **200/200**, database **258/258** and `build` all pass.
+
+**Known limits:** losing the mirror costs one extra round trip on the first cart-page load, and the
+"could not be loaded" state was reproduced by overriding `document.cookie` in Chromium, not on a device
+with cookies disabled at the browser-settings level. The cookie is visible to any script on this origin,
+which is accepted: it holds ids the storefront already publishes.
+
+## The next step
+
+**Phase 46 - put the rendered-behaviour suites back on the real catalogue (recommended).** *Why:* the
+project's own two verification gates for rendered behaviour, `verify:browser` (storefront) and `verify:admin`,
+are written against the 22-product fixture and the order fixtures of Phases 14-42. Against the imported
+catalog and an empty order table they no longer pass, so every phase since 43 has been verified with
+task-specific probes that run once and are never re-run - which is exactly how the cart regression in Phase
+45 was found late. A suite that cannot fail cannot guard anything. *Prerequisites:* none beyond a local
+database and a served build; this changes scripts and fixtures only. It does **not** authorize deployment,
+provisioning or a new dependency (the suites already drive Chromium over CDP with Node built-ins). *Acceptance:*
+both suites run green against a seeded real catalog of 1,000+ products and an empty order table, they seed
+and clean up their own order fixtures instead of assuming one exists, and no assertion is weakened or
+deleted to make them pass - a check that no longer means anything is removed with a written reason.
+### Phase 46 - implemented in part (2026-10-30): suite reads the catalogue, and verification is scoped
+
+**Owner decision (2026-10-30): stop running the full suites after every small change.** `verify:browser`
+takes tens of minutes against a real catalogue and `verify:admin` builds its own cluster; using either as a
+per-step gate is cost without information. The cadence is now:
+
+- **Per change:** `npm run verify:ui` - `scripts/verify-ui-fixes.cjs`, nine checks that cover exactly the
+  2026-10-29 audit's UI-01 to UI-09 (focus clearance under the phone bar, promo control scale, the promo
+  refusal summary, the 320px money fields, the recovery panel gap, the analytics period rail, 40px brand and
+  title targets, the scrollable audit region, and the spanning related card). It signs in with
+  `QUEENBEES_ADMIN_EMAIL`/`QUEENBEES_ADMIN_PASSWORD`, drives Chromium over CDP with Node built-ins, adds no
+  dependency, and takes about a minute. Every check names the defect it guards. Verdict 2026-10-30: 9/9.
+- **At a phase checkpoint, or on request:** `npm run verify:browser` and `npm run verify:admin` in full.
+- **Never:** a full-suite run quoted as evidence for a change it was not run against.
+
+**`verify-browser.cjs` no longer carries fixture constants.** It used to pin 22 products, six per category,
+one search hit, one product slug, thirteen discounts and a fixture cart product id, which is why it could not
+run against the imported catalogue at all. Every expectation is now read from the catalogue under test
+(pagination total, card prices, category and brand filter links, a discounted sample product), the price-sort
+check walks **every** listing page by fetching markup rather than navigating, and the cart assertions are
+shape-based rather than id-based. Two facts genuinely cannot be proved from a browser - the curated
+collection behind the featured row and the stored `created_at` order that the recency row claims - so they
+are reported as a stated **SKIP** with their reason, and `verify-storefront.ts` passes
+`QUEENBEES_EXPECTED_RECENT` from the rows it seeded so the ordering assertion still executes there. A skip is
+never counted as a pass.
+
+**Verified 2026-10-30 - both runs green, and the numbers are the runs' own.**
+
+| Run | Command | Result |
+| --- | --- | --- |
+| Real imported catalogue (1,605 products, 559 imported orders) | `QUEENBEES_BASE_URL=http://127.0.0.1:3200 node scripts/verify-browser.cjs` | **91/91 passed**, 7 stated skips |
+| Fixture-seeded disposable cluster | `npm run verify:storefront` | **95/95 browser checks**, **32/32** HTTP customer-flow checks, 1 stated skip |
+| Admin surface, own disposable cluster | `npm run verify:admin` | **200/200** checks |
+
+The seven skips on the imported catalogue are all owner data a browser cannot establish: no curated
+collection (checks 27, 31, 31b, 31c), the stored `created_at` order (28b-db, 42-db), and no brand filter in
+that catalogue's sidebar (6). The fixture-seeded run executes the collection, featured-row and recency
+ordering assertions - it passes `QUEENBEES_EXPECTED_RECENT` from the rows it seeded - so none of those
+assertions was dropped. The single skip there is check 6: the seeded fixture catalogue renders no brand
+filter. The suite makes **no ordering dependency on order rows**, so the imported 559 orders and an empty
+order table are equivalent for it; it seeds nothing and needs no cleanup.
+
+**The guest path is covered now (2026-10-30).** The residual hole this phase named was the storefront's own
+guest ordering (D12 switch, ADR 0024), which had no durable check - the same gap that once let the guest switch
+store `false` for a ticked box. Five checks were added to `scripts/customer-flow.ts`, all against the served
+route: refused while the switch row is **absent** (and no order written), a **cross-origin** guest post refused
+with 403 and no order, a guest places **one order without an account** (order row has `customer_id is null`, the
+`order_placed` event records `actor_type = 'guest'`, and no session cookie is issued), the **receipt renders for
+its own number only** (an unknown number and a customer's own order both 404 anonymously), and the run **leaves
+no order rows** and restores the switch to its absent state. Cleanup is `TRUNCATE`, not `DELETE`: `order_event`
+and `order_item` refuse row deletes by trigger, which is why `scripts/purge-imported-orders.ts` does the same.
+The suite writes the setting key as a literal rather than importing the server module, because that module binds
+`src/db/client` to the developer's own `DATABASE_URL` - a different database from the run's disposable cluster.
+`verify:storefront` is now **95/95 browser + 32/32 HTTP** (was 27; the five guest checks), still one stated skip.
+
+**Note on the runtime gate:** `next build` stops once per fresh build on Next's own security-advisory nudge and
+proceeds when the same command is retried. That is framework behaviour, not a project check - and it bites
+`verify:storefront` too, whose first attempt in a session fails at its own `next build` and whose retry passes.
+Treat "build exited 1 with SecurityFatalError" as a retry, never as a project failure.
+
+---
+
+**Status note (2026-10-29): the premise above is half-out of date, and running the suite is what showed it.**
+`verify:admin` **does** run and pass - **193/193** - against the imported catalogue, because it builds its own
+disposable cluster, migrates it, seeds its own reference data and drives the real production build over HTTP;
+it never touches this project's `queenbees_dev` database. So the suite is stale in *coverage*, not in
+runnability: it had no check on the Settings group at all, which is why the guest-ordering switch could store
+`false` for a ticked box, and no check on the category editor's visibility direction, for the same reason.
+Both are covered now. The remaining work this phase describes is therefore (a) `verify:browser` against the
+real catalogue, which is the suite that genuinely cannot run today, and (b) the coverage holes of the same
+kind - the storefront's own guest path and the Settings screens - rather than a suite that is simply broken.
+
+
 

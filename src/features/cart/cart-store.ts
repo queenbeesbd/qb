@@ -1,5 +1,6 @@
 import { clampQuantity } from '@/lib/money';
 import type { CartLine } from '@/lib/types';
+import { mirrorCartCookie } from './cart-cookie';
 import { MAX_LINES, MAX_QUANTITY, readStoredLines, writeStoredLines } from './cart-storage';
 
 /**
@@ -38,6 +39,12 @@ function emit(): void {
 function commit(next: readonly CartLine[]): void {
   lines = next;
   writeStoredLines(next);
+  /*
+   * The cart page is drawn on the server, so the ids it needs have to be visible to the server before
+   * the customer navigates. `localStorage` never leaves the browser; this cookie does. It carries ids
+   * only and decides nothing - see cart-cookie.ts for why that is safe.
+   */
+  mirrorCartCookie(next);
   emit();
 }
 
@@ -45,6 +52,12 @@ function hydrate(): void {
   if (hydrated) return;
   hydrated = true;
   const stored = readStoredLines(knownIds);
+  /*
+   * Re-mirror on every load, including an empty cart. A browser that dropped the cookie (or a cart
+   * saved before this mirror existed) would otherwise leave the cart page with nothing to project,
+   * which is exactly the mismatch `useCartProjection` recovers from - cheaper to prevent it here.
+   */
+  mirrorCartCookie(stored);
   if (stored.length > 0) {
     lines = stored;
     emit();

@@ -165,6 +165,10 @@
   color: var(--color-action);
 }
 
+.filterToggle:active {
+  transform: scale(0.97);
+}
+
 .filterCount {
   display: inline-flex;
   align-items: center;
@@ -215,6 +219,8 @@
 .searchField input {
   flex: 1;
   min-height: 44px;
+  /* 16px below 720px: focusing a smaller control makes iOS zoom the page. */
+  font-size: var(--text-control);
   border: none;
   outline: none;
   background: transparent;
@@ -378,6 +384,7 @@
   background: var(--color-surface);
   color: var(--color-ink);
   font: inherit;
+  font-size: var(--text-control);
 }
 
 .empty {

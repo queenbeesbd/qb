@@ -485,4 +485,235 @@ The Phase 3 checkpoint recorded no horizontal overflow on `/`, `/products`, `/ca
 
 Touch targets: primary controls at least 40px; breadcrumb links raised to a 24px minimum (WCAG 2.5.8).
 
-*Unverified:* real iOS Safari and Android Chrome, 200% zoom reflow, and screen-reader output on real assistive technology.
+
+## Refinement pass - phone first (2026-10-29)
+
+This pass fixed measured defects rather than restyling. Each item was found by rendering the real catalog
+at 390, 768 and 1440 and reading geometry, not by eye alone.
+
+### One control type size, and no page zoom on a phone
+
+- **`--text-control`** is the form-control size: **15px on a desktop, 16px below 720px**. The second value
+  is a correctness rule, not taste - iOS Safari magnifies the whole page when a control under 16px is
+  focused, so a checkout field used to leave the customer looking at a zoomed page they had to pinch back.
+  Every control (header search, catalog search and sort, cart stepper, checkout fields, promo field, admin
+  inputs, selects and textareas) reads the token.
+- **The admin's small control grows on a phone.** `--admin-control-sm` is 34px on a desktop and **40px below
+  720px**. AGENTS.md and this document already stated that rule; it had never been implemented, so a 34px
+  button sat beside a 40px one on every phone list. Measured after the fix: phone admin pages carry **only**
+  40px controls (plus the 64px tab bar).
+- **Page zoom is disabled** (`maximum-scale=1, user-scalable=no`) by owner decision. A phone is the main way
+  the owner runs the shop, and a page that magnifies on a stray double tap or on focusing a field reads as
+  broken. **The cost is recorded rather than hidden:** pinch-to-zoom is an accessibility aid, and removing it
+  trades that away for a stable surface. Every control is sized for a thumb, body text is 15-16px, and
+  layouts reflow instead of relying on zoom. `touch-action: manipulation` also removes the 300ms double-tap
+  zoom, and `text-size-adjust: 100%` stops iOS inflating text in landscape. Reversing the decision is two
+  lines in `src/app/layout.tsx`.
+
+### Alignment is a rule, not a coincidence
+
+- **A product card's price sits on one baseline across a row.** The card reserves its brand row, clamps the
+  title to two lines and reserves its pack row, so the price starts at the same offset whether a product has
+  a brand, a long imported name or a pack size. The price block is **no longer bottom-anchored**: with
+  `margin-top: auto` a short card opened a ~90px gap between its title and its price while its neighbour had
+  none. Optional saving and availability lines follow naturally; the grid's stretch supplies the equal height.
+- **The hero collage is one row with one top and one bottom edge.** The 32px/12px stagger against 284px
+  photographs read as a failed alignment rather than a composition.
+- **The PDP quantity stepper and Add to cart are both 46px.** They were 42px and 46px, top-aligned, which is
+  the kind of 4px mismatch that makes a purchase block feel unfinished.
+- **The COD card's money column fills the card on a phone.** `justify-items: start` left a 192px totals block
+  floating at the left of a 358px card; the Total rule stopped halfway and the figures ended in the middle of
+  nowhere. It now stretches and shares one right edge.
+- **A card's optional rows are reserved, never filled.** Empty slots use a non-breaking space with
+  `aria-hidden`, so no content is invented.
+- **One undefined token was painting four hover borders.** `--color-primary` was never defined, so
+  `border-color` fell back to `currentColor` and a hovered card drew a dark border instead of the brand
+  purple. All four uses now read `--brand-primary`.
+
+### Admin on the device it is actually used on
+
+- **An editor's action bar stays sticky below the top bar.** It went `position: static` below 720px, so after
+  filling a long product form the owner had to scroll back to the top to press Save. It now parks at
+  `top: var(--admin-topbar-height)`, and `scroll-padding-top` (set on `html` only while an admin shell is
+  present) keeps a focused field clear of both sticky rows.
+- **A product row drops its slug on a phone.** The slug is a search aid, not an identity; at 390px it wrapped
+  to three lines and doubled every row's height. It stays on the desktop list.
+- **The audit table keeps its reading width and scrolls inside its wrapper.** On a phone the timestamp used to
+  break over three lines beside a two-line actor; the first cell is now `nowrap` and the table has a
+  46rem minimum inside `overflow-x: auto`, which is the behaviour the screen already claimed.
+- **A capped search field.** Left to grow, the admin search took 830px of a 1440px row, reading as an empty
+  band with a stranded button. It caps at 30rem and is full width on a phone.
+- **The COD queue link sits at the far end of its heading row**, because the block it lives in now fills the
+  panel instead of shrinking to its text.
+- **The date range on a phone is two equal halves plus a full-width Apply.** Two native date fields and a
+  button on one 390px row squeezed the date until the calendar glyph covered the year.
+
+### Checkout could not fit a phone
+
+A 390px checkout measured **411px** wide with one item in the cart, so every price in the summary was cut at
+the right edge. The cause was a grid item's automatic minimum: the promotion field's intrinsic width made the
+whole column wider than the viewport. `.layout > *` now has `min-width: 0`, the promotion row is a
+`minmax(0, 1fr) auto` grid, and the summary and cards may shrink. Measured after: **390 = 390**, form and
+summary 358px, no clipped figure.
+
+### Smaller corrections
+
+- The announcement ticker fades at both ends with a mask instead of slicing a word against the glass.
+- The header search placeholder was shortened to "Search products or brands" so it fits the field it is in.
+- "1 items" became "1 item" in the cart header and its live-region announcement.
+- The cart badge now counts stored quantities without needing product records, so it is correct on every
+  route - not only on the two that draw lines.
+
+*Unverified:* real iOS Safari and Android Chrome, and screen-reader output on real assistive technology. 200% zoom reflow is no longer reachable by pinch on a phone because zoom is disabled; text resize and reflow are still expected to hold, and remain unverified on a device.
+
+## Critique pass - the admin rhythm and the thumb (2026-10-29)
+
+A design critique of the phone landing page and the admin panel found the defects were systemic rather than
+page-specific, so they were fixed in the shared layer instead of page by page.
+
+**The control scale was only true above 720px.** An input took `16px x 1.6` of line box plus 8px padding, so a
+phone money field rendered **42px** directly above a **40px** Save button. Inputs and selects now carry an
+explicit `height: var(--admin-control)` and `line-height: 1.25`; a textarea keeps `height: auto`.
+
+**Row actions were not controls.** `Edit` / `Archive` / `View` measured **21px** tall (24px wide) beside a
+40px availability switch - the smallest things to hit on a phone, in the worst thumb zone. They now take
+`--admin-control-sm` (34px desktop, 40px phone) with horizontal padding, and a panel's "View all" takes 40px
+on a phone. Measured after the change on a 390px viewport: **every** visible control on `/admin`,
+`/admin/catalog` and `/admin/categories` is 40px (7, 88 and 39 elements).
+
+**Grouping.** The page gap was 32px while a panel's own padding was 24px, so a panel boundary read like a
+paragraph break. The gap is **48px** on desktop (32px on a phone), which separates blocks without shrinking
+the panel.
+
+**A list filter is a segmented row on a desk and a disclosure on a phone.** Eight status tabs cannot be a
+segmented control at 390px. Two attempts were rejected in practice: wrapping them inside the pill put the
+second row on a different column and the control read as broken, and a single swiped rail with an edge fade
+hid four of the eight statuses behind a gesture nobody could see, never scrolled an active filter into view,
+and dimmed the last reachable tab until it looked disabled (the owner's verdict: **hard to use**). Both are
+gone.
+
+What ships: above 720px the segmented row, unchanged - a wide screen shows every option at once. At and
+below 720px (`FilterTabs` renders both, and only one is ever displayed) the same filter is a **40px
+disclosure whose closed summary names the filter in force** ("Filter by status · Returned"), opening into a
+vertical list where every status is a 40px row with its count and the chosen one is filled and checked. No
+gesture, no clipping, no invisible state, and one row of screen instead of three. The date range filter
+shares that column, so a phone toolbar reads as stacked 40px rows.
+
+The rule this settles: **a filter's *options* may live behind a disclosure, provided the closed control
+states the value that is applied and every option is one tap away.** A required field, a destructive action
+or anything the owner must see before acting still may not be collapsed. The analytics period switch is
+three options and stays visible as chips.
+
+The segmented row keeps `min-width: 0` for the same reason as before - a nowrap row must never widen the
+page.
+
+**Filters that took a third of the screen.** The date range was two native date inputs plus an Apply button
+above every order list: **263px** before the first row. It is now a `Filter by date range` disclosure that
+states the applied range in its summary.
+
+**The queue is the front door.** The stylesheet has said so since Phase 38 while the DOM put five KPI tiles
+and a chart before it - the calls waiting sat **1.3 screens** down a phone. The queue panel now comes first.
+The lone fifth KPI tile spans the phone row instead of leaving a half-width hole.
+
+**Product rows lost their monogram.** It printed the name's first character, so a catalogue whose vendor
+names start with digits read `1, 1, 2, 2, 3, 3` down the list; the title takes the space instead, and the
+category, brand and slug are separated by a middle dot rather than by air alone.
+
+**Storefront.** Account and cart are 8px apart rather than 4 (two 40px targets in the thumb zone). Section
+"View all" links are 40px targets instead of 49x21. The phone hero gives back ~28px so the first product row
+starts higher, and the ticker's edge gradients are wider than the gutter so a mid-travel word cannot sit hard
+against the glass.
+
+*Verified:* 390px audit across 11 routes - **0 horizontal overflow**, **0 misaligned rows**, no visible
+control under 16px; desktop 1440px unchanged apart from the intended rhythm. *Not verified:* real devices,
+screen readers, and the phone's own soft keyboard behaviour.
+
+
+## The guest-ordering switch, and a panel whose boxes touched (2026-10-29)
+
+**Settings -> Other** is the only screen that carries the guest-ordering policy (D12, ADR 0024). Two defects
+were reported against it together, and they turned out to be independent.
+
+**The switch could be turned off and never on.** The form posted a hidden `guestOrders=false` **and** a
+checkbox named `guestOrders` with `value="true"`. A form's entry list is in document order, and
+`FormData.get()` returns the **first** entry, so the hidden field won every submission: the box posted
+`true` and the route read `false`. Turning guest ordering off worked, which is what made this quiet - the
+panel answered "saved", the switch came back off, and checkout asked the visitor to sign in. The hidden field
+is gone (an unticked box posts nothing, and the policy already reads "nothing" as off), and the route now
+reads the **whole** list so that any explicit `true` wins. That makes it independent of the markup order
+rather than depending on the order never regressing.
+
+Measured after: posted entries `["csrf=...","guestOrders=true"]`, stored `checkout.guest_orders = true`,
+the switch checked on reload, and an anonymous 390px visitor with a cart clicking through to checkout landed
+on `/checkout` (**not** `/account/login`) with the order form rendered and **Place order** enabled. A guest
+order was then created through the same service the route calls (`customerId: null`, two 650 BDT lines plus
+the 100 BDT Dhaka charge = **1,400 BDT**) and the transaction was aborted, so the proof left no rows.
+
+**The panel had no gap between its children, and the state readout was a second box.** `.panel` supplies
+padding but no vertical rhythm, so the switch row's border, the tinted outcome box and the Save button met
+edge to edge. The screen now uses the vocabulary its siblings already use: a `formCard` (which owns the
+16px gap), narrowed to 34rem so one switch is not stretched across 1,400px, and the saved policy stated once
+as a state token beside the consequence of that state - no border and no background of its own. The readout
+describes the **saved** value, not the box's current tick: the draft-versus-saved split the announcement
+editor already uses.
+
+Measured at 1440 and 390: switch row -> readout **16px**, readout -> action row **16px**, no element
+overflowing its viewport, and the only controls are the 40px Save button plus the 18px box inside a 99px
+(1440) / 133px (390) label that is the real target.
+
+*Checked across the group:* `/admin/settings/delivery`, `announcement`, `integrations` and the Telegram
+screen report 0 overflow and 0 misaligned rows at both widths. The announcement screen's eight "overflowing"
+elements are its ticker track, which is wider than the viewport by design and clipped by its container.
+
+*Unverified:* real iOS Safari and Android Chrome; no rendered-behaviour suite covers the Settings group at
+all (`verify:admin` never visited `/admin/settings/other`, and `verify:storefront` has no guest check), so
+this defect shipped through both.
+
+
+**The same defect, mirrored, on the category editor.** That editor posts a hidden `isVisible=false` and a
+box with `value="true"` under the same name - a pair that exists because an unticked box posts nothing and
+the service reads "nothing" as **visible**. `form.get('isVisible')` therefore returned the hidden `false`
+for a **ticked** box too: a category could be hidden and never shown again, and the panel answered
+"updated". The route now reads the whole list (an explicit `true` wins; an absent field still lets the
+service keep its default). Measured before and after on the exact entries a ticked box sends, inside an
+aborted transaction: `["false","true"]` stored `false` before and `true` after. `verify:admin` now hides
+and re-shows a category through the real editor, so a regression fails the tick direction specifically -
+the direction a list filter cannot notice.
+
+
+**The page and the route disagreed about "anonymous".** The order route decides that by **resolving** the
+session, but the checkout *page* decided it from the presence of the session cookie. A cookie that no longer
+resolves - expired, revoked, rotated - therefore sent the visitor to the sign-in page with guest ordering on,
+while the same request to the order route would have been treated as a guest: the page refused to draw the
+form the route would have accepted. The page now resolves the principal and reads "no principal" as
+anonymous, so only the owner's policy can send a visitor to sign in. Measured with guest ordering on: both a
+cookie-less request and one carrying a dead `qb_customer_session` value return **200** from `/checkout`
+with `action="/api/checkout/order"` in the body; with the policy off, the cookie-less request still
+redirects (the existing `verify:admin` check).
+
+**The same missing gap, one screen along.** `/admin/settings/integrations/telegram` had the identical
+defect, because it also used `.panel` as a **form** container: the bot card's status row and its note met at
+**0px**, and the Add and Save buttons sat flush against the hint text and the input above them. All three
+cards now use `formCard`. Measured at 1440 and 390: status row -> note **16px**, field grid -> action row
+**16px** in both forms, 0 overflow. The rule this makes explicit: **`panel` is for a box that holds prose or
+a list; a form's card is `formCard`, which owns the vertical gap.** (`.panel` deliberately keeps no gap of
+its own - it holds panels whose children bring their own spacing.)
+
+**A roster that could only ever grow.** The same screen offered **Pause** on a destination and no way to
+remove one, so the smoke-test id registered while the bot was being set up stayed in the fan-out list for
+good. *Remove* now sits beside Pause/Resume - both 40px, **8px** apart, because `--space-1` is right between
+a link and a button but two real buttons, one of them destructive, need more than a thumb's width of
+separation - and it opens a confirmation that names the destination and the chat id it is about to lose.
+The deleted row is the only place its chat id lived, so the audit record carries the label, id and active
+state as `before`; the id is on the screen before the dialog opens, so it can be registered again. A removal
+that finds no row (a second owner, a page open since before the row was removed) answers "already gone" in
+the notice strip rather than a 500 or a false success.
+
+*Verified:* the delivered round trip through the real interface and the database - add (`notice=added`, row
+active), pause (`is_active = false`), resume (`true`), remove (dialog naming "Verify destination
+(987654321)", row gone, one `integration.telegram_recipient_removed` record), an already-gone removal
+("already gone", nothing deleted), and the empty state back once the last row goes. *Not verified:* delivery
+to a real Telegram account from a freshly registered id (no owner chat id in this environment), and real
+iOS/Android touch.
+
+

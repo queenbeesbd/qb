@@ -1,6 +1,6 @@
 # ADR 0022 - Telegram order notifications
 
-- Status: accepted (owner request, 2026-10-23)
+- Status: accepted (owner request, 2026-10-23); decision 3 amended 2026-10-29 (owner request, see the amendment at the end)
 - Phase: 39
 - Supersedes: nothing. Does not change any payment, order or messaging policy.
 
@@ -26,9 +26,14 @@ send a message to any chat that has spoken to it first.
    destination: a human `label`, the numeric `chat_id`, and `is_active`. Each owner or staff member
    registers their own Telegram id, and **every active row receives every notification** - that is the
    whole fan-out rule, with no per-order addressing, no routing table and no priority.
-3. **A recipient is paused, not deleted.** The id survives, so a mistake is corrected (the id is
-   editable) rather than re-typed. The unique index on `chat_id` is what prevents the same destination
-   being registered twice and the owner receiving two identical messages for one order.
+3. **A recipient is paused by default, and can be removed when the row itself is the mistake.**
+   Pausing keeps the id, so a mistyped id is corrected (the id is editable) rather than re-typed, and a
+   paused destination resumes without touching Telegram again. **Removal deletes the row**, for a
+   destination that should not be in the fan-out list at all: the test id registered while the bot was
+   being set up, someone who has left. It sits behind a confirmation that names the destination and the
+   id it is about to lose, it is audited, and the id is re-registerable - so the action is recoverable
+   rather than final. The unique index on `chat_id` is what prevents the same destination being
+   registered twice and the owner receiving two identical messages for one order.
 4. **The send is scheduled after the response and can never fail the order.** Checkout calls
    `after()` (Next's post-response hook), which runs `notifyOrderPlaced` - a function that returns a
    summary instead of throwing and attempts each destination independently. A Telegram outage, a wrong
@@ -42,7 +47,7 @@ send a message to any chat that has spoken to it first.
    approval" - never a delivery promise and never a payment state the order does not have.
 7. **Settings, not a queue.** Recipients are managed at **Settings → Integrations → Telegram** behind
    `settings.write`, and every change is audited
-   (`integration.telegram_recipient_added|_updated|_activated|_paused`). The screen offers a **test
+   (`integration.telegram_recipient_added|_updated|_activated|_paused|_removed`). The screen offers a **test
    message**, because Telegram's failure mode is silence: a chat id is only usable once that person has
    pressed Start, and until then every send fails without a trace anywhere the owner would look.
 
@@ -72,6 +77,21 @@ send a message to any chat that has spoken to it first.
   indexes, two foreign keys, two checks).
 - The Telegram id is a *user* id, not a phone number and not a username: `@name` is refused because it
   cannot be messaged without a lookup, and a phone number is not an address on Telegram.
+
+## Amendment (2026-10-29, owner request): the roster can remove a destination
+
+The owner registered a smoke-test destination while the bot was being set up and then found it could not
+be removed: the roster offered **Pause** and nothing else, so the row stayed in the fan-out list for
+good. Decision 3 above is the settled reading - pausing first, removal for a row that should not exist,
+confirmed and audited. Two things are worth recording because they are not obvious from the code:
+
+- **The deleted row is the only place its chat id lived.** The audit entry carries the label, the chat id
+  and the active state as `before`, which is what makes "what was removed" answerable afterwards; the
+  id is also on the screen before the dialog opens, so nothing is destroyed that the owner cannot type
+  again.
+- **A removal that finds nothing is not an error.** Two owners, or a page open since before someone else
+  removed the row, reach the same delete with no row to delete; that answers "already gone" into the
+  notice strip rather than a 500 or a false success.
 
 ## Verification
 

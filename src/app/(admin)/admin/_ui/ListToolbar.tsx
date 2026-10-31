@@ -116,19 +116,58 @@ export function FilterTabs({
   active: string;
   options: readonly FilterTabOption[];
 }) {
+  const activeOption = options.find((option) => option.value === active) ?? options[0];
+
   return (
-    <div className={styles.filterTabs} role="group" aria-label={label}>
-      {options.map((option) => (
-        <Link
-          key={option.value}
-          href={option.href}
-          className={active === option.value ? `${styles.filterTab} ${styles.filterTabActive}` : styles.filterTab}
-          aria-current={active === option.value ? 'page' : undefined}
-        >
-          {option.label}
-          {option.count !== undefined && <span className={styles.filterCount}>{option.count}</span>}
-        </Link>
-      ))}
-    </div>
+    <>
+      {/*
+       * Two renderings of one filter, and only one of them is ever displayed.
+       *
+       * Above 720px the segmented row stays: it shows every option at once, which is what a wide screen
+       * is for. Below 720px that row becomes a disclosure, because eight order statuses cannot be a
+       * segmented control on a phone. It used to be a horizontal rail with an edge fade, which hid four
+       * statuses behind a gesture nobody could see, never scrolled an active filter into view, and dimmed
+       * the last reachable tab until it read as disabled - the owner's verdict was "hard to use".
+       *
+       * A disclosure answers all three: it costs one 40px row instead of three, the closed control names
+       * the filter that is in force (so a filter can never be applied invisibly), and it opens into a
+       * vertical list where every status is a 40px row - no gesture, no clipping, no stranded last chip.
+       */}
+      <div className={`${styles.filterTabs} ${styles.filterSegmented}`} role="group" aria-label={label}>
+        {options.map((option) => (
+          <Link
+            key={option.value}
+            href={option.href}
+            className={active === option.value ? `${styles.filterTab} ${styles.filterTabActive}` : styles.filterTab}
+            aria-current={active === option.value ? 'page' : undefined}
+          >
+            {option.label}
+            {option.count !== undefined && <span className={styles.filterCount}>{option.count}</span>}
+          </Link>
+        ))}
+      </div>
+
+      <details className={styles.filterDisclosure}>
+        <summary className={styles.filterSummary}>
+          <span className={styles.filterSummaryLabel}>{label}</span>
+          {activeOption !== undefined && <span className={styles.filterSummaryValue}>{activeOption.label}</span>}
+        </summary>
+        <div className={styles.filterList}>
+          {options.map((option) => (
+            <Link
+              key={option.value}
+              href={option.href}
+              className={
+                active === option.value ? `${styles.filterOption} ${styles.filterOptionActive}` : styles.filterOption
+              }
+              aria-current={active === option.value ? 'page' : undefined}
+            >
+              <span>{option.label}</span>
+              {option.count !== undefined && <span className={styles.filterOptionCount}>{option.count}</span>}
+            </Link>
+          ))}
+        </div>
+      </details>
+    </>
   );
 }

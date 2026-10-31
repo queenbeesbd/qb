@@ -2,7 +2,11 @@ import assert from 'node:assert/strict';
 import { after, before, describe, it } from 'node:test';
 
 import { OrderRefusalError, createOrder } from '../../src/server/orders/create';
-import { getCustomerOrderDetail, listCustomerOrders } from '../../src/server/orders/read';
+import {
+  getCustomerOrderDetail,
+  getGuestOrderDetail,
+  listCustomerOrders,
+} from '../../src/server/orders/read';
 import { ORDER_LIMITS, type ContactInput } from '../../src/server/orders/validation';
 import { SKIP_REASON, startMigratedDatabase, toolingAvailable, type DbFixture } from './helpers';
 
@@ -86,7 +90,7 @@ describe('order creation (Cash on Delivery only)', { skip: toolingAvailable ? fa
   }
 
   async function place(
-    customerId: number,
+    customerId: number | null,
     lines: { productId: number; quantity: number }[],
     options: { key?: string; fingerprint?: string; contact?: ContactInput } = {},
   ) {
@@ -321,6 +325,35 @@ describe('order creation (Cash on Delivery only)', { skip: toolingAvailable ? fa
     assert.equal(items.rows[0]?.total, '1');
   });
 
+  it('replays a guest submission by its own key, since a guest has no account to match', async () => {
+    const product = await createProduct({ suffix: 'guest-idem' });
+    const key = submissionKey('guest-idem');
+
+    const first = await place(null, [{ productId: product.productId, quantity: 1 }], { key });
+    const second = await place(null, [{ productId: product.productId, quantity: 1 }], { key });
+
+    assert.equal(second.orderNumber, first.orderNumber);
+    assert.equal(second.replayed, true);
+
+    const row = await fixture.pool.query<{ customer_id: string | null }>(
+      `select customer_id from "order" where id = $1`,
+      [first.orderId],
+    );
+    assert.equal(row.rows[0]?.customer_id, null, 'a guest order stays unattributed');
+
+    const orders = await fixture.pool.query<{ total: string }>(
+      `select count(*)::text as total from "order" where customer_id is null`,
+    );
+    assert.equal(orders.rows[0]?.total, '1');
+
+    // A guest key is still a guest's: a signed-in customer cannot claim it.
+    const customerId = await createCustomer('orders-guest-replay@example.test');
+    await expectRefusal(
+      place(customerId, [{ productId: product.productId, quantity: 1 }], { key, fingerprint: 'fp-' + key }),
+      'idempotency_conflict',
+    );
+  });
+
   it('treats a reused key with a different body as a conflict, not a second order', async () => {
     const customerId = await createCustomer('orders-conflict@example.test');
     const product = await createProduct({ suffix: 'conflict' });
@@ -426,6 +459,28 @@ describe('order creation (Cash on Delivery only)', { skip: toolingAvailable ? fa
     assert.equal(
       await fixture.db.transaction((tx) => getCustomerOrderDetail(tx, other, created.orderNumber)),
       null,
+    );
+
+    /*
+     * A receipt readable by number is a guest receipt, and only for an order with no account behind it:
+     * a customer's order number must not open for anyone who merely knows it.
+     */
+    assert.equal(
+      await fixture.db.transaction((tx) => getGuestOrderDetail(tx, created.orderNumber)),
+      null,
+      "a customer's order is not a guest receipt",
+    );
+
+    const guestOrder = await place(null, [{ productId: product.productId, quantity: 1 }]);
+    const guestDetail = await fixture.db.transaction((tx) =>
+      getGuestOrderDetail(tx, guestOrder.orderNumber),
+    );
+    assert.equal(guestDetail?.orderNumber, guestOrder.orderNumber);
+    assert.equal(guestDetail?.itemCount, 1);
+    assert.equal(
+      await fixture.db.transaction((tx) => getCustomerOrderDetail(tx, owner, guestOrder.orderNumber)),
+      null,
+      'a guest order is not one of a customer orders',
     );
 
     const ownerList = await fixture.db.transaction((tx) => listCustomerOrders(tx, owner));
