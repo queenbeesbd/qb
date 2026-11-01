@@ -1,7 +1,12 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { CatalogView } from '@/features/catalog/CatalogView';
-import { listBrands, parseCatalogQuery, selectCatalog, slicePage } from '@/features/catalog/query';
+import {
+  buildCatalogFacets,
+  parseCatalogQuery,
+  selectCatalog,
+  slicePage,
+} from '@/features/catalog/query';
 import { getStorefrontCatalog } from '@/server/catalog/storefront';
 
 type Params = Promise<{ slug: string }>;
@@ -12,7 +17,8 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
   const { categories } = await getStorefrontCatalog();
   const category = categories.find((entry) => entry.slug === slug);
   if (!category) return { title: 'Category' };
-  return { title: category.name.bn ?? category.name.en ?? slug };
+  // English first, matching every other owner-data surface; the record's own language is the fallback.
+  return { title: category.name.en ?? category.name.bn ?? slug };
 }
 
 /**
@@ -36,6 +42,7 @@ export default async function CategoryPage({
 
   const parsed = parseCatalogQuery(await searchParams, catalog.categories);
   const query = { ...parsed, category: category.slug };
+  const facets = buildCatalogFacets(catalog.products, catalog.categories, query.category);
 
   const matched = selectCatalog(catalog.products, query);
   const page = slicePage(matched, query.page);
@@ -43,7 +50,7 @@ export default async function CategoryPage({
   return (
     <CatalogView
       results={page.items}
-      brands={listBrands(catalog.products)}
+      facets={facets}
       categories={catalog.categories}
       query={query}
       totalCount={catalog.products.length}

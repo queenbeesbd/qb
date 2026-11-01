@@ -11,7 +11,13 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { parseCatalogQuery, selectCatalog } from '@/features/catalog/query';
+import {
+  buildCatalogFacets,
+  parseCatalogQuery,
+  selectCatalog,
+  type CatalogQuery,
+} from '@/features/catalog/query';
+import { listingHref } from '@/features/catalog/listing/url';
 import type { CatalogCategory, CatalogItem } from '@/lib/types';
 
 const CATEGORY_40 = 'a'.repeat(40);
@@ -118,5 +124,180 @@ describe('parseCatalogQuery category', () => {
       },
     ];
     assert.equal(parseCatalogQuery({ category: longSlug }, longCategories).category, '');
+  });
+});
+
+/*
+ * The listing's filter contract beyond category: multi-brand, price bounds, availability,
+ * recency and the counts the rail actually renders. Each value below is derived from the same
+ * records the grid would select, so a facet can never advertise a count the filter cannot yield.
+ */
+describe('catalog filter facets', () => {
+  const listingCategories: CatalogCategory[] = [
+    {
+      id: 'skincare',
+      slug: 'skincare',
+      name: { bn: null, en: 'Skincare' },
+      blurb: { bn: null, en: null },
+      icon: 'serum',
+      sortOrder: 0,
+    },
+    {
+      id: 'haircare',
+      slug: 'haircare',
+      name: { bn: null, en: 'Haircare' },
+      blurb: { bn: null, en: null },
+      icon: 'hair',
+      sortOrder: 1,
+    },
+  ];
+
+  const listingProducts: CatalogItem[] = [
+    {
+      id: '1',
+      slug: 'serum',
+      name: { bn: null, en: 'Serum' },
+      description: { bn: null, en: null },
+      shortDescription: null,
+      brand: 'Lilac',
+      categoryId: 'skincare',
+      categorySlug: 'skincare',
+      pack: '30 ml',
+      priceMinor: 10000,
+      compareAtPriceMinor: null,
+      availability: 'in_stock',
+      images: [],
+      source: 'database',
+      createdAt: '2026-01-02T00:00:00.000Z',
+    },
+    {
+      id: '2',
+      slug: 'shampoo',
+      name: { bn: null, en: 'Shampoo' },
+      description: { bn: null, en: null },
+      shortDescription: null,
+      brand: 'Aura',
+      categoryId: 'haircare',
+      categorySlug: 'haircare',
+      pack: null,
+      priceMinor: 20000,
+      compareAtPriceMinor: null,
+      availability: 'out_of_stock',
+      images: [],
+      source: 'database',
+      createdAt: '2026-01-01T00:00:00.000Z',
+    },
+    {
+      id: '3',
+      slug: 'toner',
+      name: { bn: null, en: 'Toner' },
+      description: { bn: null, en: null },
+      shortDescription: null,
+      brand: 'Lilac',
+      categoryId: 'skincare',
+      categorySlug: 'skincare',
+      pack: null,
+      priceMinor: 30000,
+      compareAtPriceMinor: null,
+      availability: 'in_stock',
+      images: [],
+      source: 'database',
+      createdAt: null,
+    },
+    {
+      id: '4',
+      slug: 'mask',
+      name: { bn: null, en: 'Mask' },
+      description: { bn: null, en: null },
+      shortDescription: null,
+      brand: null,
+      categoryId: 'skincare',
+      categorySlug: 'skincare',
+      pack: null,
+      priceMinor: 5000,
+      compareAtPriceMinor: null,
+      availability: 'in_stock',
+      images: [],
+      source: 'database',
+      createdAt: '2026-01-03T00:00:00.000Z',
+    },
+  ];
+
+  it('reads repeated brand parameters as a multi-select and matches any chosen brand', () => {
+    const query = parseCatalogQuery({ brand: ['Lilac', 'Aura'] }, listingCategories);
+    assert.deepEqual(query.brands, ['Lilac', 'Aura']);
+
+    assert.deepEqual(
+      selectCatalog(listingProducts, query).map((item) => item.slug),
+      ['serum', 'shampoo', 'toner'],
+    );
+  });
+
+  it('parses whole-taka price bounds into poisha, swaps a reversed pair and refuses a formatted amount', () => {
+    const bounded = parseCatalogQuery({ min: '120', max: '250' }, listingCategories);
+    assert.equal(bounded.minPrice, 12000);
+    assert.equal(bounded.maxPrice, 25000);
+
+    const reversed = parseCatalogQuery({ min: '250', max: '120' }, listingCategories);
+    assert.equal(reversed.minPrice, 12000, 'a reversed pair is still a range, not an empty result');
+    assert.equal(reversed.maxPrice, 25000);
+
+    const formatted = parseCatalogQuery({ min: 'Tk 1,200' }, listingCategories);
+    assert.equal(formatted.minPrice, null, 'a formatted amount is not guessed into a boundary');
+  });
+
+  it('keeps only availability states the shop actually has', () => {
+    const query = parseCatalogQuery(
+      { availability: ['out_of_stock', 'not-a-state'] },
+      listingCategories,
+    );
+    assert.deepEqual(query.availability, ['out_of_stock']);
+    assert.deepEqual(
+      selectCatalog(listingProducts, query).map((item) => item.slug),
+      ['shampoo'],
+    );
+  });
+
+  it('sorts newest by the stored timestamp and leaves undated records last', () => {
+    const query = parseCatalogQuery({ sort: 'newest' }, listingCategories);
+    assert.deepEqual(
+      selectCatalog(listingProducts, query).map((item) => item.slug),
+      ['mask', 'serum', 'shampoo', 'toner'],
+    );
+  });
+
+  it('derives facet counts and price bounds from the same catalog snapshot', () => {
+    const facets = buildCatalogFacets(listingProducts, listingCategories, 'skincare');
+
+    assert.deepEqual(facets.brands, [{ name: 'Lilac', count: 2 }]);
+    assert.deepEqual(facets.categories, [
+      { slug: 'skincare', count: 3 },
+      { slug: 'haircare', count: 1 },
+    ]);
+    assert.deepEqual(facets.availability, { in_stock: 3, out_of_stock: 0 });
+    assert.deepEqual(facets.price, { min: 5000, max: 30000 });
+  });
+
+  it('writes a canonical listing URL, with repeated facets and the category as a route', () => {
+    const query: CatalogQuery = {
+      q: 'rose',
+      category: 'skincare',
+      brands: ['Lilac', 'Aura'],
+      minPrice: 12000,
+      maxPrice: null,
+      availability: ['in_stock'],
+      sort: 'newest',
+      page: 2,
+    };
+
+    assert.equal(
+      listingHref(query),
+      '/categories/skincare?q=rose&brand=Lilac&brand=Aura&min=120&availability=in_stock&sort=newest&page=2',
+    );
+
+    assert.equal(
+      listingHref({ ...query, q: '', category: '', brands: [], minPrice: null, availability: [], sort: 'relevance', page: 1 }),
+      '/products',
+    );
   });
 });

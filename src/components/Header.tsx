@@ -112,7 +112,11 @@ export function Header({
             })}
             {moreCategories && (
               <li>
-                <Link href="/categories" aria-current={isCurrent('/categories') ? 'page' : undefined}>
+                <Link
+                  href="/categories"
+                  /* Only the index itself: a category page already marks its own link current. */
+                  aria-current={pathname === '/categories' ? 'page' : undefined}
+                >
                   {t('nav.allCategories')}
                 </Link>
               </li>

@@ -33,6 +33,21 @@ export const CARD_SIZES =
  * a fifth of its height without touching a single font size or touch target.
  */
 export const CARD_FRAME = '5 / 4';
+
+/*
+ * The catalog listing crops taller than the homepage rows.
+ *
+ * It is read as a list of products rather than as one composition: a 4:5 frame gives the bottle or
+ * jar the room it needs beside two lines of title, and the row height stays consistent because every
+ * card in the listing uses the same frame. The homepage keeps 5:4 deliberately (see above); this is
+ * an opt-in frame passed to `ProductCard`, not a change to the shared default.
+ */
+export const LISTING_CARD_FRAME = '4 / 5';
+
+/** Source-size hint for the listing's four-column desktop grid. */
+export const LISTING_CARD_SIZES =
+  '(max-width: 719px) 50vw, (max-width: 1023px) 33vw, (max-width: 1439px) 30vw, 280px';
+
 export const DETAIL_SIZES = '(max-width: 879px) 100vw, 45vw';
 
 export type ImageSources = {

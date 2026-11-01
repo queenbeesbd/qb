@@ -121,12 +121,95 @@ Outlined text is not real text, so the SVG carries `role="img"` and an `aria-lab
 
 - **AnnouncementBar** - one left-aligned line above the header, carrying the owner's saved line only. No background and no second rule: the text starts on the same gutter as the brand, so it reads as the shop's own news rather than a promotion banner (owner decision, 2026-10-23 - it was a centred tinted strip). Absent entirely when that line is empty or switched off (ADR 0020).
 - **ProductPhoto** - one `<picture>` for all catalog imagery: WebP source, JPEG fallback, explicit dimensions, `sizes` hints, lazy by default and eager for the detail hero.
-- **ProductCard** - 3:4 photo, brand eyebrow, title, pack, price row and a derived saving. No badges, ratings or urgency.
+- **ProductCard** - brand eyebrow, title, pack, price row and a derived saving. The homepage frame is 5:4; the catalog listing opts into a 4:5 frame (`LISTING_CARD_FRAME`). No rating, urgency claim or invented badge; the listing's discount tag is derived from the two stored prices.
 - **Featured row** - the owner's five picks on the standard grid, one product per department. **No carousel**: there is no sixth card hiding off screen, so there are no controls, no horizontal bar and no scroll state to manage (owner decision, 2026-10-23 - it replaced a six-card scrolling shelf).
 - **QuantityStepper** - accessible minus/plus with a numeric input clamped to 1..20.
 - **Header** - sticky on desktop, static on a phone. From 1024px it is one row in reading order: logo, category navigation immediately after it, then search and account at the far end. The links are centred **vertically** - each is a 40px control - which is the correction the owner asked for after seeing a viewport-centred first attempt. The search field is a real 240px input at 1200px and a compact link to the catalog's own search between 1024 and 1199px. Below 1024px it holds brand, a full-width search field and the two icon controls.
 - **StorefrontTabBar** - the phone's only navigation: fixed to the bottom, five destinations (Home, Shop, Categories, Cart, Account), 64px targets, cart count on its tab, `aria-current` on the current section, and `env(safe-area-inset-bottom)` reserved. The shell reserves its height so it never covers the footer.
 - **AuthShell** - the two-panel frame shared by sign in, registration and the one-time-code page: a lavender intro panel and a white form panel, stacked on a phone with the intro reduced to the brand and one sentence.
+
+## Catalog listing (2026-10-30)
+
+The listing is one view - `CatalogView` plus `src/features/catalog/listing/` - shared by
+`/products` and `/categories/[slug]`. Both routes load the same catalog snapshot, parse the same
+query and pass only one page of products plus server-derived facet counts, so a filter, a count and a
+card can never disagree.
+
+**Page anatomy.** Breadcrumb, title, optional category blurb, result count and page summary, then a
+single rule. The body is a two-column grid: a **252px** rail from 1024px, with a **28px** gap that
+opens to **32px** at 1280px. The rail is **static and never scrolls inside itself**: the page is the
+only scroll container, so there is one scrollbar and no nested panel to fight. It is a bordered white
+panel with section dividers, not a strip of pills. Below 1024px the rail does not exist; the Filters
+button opens a modal drawer.
+
+The rail opens as a compact contents list: **Category** is open, while **Brand**, **Price** and
+**Availability** start collapsed. A section that has a filter applied opens by itself on load and
+states its value in its own header (`Brand 1 selected`, `Price Tk 100 - Tk 700`, `Availability In
+Stock`), so disclosure never hides state. With no filters applied the whole rail is 511px tall at
+1280x800, fully inside the first screen; opening Brand makes it taller, and the page scrolls normally.
+
+**Control scale.** Search, sort and the Filters button are **44px**; section headers are **40px**
+targets; rail rows are **32px** on a desktop and **40px** in the drawer; price inputs are 36px on the
+desktop (40px in the drawer) and Apply is 32px (40px in the drawer); pagination cells and steps are
+40px. Section headings are 11px uppercase with 0.08em tracking; filter labels are 13px; counts and
+header summaries are 10.5-11.5px tabular numerals in muted ink. Radii are 8px for controls and cards,
+6px for rows and chips; chips are not pills.
+
+**Filter semantics.**
+
+- **Category** is a single choice and a navigation, not a checkbox group. Rows are real links with
+  counts; the current one is marked `aria-current="page"` with a 2px action border and the action-soft
+  wash. A link always resolves to `/categories/{slug}`, so a filter change never leaves the address
+  bar on a query-string imitation of the page. "All categories" is the only way back to `/products`.
+  The database has a `parent_id`, but the storefront accessor does not expose it and the owner has no
+  parent picker, so the rail renders the flat taxonomy as flat - it does not invent a hierarchy. After
+  eight rows it offers `Show N more categories`, always keeping the active row visible.
+- **Brands** are multi-select checkboxes over a searchable list. The section starts collapsed because
+  it is the long one; it opens automatically when a brand is applied. Inside, the first six are
+  visible; selected brands are pinned in a "Selected brands" group with its own Clear control above
+  the rest; `Show N more brands` reveals the remainder with a chevron. The option carries a real
+  product count and a native checkbox (visually restyled, keyboard and screen reader intact). Counts
+  come from the page's category scope, so the number beside a brand is the number choosing it can
+  yield.
+- **Price** starts collapsed and is hidden entirely when every product in scope has one price. It
+  offers two whole-taka fields and a two-thumb range slider. The bounds row carries the catalog range,
+  a Reset when a range is applied, and a compact **Apply price** (the full-width button was removed:
+  it added a whole control row for no extra meaning). A decimal, a formatted amount or an inverted
+  range is a stated refusal, never a guessed boundary. The filter is integer poisha; the URL carries
+  whole taka.
+- **Availability** starts collapsed and provides the owner's two real states, In Stock and Out of
+  Stock, with counts. The unverified `unknown` display state is not offered as a filter because it is
+  not a state the shop can choose.
+- **Clear** is available in three places and they mean the same thing: the rail's Clear filters, the
+  chips' Clear filters, and the empty state's recovery link (which goes to `/products`). Clearing keeps
+  the category page you are on and the sort you chose; it removes the search term and the facets.
+
+**Toolbar.** A 44px search field with a leading submit button, a clear control that appears only when
+there is text, and Enter support; a sort `<select>`; the phone Filters button with an active count;
+then "Showing 1-48 of N" and the active-filter chips. Each chip removes exactly its own filter and is
+synchronised with the rail. Search is committed on submit rather than on every keystroke: a
+server-rendered listing does not need a debounce, and a half-typed term would overwrite the URL and
+the history.
+
+**URL contract.** `q`, repeated `brand`, `min`/`max` (whole taka), repeated `availability`,
+`sort` and `page`. The category is a route, never a generated query parameter; `/products?category=`
+is still accepted for older links and canonicalises on the next filter change. Any filter change
+resets the page to 1 and {`router.push`} is called with `scroll: false` so the shopper does not lose
+their place. The selected controls update optimistically inside the navigation transition; the result
+set, heading and counts stay the server's until it answers, and the grid is dimmed while pending.
+
+**Cards.** The listing passes `LISTING_CARD_FRAME` (4:5) to `ProductCard`; the homepage row keeps
+`CARD_FRAME` (5:4). Both use the same component: brand eyebrow, two-line title, pack, current price,
+struck comparison only when the derived saving is genuine, a "Save ..." line and an out-of-stock
+label. The listing adds a derived `-N%` tag over the photograph; it is `aria-hidden` because the
+saving line states the same fact as text. No rating, urgency claim or invented badge is added.
+
+**Phone.** Below 1024px the shell's global search is hidden on listing routes, because the listing's
+own search sits directly under it and two search fields with different scopes read as one broken
+control. The listing search owns that row; Filters and Sort share the next. The drawer is a right-hand
+modal sheet: focus moves to Close, Tab is trapped, Escape closes, body scroll is locked, Apply commits
+the draft, Reset clears it, and focus returns to the Filters button. Category rows in the drawer are
+links, so they navigate immediately and carry the draft's other facets. No filter is visual-only.
 
 ## Admin surface (Phase 18)
 

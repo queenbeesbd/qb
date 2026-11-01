@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { CARD_SIZES, CARD_FRAME } from '@/lib/images';
+import { CARD_FRAME, CARD_SIZES } from '@/lib/images';
 import { discountAmount, discountPercent } from '@/lib/money';
 import { useTranslation } from '@/i18n/useTranslation';
 import type { CatalogItem } from '@/lib/types';
@@ -12,7 +12,16 @@ import styles from './ProductCard.module.css';
  * Product card. Only verified facts are shown: name, brand, pack size, price
  * hierarchy and published availability. No ratings, badges or urgency claims.
  */
-export function ProductCard({ product }: { product: CatalogItem }) {
+export function ProductCard({
+  product,
+  /** Frame and source-size hints, so the listing can use a taller crop than the homepage rows. */
+  frame = CARD_FRAME,
+  sizes = CARD_SIZES,
+}: {
+  product: CatalogItem;
+  frame?: string;
+  sizes?: string;
+}) {
   const { t, pick, price } = useTranslation();
   const name = pick(product.name) ?? product.slug;
   const image = product.images[0];
@@ -25,16 +34,23 @@ export function ProductCard({ product }: { product: CatalogItem }) {
   const compareAt = saving === null ? null : product.compareAtPriceMinor;
 
   return (
-    <article className={styles.card}>
+    <article className={styles.card} data-availability={product.availability}>
       <Link href={`/products/${product.slug}`} className={styles.imageLink} tabIndex={-1} aria-hidden="true">
         <ProductPhoto
           image={image}
           alt=""
-          sizes={CARD_SIZES}
+          sizes={sizes}
           className={styles.photo}
           fallbackLabel={t('product.imagePlaceholder')}
-          frame={CARD_FRAME}
+          frame={frame}
         />
+        {saving !== null && percent !== null && (
+          /* The percentage is derived from the two stored prices. It is decoration here: the saving
+             line below carries the same fact as text for assistive technology. */
+          <span className={styles.discount} aria-hidden="true">
+            −{percent}%
+          </span>
+        )}
       </Link>
 
       <div className={styles.body}>

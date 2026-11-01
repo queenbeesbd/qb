@@ -1,6 +1,11 @@
 import type { Metadata } from 'next';
 import { CatalogView } from '@/features/catalog/CatalogView';
-import { listBrands, parseCatalogQuery, selectCatalog, slicePage } from '@/features/catalog/query';
+import {
+  buildCatalogFacets,
+  parseCatalogQuery,
+  selectCatalog,
+  slicePage,
+} from '@/features/catalog/query';
 import { getStorefrontCatalog } from '@/server/catalog/storefront';
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
@@ -23,6 +28,7 @@ export async function generateMetadata({ searchParams }: { searchParams: SearchP
 export default async function ProductsPage({ searchParams }: { searchParams: SearchParams }) {
   const catalog = await getStorefrontCatalog();
   const query = parseCatalogQuery(await searchParams, catalog.categories);
+  const facets = buildCatalogFacets(catalog.products, catalog.categories, query.category);
 
   /*
    * The listing pages. The catalog is still read whole on the server - it is one snapshot and the
@@ -35,7 +41,7 @@ export default async function ProductsPage({ searchParams }: { searchParams: Sea
   return (
     <CatalogView
       results={page.items}
-      brands={listBrands(catalog.products)}
+      facets={facets}
       categories={catalog.categories}
       query={query}
       totalCount={catalog.products.length}

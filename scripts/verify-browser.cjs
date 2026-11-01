@@ -464,21 +464,62 @@ async function main() {
       ascending.prices[ascending.prices.length - 1] === descending.prices[0],
       { total: facts.total, pages: pageCount, ascFirst: ascending.prices[0], ascLast: ascending.prices[ascending.prices.length - 1] });
 
-    // 6 - filters compose: adding a brand to a category can only narrow that category's own set
-    const brandHref = facts.brands[0] || null;
-    if (brandHref === null) {
+    // 6 - filters compose: adding a brand to a category can only narrow that category's own set.
+    // The brand options are checkboxes now, and the long Brand section starts collapsed, so a click on
+    // its disclosure is part of reaching the control. The assertion is unchanged: the composed URL is a
+    // real listing.
+    await nav(client, '/products?category=' + encodeURIComponent(categorySlug));
+    await evaluate(client, `(() => {
+      const toggle = [...document.querySelectorAll('main aside section button[aria-expanded]')]
+        .find((button) => /brand/i.test(button.textContent || ''));
+      if (toggle && toggle.getAttribute('aria-expanded') === 'false') toggle.click();
+    })()`);
+    await sleep(150);
+    const brandValue = await evaluate(client, `(() => {
+      const input = document.querySelector('main aside input[type="checkbox"][data-brand]');
+      return input ? input.getAttribute('data-brand') : null;
+    })()`);
+    if (brandValue === null) {
       recordSkip('6. category and brand filters compose into one result set', 'this catalogue shows no brand filter');
     } else {
-      const brandQuery = brandHref.slice(brandHref.indexOf('brand='));
-      await nav(client, '/products?category=' + encodeURIComponent(categorySlug));
+      const brandQuery = 'brand=' + encodeURIComponent(brandValue);
       const categoryOnly = await evaluate(client, `[...new Set([...document.querySelectorAll('main article a[href^="/products/"]')].map((a) => a.getAttribute('href')))]`);
       await nav(client, '/products?category=' + encodeURIComponent(categorySlug) + '&' + brandQuery);
       const composed = await evaluate(client, `[...new Set([...document.querySelectorAll('main article a[href^="/products/"]')].map((a) => a.getAttribute('href')))]`);
       record('6. category and brand filters compose into one result set',
         composed.length > 0 && composed.length <= categoryOnly.length &&
         composed.every((href) => categoryOnly.includes(href)),
-        { composed: composed.length, categoryOnly: categoryOnly.length });
+        { composed: composed.length, categoryOnly: categoryOnly.length, brand: brandValue });
     }
+
+    // 6b - the desktop rail is a contents list, not a second scroll container.
+    //
+    // The rail used to be sticky with its own max-height/overflow, which produced a second scrollbar on
+    // an ordinary laptop screen. This pins the correction: the page is the only scroller and the long
+    // Brand section starts closed. Both facts are read from the rendered control, not from a token.
+    await client.send('Emulation.setDeviceMetricsOverride', { width: 1280, height: 800, deviceScaleFactor: 1, mobile: false });
+    await nav(client, '/products');
+    const rail = await evaluate(client, `(() => {
+      const aside = document.querySelector('main aside');
+      const style = aside ? getComputedStyle(aside) : null;
+      const toggles = aside ? [...aside.querySelectorAll('section button[aria-expanded]')] : [];
+      const brand = toggles.find((button) => /brand/i.test(button.textContent || ''));
+      return {
+        position: style ? style.position : null,
+        overflowY: style ? style.overflowY : null,
+        scrollHeight: aside ? aside.scrollHeight : 0,
+        clientHeight: aside ? aside.clientHeight : 0,
+        sections: aside ? aside.querySelectorAll('section').length : 0,
+        brandCollapsed: brand ? brand.getAttribute('aria-expanded') : null,
+      };
+    })()`);
+    record('6b. the desktop rail is static and does not scroll inside itself',
+      rail.position === 'static' &&
+      (rail.overflowY === 'visible' || rail.overflowY === 'clip') &&
+      rail.scrollHeight <= rail.clientHeight + 1 &&
+      rail.sections >= 3 && rail.brandCollapsed === 'false',
+      rail);
+    await client.send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 1000, deviceScaleFactor: 1, mobile: false });
 
     // 7 - empty search
     await nav(client, '/products?q=zzzznotfound');
@@ -692,19 +733,19 @@ async function main() {
         localOnly: imgs.every((i) => new URL(i.currentSrc || i.src || '/', location.href).origin === location.origin),
         anyRemoteHost: imgs.some((i) => /zatiqeasy|ghorerbazar/.test(i.currentSrc || i.src)),
         /*
-         * The card crops to its own 5/4 frame and covers it, and that is what a mixed-source catalogue
-         * can promise: the imported photography is not uniformly 3:4, so asserting on the decoded file
-         * would fail a correct crop. The 22 fixture assets happened to be 3:4, which is why this check
-         * used to read naturalWidth instead of the box the customer sees.
+         * Listing cards crop to their own 4/5 frame and cover it, and that is what a mixed-source
+         * catalogue can promise: the imported photography is not uniformly 3:4, so asserting on the
+         * decoded file would fail a correct crop. The homepage keeps its shallower 5/4 frame
+         * (CARD_FRAME); the listing opts into LISTING_CARD_FRAME.
          */
         frameRatio: imgs.length > 0 && imgs.every((i) => {
           const box = i.getBoundingClientRect();
-          return box.height > 0 && Math.abs(box.width / box.height - 1.25) < 0.02;
+          return box.height > 0 && Math.abs(box.width / box.height - 0.8) < 0.02;
         }),
         objectFit: [...new Set(imgs.map((i) => getComputedStyle(i).objectFit))],
       };
     })()`);
-    record('26. product cards use local WebP imagery at 3:4 with no remote host',
+    record('26. product cards use local WebP imagery at 4:5 with no remote host',
       imagerySettled && imagery.total === facts.pageCards && imagery.loaded === facts.pageCards &&
       imagery.webpSources === facts.pageCards && imagery.localOnly && !imagery.anyRemoteHost &&
       imagery.frameRatio && imagery.objectFit.length === 1 && imagery.objectFit[0] === 'cover',
@@ -1094,7 +1135,9 @@ async function main() {
             return r.width === 0 || r.right > window.innerWidth + 1 || r.left < -1;
           }).length;
           // A "surface" is either a real field or the compact search link that replaces it below 1200px.
-          const compact = [...inner.querySelectorAll('a[href="/products"]')]
+          // The compact control links to the listing's field, so its href carries the hash. Matching
+          // the exact bare path missed the surface it was meant to count at 1024-1199px.
+          const compact = [...inner.querySelectorAll('a[href^="/products"]')]
             .filter((a) => (a.getAttribute('aria-label') || '') === 'Search products' && a.getBoundingClientRect().width > 0);
           return {
             inputsVisible: visible.length,

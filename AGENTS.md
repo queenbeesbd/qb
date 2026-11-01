@@ -86,6 +86,21 @@ Every implementation prompt and completed implementation report must end with on
 - **"More to explore" is a browse row, not a selection (2026-10-23).** It leads with the curated collection and then continues into every product the rows above did not show, up to **ten** (two desktop rows), and it is the only section with a button - a centred "View more products" link to `/products`. It is the one place a short catalog legitimately shows a partial final row; never pad it with a repeat to fill the row. The featured row and the offer row are each exactly one row.
 - **The comparison price is struck through only when it is genuinely greater than the current price.** Gate it on the derived saving being non-null; never print a discount that `discountAmount`/`discountPercent` did not compute.
 - **There is no horizontally scrolling product row.** The featured shelf was removed on 2026-10-23: it existed to reach a sixth card that did not fit, so it is now a static row of five with no controls or scroll bar. If a horizontal row is ever reintroduced, nested grid items need `min-width: 0`, `overflow-x: auto` alone is not enough - it also needs `contain: layout paint` - and it must derive its card width from `ProductGrid`'s breakpoints (2 columns below 720px, 3 from 720px, 5 from 1200px). See `docs/design-system.md`.
+- **The catalog listing is one view over one server-derived snapshot** (`CatalogView` plus
+  `src/features/catalog/listing/`). `/products` and `/categories/[slug]` share it. Category is a route,
+  never a checkbox; brands are repeated `brand` parameters; price is `min`/`max` in whole taka (poisha
+  in the query); availability is repeated `availability`; `sort` and `page` live in the URL. Facet
+  counts, price bounds and the brand list are derived server-side from the same snapshot the grid
+  renders - never hard-coded, never fixture-only. Every filter change resets `page` and pushes without
+  scrolling; the rail, chips, drawer and URL are one state. The desktop rail is **static and never
+  scrolls inside itself** - the page is the only scroll container. Category is open; Brand, Price and
+  Availability start collapsed and state their active value in their own header, and an applied facet
+  opens its section on load. Do not make the rail sticky with its own `max-height`/overflow, and do not
+  hide a collapsed section's applied state. Below 1024px the rail is a modal drawer with a draft,
+  Apply/Reset, focus return and body lock, and the shell's global search is hidden on listing routes so
+  the collection search is the only one. Listing cards use `LISTING_CARD_FRAME` (4:5); the
+  homepage rows keep `CARD_FRAME` (5:4). Do not replace the checkbox rows with pills, invent a facet the
+  catalog cannot back, or let a count disagree with the grid. See `docs/design-system.md`.
 - **Catalog data is reached only through the typed accessor contract, which is now backed by the database** (`src/server/catalog/storefront.ts`, Phase 14, ADR 0011). This is the load-bearing seam: view components depend on the accessor contract and the `Product` shape, never on SQL or a server-only module, so the source behind it can change without touching a view. Keep it that way. `src/data/` survives in **two roles only** - the deterministic local/test seed (`npm run db:seed:catalog`) and an explicit **development-only** opt-in (`QUEENBEES_STOREFRONT_FIXTURE=1`, off by default, refused outside development). It is **never a fallback**: a database read failure surfaces through the error boundary instead of substituting fixture rows.
 - Do not add a database, ORM, auth provider, CMS, UI component library, animation library or test framework without a demonstrated need and approval. This applies with extra force now that a backend is planned: **stack selection is an owner decision recorded in `docs/platform-architecture.md`**, not an incidental choice made while implementing a feature.
 - **The storefront never writes authoritative commerce state.** The cart stores ids and quantities only, never prices. Prices, discounts, stock and totals are recomputed server-side.

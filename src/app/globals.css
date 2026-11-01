@@ -276,6 +276,21 @@ p {
  * AGENTS.md and docs/design-system.md already state this rule; it had never been implemented, so a
  * 34px control sat beside a 40px one on every phone list. One control scale means one control scale.
  */
+/*
+ * The listing owns search on a phone and tablet.
+ *
+ * The shell's global field sat directly above the listing's own collection field, so one screen showed
+ * two search boxes with the same icon and different scopes. Below 1024px the listing's field is the one
+ * that stays; from 1024px the shell's control is a compact field in the bar, not a second row, so both
+ * can be visible without reading as a duplicate. This is scoped to the listing marker and touches no
+ * other route.
+ */
+@media (max-width: 1023px) {
+  body:has([data-catalog-listing]) header form[role='search'] {
+    display: none;
+  }
+}
+
 @media (max-width: 720px) {
   :root {
     --admin-control-sm: 40px;

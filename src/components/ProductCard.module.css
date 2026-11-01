@@ -4,33 +4,43 @@
   height: 100%;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
+  /* 8px, not a large rounded capsule: the card is a frame for a photograph, not a decoration. */
+  border-radius: var(--radius-md);
   overflow: hidden;
-  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+  transition: border-color var(--transition-fast);
 }
 
 .card:hover {
   border-color: var(--brand-primary);
-  box-shadow: var(--shadow-sm);
 }
 
 .imageLink {
+  position: relative;
   display: block;
   background: var(--color-surface-sunken);
 }
 
-/* Product photography is 3:4 portrait; the shared ProductPhoto component
-   owns the aspect ratio and responsive sources. */
+/* Product photography is 3:4 portrait; ProductPhoto owns the frame and the responsive sources. */
 .photo {
   display: block;
   width: 100%;
 }
 
-/**
- * Body density. The audit measured a 620px card with 16px padding around four short lines;
- * the padding was doing no work that the 8px gap did not already do, so it drops to 12px and
- * keeps its full tap-target height on every interactive element.
- */
+.discount {
+  position: absolute;
+  top: var(--space-2);
+  left: var(--space-2);
+  padding: 3px 7px;
+  border-radius: var(--radius-sm);
+  background: var(--brand-secondary);
+  color: var(--color-ink);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+}
+
 .body {
   display: flex;
   flex-direction: column;
@@ -46,17 +56,20 @@
 }
 
 .brand {
-  font-size: var(--text-xs);
+  font-size: 11px;
+  line-height: 1.5;
   text-transform: uppercase;
   /*
    * No tracking: the brand is catalogue data and may be Bengali, where letter-spacing distorts
-   * conjunct clusters (AGENTS.md). Uppercase simply has no effect on Bengali, so the caption still
-   * reads as a caption without damaging the script.
+   * conjunct clusters (AGENTS.md). Uppercase simply has no effect on Bengali.
    */
   letter-spacing: normal;
   color: var(--color-ink-subtle);
   /* One reserved line, so a product without a brand does not lift its title above its neighbours. */
-  min-height: 1.6em;
+  min-height: 1.5em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .title {
@@ -83,6 +96,9 @@
   font-size: var(--text-xs);
   color: var(--color-ink-muted);
   min-height: 1.6em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /**
@@ -97,7 +113,7 @@
    * puts its price on the same baseline; bottom-anchoring it made a short card open a 90px gap
    * between its title and its price while its neighbour had none.
    */
-  padding-top: var(--space-2);
+  padding-top: var(--space-1);
   display: flex;
   align-items: baseline;
   gap: var(--space-2);
@@ -122,7 +138,8 @@
 }
 
 .saving {
-  font-size: var(--text-xs);
+  font-size: 11.5px;
+  line-height: 1.5;
   color: var(--color-success);
   font-weight: 600;
 }
@@ -143,7 +160,7 @@
  */
 .outOfStock {
   align-self: flex-start;
-  font-size: var(--text-xs);
+  font-size: 11.5px;
   font-weight: 600;
   color: var(--color-ink-muted);
   border: 1px solid var(--color-border);

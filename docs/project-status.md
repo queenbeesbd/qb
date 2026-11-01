@@ -146,3 +146,69 @@ Next 16 blocks its own dev resources on a foreign host and no page hydrates.
 
 **Not done, and not claimed:** `verify:browser`, `verify:admin`, `verify:ui`, real devices and screen
 readers. Nothing is deployed.
+
+
+## Product listing redesign (client request, 2026-10-30)
+
+The client asked for the listing pages to be redesigned rather than restyled. `/products` and
+`/categories/[slug]` now share one listing view, `CatalogView`, with a compact page header, a bordered
+filter rail, a toolbar, active-filter chips, a 4:5 listing card and a phone drawer. The filter model
+was extended to what the catalog can actually support: **multi-brand** (repeated `brand`), **price**
+(whole taka in the URL, integer poisha in the query) and **availability** (the owner's two states).
+Category stays a single choice expressed as a route, and the flat taxonomy is rendered flat because the
+storefront accessor exposes no parent. Every facet count and price bound is derived on the server from
+the same snapshot the grid renders; there are no fixture or hard-coded counts.
+
+**Behaviour that was verified locally (22-product seeded catalog, production build, headless Chromium):**
+one brand filters and becomes a removable chip; two brands match either value and compose as an OR;
+availability shows only in-stock rows; a 100-700 Tk range returns only prices inside it; an inverted
+range is refused in words with no URL change; sort rewrites the URL and orders the grid; the category
+rail link opens the category route and marks its row current; All categories returns to `/products`;
+a refresh preserves brand, availability and sort; search submits on Enter, narrows the grid, clears and
+states an empty result; removing a chip unchecks its rail control; the 1024px layout is three columns,
+1280px four, 768px three with the drawer button, 390px two with a full-width listing search. The phone
+drawer opens as a modal, traps focus, locks body scroll, commits a draft on Apply, closes on Escape and
+returns focus to Filters. **12/12** interaction checks and **12/12** search/state checks passed. One
+earlier probe assertion compared a mid-transition opacity with `1` and was corrected without a product
+change; the final run measures the settled control.
+No horizontal overflow was measured at 390, 768, 1024, 1280 or 1440.
+
+**Full `verify:browser` ran (2026-10-30) against the same served 22-product production build: 97/97
+checks passed**, with the two stated `created_at` recency skips. The run also added a durable check that
+the desktop rail is static and does not scroll inside itself. Three failures in the first run were real
+and corrected: the 320px listing overflow came from grid tracks sizing to the toolbar's min-content, so
+the results/toolbar/body tracks are now explicitly `minmax(0, 1fr)` (checks 38 and 44); and the suite's
+compact-search selector matched `/products` exactly while the 1024-1199px control links to
+`/products#catalog-search`, so it counted zero surfaces (check 42b). **Still not run, and not claimed:**
+`verify:storefront`, `verify:admin`, `verify:ui`, real iOS Safari, Android Chrome or screen readers;
+pagination against a catalog larger than one page (the local seed is 22 products); out-of-stock
+rendering (the seed is all in-stock, though the filter branch is unit-tested); and the imported
+catalog's long brand and category lists (the rail's Show more and truncation paths were exercised only
+on the five-category, thirteen-brand seed). Types, lint (0 errors), `check:i18n` (1,314 keys),
+`check:catalog`, unit **214/214**, `check:secrets`, `db:validate` and `build` were run. Nothing is
+deployed.
+
+
+## Sidebar refinement (client feedback, 2026-10-30)
+
+The client's next note was specific: the sidebar was too big and "scrollable by default". The cause was
+the rail's own `position: sticky` plus `max-height` and `overflow-y`: on an ordinary laptop it became
+a second scroll container, so the filters had to be scrolled inside the page as well as scrolling the
+page itself. The rail is now **static** - no sticky, no max-height, no inner overflow - and the page is
+the only scroll container. It also opens as a contents list: Category is open, Brand/Price/Availability
+start collapsed, and a section with an applied filter opens by itself and states the value in its header
+("Brand 1 selected", "Price Tk 100 - Tk 700", "Availability In Stock"). Brand shows six options and a
+"Show N more brands" row; Price uses a compact bounds row with Apply and Reset instead of a full-width
+Apply; section headers are 40px targets with a full-row hover/focus state.
+
+**Measured at 1280x800 on the seeded 22-product production build:** the default rail is **511px** tall,
+ends at **742px** inside an **800px** viewport, and reports `scrollHeight - clientHeight = 0` with
+`position: static` and `overflow-y: visible`. Opening Brand gives six options and "Show 6 more brands";
+choosing one states "1 selected" and keeps zero inner scroll; collapsing it keeps the summary; applying
+Tk 100-700 and In Stock adds their summaries; a filtered URL reopens Brand, Price and Availability with
+the summaries intact. The phone drawer opens with three sections collapsed, traps focus, applies a brand
+and returns focus to Filters; no horizontal overflow at 390. A second probe covers the disclosure and
+the no-inner-scroll rule **10/10**. The full `verify:browser` then passed **97/97** on the same build,
+after the 320px grid-track overflow and the suite's compact-search selector were corrected; its new
+check 6b pins the static, non-scrolling rail.
+
