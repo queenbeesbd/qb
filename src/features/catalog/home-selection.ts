@@ -84,10 +84,25 @@ export function selectHomepage({
     ids
       .map((id) => productById.get(id))
       .filter((product): product is CatalogItem => Boolean(product));
-  const featured = byCuratedId(featuredIds).slice(0, HOMEPAGE_SECTION_SIZE);
+  /*
+   * **Recency goes first, and the other rows yield to it.** New arrivals is a fact about the catalog
+   * (`created_at`), not a choice, so it cannot be filtered to avoid a collision - the curated rows are
+   * the ones that drop a product already shown as new. Doing it the other way round (filtering the
+   * newest row) would publish a "Recently added" list that is not the newest products, which is a
+   * different, false claim.
+   */
+  const newArrivals = selectRecentlyAdded(products).slice(0, NEW_ARRIVALS_LIMIT);
+  const recentShown = new Set(newArrivals.map((product) => product.id));
+
+  const featured = byCuratedId(featuredIds)
+    .filter((product) => !recentShown.has(product.id))
+    .slice(0, HOMEPAGE_SECTION_SIZE);
   const featuredShown = new Set(featured.map((product) => product.id));
 
   const deals = products
+    .filter(
+      (product) => !recentShown.has(product.id) && !featuredShown.has(product.id),
+    )
     .filter((product) => discountAmount(product.priceMinor, product.compareAtPriceMinor) !== null)
     .sort(
       (a, b) =>
@@ -97,15 +112,12 @@ export function selectHomepage({
     )
     .slice(0, DEALS_LIMIT);
 
-  const featuredDealShown = new Set([...featured, ...deals].map((product) => product.id));
-
-  const newArrivals = selectRecentlyAdded(products).filter(
-    (product) => !featuredShown.has(product.id) && !featuredDealShown.has(product.id),
-  );
-
-  const shownIds = new Set(
-    [...featured, ...deals, ...newArrivals, ...selectHeroProducts(products)].map((product) => product.id),
-  );
+  const shownIds = new Set([
+    ...newArrivals,
+    ...featured,
+    ...deals,
+    ...selectHeroProducts(products),
+  ].map((product) => product.id));
   const curated = byCuratedId(collectionIds).filter((product) => !shownIds.has(product.id));
   const curatedIds = new Set(curated.map((product) => product.id));
   const remainder = products.filter(
@@ -118,7 +130,7 @@ export function selectHomepage({
     hero: selectHeroProducts(products),
     featured,
     deals,
-    newArrivals: newArrivals.slice(0, NEW_ARRIVALS_LIMIT),
+    newArrivals,
     browse,
     brands: brands.slice(0, BRAND_LIMIT),
     isEmpty: products.length === 0,
