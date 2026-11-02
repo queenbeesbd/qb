@@ -30,6 +30,8 @@ const categories: CatalogCategory[] = [
     blurb: { bn: null, en: null },
     icon: 'serum',
     sortOrder: 0,
+    imageKey: null,
+    tagline: null,
   },
   {
     id: CATEGORY_40,
@@ -38,6 +40,8 @@ const categories: CatalogCategory[] = [
     blurb: { bn: null, en: null },
     icon: 'other',
     sortOrder: 1,
+    imageKey: null,
+    tagline: null,
   },
 ];
 
@@ -49,6 +53,8 @@ const products: CatalogItem[] = [
     description: { bn: null, en: null },
     shortDescription: null,
     brand: null,
+
+    brandSlug: null,
     categoryId: 'skincare',
     categorySlug: 'skincare',
     pack: null,
@@ -66,6 +72,8 @@ const products: CatalogItem[] = [
     description: { bn: null, en: null },
     shortDescription: null,
     brand: null,
+
+    brandSlug: null,
     categoryId: 'haircare',
     categorySlug: 'haircare',
     pack: null,
@@ -121,6 +129,8 @@ describe('parseCatalogQuery category', () => {
         blurb: { bn: null, en: null },
         icon: 'other',
         sortOrder: 0,
+    imageKey: null,
+    tagline: null,
       },
     ];
     assert.equal(parseCatalogQuery({ category: longSlug }, longCategories).category, '');
@@ -141,6 +151,8 @@ describe('catalog filter facets', () => {
       blurb: { bn: null, en: null },
       icon: 'serum',
       sortOrder: 0,
+    imageKey: null,
+    tagline: null,
     },
     {
       id: 'haircare',
@@ -149,6 +161,8 @@ describe('catalog filter facets', () => {
       blurb: { bn: null, en: null },
       icon: 'hair',
       sortOrder: 1,
+    imageKey: null,
+    tagline: null,
     },
   ];
 
@@ -160,6 +174,8 @@ describe('catalog filter facets', () => {
       description: { bn: null, en: null },
       shortDescription: null,
       brand: 'Lilac',
+
+      brandSlug: null,
       categoryId: 'skincare',
       categorySlug: 'skincare',
       pack: '30 ml',
@@ -177,6 +193,8 @@ describe('catalog filter facets', () => {
       description: { bn: null, en: null },
       shortDescription: null,
       brand: 'Aura',
+
+      brandSlug: null,
       categoryId: 'haircare',
       categorySlug: 'haircare',
       pack: null,
@@ -194,6 +212,8 @@ describe('catalog filter facets', () => {
       description: { bn: null, en: null },
       shortDescription: null,
       brand: 'Lilac',
+
+      brandSlug: null,
       categoryId: 'skincare',
       categorySlug: 'skincare',
       pack: null,
@@ -211,6 +231,8 @@ describe('catalog filter facets', () => {
       description: { bn: null, en: null },
       shortDescription: null,
       brand: null,
+
+      brandSlug: null,
       categoryId: 'skincare',
       categorySlug: 'skincare',
       pack: null,

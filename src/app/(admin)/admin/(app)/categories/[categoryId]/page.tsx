@@ -4,6 +4,7 @@ import { withTransaction } from '@/db/client';
 import { translate } from '@/i18n/config';
 import { requireAdminPage } from '@/server/auth/guard';
 import { PERMISSIONS } from '@/server/authz/permissions';
+import { listAssetKeys } from '@/server/catalog/assets';
 import { getCategoryForAdmin } from '@/server/catalog/service';
 import { Notice } from '../../../_ui/Notice';
 import { PageHeader } from '../../../_ui/PageHeader';
@@ -33,7 +34,10 @@ export default async function EditCategoryPage({
   const principal = await requireAdminPage(PERMISSIONS.catalogWrite);
   const { categoryId } = await params;
 
-  const category = await withTransaction((tx) => getCategoryForAdmin(tx, categoryId));
+  const [category, assetKeys] = await Promise.all([
+    withTransaction((tx) => getCategoryForAdmin(tx, categoryId)),
+    listAssetKeys(),
+  ]);
   if (category === null) notFound();
 
   const query = await searchParams;
@@ -60,7 +64,15 @@ export default async function EditCategoryPage({
           descriptionBn: category.descriptionBn,
           sortOrder: category.sortOrder,
           isVisible: category.isVisible,
+          tagline: category.tagline,
+          imageKey: category.imageKey,
         }}
+        /*
+         * The whole asset inventory, offered as the category's photograph. The list is the server's own
+         * directory (plus keys already recorded), not a client-supplied path, so every entry names a
+         * complete image the shop actually owns.
+         */
+        assetKeys={assetKeys}
         usage={{
           productCount: category.productCount,
           subcategoryCount: category.subcategoryCount,

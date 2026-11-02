@@ -53,11 +53,18 @@ function pageWindow(current: number, total: number): (number | 'gap')[] {
   return window;
 }
 
-/** Filters that live in the query, excluding the category (which a route names) and the sort. */
-function activeCountOf(query: CatalogQuery): number {
+/**
+ * Filters that live in the query, excluding the category and the brand (each of which a route can
+ * name) and the sort.
+ *
+ * `routeBrand` is the brand `/brands/<slug>` states in its heading: it is the page, not a filter the
+ * customer applied, so counting it made the Filters button claim "1" on a page where nothing was
+ * narrowed.
+ */
+function activeCountOf(query: CatalogQuery, routeBrand: string | null = null): number {
   return (
     (query.q ? 1 : 0) +
-    query.brands.length +
+    query.brands.filter((entry) => entry !== routeBrand).length +
     (query.minPrice !== null || query.maxPrice !== null ? 1 : 0) +
     query.availability.length
   );
@@ -87,6 +94,7 @@ export function CatalogView({
   matchCount,
   page,
   pageCount,
+  brand,
 }: {
   results: readonly CatalogItem[];
   facets: CatalogFacets;
@@ -97,6 +105,14 @@ export function CatalogView({
   matchCount: number;
   page: number;
   pageCount: number;
+  /**
+   * Set only on `/brands/<slug>`: the brand the *route* names.
+   *
+   * A brand page is a page about a brand, so the brand is the heading and the breadcrumb rather than a
+   * removable chip - the same rule a category follows. Its products are still selected by the ordinary
+   * query, so every other filter (price, availability, sort, search) keeps working on top of it.
+   */
+  brand?: { name: string; productCount: number } | null;
 }) {
   const { t, pick, price } = useTranslation();
   const router = useRouter();
@@ -114,8 +130,9 @@ export function CatalogView({
   const filterButtonRef = useRef<HTMLButtonElement | null>(null);
 
   const category = categories.find((entry) => entry.slug === query.category) ?? null;
-  const hasFilters = activeCountOf(optimisticQuery) > 0;
-  const activeFilterCount = activeCountOf(optimisticQuery);
+  const routeBrand = brand?.name ?? null;
+  const hasFilters = activeCountOf(optimisticQuery, routeBrand) > 0;
+  const activeFilterCount = activeCountOf(optimisticQuery, routeBrand);
 
   function navigate(next: CatalogQuery) {
     const href = listingHref(next);
@@ -143,7 +160,11 @@ export function CatalogView({
   function clearFilters() {
     push({
       q: '',
-      brands: [],
+      /*
+       * On a brand page the brand is the page, not a filter: clearing everything the customer chose
+       * must leave them on this brand's listing rather than silently dropping them to the whole shop.
+       */
+      brands: routeBrand === null ? [] : [routeBrand],
       minPrice: null,
       maxPrice: null,
       availability: [],
@@ -165,7 +186,8 @@ export function CatalogView({
   function resetDraft() {
     setDraft((current) => ({
       ...current,
-      brands: [],
+      // Same rule as `clearFilters`: a route-named brand survives the reset, because it is the page.
+      brands: routeBrand === null ? [] : [routeBrand],
       minPrice: null,
       maxPrice: null,
       availability: [],
@@ -178,17 +200,23 @@ export function CatalogView({
     navigate({ ...draft, page: 1 });
   }
 
-  const heading = query.q
-    ? t('search.resultsFor', { query: query.q })
-    : category !== null
-      ? (pick(category.name) ?? category.slug)
-      : t('catalog.title');
+  const heading =
+    brand != null && !query.q
+      ? brand.name
+      : query.q
+        ? t('search.resultsFor', { query: query.q })
+        : category !== null
+          ? (pick(category.name) ?? category.slug)
+          : t('catalog.title');
 
-  const description = query.q
-    ? t('catalog.searchDescription')
-    : category !== null
-      ? pick(category.blurb)
-      : t('catalog.description');
+  const description =
+    brand != null && !query.q
+      ? t('catalog.brandDescription')
+      : query.q
+        ? t('catalog.searchDescription')
+        : category !== null
+          ? pick(category.blurb)
+          : t('catalog.description');
 
   const countLabel =
     matchCount === 1
@@ -207,11 +235,16 @@ export function CatalogView({
         });
 
   const chips: Chip[] = [];
-  for (const brand of optimisticQuery.brands) {
+  /*
+   * On a brand page the route already names the brand, so the heading states it and no chip repeats
+   * it. Any *other* selected brand still becomes a chip, because that would be a real second filter.
+   */
+  for (const selected of optimisticQuery.brands) {
+    if (brand != null && selected === brand.name) continue;
     chips.push({
-      key: `brand-${brand}`,
-      label: brand,
-      patch: { brands: optimisticQuery.brands.filter((entry) => entry !== brand) },
+      key: `brand-${selected}`,
+      label: selected,
+      patch: { brands: optimisticQuery.brands.filter((entry) => entry !== selected) },
     });
   }
   if (optimisticQuery.minPrice !== null || optimisticQuery.maxPrice !== null) {
@@ -255,12 +288,18 @@ export function CatalogView({
           <span className={styles.breadcrumbSep} aria-hidden="true">
             /
           </span>
-          <Link href="/categories">{t('categories.title')}</Link>
+          <Link href={brand != null ? '/brands' : '/categories'}>
+            {brand != null ? t('nav.brands') : t('categories.title')}
+          </Link>
           <span className={styles.breadcrumbSep} aria-hidden="true">
             /
           </span>
           <span aria-current="page">
-            {category !== null ? (pick(category.name) ?? category.slug) : t('catalog.title')}
+            {brand != null
+              ? brand.name
+              : category !== null
+                ? (pick(category.name) ?? category.slug)
+                : t('catalog.title')}
           </span>
         </nav>
 
@@ -482,7 +521,7 @@ export function CatalogView({
           facets={facets}
           categories={categories}
           allCount={totalCount}
-          activeCount={activeCountOf(draft)}
+          activeCount={activeCountOf(draft, routeBrand)}
           onDraftChange={changeDraft}
           onReset={resetDraft}
           onApply={applyDraft}

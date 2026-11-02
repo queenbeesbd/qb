@@ -85,6 +85,13 @@
       "when": 1792689983030,
       "tag": "0011_guest_order_actors",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1793619788661,
+      "tag": "0012_discovery_imagery",
+      "breakpoints": true
     }
   ]
 }

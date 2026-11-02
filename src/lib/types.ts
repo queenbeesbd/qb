@@ -148,6 +148,11 @@ export type CatalogItem = {
    */
   shortDescription: string | null;
   brand: string | null;
+  /**
+   * The brand's slug, so a product page can link to the brand it belongs to while every brand link
+   * in the storefront is one `/brands/<slug>` route. `null` only when the record carries no brand.
+   */
+  brandSlug: string | null;
   /** Opaque identity of the record's category. */
   categoryId: string;
   /**
@@ -181,6 +186,30 @@ export type CatalogCategory = {
   blurb: LocalizedText;
   icon: CategoryIcon;
   sortOrder: number;
+  /**
+   * The category's own square photograph as an asset key, or `null` when the owner has not chosen
+   * one. `src/lib/images.ts` derives every rendered path from the key, so this is never a URL.
+   */
+  imageKey: string | null;
+  /** One short English line for the category tile. `null` omits the line entirely. */
+  tagline: string | null;
+};
+
+/**
+ * A storefront brand.
+ *
+ * The brand index is a discovery surface of its own, so a brand arrives with the one fact that makes
+ * a logo tile possible - its logo's asset key - plus the real product count the tile and the filter
+ * both quote. `logoKey: null` means the shop has no logo for this brand, and the tile draws the
+ * brand's initials rather than a placeholder pretending to be artwork.
+ */
+export type CatalogBrand = {
+  id: string;
+  slug: string;
+  name: LocalizedText;
+  logoKey: string | null;
+  /** Published products in this brand, derived from the same snapshot the links enter. */
+  productCount: number;
 };
 
 export type CartLine = {

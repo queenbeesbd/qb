@@ -36,6 +36,11 @@ export const TEXT_BOUNDS = {
    * counter value; the schema carries the same bound so the promise cannot be exceeded off-form.
    */
   shortDescription: 500,
+  /**
+   * The category tile's one-line label. 120 characters matches the schema's own bound, so a value the
+   * form accepts can never be refused by the database.
+   */
+  categoryTagline: 120,
   packSize: 80,
   altText: 300,
   /** `product_variant.sku` is `lenAtMost 64`. */

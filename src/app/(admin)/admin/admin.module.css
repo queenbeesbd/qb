@@ -4606,6 +4606,72 @@ html[dir='rtl'] .switchOn .switchKnob::after {
   overflow-wrap: anywhere;
 }
 
+/* ---------------------------------------------------------------------------
+ * Category photograph
+ *
+ * A square preview beside the picker. The preview is the exact crop the storefront will show, so the
+ * owner sees what they are choosing rather than a filename.
+ * ------------------------------------------------------------------------- */
+
+.categoryImageRow {
+  display: grid;
+  gap: var(--space-4);
+  align-items: start;
+}
+
+@media (min-width: 560px) {
+  .categoryImageRow {
+    grid-template-columns: 96px minmax(0, 1fr);
+  }
+}
+
+.categoryImagePreview {
+  display: grid;
+  place-items: center;
+  width: 96px;
+  height: 96px;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-sunken);
+}
+
+.categoryImagePreview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.categoryImagePreview[data-empty='true'] {
+  border-style: dashed;
+}
+
+.categoryImageEmpty {
+  padding: 6px;
+  text-align: center;
+  font-size: 10px;
+  line-height: 1.3;
+  color: var(--color-ink-subtle);
+}
+
+.categoryImageControls {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.categoryImageForm {
+  display: grid;
+  gap: var(--space-2);
+  align-items: end;
+}
+
+@media (min-width: 720px) {
+  .categoryImageForm {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+}
+
 /* The two derived counts, side by side: they answer one question together. */
 .categoryUsage {
   display: grid;

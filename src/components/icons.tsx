@@ -146,6 +146,25 @@ export function CheckIcon(props: IconProps) {
   );
 }
 
+/** A left/right chevron, for a carousel or a rail's scroll control. */
+export function ArrowIcon(props: IconProps) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M5 12h14M13 6l6 6-6 6" />
+    </svg>
+  );
+}
+
+/** A four-point spark, used to mark the shop's own picks. Decorative only, never a rating. */
+export function SparkIcon(props: IconProps) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M12 3.5c.6 3.9 1.9 5.6 5.9 6.6-4 .9-5.3 2.6-5.9 6.6-.6-4-1.9-5.7-5.9-6.6 4-1 5.3-2.7 5.9-6.6Z" />
+      <path d="M17.8 15.4c.3 1.6.8 2.3 2.4 2.7-1.6.4-2.1 1.1-2.4 2.7-.3-1.6-.8-2.3-2.4-2.7 1.6-.4 2.1-1.1 2.4-2.7Z" />
+    </svg>
+  );
+}
+
 export function InfoIcon(props: IconProps) {
   return (
     <svg {...base} {...props}>

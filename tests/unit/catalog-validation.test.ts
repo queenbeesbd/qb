@@ -187,13 +187,16 @@ describe('image metadata read from the file', () => {
       assert.ok(asset !== null, `expected ${key} to be readable`);
       assert.equal(asset.width, 600, `${key}: width`);
       /*
-       * The fixture photography is 3:4 portrait, which is where IMAGE_ASPECT comes from. Photography
-       * imported from the owner's previous store keeps its own aspect ratio (the source frames vary
-       * from square to portrait), so the 3:4 assertion covers the fixture keys only - the imported
-       * set is asserted on the invariant that actually holds for it: a 600-wide JPEG primary and
-       * four generated variants, both checked below.
+       * The fixture photography is 3:4 portrait, which is where IMAGE_ASPECT comes from. Two other
+       * families keep their own aspect ratio and are asserted on the invariant that actually holds
+       * for them - a 600-wide JPEG primary and four generated variants, both checked below:
+       *
+       * - `zq-` photography imported from the owner's previous store (source frames vary);
+       * - discovery imagery (`category-`, `brand-logo-`), which is deliberately square.
        */
-      if (!key.startsWith('zq-')) assert.equal(asset.height, 800, `${key}: height`);
+      const squareDiscoveryImage = key.startsWith('category-') || key.startsWith('brand-logo-');
+      if (squareDiscoveryImage) assert.equal(asset.height, 600, `${key}: square discovery image`);
+      else if (!key.startsWith('zq-')) assert.equal(asset.height, 800, `${key}: height`);
       assert.ok(asset.height > 0, `${key}: height`);
       assert.equal(asset.contentType, 'image/jpeg');
       assert.ok(asset.byteSize > 0);

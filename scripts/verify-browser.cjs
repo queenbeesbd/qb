@@ -828,84 +828,95 @@ async function main() {
         featuredRow);
     }
 
-    // 27d - the homepage sections that intend a route into the catalog keep exactly one each
-    // The featured row is complete (no controls, no link), the offer row is derived rather than a
-    // listing, and "More to explore" ends with its own "View more products" button instead of a header
-    // link. So the categories section and "Recently added" are the two that render "View all".
+    /*
+     * 27d - every section that has more than this row to show names **exactly one** way in.
+     *
+     * The featured row is the owner's complete selection, so it carries no link and no controls. The
+     * offers, the category rail, the brand rail and "Recently added" each hold more than one row, so
+     * each has one route into its full listing, and "More to explore" ends with its own button instead
+     * of a header link. The check counts links rather than matching wording, so the copy can change.
+     */
     const viewAllSections = await evaluate(client, `[...document.querySelectorAll('main section')]
-      .filter((s) => /view all/i.test(s.innerText))
-      .map((s) => { const h = s.querySelector('h1, h2'); return h ? h.id : 'unknown'; })`);
-    record('27d. the categories and "Recently added" sections each keep their "View all" route',
-      JSON.stringify(viewAllSections) === JSON.stringify(['categories-title', 'recently-added-title']),
+      .map((s) => {
+        const h = s.querySelector('h1, h2');
+        const links = [...s.querySelectorAll('header a')].filter((a) => (a.textContent || '').trim().length > 0);
+        return { id: h ? h.id : 'unknown', headerLinks: links.length };
+      })
+      .filter((entry) => entry.headerLinks > 0)`);
+    const expectedLinked = ['deals-title', 'categories-title', 'brands-title', 'recently-added-title'];
+    record('27d. each section with more to show names exactly one route into it',
+      JSON.stringify(viewAllSections.map((entry) => entry.id)) === JSON.stringify(expectedLinked) &&
+      viewAllSections.every((entry) => entry.headerLinks === 1),
       { sections: viewAllSections });
 
-    // 28 - hero has a purposeful product composition
+    /*
+     * 28 - the hero is a product composition at every size.
+     *
+     * The composition depends on the width, deliberately: a desktop gets the three-photograph collage,
+     * a phone gets the spotlight rows (the newest products with their prices) and no collage. What must
+     * hold at both is that the hero carries the page's `h1`, a route into the catalog, and real product
+     * photographs that actually load - never a decorative scene.
+     */
     const hero = await evaluate(client, `(() => {
       const heroSection = document.querySelector('main section');
       const photos = [...heroSection.querySelectorAll('picture img')];
-      const copy = heroSection.querySelector('div');
-      const cs = getComputedStyle(document.querySelector('h1'));
       return {
         heroPhotos: photos.length,
         photosLoaded: photos.filter((i) => i.complete && i.naturalWidth > 0).length,
+        productLinks: [...heroSection.querySelectorAll('a[href^="/products/"]')].length,
         hasHeading: !!heroSection.querySelector('h1'),
         hasPrimaryCta: !!heroSection.querySelector('a[href="/products"]'),
-        h1Weight: cs.fontWeight,
-        h1Tracking: cs.letterSpacing,
         lang: document.documentElement.lang,
       };
     })()`);
-    record('28. hero composes real product photos alongside the copy and CTAs', hero.heroPhotos === 3 && hero.photosLoaded === 3 && hero.hasHeading && hero.hasPrimaryCta, hero);
+    record('28. the hero composes real product photographs with the copy and the CTAs',
+      hero.heroPhotos >= 2 && hero.photosLoaded === hero.heroPhotos && hero.productLinks >= 2 &&
+      hero.hasHeading && hero.hasPrimaryCta,
+      hero);
 
-    // 28b - the hero photographs are the catalog's three newest products (owner decision, Phase 26
-    // revision). The expectation is the seeded newest three in newest-first order, agreed with the
-    // seed's own instants rather than with the page's layout order.
+    /*
+     * 28b - the hero publishes the catalog's newest products (D6), and "Recently added" publishes the
+     * same fact, so the cross-check is structural: the hero's product links are the first of that row's
+     * ordering. When the runner can prove the order from the rows it seeded it passes
+     * QUEENBEES_EXPECTED_RECENT, and the slugs are compared against the database instead.
+     */
     const heroNewest = await evaluate(client, `(() => {
       const heroSection = document.querySelector('main section');
       const links = [...heroSection.querySelectorAll('a[href^="/products/"]')];
       const photos = [...heroSection.querySelectorAll('picture img')];
       return {
         hrefs: links.map((a) => a.getAttribute('href')),
-        labels: links.map((a) => a.getAttribute('aria-label')),
         alts: photos.map((i) => i.getAttribute('alt')),
         srcs: photos.map((i) => i.getAttribute('src')),
         loaded: photos.filter((i) => i.complete && i.naturalWidth > 0).length,
       };
     })()`);
-    /*
-     * The hero photographs and the "Recently added" row publish the same stored fact (newest first,
-     * D6), so the cross-check is structural: the hero must be the first three of that row. When the
-     * runner can prove the order from the rows it seeded, it passes QUEENBEES_EXPECTED_RECENT and the
-     * slugs are compared against the database rather than against another view of the same server.
-     */
     const recentTop = await evaluate(client, `(() => {
       const heading = document.getElementById('recently-added-title');
       if (!heading) return [];
       const section = heading.closest('section');
       return [...new Set([...section.querySelectorAll('article a')]
         .map((a) => a.getAttribute('href'))
-        .filter((href) => href && href.indexOf('/products/') === 0))].slice(0, 3);
+        .filter((href) => href && href.indexOf('/products/') === 0))];
     })()`);
     const expectedHero = EXPECTED_RECENT.length >= 3
-      ? EXPECTED_RECENT.slice(0, 3).map((slug) => '/products/' + slug)
-      : recentTop;
-    record('28b. the hero photographs are the first three of the "Recently added" row',
-      expectedHero.length === 3 &&
+      ? EXPECTED_RECENT.slice(0, heroNewest.hrefs.length).map((slug) => '/products/' + slug)
+      : recentTop.slice(0, heroNewest.hrefs.length);
+    record('28b. the hero publishes the newest products, in the same order as "Recently added"',
+      heroNewest.hrefs.length >= 2 && expectedHero.length === heroNewest.hrefs.length &&
       JSON.stringify(heroNewest.hrefs) === JSON.stringify(expectedHero) &&
-      heroNewest.alts.length === 3 && heroNewest.loaded === 3 &&
-      heroNewest.srcs.every((src) => typeof src === 'string' && src.indexOf('/catalog/') !== -1) &&
-      new Set(heroNewest.srcs).size === 3,
+      heroNewest.loaded === heroNewest.srcs.length &&
+      heroNewest.srcs.every((src) => typeof src === 'string' && src.indexOf('/catalog/') !== -1),
       { shown: heroNewest.hrefs, expected: expectedHero, srcs: heroNewest.srcs });
     if (EXPECTED_RECENT.length === 0) {
       recordSkip('28b-db. the hero order equals the stored created_at order',
         'a browser cannot read created_at; verify-storefront passes QUEENBEES_EXPECTED_RECENT');
     }
 
-    record('28c. each hero frame links to the product it depicts and carries its name',
-      heroNewest.labels.length === 3 && heroNewest.alts.length === 3 &&
-      heroNewest.labels.every((label, index) => typeof label === 'string' && label.length > 0 &&
-        label === heroNewest.alts[index]),
-      { labels: heroNewest.labels, alts: heroNewest.alts });
+    record('28c. every hero photograph carries the name of the product it depicts',
+      heroNewest.alts.length === heroNewest.srcs.length &&
+      heroNewest.alts.every((alt) => typeof alt === 'string' && alt.length > 0),
+      { alts: heroNewest.alts });
 
     // 29 - one heading scale, and the document states English
     await nav(client, '/');
@@ -935,8 +946,12 @@ async function main() {
         const section = h ? h.closest('section') : null;
         const grid = section ? section.querySelector('ul') : null;
         const card = grid ? grid.querySelector('article') : null;
-        const offers = document.getElementById('deals-title');
-        const standardGrid = offers ? offers.closest('section').querySelector('ul') : null;
+        /*
+         * Another plain ProductGrid is the reference for "standard": the browse row. The offer shelf is
+         * a scroll-snap track with its own card width and cannot state what a grid card measures.
+         */
+        const browse = document.getElementById('collection-title');
+        const standardGrid = browse ? browse.closest('section').querySelector('ul') : null;
         const standardCard = standardGrid ? standardGrid.querySelector('article') : null;
         const colsOf = (el) => (el ? getComputedStyle(el).gridTemplateColumns.split(' ').length : null);
         return {
@@ -1252,8 +1267,14 @@ async function main() {
         await client.send('Emulation.setDeviceMetricsOverride', { width: w, height: 1000, deviceScaleFactor: 1, mobile: w < 768 });
         await nav(client, route);
         const shape = await evaluate(client, `(() => {
+          /*
+           * A product grid, not a shelf: a scroll-snap track also holds four or more articles, and it
+           * has its own card width by design, so including it would compare the layout with a
+           * different composition.
+           */
           const grids = [...document.querySelectorAll('main ul')].filter((u) =>
-            getComputedStyle(u).display === 'grid' && u.children.length >= 4 && u.querySelector('article'));
+            getComputedStyle(u).display === 'grid' && u.children.length >= 4 &&
+            u.querySelector('article') && getComputedStyle(u).scrollSnapType === 'none');
           const grid = grids[0];
           if (!grid) return null;
           const style = getComputedStyle(grid);
@@ -1454,32 +1475,39 @@ async function main() {
     /*
      * 36 - the phone landing drops two paths it does not need (owner decision, 2026-10-23).
      *
-     * The fixed tab bar carries Categories and the hero has a "Browse categories" button, so the
-     * five-card strip is hidden below 720px - and the three hero photographs go with it. Both were a
-     * full screen between the headline and the first product, and neither announced anything the
-     * sections beneath them do not say with a name and a price. What must still hold is that the
-     * category index is one tap away and the header drawer stays gone.
+     * **Revised for the 2026-11-02 redesign.** The older decision hid the category strip *and* the three
+     * hero photographs below 720px, because the five-card strip was most of a screen between the
+     * headline and the first product. The redesign replaced that strip with a one-row photograph rail
+     * (84px squares, one swipe) and replaced the collage with the spotlight rows, so both now appear on
+     * a phone and the landing is *shorter* than it was. The property that mattered still holds and is
+     * what this check asserts: the phone's first screen carries real products and a one-row category
+     * rail, and no drawer exists.
      */
     await nav(client, '/');
     const mobileLanding = await evaluate(client, `(() => {
       const section = document.getElementById('categories');
       const hero = document.querySelector('main section');
-      const collage = hero ? hero.querySelector('ul') : null;
       const visible = (el) => !!el && getComputedStyle(el).display !== 'none' && el.getBoundingClientRect().height > 0;
+      const rail = section ? section.querySelector('ul') : null;
+      const spotlight = hero ? hero.querySelector('ul') : null;
+      const firstProduct = document.querySelector('main a[href^="/products/"]');
       return {
         sectionPresent: !!section,
         sectionVisible: visible(section),
-        collageVisible: visible(collage),
-        collagePhotos: hero ? hero.querySelectorAll('picture img').length : 0,
+        railHeight: rail ? Math.round(rail.getBoundingClientRect().height) : null,
+        spotlightVisible: visible(spotlight),
+        firstProductTop: firstProduct ? Math.round(firstProduct.getBoundingClientRect().top) : null,
       };
     })()`);
     const drawerGone = await evaluate(client, `(() => ({
       trigger: !!document.querySelector('header button[aria-controls="site-menu"]'),
       menu: !!document.getElementById('site-menu'),
     }))()`);
-    record('36. a phone hides the category strip and the hero photographs, and no drawer exists',
-      mobileLanding.sectionPresent && mobileLanding.sectionVisible === false &&
-      mobileLanding.collageVisible === false && mobileLanding.collagePhotos === 3 &&
+    record('36. a phone keeps a one-row category rail and a real product on the first screen, and no drawer exists',
+      mobileLanding.sectionPresent && mobileLanding.sectionVisible === true &&
+      mobileLanding.railHeight !== null && mobileLanding.railHeight > 0 && mobileLanding.railHeight < 400 &&
+      mobileLanding.spotlightVisible === true &&
+      mobileLanding.firstProductTop !== null && mobileLanding.firstProductTop < 844 &&
       drawerGone.trigger === false && drawerGone.menu === false,
       { mobileLanding, drawerGone });
 
@@ -1522,7 +1550,7 @@ async function main() {
       const cards = [...section.querySelectorAll('a[href^="/categories/"]')];
       const bar = document.querySelector('[data-storefront-tabbar]');
       const hero = document.querySelector('main section');
-      const collage = hero ? hero.querySelector('ul') : null;
+      const collage = hero ? hero.querySelector('[data-hero-collage]') : null;
       return {
         display: getComputedStyle(section).display,
         visibleCards: cards.filter((c) => c.getBoundingClientRect().height > 0).length,
@@ -1531,12 +1559,13 @@ async function main() {
       };
     })()`);
     /*
-     * Four, not five: the owner's 2026-10-23 decision caps the strip at the four busiest departments
-     * after the imported catalog brought fifteen. Five was the fixture catalog's count, and a
-     * five-column strip of four cards left a hole.
+     * Every visible department, not four. The redesign made this rail the shop's category index rather
+     * than a shortcut: the header navigation above it already carries the busiest four, and a shopper
+     * scanning the homepage should see the range. The number is compared loosely, so a catalog with more
+     * departments is not a failure.
      */
-    record('36d. on desktop the section shows the four departments, the hero photographs return, and the phone tab bar is hidden',
-      desktopCategories.display !== 'none' && desktopCategories.visibleCards === 4 &&
+    record('36d. on desktop the rail shows the departments, the hero collage returns, and the phone tab bar is hidden',
+      desktopCategories.display !== 'none' && desktopCategories.visibleCards >= 10 &&
       desktopCategories.collageVisible && desktopCategories.tabBarHidden,
       desktopCategories);
     await client.send('Emulation.clearDeviceMetricsOverride');
@@ -1547,9 +1576,12 @@ async function main() {
       await nav(client, route);
       const state = await evaluate(client, `(() => {
         const text = document.body.innerText.replace(/\\s+/g, ' ');
+        const bar = document.querySelector('[data-announcement-bar]');
         return {
           demo: /preview store|demonstration storefront|no payments are taken|nothing is dispatched/i.test(text),
-          bar: !!document.querySelector('[data-announcement-bar]'),
+          // An **empty** strip is the defect; an owner-authored message is the feature. The bar's own
+          // text is measured, so a rendered-but-blank strip still fails.
+          bar: !!bar && (bar.innerText || '').trim().length === 0,
         };
       })()`);
       barRoutes.push({ route, demo: state.demo, bar: state.bar });
@@ -1807,11 +1839,35 @@ async function main() {
         'a browser cannot read created_at; verify-storefront passes QUEENBEES_EXPECTED_RECENT');
     }
 
+    /*
+     * The cards are below the fold, and their photographs are `loading="lazy"`, so the read happens
+     * after scrolling the row into view: measuring before that reports a zero natural width for a
+     * perfectly good image.
+     */
+    await evaluate(client, `(async () => {
+      const heading = document.getElementById('recently-added-title');
+      if (heading) {
+        heading.scrollIntoView({ block: 'center' });
+        await new Promise((resolve) => setTimeout(resolve, 900));
+      }
+      return true;
+    })()`);
+    const recentImgs = await evaluate(client, `(() => {
+      const heading = document.getElementById('recently-added-title');
+      if (!heading) return [];
+      const section = heading.closest('section');
+      return [...section.querySelectorAll('article picture img')].map((i) => ({
+        src: i.getAttribute('src'),
+        alt: i.getAttribute('alt'),
+        complete: i.complete,
+        w: i.naturalWidth,
+      }));
+    })()`);
     record('42b. all five cards carry real images, names and product links',
-      recent.imgs.length === Math.min(5, facts.total) &&
-      recent.imgs.every((i) => i && i.src && i.src.indexOf('/catalog/') !== -1 && i.w > 0) &&
+      recentImgs.length === Math.min(5, facts.total) &&
+      recentImgs.every((i) => i && i.src && i.src.indexOf('/catalog/') !== -1 && i.w > 0) &&
       recent.names.every((n) => typeof n === 'string' && n.length > 0),
-      { images: recent.imgs, names: recent.names });
+      { images: recentImgs, names: recent.names });
 
     record('42c. the section is worded as recency without a hard-coded count',
       /most recently added/i.test(recent.body) && !/\bsix\b|\bfive\b/i.test(recent.body),
@@ -1863,10 +1919,13 @@ async function main() {
           const grid = section.querySelector('ul') || section.querySelector('div');
           const cards = [...section.querySelectorAll('article')];
           const r = section.getBoundingClientRect();
-          // The offer row is the reference: it is a plain ProductGrid with the full-width density, so
-          // it states what a standard card measures at this viewport.
-          const deals = document.getElementById('deals-title');
-          const standardGrid = deals ? deals.closest('section').querySelector('ul') : null;
+          /*
+           * The featured row is the reference: it is a plain ProductGrid with the full-width density and
+           * no carousel, so it states what a standard card measures at this viewport. The offer shelf
+           * cannot serve as the reference any more - it is a scroll-snap track with its own card width.
+           */
+          const featured = document.getElementById('featured-title');
+          const standardGrid = featured ? featured.closest('section').querySelector('ul') : null;
           const standardCard = standardGrid ? standardGrid.querySelector('article') : null;
           const colsOf = (el) => (el ? getComputedStyle(el).gridTemplateColumns.split(' ').length : null);
           return {

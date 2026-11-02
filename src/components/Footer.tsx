@@ -39,6 +39,9 @@ export function Footer({ categories }: { categories: readonly CatalogCategory[] 
             <li>
               <Link href="/products">{t('footer.allProducts')}</Link>
             </li>
+            <li>
+              <Link href="/brands">{t('nav.brands')}</Link>
+            </li>
             {/*
               Five departments, then the index. The imported catalog holds fifteen, and a footer
               column that lists all of them grew taller than the page above it - a directory is not

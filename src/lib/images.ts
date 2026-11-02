@@ -44,11 +44,42 @@ export const CARD_FRAME = '5 / 4';
  */
 export const LISTING_CARD_FRAME = '4 / 5';
 
+
+/**
+ * The frame a category tile draws its photograph in.
+ *
+ * A square, because the index reads as a grid of pictures rather than a list of names: every tile is
+ * the same shape at every width, so the grid scans down the screen instead of chasing the eye across
+ * cards of different heights.
+ */
+export const CATEGORY_TILE_FRAME = '1 / 1';
+
+/** Source-size hints for the category grid: two columns on a phone, up to seven on a wide desktop. */
+export const CATEGORY_TILE_SIZES = '(max-width: 599px) 46vw, (max-width: 1023px) 22vw, 200px';
+
+/** Source-size hints for the homepage's horizontal category rail. */
+export const CATEGORY_RAIL_SIZES = '96px';
+
+/**
+ * Source-size hint for the homepage's offer shelf.
+ *
+ * The shelf is not the product grid: it shows 1.6 cards on a phone and four on a desktop, so a card
+ * is 62vw / 44vw / 30vw / ~300px rather than a grid track. Using the grid's hint here would make the
+ * browser download a source roughly twice the size of the box it fills.
+ */
+export const SHELF_CARD_SIZES = '(max-width: 479px) 62vw, (max-width: 719px) 44vw, (max-width: 1023px) 30vw, 300px';
+
 /** Source-size hint for the listing's four-column desktop grid. */
 export const LISTING_CARD_SIZES =
   '(max-width: 719px) 50vw, (max-width: 1023px) 33vw, (max-width: 1439px) 30vw, 280px';
 
-export const DETAIL_SIZES = '(max-width: 879px) 100vw, 45vw';
+/**
+ * Source-size hint for the product gallery.
+ *
+ * The media column is capped rather than filling its half of the layout (see `product.module.css`), so
+ * a hint that said 45vw at every desktop width asked for a source bigger than the box it lands in.
+ */
+export const DETAIL_SIZES = '(max-width: 879px) 92vw, (max-width: 1199px) 40vw, 480px';
 
 export type ImageSources = {
   webpSrcSet: string;

@@ -123,6 +123,36 @@ The merchant dashboard was audited read-only. Two findings bear directly on this
 
 Consequence: that audit settled nothing about QueenBee's own catalog. The storefront now renders the **database** catalog the owner maintains (Phase 14, ADR 0011), and the Phase 1 fixture is retained only as the seed and a development-only opt-in. The fixture is captured vendor data and must not be presented as a verified production catalog.
 
+## Discovery imagery: category photographs and brand logos (2026-11-02)
+
+The category index and the brand rail are picture surfaces, so two more image families now exist. Both
+follow the rule the product photography already follows - an **asset key**, never a URL - and both are
+generated at the same two widths (600 and 1050, JPEG + WebP), so one route and one allowlist serve them.
+
+| Family | Key | Column | Built by |
+| --- | --- | --- | --- |
+| Category photograph | `category-<slug>` | `category.image_key` | `npm run assets:discovery` |
+| Brand logo | `brand-logo-<slug>` | `brand.logo_key` | `npm run assets:discovery -- --brands` |
+
+**Category photographs.** Fourteen square photographs, one per visible department, chosen by eye against
+the category it illustrates and recorded with its source and credit in
+`src/server/catalog/discovery-imagery.ts`. They come from Unsplash's free-licence library; the shop's
+own photograph wins whenever the owner picks one in the category editor, and a category with no
+photograph draws its icon instead.
+
+**Brand logos.** A logo is taken from the brand's **own website** and only when that site names the brand
+in its `<title>` and publishes an icon of at least 96px. Two earlier passes were rejected by that rule:
+the first produced five unrelated brands sharing one generic icon, the second attached a WordPress
+mark to two more. 59 of 244 brands pass; the rest keep `logo_key = NULL` and the storefront draws their
+initials, which the brand index states in words. The build command prints the brands it could not
+verify rather than filling the gap.
+
+**What is not implemented.** There is no upload from the browser. A new category photograph is added by
+the asset pipeline (`npm run assets:discovery`, then `npm run assets:upload`), and the category editor
+associates one of the images the shop owns. A form that accepted a file would have to validate,
+re-encode twice and write to object storage inside a request handler - a file-processing service, not a
+form handler - and it would be the only write path in the project that bypasses the asset inventory.
+
 ## Known gaps
 
 - No written photography permission.

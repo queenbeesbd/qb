@@ -2,6 +2,14 @@
    ratio governs height without any fixed-height text container. */
 .picture {
   display: block;
+  /*
+   * A `<picture>` is the grid or flex item wherever a card or a hero frame renders a product, and a
+   * replaced element's intrinsic width (600px here) is its automatic minimum. Without this, the item
+   * refuses to shrink below the source photograph and pushes the card - and on a phone the page -
+   * wider than the column it was given.
+   */
+  min-width: 0;
+  max-width: 100%;
 }
 
 .img {

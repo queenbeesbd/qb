@@ -30,3 +30,4 @@ coverage/
 # bytes belong in object storage (ADR 0006), not in git; this local tree exists so the development
 # storefront can render them. A deployment needs the object-storage step, not a commit.
 public/catalog/zq-*
+.vercel

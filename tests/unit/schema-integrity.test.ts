@@ -74,6 +74,10 @@ describe('schema and migration integrity', () => {
       ['cod state only for cod', /CONSTRAINT "order_cod_state_only_for_cod"/],
       // ADR 0006: an image cannot be marked cleared without a recorded basis.
       ['image rights need a basis', /CONSTRAINT "product_image_cleared_needs_note"/],
+      // ADR 0006, the discovery surfaces: a category photograph and a brand logo are asset keys, never
+      // a URL or a hotlink. The column shape makes a provider URL a database error, not a review note.
+      ['category image is an asset key', /CONSTRAINT "category_image_key_format"/],
+      ['brand logo is an asset key', /CONSTRAINT "brand_logo_key_format"/],
       // Phase 19: one default row and one row per district; amounts are non-negative integers.
       ['delivery default singleton', /CONSTRAINT "delivery_setting_singleton"/],
       ['one delivery override per district', /CREATE UNIQUE INDEX "delivery_district_charge_district_unique"/],

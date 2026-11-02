@@ -63,7 +63,20 @@ export function ProductCard({
           card to card. The filler is a non-breaking space with aria-hidden, never invented content.
         */}
         <p className={styles.brand} aria-hidden={product.brand ? undefined : true}>
-          {product.brand ?? '\u00A0'}
+          {/*
+            The brand and the title are separate links to separate places: the eyebrow goes to the
+            brand's own page, the title to the product. A card that only ever led to the product made
+            "shop by brand" a dead end.
+          */}
+          {product.brand === null ? (
+            '\u00A0'
+          ) : product.brandSlug === null ? (
+            product.brand
+          ) : (
+            <Link href={`/brands/${product.brandSlug}`} tabIndex={-1}>
+              {product.brand}
+            </Link>
+          )}
         </p>
         <h3 className={styles.title}>
           <Link href={`/products/${product.slug}`}>{name}</Link>

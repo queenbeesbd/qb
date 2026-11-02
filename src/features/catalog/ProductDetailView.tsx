@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { DETAIL_SIZES } from '@/lib/images';
 import { discountAmount, discountPercent } from '@/lib/money';
 import { useTranslation } from '@/i18n/useTranslation';
@@ -73,6 +73,38 @@ export function ProductDetailView({
   const orderable = product.availability === 'in_stock';
   /** How many of this product the cart now holds, so the confirmation can state it. */
   const cartQuantity = cart.lines.find((line) => line.productId === product.id)?.quantity ?? 0;
+  /**
+   * Whether the phone's purchase bar is showing.
+   *
+   * It appears once the customer has scrolled *past the gallery* **and** the in-page purchase block is
+   * off screen - so the first screen is never covered by a bar repeating a button that is already in
+   * view, and a shopper who has read down the page still has the price and the action within reach.
+   * Two `IntersectionObserver`s rather than a scroll listener: the browser does the measuring, they
+   * cost nothing while idle, and neither can disagree with the layout after a resize.
+   */
+  const galleryRef = useRef<HTMLDivElement | null>(null);
+  const purchaseRef = useRef<HTMLDivElement | null>(null);
+  const [pastGallery, setPastGallery] = useState(false);
+  const [purchaseInView, setPurchaseInView] = useState(true);
+  const barVisible = pastGallery && !purchaseInView;
+
+  useEffect(() => {
+    const gallery = galleryRef.current;
+    const purchase = purchaseRef.current;
+    if (gallery === null || purchase === null) return;
+    const galleryObserver = new IntersectionObserver(([entry]) =>
+      setPastGallery(entry === undefined ? false : !entry.isIntersecting),
+    );
+    const purchaseObserver = new IntersectionObserver(([entry]) =>
+      setPurchaseInView(entry === undefined ? true : entry.isIntersecting),
+    );
+    galleryObserver.observe(gallery);
+    purchaseObserver.observe(purchase);
+    return () => {
+      galleryObserver.disconnect();
+      purchaseObserver.disconnect();
+    };
+  }, []);
 
   return (
     <div className={styles.page}>
@@ -86,12 +118,17 @@ export function ProductDetailView({
               <Link href={`/categories/${category.slug}`}>{pick(category.name)}</Link>
             </li>
           )}
+          {product.brand !== null && product.brandSlug !== null && (
+            <li>
+              <Link href={`/brands/${product.brandSlug}`}>{product.brand}</Link>
+            </li>
+          )}
           <li aria-current="page">{name}</li>
         </ol>
       </nav>
 
       <div className={styles.layout}>
-        <div className={styles.media}>
+        <div className={styles.media} ref={galleryRef}>
           <figure className={styles.figure}>
             <ProductPhoto
               image={image}
@@ -133,7 +170,19 @@ export function ProductDetailView({
         </div>
 
         <div className={styles.info}>
-          {product.brand && <p className={styles.brand}>{product.brand}</p>}
+          {/*
+            The brand is a link to its page, not a caption: a shopper who likes this product's brand is
+            one tap from everything else it makes, and the brand index is not a dead end either.
+          */}
+          {product.brand && (
+            <p className={styles.brand}>
+              {product.brandSlug === null ? (
+                product.brand
+              ) : (
+                <Link href={`/brands/${product.brandSlug}`}>{product.brand}</Link>
+              )}
+            </p>
+          )}
           <h1 className={styles.title}>{name}</h1>
 
           <p className={styles.pricing}>
@@ -180,7 +229,7 @@ export function ProductDetailView({
           </dl>
 
           {orderable ? (
-          <div className={styles.purchase}>
+          <div className={styles.purchase} ref={purchaseRef}>
             <label className={styles.quantityLabel} htmlFor="pdp-quantity">
               {t('product.quantity')}
             </label>
@@ -272,6 +321,39 @@ export function ProductDetailView({
           </section>
         </div>
       </div>
+
+      {/*
+        The phone's purchase bar.
+        
+        On a 390px screen the gallery, the title, the price and the facts can push the add button past
+        a full screen, so a shopper has to scroll to buy something they have already decided about. This
+        bar keeps the price and the action reachable from anywhere on the page. It is hidden from 880px
+        up, where the two-column layout keeps the button beside the gallery, and it never appears for an
+        unavailable product - there is nothing to add.
+      */}
+      {orderable && (
+        <div
+          className={styles.buyBar}
+          data-buy-bar
+          data-visible={barVisible ? 'true' : 'false'}
+          aria-hidden={barVisible ? undefined : true}
+        >
+          <p className={styles.buyBarPrice}>
+            <span className={styles.buyBarLabel}>{t('product.priceLabel')}</span>
+            <span className={styles.buyBarAmount}>{price(product.priceMinor)}</span>
+          </p>
+          <button
+            type="button"
+            className={styles.addButton}
+            onClick={() => {
+              cart.addItem(product.id, quantity);
+              setJustAdded(true);
+            }}
+          >
+            {t('product.addToCart')}
+          </button>
+        </div>
+      )}
 
       {related.length > 0 && (
         <section className={styles.related} aria-labelledby="related-title">

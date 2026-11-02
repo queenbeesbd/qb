@@ -31,6 +31,7 @@ export const dictionary = {
   'nav.menu': 'Menu',
   'nav.closeMenu': 'Close menu',
   'nav.openMenu': 'Open menu',
+  'nav.brands': 'Brands',
 
   'search.label': 'Search products',
   'search.placeholder': 'Search products or brands',
@@ -62,6 +63,18 @@ export const dictionary = {
   'home.selectionEmptyBody': 'No products are available for this selection right now.',
   'home.viewAll': 'View all',
   'home.viewMore': 'View more products',
+  'home.dealsViewAll': 'All offers',
+  'home.browseBy': 'Browse',
+  'home.brandTitle': 'Shop by brand',
+  'home.brandBody': 'The brands this shop carries, with the ones holding the most products first.',
+  'home.brandsAll': 'All brands',
+  'home.newArrivalsTitle': 'New arrivals',
+  'home.newArrivalsBody': 'The most recently added products in the catalog.',
+  'home.newArrivalsAll': 'See everything',
+  'home.carouselLabel': 'Featured products',
+  'home.carouselPrev': 'Previous products',
+  'home.carouselNext': 'More products',
+  'home.slideLabel': 'Go to slide {index} of {count}',
 
   'catalog.title': 'All products',
   'catalog.description': 'Every product currently published in the shop.',
@@ -135,6 +148,7 @@ export const dictionary = {
   'product.dismissConfirmation': 'Dismiss the confirmation',
   'product.addedDetail': '{name} was added to your cart.',
   'product.quantity': 'Quantity',
+  'product.priceLabel': 'Price',
   'product.decrease': 'Decrease quantity',
   'product.increase': 'Increase quantity',
   'product.brand': 'Brand',
@@ -258,6 +272,25 @@ export const dictionary = {
   'categories.count': '{count} products',
   'categories.countOne': '1 product',
   'categories.allProducts': 'See every product',
+  'categories.departments': 'Departments',
+  'categories.indexBody':
+    'Every product sits in one of these departments. Pick a picture to start browsing.',
+  'categories.viewProducts': 'Shop {name}',
+  'categories.noImage': 'No photo yet',
+  'categories.brandTitle': 'Brands',
+  'categories.brandBody':
+    'A brand logo is the mark the brand publishes itself. Brands without one show their initials.',
+  'categories.brandIntroTitle': 'Shop by brand',
+  'categories.brandIntroBody':
+    'Every brand this shop carries, each with the products it holds. New arrivals from a favourite brand are one tap away.',
+  'categories.brandCount': '{count} products',
+  'categories.brandCountOne': '1 product',
+  'categories.searchBrandLabel': 'Filter brands',
+  'categories.searchBrandPlaceholder': 'Type a brand name',
+  'categories.brandEmpty': 'No brand matches that name.',
+  'catalog.brandDescription':
+    'Every product this shop carries from this brand. Filter by price, availability or department to narrow it.',
+  'brands.title': 'Brands',
 
   'footer.shop': 'Shop',
   'footer.allProducts': 'All products',
@@ -1073,6 +1106,28 @@ export const dictionary = {
   'admin.categories.sectionPlacement': 'Address and placement',
   'admin.categories.sectionPlacementBody':
     'The address is the category page; the order decides where the category sits.',
+  'admin.categories.sectionImage': 'Category photo',
+  'admin.categories.sectionImageBody':
+    'The square picture on the category index and the homepage category rail. Pick one of the shop’s own images; without one, the tile shows the category icon.',
+  'admin.categories.field.image': 'Photo',
+  'admin.categories.field.imageHelp':
+    'Upload a JPG, PNG or WebP up to 10 MB. It is cropped to a square and stored at two sizes.',
+  'admin.categories.field.tagline': 'One-line label',
+  'admin.categories.field.taglineHelp':
+    'Optional. Up to 120 characters, shown under the name on the category index.',
+  'admin.categories.imageNone': 'No photo chosen',
+  'admin.categories.imageChoose': 'Choose existing photo',
+  'admin.categories.imagePick': 'Pick a photo',
+  'admin.categories.imageUpload': 'Upload a photo',
+  'admin.categories.imageUploadButton': 'Upload and use',
+  'admin.categories.imageRemove': 'Remove photo',
+  'admin.categories.imageRemoveHint':
+    'Removing the photo keeps the category; the tile falls back to its icon.',
+  'admin.categories.notice.imageUpdated': 'The category photo is updated.',
+  'admin.categories.notice.imageRemoved': 'The category photo is removed.',
+  'admin.categories.notice.imageInvalid':
+    'That file is not a supported image, is too large, or no photo was chosen.',
+  'admin.categories.notice.photoUploaded': 'Photo uploaded and set for this category.',
   'admin.categories.sectionVisibility': 'Storefront visibility',
   'admin.categories.sectionVisibilityBody': 'Listed or not. This does not change the products in it.',
   'admin.categories.sectionUsage': 'What this category holds',

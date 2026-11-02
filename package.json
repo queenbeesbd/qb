@@ -32,7 +32,10 @@
     "test:all": "npm run test && npm run test:db",
     "db:seed:delivery": "tsx --env-file-if-exists=.env.local --env-file-if-exists=.env scripts/seed-delivery.ts",
     "import:zatiq": "tsx --env-file-if-exists=.env.local --env-file-if-exists=.env scripts/import-zatiq.ts",
-    "db:purge:imported-orders": "tsx --env-file-if-exists=.env.local --env-file-if-exists=.env scripts/purge-imported-orders.ts"
+    "db:purge:imported-orders": "tsx --env-file-if-exists=.env.local --env-file-if-exists=.env scripts/purge-imported-orders.ts",
+    "seed:discovery": "tsx --env-file-if-exists=.env.local --env-file-if-exists=.env scripts/seed-discovery.ts",
+    "assets:discovery": "tsx scripts/build-discovery-assets.ts",
+    "assets:upload": "tsx scripts/upload-discovery-assets.ts"
   },
   "dependencies": {
     "@neondatabase/serverless": "1.2.0",

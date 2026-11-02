@@ -134,6 +134,21 @@ export type CategoryInput = {
   readonly descriptionEn?: unknown;
   readonly sortOrder?: unknown;
   readonly isVisible?: unknown;
+  /**
+   * The one-line label under the category's name on the storefront index.
+   *
+   * Optional: an omitted value keeps whatever the row already has, and an empty string clears it. That
+   * is the same convention the descriptions use, so a form that leaves the field out cannot wipe it.
+   */
+  readonly tagline?: unknown;
+  /**
+   * The category's square photograph, as an **asset key** - never a URL.
+   *
+   * `undefined` keeps the current image, `null` or `''` removes it. The key is validated against the
+   * server's own inventory by `setCategoryImage`, not by this input, because the association needs a
+   * database read that the create path does not otherwise perform.
+   */
+  readonly imageKey?: unknown;
 };
 
 /** Rows per page for the admin category list. */
@@ -196,6 +211,8 @@ export async function listCategoriesForAdmin(
       descriptionEn: category.descriptionEn,
       sortOrder: category.sortOrder,
       isVisible: category.isVisible,
+      tagline: category.tagline,
+      imageKey: category.imageKey,
       productCount: sql<number>`(
         select count(*)::int from "product"
         where "product"."category_id" = "category"."id" and "product"."deleted_at" is null
@@ -244,6 +261,8 @@ export async function getCategoryForAdmin(
   descriptionEn: string | null;
   sortOrder: number;
   isVisible: boolean;
+  tagline: string | null;
+  imageKey: string | null;
   productCount: number;
   subcategoryCount: number;
 } | null> {
@@ -260,6 +279,8 @@ export async function getCategoryForAdmin(
       descriptionEn: category.descriptionEn,
       sortOrder: category.sortOrder,
       isVisible: category.isVisible,
+      tagline: category.tagline,
+      imageKey: category.imageKey,
       productCount: sql<number>`(
         select count(*)::int from "product"
         where "product"."category_id" = "category"."id" and "product"."deleted_at" is null
@@ -294,6 +315,7 @@ export async function createCategory(
       descriptionEn: fields.descriptionEn,
       sortOrder: fields.sortOrder,
       isVisible: fields.isVisible,
+      tagline: fields.tagline ?? null,
     })
     .returning({ id: category.id });
   const categoryId = inserted[0]?.id;
@@ -348,6 +370,8 @@ export async function updateCategory(
       descriptionEn: fields.descriptionEn,
       sortOrder: fields.sortOrder,
       isVisible: fields.isVisible,
+      // Only when the form supplied it: an absent field must not silently erase a line the owner wrote.
+      ...(fields.tagline === undefined ? {} : { tagline: fields.tagline }),
       updatedAt: new Date(),
     })
     .where(sql`${category.id} = ${id}`);
@@ -435,6 +459,7 @@ async function normalizeCategoryInput(
   descriptionEn: string | null;
   sortOrder: number;
   isVisible: boolean;
+  tagline: string | null | undefined;
 }> {
   const nameBn = parseRequiredText(input.nameBn, TEXT_BOUNDS.categoryName);
   const nameEn = parseRequiredText(input.nameEn, TEXT_BOUNDS.categoryName);
@@ -457,6 +482,15 @@ async function normalizeCategoryInput(
       ? 0
       : parseSortOrder(input.sortOrder);
   if (sortOrder === null) throw new ValidationError('the display order must be a whole number');
+
+  /*
+   * The tagline is optional in a different sense from the descriptions: `undefined` means "leave what
+   * is there", `''` means "clear it", and a real value is bounded. A form that omits the field (the
+   * create form) therefore renders no line, and the update form can empty one deliberately.
+   */
+  const taglineResult = parseOptionalText(input.tagline, TEXT_BOUNDS.categoryTagline);
+  if (!taglineResult.ok) throw new ValidationError('the one-line label is too long');
+  const tagline = input.tagline === undefined ? undefined : taglineResult.value;
 
   /*
    * The slug is checked against **every** row, archived ones included. Archiving a category does not
@@ -482,6 +516,7 @@ async function normalizeCategoryInput(
     descriptionEn: descriptionEn.value,
     sortOrder,
     isVisible: input.isVisible === undefined ? true : parseVisibility(input.isVisible),
+    tagline,
   };
 }
 
@@ -939,6 +974,63 @@ export async function setAvailability(
  * through `checkOrderability`, which refuses a soft-deleted row; rewriting the availability state here
  * would destroy the owner's last statement about the product.
  */
+/**
+ * Sets or clears a category's square photograph.
+ *
+ * The value is an **asset key**, and it is resolved against the server's own inventory exactly as a
+ * product image is: format first, then the allowlist, then the file itself. Nothing about the image
+ * comes from the browser except which key was chosen, so a category cannot be pointed at a URL, a
+ * path outside the catalog directory, or a file that does not exist.
+ *
+ * `null` / `''` clear the column, and the storefront then draws the category's icon - a stated gap
+ * rather than a substituted picture. Every change is audited with the key that replaced the old one,
+ * because "why does this category have that photograph" is a question the audit trail should answer.
+ */
+export async function setCategoryImage(
+  tx: Transaction,
+  actor: ActorContext,
+  input: { categoryId: unknown; imageKey: unknown },
+): Promise<{ imageKey: string | null }> {
+  const id = parseId(input.categoryId);
+  if (id === null) throw new ValidationError('a category id is required');
+  await requirePermission(actor, CATALOG, 'category', id);
+
+  const rows = await tx
+    .select({ id: category.id, slug: category.slug, imageKey: category.imageKey, deletedAt: category.deletedAt })
+    .from(category)
+    .where(sql`${category.id} = ${id}`);
+  const row = rows[0];
+  if (row === undefined || row.deletedAt !== null) throw new ConflictError('no such category');
+
+  const raw = typeof input.imageKey === 'string' ? input.imageKey.trim() : '';
+  let imageKey: string | null = null;
+  if (raw !== '') {
+    imageKey = parseImageKey(raw);
+    if (imageKey === null) throw new ValidationError('that is not a valid image key');
+    if ((await readAsset(imageKey)) === null) {
+      throw new ValidationError('that image is not a complete, supported asset in the catalog directory');
+    }
+  }
+
+  await tx
+    .update(category)
+    .set({ imageKey, updatedAt: new Date() })
+    .where(sql`${category.id} = ${id}`);
+
+  await recordAudit(tx, {
+    actorType: 'staff',
+    actorStaffId: actor.staffUserId,
+    actorRoleCodes: actor.roleCodes,
+    action: 'catalog.category_image_updated',
+    entityType: 'category',
+    entityId: id,
+    before: { imageKey: row.imageKey },
+    after: { imageKey },
+  });
+
+  return { imageKey };
+}
+
 export async function archiveProduct(
   tx: Transaction,
   actor: ActorContext,

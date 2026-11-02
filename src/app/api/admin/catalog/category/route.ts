@@ -92,6 +92,11 @@ export async function POST(request: Request): Promise<Response> {
     descriptionEn: form.get('descriptionEn') ?? undefined,
     sortOrder: form.get('sortOrder') ?? undefined,
     isVisible: readVisibility(form),
+    /*
+     * The one-line label. The editor always submits the field, so an emptied box clears it and a
+     * filled one replaces it; `undefined` is only reachable from a caller that omits it entirely.
+     */
+    tagline: form.get('tagline') ?? undefined,
   };
 
   try {

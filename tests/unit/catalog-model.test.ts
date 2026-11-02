@@ -27,6 +27,11 @@ test('categoryIcon maps the known slugs and degrades to a neutral glyph', () => 
   assert.equal(categoryIcon(''), 'other');
 });
 
+/** The same normalisation the seed and the model use for a brand route segment. */
+function slugifyForTest(name: string): string {
+  return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+}
+
 test('fixtureToCatalogItem carries only view facts and is marked fixture-sourced', () => {
   const [fixture] = products;
   assert.ok(fixture, 'expected at least one fixture product');
@@ -44,12 +49,18 @@ test('fixtureToCatalogItem carries only view facts and is marked fixture-sourced
   assert.equal(item.categorySlug, item.categoryId);
   assert.equal(item.categorySlug, fixture.categoryId);
 
+  // The brand link target is derived, not carried: the fixture has no slug column for a brand.
+  assert.equal(item.brandSlug, fixture.brand === null ? null : slugifyForTest(fixture.brand));
+
   // No fixture-only provenance may reach the view model.
   assert.deepEqual(
     Object.keys(item).sort(),
     [
       'availability',
       'brand',
+      // Phase 62: the brand's route segment, so a product page can link to its brand. Derived from the
+      // fixture's brand name with the same slug rule the seed uses - never a copy of a fixture field.
+      'brandSlug',
       'categoryId',
       'categorySlug',
       'compareAtPriceMinor',

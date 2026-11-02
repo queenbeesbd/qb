@@ -1,6 +1,18 @@
 .page {
   display: grid;
-  gap: var(--space-6);
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-5);
+  /*
+   * The mobile purchase bar is fixed to the bottom of the viewport, so the page reserves its height
+   * at the end. Without this the last related-product card would sit under it.
+   */
+  padding-bottom: calc(72px + env(safe-area-inset-bottom));
+}
+
+@media (min-width: 880px) {
+  .page {
+    padding-bottom: 0;
+  }
 }
 
 .breadcrumb ol {
@@ -8,10 +20,33 @@
   margin: 0;
   padding: 0;
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: var(--space-2);
   font-size: var(--text-xs);
   color: var(--color-ink-muted);
+  /*
+   * One line, always. With a category *and* a brand the trail reached three lines on a phone before
+   * the product was even visible - a 100-character imported name wrapped twice. The trail scrolls
+   * inside its own box instead, so every level stays reachable and nothing pushes the page down.
+   */
+  overflow: hidden;
+}
+
+.breadcrumb li {
+  flex: none;
+  white-space: nowrap;
+}
+
+/*
+ * The current page is the one level that may be shortened; the way back never is. `min-width: 0` and
+ * `flex: 1 1 auto` are what let it shrink instead of pushing the trail wider than the screen, and the
+ * ellipsis is what makes the shortening visible rather than looking like a cut-off word.
+ */
+.breadcrumb li[aria-current='page'] {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .breadcrumb li + li::before {
@@ -109,10 +144,21 @@
   background: var(--color-surface);
 }
 
-.figure img {
+/*
+ * The gallery frame is a **square on a phone**, not 3:4.
+ *
+ * Catalog photography is 3:4 portrait, and rendering the full frame at 390px produced a 520px-tall
+ * photograph: the price and the add button sat a full screen below the product, which is the
+ * "imagery occupies too much space" the redesign is answering. A square crop keeps the subject large,
+ * shows the shape of the bottle, jar or box, and puts the price on the first screen. It widens to 4:5
+ * from 480px, where there is room to show the whole product, and the desktop column caps its height.
+ */
+.figure img,
+.figure picture {
+  display: block;
   width: 100%;
   height: auto;
-  aspect-ratio: 3 / 4;
+  aspect-ratio: 1 / 1;
   object-fit: cover;
 }
 
@@ -130,8 +176,19 @@
 }
 
 .title {
-  font-size: var(--text-2xl);
-  line-height: var(--leading-tight);
+  /*
+   * 22px on a phone, not 28. An imported product name runs to 60-80 characters; at 28px it took
+   * three lines and pushed the price off the first screen, which is the same crowding the gallery
+   * frame was carrying. The name is still the largest text on the page at every width.
+   */
+  font-size: var(--text-xl);
+  line-height: 1.2;
+}
+
+@media (min-width: 480px) {
+  .title {
+    font-size: var(--text-2xl);
+  }
 }
 
 /* Mobile-first price hierarchy: the current price dominates, the comparison
@@ -409,29 +466,116 @@
   padding-top: var(--space-5);
 }
 
+@media (min-width: 480px) {
+  .figure img,
+  .figure picture {
+    aspect-ratio: 4 / 5;
+  }
+}
+
 @media (min-width: 880px) {
+  /*
+   * The two-column layout, with the gallery deliberately **smaller than its column**.
+   *
+   * A 3:4 frame filling half of a 1440px container is ~656x875 - taller than the information beside
+   * it, which made the page read as a photograph with some text next to it. The media column is
+   * capped at 480px and its frame at 4:5, so the product page is read top-down at a sane length and
+   * the price, the facts and the actions sit beside the photograph rather than below it.
+   */
   .layout {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-columns: minmax(0, 480px) minmax(0, 1fr);
     gap: var(--space-7);
     align-items: start;
   }
 
-  /*
-   * The photograph fills its column rather than being capped. Capping it was
-   * tried and rejected: at a 1360px content width a 560px image left ~96px of
-   * dead space beside it, which is exactly the "more whitespace inside a
-   * component" the width change is meant to avoid. The container cap already
-   * keeps the image sane (~656px wide, ~875px tall at 3:4).
-   */
+  .media {
+    position: sticky;
+    top: var(--space-5);
+  }
+
+  .figure img,
+  .figure picture {
+    aspect-ratio: 4 / 5;
+  }
+
   /*
    * Body copy is capped so the extra width does not produce over-long lines -
    * a readability limit, not a layout one.
    */
   .info {
-    max-width: 68ch;
+    max-width: 62ch;
   }
 
   .currentPrice {
     font-size: var(--text-3xl);
+  }
+}
+
+/*
+ * The phone's fixed purchase bar.
+ *
+ * It sits above the storefront's own tab bar (64px) so the two never overlap, and it is hidden from
+ * 880px up, where the add button is already beside the gallery.
+ */
+.buyBar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: calc(65px + env(safe-area-inset-bottom));
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--gutter);
+  background: var(--color-surface);
+  border-top: 1px solid var(--color-border);
+  box-shadow: 0 -6px 18px rgb(32 26 41 / 0.08);
+  /*
+   * Hidden until the in-page purchase block has scrolled away (see the view). `visibility` rather
+   * than `display` keeps the transition cheap and keeps the bar out of the tab order while it is
+   * hidden, and the transform makes it slide in from the edge instead of popping into place.
+   */
+  visibility: hidden;
+  transform: translateY(110%);
+  transition: transform var(--transition-base) var(--ease-out-ui),
+    visibility 0s linear var(--transition-base);
+}
+
+.buyBar[data-visible='true'] {
+  visibility: visible;
+  transform: translateY(0);
+  transition: transform var(--transition-base) var(--ease-out-ui), visibility 0s;
+}
+
+.buyBarPrice {
+  display: grid;
+  gap: 0;
+  min-width: 0;
+}
+
+.buyBarLabel {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-ink-subtle);
+}
+
+.buyBarAmount {
+  font-size: var(--text-md);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.buyBar .addButton {
+  flex: 1;
+  min-width: 0;
+  min-height: 44px;
+}
+
+@media (min-width: 880px) {
+  .buyBar {
+    display: none;
   }
 }

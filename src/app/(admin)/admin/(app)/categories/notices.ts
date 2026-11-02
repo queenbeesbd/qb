@@ -7,7 +7,16 @@
  */
 import type { TranslationKey } from '@/i18n/dictionaries';
 
-export type CategoryNotice = 'created' | 'updated' | 'archived' | 'denied' | 'conflict' | 'invalid';
+export type CategoryNotice =
+  | 'created'
+  | 'updated'
+  | 'archived'
+  | 'denied'
+  | 'conflict'
+  | 'invalid'
+  | 'imageUpdated'
+  | 'imageRemoved'
+  | 'imageInvalid';
 
 export const CATEGORY_NOTICE_KEYS: Record<CategoryNotice, TranslationKey> = {
   created: 'admin.categories.notice.created',
@@ -16,9 +25,17 @@ export const CATEGORY_NOTICE_KEYS: Record<CategoryNotice, TranslationKey> = {
   denied: 'admin.categories.notice.denied',
   conflict: 'admin.categories.notice.conflict',
   invalid: 'admin.categories.notice.invalid',
+  imageUpdated: 'admin.categories.notice.imageUpdated',
+  imageRemoved: 'admin.categories.notice.imageRemoved',
+  imageInvalid: 'admin.categories.notice.imageInvalid',
 };
 
-export const CATEGORY_NOTICE_ERRORS: readonly CategoryNotice[] = ['denied', 'conflict', 'invalid'];
+export const CATEGORY_NOTICE_ERRORS: readonly CategoryNotice[] = [
+  'denied',
+  'conflict',
+  'invalid',
+  'imageInvalid',
+];
 
 /** A recognised code, or `null`. An unrecognised one renders nothing rather than a borrowed message. */
 export function readCategoryNotice(value: string | string[] | undefined): CategoryNotice | null {

@@ -181,10 +181,16 @@ describe('catalog seed', { skip: toolingAvailable ? false : SKIP_REASON }, () =>
     const fixtureKeys = products.flatMap((item) => item.images.map((image) => image.key));
     const present = fixtureKeys.filter((key) => assetKeys.includes(key));
 
-    // The asset directory also holds photography imported from the owner's previous store (`zq-*`
-    // keys). The seed only knows the fixture, so "no asset goes unused" is asserted over the fixture
-    // half of the inventory; the imported half is attached by the import, not by this seed.
-    const fixtureInventory = assetKeys.filter((key) => !key.startsWith('zq-'));
+    /*
+     * The asset directory holds three families the seed does not write, and "no asset goes unused" is
+     * asserted over the fixture half only:
+     *
+     * - `zq-*` photography imported from the owner's previous store, attached by the import;
+     * - `category-*` and `brand-logo-*` discovery imagery, attached to a category row or a brand row.
+     */
+    const fixtureInventory = assetKeys.filter(
+      (key) => !key.startsWith('zq-') && !key.startsWith('category-') && !key.startsWith('brand-logo-'),
+    );
 
     // No fixture key is missing, and no fixture asset goes unused: the two sets are equal.
     assert.equal(present.length, fixtureKeys.length, 'every fixture key exists on disk');

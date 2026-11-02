@@ -62,6 +62,7 @@ export type AuditAction =
   | 'catalog.category_created'
   | 'catalog.category_updated'
   | 'catalog.category_archived'
+  | 'catalog.category_image_updated'
   | 'catalog.product_created'
   | 'catalog.product_updated'
   | 'catalog.product_archived'

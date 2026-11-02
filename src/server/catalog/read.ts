@@ -49,6 +49,7 @@ export type CatalogProduct = {
    */
   readonly shortDescription: string | null;
   readonly brand: string | null;
+  readonly brandSlug: string | null;
   readonly categoryId: string;
   readonly categorySlug: string;
   readonly pack: string | null;
@@ -84,6 +85,24 @@ export type CatalogCategory = {
   readonly name: { bn: string | null; en: string };
   readonly blurb: { bn: string | null; en: string | null };
   readonly sortOrder: number;
+  /** The owner's square photograph for this category, as an asset key. Null means none chosen. */
+  readonly imageKey: string | null;
+  /** One short English line for the category tile. Null omits the line. */
+  readonly tagline: string | null;
+};
+
+/**
+ * A storefront brand with the facts a logo tile needs.
+ *
+ * `productCount` is a correlated `count(*)` over the same predicates `listPublishedProducts` uses,
+ * so a brand tile can never advertise a number its listing does not show.
+ */
+export type CatalogBrand = {
+  readonly id: string;
+  readonly slug: string;
+  readonly name: { bn: string | null; en: string };
+  readonly logoKey: string | null;
+  readonly productCount: number;
 };
 
 /**
@@ -228,6 +247,8 @@ export async function listVisibleCategories(tx: Transaction): Promise<CatalogCat
       descriptionBn: category.descriptionBn,
       descriptionEn: category.descriptionEn,
       sortOrder: category.sortOrder,
+      imageKey: category.imageKey,
+      tagline: category.tagline,
     })
     .from(category)
     .where(sql`${category.deletedAt} is null and ${category.isVisible}`)
@@ -239,7 +260,59 @@ export async function listVisibleCategories(tx: Transaction): Promise<CatalogCat
     name: { bn: row.nameBn, en: row.nameEn },
     blurb: { bn: row.descriptionBn, en: row.descriptionEn },
     sortOrder: row.sortOrder,
+    imageKey: row.imageKey,
+    tagline: row.tagline,
   }));
+}
+
+/**
+ * Visible brands with at least one published product, busiest first.
+ *
+ * A brand with nothing to sell is not a discovery surface: the tile would link to an empty listing.
+ * The count uses the same predicates as `listPublishedProducts` - non-deleted, published, with an
+ * active default variant - so the number on a brand tile is exactly what its listing shows. The
+ * documented placeholder brand (`unbranded`) is excluded because it is storage, not a brand.
+ */
+export async function listVisibleBrands(tx: Transaction): Promise<CatalogBrand[]> {
+  const rows = await tx
+    .select({
+      id: brand.id,
+      slug: brand.slug,
+      nameBn: brand.nameBn,
+      nameEn: brand.nameEn,
+      logoKey: brand.logoKey,
+      productCount: sql<number>`(
+        select count(*)::int from "product"
+        where "product"."brand_id" = "brand"."id"
+          and "product"."deleted_at" is null
+          and "product"."is_published"
+          and exists (
+            select 1 from "product_variant"
+            where "product_variant"."product_id" = "product"."id"
+              and "product_variant"."is_default" and "product_variant"."is_active"
+          )
+      )`,
+    })
+    .from(brand)
+    .where(
+      sql`${brand.deletedAt} is null and ${brand.isActive} and ${brand.slug} <> ${UNBRANDED_BRAND_SLUG}`,
+    );
+
+  return rows
+    .filter((row) => row.productCount > 0)
+    .map((row) => ({
+      id: String(row.id),
+      slug: row.slug,
+      name: { bn: row.nameBn, en: row.nameEn },
+      logoKey: row.logoKey,
+      productCount: row.productCount,
+    }))
+    .sort(
+      (a, b) =>
+        b.productCount - a.productCount ||
+        (a.name.en ?? '').localeCompare(b.name.en ?? '', 'en') ||
+        a.slug.localeCompare(b.slug),
+    );
 }
 
 /**
@@ -399,6 +472,8 @@ function projectProduct(
     // A product with no published brand is stored against the documented placeholder row; the
     // storefront must not turn that storage detail into an invented brand name for a customer.
     brand: row.brandSlug === UNBRANDED_BRAND_SLUG ? null : row.brandNameEn,
+    // The placeholder row is storage, not a brand a customer can browse, so it has no slug either.
+    brandSlug: row.brandSlug === UNBRANDED_BRAND_SLUG ? null : row.brandSlug,
     categoryId: String(row.categoryId),
     categorySlug: row.categorySlug,
     pack: row.packSize,

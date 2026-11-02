@@ -31,6 +31,8 @@ function item(
     description: { bn: null, en: null },
     shortDescription: null,
     brand: null,
+
+    brandSlug: null,
     categoryId: 'skincare',
     categorySlug: 'skincare',
     pack: null,

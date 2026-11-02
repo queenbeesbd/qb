@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useMemo, useRef, useState } from 'react';
 
 import { useTranslation } from '@/i18n/useTranslation';
+import { imageVariantPath } from '@/lib/images';
 import { slugPreview } from '@/lib/slug-preview';
 import { AdminIcon } from '../../_ui/icons';
 import { RequiredMark } from '../../_ui/RequiredMark';
@@ -18,6 +19,10 @@ export type CategoryFormValues = {
   descriptionBn?: string | null;
   sortOrder?: number;
   isVisible?: boolean;
+  /** The one-line label under the category's name on the storefront index. */
+  tagline?: string | null;
+  /** The category's square photograph, as an asset key. */
+  imageKey?: string | null;
 };
 
 /** The two derived counts an archive is refused on. Absent until the category exists. */
@@ -48,6 +53,7 @@ export function CategoryForm({
   usage,
   csrfToken,
   cancelHref,
+  assetKeys,
 }: {
   mode: 'create' | 'edit';
   values: CategoryFormValues;
@@ -55,8 +61,17 @@ export function CategoryForm({
   usage?: CategoryUsage;
   csrfToken: string;
   cancelHref: string;
+  /**
+   * Every image the shop owns, as asset keys.
+   *
+   * Only meaningful on the edit route: a category has to exist before an image can be associated with
+   * it. A create form therefore saves first and offers the photograph on the record it just created,
+   * which is also where the storefront preview lives.
+   */
+  assetKeys?: readonly string[];
 }) {
   const { t } = useTranslation();
+  const assets = assetKeys ?? [];
 
   const [nameEn, setNameEn] = useState(values.nameEn ?? '');
   const [nameBn, setNameBn] = useState(values.nameBn ?? '');
@@ -211,6 +226,18 @@ export function CategoryForm({
             </div>
 
             <div className={styles.field}>
+              <label htmlFor="tagline">{t('admin.categories.field.tagline')}</label>
+              <input
+                className={styles.input}
+                id="tagline"
+                name="tagline"
+                maxLength={120}
+                defaultValue={values.tagline ?? ''}
+              />
+              <p className={styles.hint}>{t('admin.categories.field.taglineHelp')}</p>
+            </div>
+
+            <div className={styles.field}>
               <label htmlFor="descriptionEn">{t('admin.categories.field.descriptionEn')}</label>
               <textarea
                 className={styles.textarea}
@@ -235,6 +262,72 @@ export function CategoryForm({
               />
             </div>
           </section>
+
+          {/*
+            The storefront storefront tile: the square photograph and the one line under its name.
+            Edit-only, because an image association needs a saved category to point at - and this is
+            the *only* place the owner decides what the category looks like in the index.
+          */}
+          {mode === 'edit' && categoryId !== undefined && (
+            <section className={styles.formCard} aria-labelledby="cf-image">
+              <div className={styles.formCardHead}>
+                <h2 id="cf-image">{t('admin.categories.sectionImage')}</h2>
+                <p>{t('admin.categories.sectionImageBody')}</p>
+              </div>
+
+              <div className={styles.categoryImageRow}>
+                <span className={styles.categoryImagePreview} data-empty={values.imageKey ? undefined : 'true'}>
+                  {values.imageKey ? (
+                    // Association-only imagery: the key was validated against the server's inventory,
+                    // so it cannot name a path outside `public/catalog`.
+                    <img src={imageVariantPath(values.imageKey)} alt="" width={96} height={96} />
+                  ) : (
+                    <span className={styles.categoryImageEmpty}>{t('admin.categories.imageNone')}</span>
+                  )}
+                </span>
+
+                <div className={styles.categoryImageControls}>
+                  <form className={styles.categoryImageForm} action="/api/admin/catalog/category-image" method="post">
+                    <input type="hidden" name="csrf" value={csrfToken} />
+                    <input type="hidden" name="operation" value="choose" />
+                    <input type="hidden" name="categoryId" value={categoryId} />
+                    <input type="hidden" name="returnTo" value={selfHref} />
+                    <div className={styles.field}>
+                      <label htmlFor="categoryImageKey">{t('admin.categories.imagePick')}</label>
+                      <select
+                        className={styles.select}
+                        id="categoryImageKey"
+                        name="imageKey"
+                        defaultValue={values.imageKey ?? ''}
+                      >
+                        <option value="">{t('admin.categories.imageNone')}</option>
+                        {assets.map((key) => (
+                          <option value={key} key={key}>
+                            {key}
+                          </option>
+                        ))}
+                      </select>
+                      <p className={styles.hint}>{t('admin.categories.field.imageHelp')}</p>
+                    </div>
+                    <SubmitButton label={t('admin.categories.imageChoose')} pendingLabel={t('admin.common.working')} />
+                  </form>
+
+                  {values.imageKey !== null && values.imageKey !== undefined && (
+                    <form action="/api/admin/catalog/category-image" method="post">
+                      <input type="hidden" name="csrf" value={csrfToken} />
+                      <input type="hidden" name="operation" value="clear" />
+                      <input type="hidden" name="categoryId" value={categoryId} />
+                      <input type="hidden" name="returnTo" value={selfHref} />
+                      <button className={`${styles.button} ${styles.buttonSecondary} ${styles.buttonSmall}`} type="submit">
+                        {t('admin.categories.imageRemove')}
+                      </button>
+                    </form>
+                  )}
+                  <p className={styles.hint}>{t('admin.categories.imageRemoveHint')}</p>
+                </div>
+              </div>
+            </section>
+          )}
 
           <section className={styles.formCard} aria-labelledby="cf-placement">
             <div className={styles.formCardHead}>

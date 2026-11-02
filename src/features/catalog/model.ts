@@ -40,6 +40,16 @@ export function categoryIcon(slug: string): CategoryIcon {
   return CATEGORY_ICONS[slug] ?? DEFAULT_CATEGORY_ICON;
 }
 
+/** A brand name as a route segment, matching the slug rule the database enforces. */
+export function brandSlug(name: string | null): string | null {
+  if (name === null) return null;
+  const slug = name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+  return slug === '' ? null : slug;
+}
+
 /**
  * Translates a Phase 1 fixture record into the storefront shape.
  *
@@ -59,6 +69,9 @@ export function fixtureToCatalogItem(product: Product): CatalogItem {
     // honest value: the page then omits the line rather than inventing a summary.
     shortDescription: null,
     brand: product.brand,
+    // The fixture has no brand slug column: its brand is a plain name, so the link target is derived
+    // with the same slug rule the seed uses, and a nameless product has no brand link at all.
+    brandSlug: brandSlug(product.brand),
     // In the fixture the category id is already the slug, so both fields agree.
     categoryId: product.categoryId,
     categorySlug: product.categoryId,
@@ -86,5 +99,9 @@ export function fixtureToCatalogCategory(category: Category): CatalogCategory {
     blurb: category.blurb,
     icon: categoryIcon(category.slug),
     sortOrder: 0,
+    // The fixture has no image or tagline column: the category tile then draws its icon glyph, which
+    // is the same fallback a database category with no image gets.
+    imageKey: null,
+    tagline: null,
   };
 }

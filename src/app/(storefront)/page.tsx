@@ -21,6 +21,7 @@ export default async function HomePage() {
   const selection = selectHomepage({
     products: catalog.products,
     categories: catalog.categories,
+    brands: catalog.brands,
     featuredIds: catalog.featuredIds,
     collectionIds: catalog.collectionIds,
   });
@@ -31,8 +32,9 @@ export default async function HomePage() {
       heroProducts={selection.hero}
       featured={selection.featured}
       deals={selection.deals}
-      recentlyAdded={selection.recentlyAdded}
-      explore={selection.explore}
+      newArrivals={selection.newArrivals}
+      browse={selection.browse}
+      brands={selection.brands}
       isEmpty={selection.isEmpty}
     />
   );

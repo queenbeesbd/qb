@@ -799,4 +799,45 @@ active), pause (`is_active = false`), resume (`true`), remove (dialog naming "Ve
 to a real Telegram account from a freshly registered id (no owner chat id in this environment), and real
 iOS/Android touch.
 
+## Storefront discovery (2026-11-02)
+
+The homepage, category index and product page were rebuilt around **pictures, at phone size first**.
+
+**Homepage order.** Hero, offers, categories, featured, brands, new arrivals, browse. The first screen
+carries the headline, the two actions and a **spotlight row** - the two newest products as 72px
+photographs with their names and prices - so a purchasable product is visible before any scrolling. From
+1024px the hero becomes the copy-and-three-photographs composition; the spotlight is hidden rather than
+shrunk, because the collage does its job better there.
+
+**The offer shelf** is a CSS scroll-snap track: 62% card width on a phone (the next card is visibly
+cut, which is the affordance), 44% at 480px, 30% at 720px and a quarter of the track from 1024px, where
+previous/next controls and slide dots appear. No autoplay, no timer, no JS scrolling: the controls call
+`scrollBy` and the shelf works with them removed. The dots are 8px marks inside 24px pressable areas.
+
+**Category rail.** A horizontal strip of 84px squares on a phone (94px at 480px), becoming a 7-column
+wrap from 720px. Seven columns because the catalog holds 14 departments: 7+7 is two even rows, where
+`auto-fill` fitted nine and left five stranded.
+
+**Brand rail.** Five columns from 720px, capped at a **132px tile**. A brand mark is the subject of the
+tile, not its background: at 260px the padding became the picture.
+
+**Category index.** Square photographs, 2 across on a phone, 3 at 480px, 4 at 720px, 5 at 1024px. Each
+tile shows the photograph, the name, a one-line label and the product count as a small chip on the
+photograph. A category with no photograph draws its icon in the same square.
+
+**Product page.** Gallery **square** on a phone (a 3:4 frame at 390px is 520px tall - a full screen
+above the price), 4:5 from 480px. From 880px the media column is capped at **480px** and the gallery is
+sticky, so the price, the facts and the actions sit beside the photograph rather than below it. The
+purchase block is observed with `IntersectionObserver`; a fixed purchase bar appears only once the
+gallery has scrolled away **and** the in-page block is off screen, so the first screen is never covered
+by a duplicate control. The breadcrumb is one line and may shorten only its last level.
+
+**Discovery imagery is an asset key, never a URL.** `category.image_key` and `brand.logo_key` hold keys
+validated against the server's own inventory; every rendered path comes from `src/lib/images.ts`. The
+tiles are generated at the same two widths as product photography (600 and 1050) by
+`npm run assets:discovery`, so one route and one allowlist serve all three families.
+
+**Brand marks are verified, not guessed.** A brand's favicon is only used when the brand's own page
+names it in `<title>` and the icon is at least 96px; a brand that cannot prove itself keeps
+`logo_key = null` and the tile draws its initials. A wrong mark on a right name is worse than no mark.
 

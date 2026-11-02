@@ -16,5 +16,5 @@ export default async function CategoriesPage() {
     counts[product.categorySlug] = (counts[product.categorySlug] ?? 0) + 1;
   }
 
-  return <CategoriesView categories={catalog.categories} counts={counts} />;
+  return <CategoriesView categories={catalog.categories} counts={counts} brands={catalog.brands} />;
 }

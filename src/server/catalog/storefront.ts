@@ -31,11 +31,20 @@ import {
   fixtureToCatalogCategory,
   fixtureToCatalogItem,
 } from '@/features/catalog/model';
-import type { CatalogCategory, CatalogItem } from '@/lib/types';
+import type { CatalogBrand, CatalogCategory, CatalogItem } from '@/lib/types';
 import { EnvironmentError } from '@/server/env';
 
-import type { CatalogCategory as CatalogCategoryRecord, CatalogProduct } from './read';
-import { listCollectionSelections, listPublishedProducts, listVisibleCategories } from './read';
+import type {
+  CatalogBrand as CatalogBrandRecord,
+  CatalogCategory as CatalogCategoryRecord,
+  CatalogProduct,
+} from './read';
+import {
+  listCollectionSelections,
+  listPublishedProducts,
+  listVisibleBrands,
+  listVisibleCategories,
+} from './read';
 
 /** Collection `code` values the storefront reads. Seeded, not invented per request. */
 export const FEATURED_COLLECTION_CODE = 'featured';
@@ -46,6 +55,11 @@ export type StorefrontCatalog = {
   readonly source: 'database' | 'fixture';
   readonly products: readonly CatalogItem[];
   readonly categories: readonly CatalogCategory[];
+  /**
+   * Brands with something to sell, busiest first. Derived from the same snapshot as the products, so a
+   * brand tile's count and the listing it links into can never disagree.
+   */
+  readonly brands: readonly CatalogBrand[];
   /** Product ids of the featured selection, in position order. */
   readonly featuredIds: readonly string[];
   /** Product ids of the secondary curated selection, in position order. */
@@ -82,6 +96,7 @@ function toCatalogItem(record: CatalogProduct): CatalogItem {
     description: record.description,
     shortDescription: record.shortDescription,
     brand: record.brand,
+    brandSlug: record.brandSlug,
     categoryId: record.categoryId,
     categorySlug: record.categorySlug,
     pack: record.pack,
@@ -107,7 +122,41 @@ function toCatalogCategory(record: CatalogCategoryRecord): CatalogCategory {
     blurb: record.blurb,
     icon: categoryIcon(record.slug),
     sortOrder: record.sortOrder,
+    imageKey: record.imageKey,
+    tagline: record.tagline,
   };
+}
+
+function toCatalogBrand(record: CatalogBrandRecord): CatalogBrand {
+  return {
+    id: record.id,
+    slug: record.slug,
+    name: record.name,
+    logoKey: record.logoKey,
+    productCount: record.productCount,
+  };
+}
+
+/**
+ * Brands for the fixture path: one per distinct brand name in the fixture, counted from those products
+ * and ordered busiest first. No logo is invented - the fixture carries no such field, and the tile's
+ * initials fallback is the honest answer.
+ */
+function fixtureBrands(products: readonly CatalogItem[]): CatalogBrand[] {
+  const counts = new Map<string, number>();
+  for (const product of products) {
+    if (product.brand === null) continue;
+    counts.set(product.brand, (counts.get(product.brand) ?? 0) + 1);
+  }
+  return [...counts.entries()]
+    .map(([name, productCount]) => ({
+      id: name.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+      slug: name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, ''),
+      name: { bn: null, en: name },
+      logoKey: null,
+      productCount,
+    }))
+    .sort((a, b) => b.productCount - a.productCount || a.slug.localeCompare(b.slug));
 }
 
 function readFixtureCatalog(): StorefrontCatalog {
@@ -126,6 +175,12 @@ function readFixtureCatalog(): StorefrontCatalog {
     source: 'fixture',
     products,
     categories: fixtureCategories.map(fixtureToCatalogCategory),
+    /*
+     * A fixture brand carries no logo and no count of its own; both are derived here the same way the
+     * database projection derives them - from the products in this snapshot - so the fixture path
+     * renders the identical brand rail without inventing a single extra fact.
+     */
+    brands: fixtureBrands(products),
     featuredIds: resolve(FEATURED_PRODUCT_IDS),
     collectionIds: resolve(COLLECTION_PRODUCT_IDS),
   };
@@ -141,18 +196,20 @@ export const getStorefrontCatalog = cache(async (): Promise<StorefrontCatalog> =
   if (fixtureFallbackEnabled()) return readFixtureCatalog();
 
   const snapshot = await withTransaction(async (tx) => {
-    const [products, categories, selections] = await Promise.all([
+    const [products, categories, brands, selections] = await Promise.all([
       listPublishedProducts(tx),
       listVisibleCategories(tx),
+      listVisibleBrands(tx),
       listCollectionSelections(tx),
     ]);
-    return { products, categories, selections };
+    return { products, categories, brands, selections };
   });
 
   return {
     source: 'database',
     products: snapshot.products.map(toCatalogItem),
     categories: snapshot.categories.map(toCatalogCategory),
+    brands: snapshot.brands.map(toCatalogBrand),
     featuredIds: snapshot.selections.get(FEATURED_COLLECTION_CODE) ?? [],
     collectionIds: snapshot.selections.get(SECONDARY_COLLECTION_CODE) ?? [],
   };

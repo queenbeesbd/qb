@@ -40,6 +40,15 @@ export const brand = pgTable(
     nameBn: text('name_bn').notNull(),
     nameEn: text('name_en').notNull(),
     isActive: boolean('is_active').notNull().default(true),
+    /**
+     * The brand's own logo, as an asset key under `/catalog/`.
+     *
+     * Same rule as product imagery: an **asset key**, never a URL and never a hotlink (ADR 0006), so
+     * `src/lib/images.ts` derives every rendered path and a record cannot drift from its bytes. Null
+     * means the shop has no logo for this brand, and the storefront then draws the brand's initials
+     * rather than a placeholder image that would pretend to be a logo.
+     */
+    logoKey: text('logo_key'),
     createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
     deletedAt: timestamp('deleted_at', { withTimezone: true, mode: 'date' }),
@@ -50,6 +59,11 @@ export const brand = pgTable(
     check('brand_slug_format', sql`${t.slug} ~ '^[a-z0-9]+(-[a-z0-9]+)*$'`),
     check('brand_name_bn_len', sql`char_length(${t.nameBn}) between 1 and 80`),
     check('brand_name_en_len', sql`char_length(${t.nameEn}) between 1 and 80`),
+    // Same key shape the asset route accepts, bounded to the longest key the catalog actually uses.
+    check(
+      'brand_logo_key_format',
+      sql`${t.logoKey} is null or (${t.logoKey} ~ '^[a-z0-9]+(-[a-z0-9]+)*$' and char_length(${t.logoKey}) <= 120)`,
+    ),
   ],
 );
 
@@ -67,6 +81,18 @@ export const category = pgTable(
     descriptionEn: text('description_en'),
     sortOrder: integer('sort_order').notNull().default(0),
     isVisible: boolean('is_visible').notNull().default(true),
+    /**
+     * The category's own square photograph, as an asset key under `/catalog/`.
+     *
+     * The category index is a picture grid rather than a list of names, so a category needs an image
+     * of its own. It is an **asset key** for the same reason a product image is: the admin picker
+     * resolves it against the server's own inventory, and `src/lib/images.ts` derives the path.
+     * Null means the owner has not chosen one, and the tile falls back to the category's icon glyph
+     * instead of a mocked-up photograph.
+     */
+    imageKey: text('image_key'),
+    /** One short customer-facing line for the tile, in English. Null omits the line entirely. */
+    tagline: text('tagline'),
     createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
     deletedAt: timestamp('deleted_at', { withTimezone: true, mode: 'date' }),
@@ -80,6 +106,11 @@ export const category = pgTable(
     check('category_name_en_len', sql`char_length(${t.nameEn}) between 1 and 80`),
     check('category_not_own_parent', sql`${t.parentId} is null or ${t.parentId} <> ${t.id}`),
     check('category_sort_order_non_negative', sql`${t.sortOrder} >= 0`),
+    check(
+      'category_image_key_format',
+      sql`${t.imageKey} is null or (${t.imageKey} ~ '^[a-z0-9]+(-[a-z0-9]+)*$' and char_length(${t.imageKey}) <= 120)`,
+    ),
+    check('category_tagline_len', sql`${t.tagline} is null or char_length(${t.tagline}) between 1 and 120`),
   ],
 );
 

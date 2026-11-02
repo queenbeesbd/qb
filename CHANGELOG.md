@@ -14,6 +14,51 @@ No entry may describe a deployment: nothing has been deployed.
 
 ## [Unreleased]
 
+### Changed - 2026-11-02: storefront discovery redesign (mobile-first)
+
+The storefront's homepage, category index and product page were rebuilt as a **picture-led, mobile-first
+shopping surface**. Everything a customer can buy is still read from the same catalog snapshot; nothing is
+mocked, no claim was added, and no checkout, cart, order or admin path changed behaviour.
+
+**Homepage.** New order, chosen for a phone: hero, **offers**, **category rail**, the owner's featured row,
+**brand rail**, new arrivals, and the browse row. The hero is a compact band on a phone - headline, two
+actions, and a **spotlight row** of the two newest products with their prices - and the three-frame
+composition from 1024px up. Offers are a CSS scroll-snap shelf (1.6 cards visible on a phone, four on a
+desktop) with previous/next controls and slide jumps above 1024px; there is no autoplay, no timer and no
+JavaScript-driven scrolling. The category rail is a strip of **square photographs** on a phone and a
+wrapping grid from 720px. The brand rail shows each brand's verified mark, or its initials. Sections never
+repeat a product between them.
+
+**Category index.** A grid of **square photographs** (2 across on a phone, 5 from 1024px) with the name, a
+one-line label and the real product count, followed by a twelve-brand teaser into `/brands`. Every tile
+links to its category page.
+
+**Product page.** The gallery is a **square** on a phone and 4:5 above 480px, and the media column is capped
+at 480px on a desktop with the price and facts beside it rather than below a full-height photograph. Title
+size is 22px on a phone. A **purchase bar** appears once the gallery and the in-page purchase block have
+scrolled away, so the price and the add button stay reachable without covering the first screen. The
+breadcrumb now includes the brand and stays on one line.
+
+**Brands.** New `/brands` index and `/brands/<slug>` listing. Every brand tile shows the brand's own logo
+where one was verified, and its **initials** otherwise. The listing reuses `CatalogView`, so department,
+price, availability, search, sort and paging all work on a brand page exactly as on `/products`.
+
+**Category imagery is owner-managed.** `category` gained `image_key`, `tagline`; `brand` gained `logo_key`
+(migration `0012`, additive). The category editor can associate any image from the shop's own asset
+inventory, clear it, and edit the one-line label; the storefront then renders that photograph, and falls
+back to the category's icon when none is set. `npm run assets:discovery` builds the square category
+photographs from a recorded licence list and fetches brand logos from each brand's **own site** (verified by
+the domain's `<title>`), writing them into `public/catalog` in the same two-width form product photography
+uses. A brand whose logo cannot be verified keeps `logo_key = null`.
+
+**Curation.** `npm run seed:discovery` writes the two curated collections from stated rules over the live
+catalog (`featured`: one product per busiest department; `collection`: four from each of the three busiest),
+records the shipped category photos and labels, and syncs brand logo keys both ways.
+
+**Honesty.** No rating, review, countdown, "best seller", invented discount or delivery promise was added.
+Every price, count and discount on the new surfaces is derived from stored rows.
+
+---
 ### Fixed - 2026-10-30: the mobile status filter on /admin/orders
 
 Owner report: the sliding **All / Pending / Confirmed / …** filter was hard to use on a phone. Measured first:
