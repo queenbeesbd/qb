@@ -72,8 +72,13 @@
   grid-auto-columns: calc((100% - var(--space-3)) / 2);
 }
 
+/*
+ * Five circles on a phone row (owner direction, 2026-11-05). Four left a fifth department one swipe
+ * away for no readership reason; five fits at 320px with a 12px gap, so the first screen names more
+ * of the shop. From 720px the circles take a fixed 104px.
+ */
 .track[data-size='circle'] {
-  grid-auto-columns: calc((100% - 3 * var(--space-3)) / 4);
+  grid-auto-columns: calc((100% - 4 * var(--space-3)) / 5);
 }
 
 /* ---------------------------------------------------------------------------

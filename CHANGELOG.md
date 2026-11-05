@@ -14,6 +14,15 @@ An entry may describe a deployment only once it has actually happened and been o
 
 ## [Unreleased]
 
+### Changed - 2026-11-05: five circles on a phone row for Shop By Category and Shop By Brand
+Both homepage rails showed four circles on a phone, leaving the fifth department behind a swipe with no
+reading reason. The shared `Carousel` circle scale is now `(100% - 4*gap) / 5`, so five circles fit at
+every phone width; `CIRCLE_RAIL_SIZES` and `BRAND_RAIL_SIZES` moved to `20vw` so the browser asks for the
+right thumbnail. At 390px a circle is 62px (48px at 320px), and nothing overflows the page.
+
+**Verification.** Headless Chromium at 320/360/390px: 5 fully visible in both rails at each width, page
+overflow 0, circle 48/56/62px; no `<picture>` regressions.
+
 ### Changed - 2026-11-05: support links move to the bottom-right corner
 The Facebook/WhatsApp rail moved from the bottom-left corner to the **bottom-right** (owner direction),
 mirroring the cart box that owns the right edge halfway up: the two floating surfaces no longer sit on

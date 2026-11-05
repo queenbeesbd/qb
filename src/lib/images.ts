@@ -69,10 +69,10 @@ export const CATEGORY_RAIL_SIZES = '96px';
 
 /**
  * Source-size hint for the homepage's **circular** category carousel
- * (`CategoryCircleRail`). Four circles a phone row and 116px from 1024px; a 116px hint covers the
- * widest case without pulling the 1050px master for a thumbnail.
+ * (`CategoryCircleRail`). Five circles a phone row and 116px from 1024px; the 20vw hint covers a
+ * fifth of the content width, and the 320px variant still covers a 2x phone.
  */
-export const CIRCLE_RAIL_SIZES = '(max-width: 719px) 24vw, 116px';
+export const CIRCLE_RAIL_SIZES = '(max-width: 719px) 20vw, 116px';
 
 /**
  * Source-size hint for the homepage's **circular** brand carousel (`BrandCircleRail`).
@@ -80,7 +80,7 @@ export const CIRCLE_RAIL_SIZES = '(max-width: 719px) 24vw, 116px';
  * The circle is the same 116px box the category rail draws, and the mark is inset inside it, so the
  * logo itself never renders wider than ~76px.
  */
-export const BRAND_RAIL_SIZES = '(max-width: 719px) 24vw, 76px';
+export const BRAND_RAIL_SIZES = '(max-width: 719px) 20vw, 76px';
 
 /** Source-size hint for the listing's four-column desktop grid. */
 export const LISTING_CARD_SIZES =

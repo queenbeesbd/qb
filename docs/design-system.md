@@ -166,7 +166,7 @@ the grid are the same width at every breakpoint.
 | section | cards | phone | desktop |
 | --- | --- | --- | --- |
 | On offer | 10 | 5 pages of 2 | 2 pages of 5 |
-| Shop by category | 10 | 4 circles a page | 8 + a page |
+| Shop by category | 10 | 5 circles a page | 8 + a page |
 | Shop by brand | 10 | 2 cards a page | 4 cards a page |
 | Recently added | 10 | 5 pages of 2 | 2 pages of 5 |
 
@@ -954,9 +954,10 @@ cut, which is the affordance), 44% at 480px, 30% at 720px and a quarter of the t
 previous/next controls and slide dots appear. The hero advances every 9 seconds, wrapping at the end (2026-11-05); the controls call
 `scrollBy` and the shelf works with them removed. The dots are 8px marks inside 24px pressable areas.
 
-**Category rail.** A horizontal strip of 84px squares on a phone (94px at 480px), becoming a 7-column
-wrap from 720px. Seven columns because the catalog holds 14 departments: 7+7 is two even rows, where
-`auto-fill` fitted nine and left five stranded.
+**Category rail.** The homepage draws categories as **five circles on a phone row** (owner direction,
+2026-11-05; 62px at 390px, 48px at 320px), five or more from 720px where the circle is fixed at 104px,
+and the same component `size="circle"` as the brand rail. The circle is the subject: the photograph
+fills it with a centre crop and the name sits beneath.
 
 **Brand rail.** The homepage draws brands in the **same circle** as the categories above them
 (owner direction, 2026-11-05): one round tile per brand, the mark inset inside it, the name beneath and
