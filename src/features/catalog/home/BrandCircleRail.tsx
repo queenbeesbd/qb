@@ -6,7 +6,7 @@ import { useTranslation } from '@/i18n/useTranslation';
 import { BRAND_RAIL_SIZES } from '@/lib/images';
 import type { CatalogBrand } from '@/lib/types';
 import { Carousel } from '@/components/Carousel';
-import { brandInitials, DiscoveryPhoto } from '@/components/DiscoveryPhoto';
+import { brandInitial, brandTone, DiscoveryPhoto } from '@/components/DiscoveryPhoto';
 import styles from './BrandCircleRail.module.css';
 
 /**
@@ -22,9 +22,11 @@ import styles from './BrandCircleRail.module.css';
  * `object-fit: contain` - a circle that cropped a wordmark would cut the name in half. The box keeps
  * a white surface underneath for the same reason: a transparent favicon needs something to sit on.
  *
- * A brand the shop has no logo for draws its initials inside the same circle, derived from the stored
- * name and never invented, so one missing logo cannot break the rail's rhythm. The count comes from
- * the same snapshot the tile links into.
+ * A brand the shop has no logo for draws a **single-letter monogram** in the same circle, on a pale
+ * plate chosen from the brand's own slug. One letter at display size reads as a deliberate mark; two
+ * initials in a 100px circle read as truncated text, which is what the rail looked like before
+ * (owner feedback, 2026-11-05). The letter is the first character of the stored name and is never
+ * invented. The count comes from the same snapshot the tile links into.
  */
 export function BrandCircleRail({ brands }: { brands: readonly CatalogBrand[] }) {
   const { t, pick } = useTranslation();
@@ -34,14 +36,22 @@ export function BrandCircleRail({ brands }: { brands: readonly CatalogBrand[] })
         const name = pick(brand.name) ?? brand.slug;
         return (
           <Link key={brand.id} className={styles.link} href={`/brands/${brand.slug}`}>
-            <span className={styles.circle} aria-hidden="true">
-              <DiscoveryPhoto
-                imageKey={brand.logoKey}
-                alt=""
-                sizes={BRAND_RAIL_SIZES}
-                className={styles.logo}
-                fallback={<span className={styles.initials}>{brandInitials(name) || '·'}</span>}
-              />
+            <span
+              className={styles.circle}
+              data-tone={brandTone(brand.slug)}
+              data-fallback={brand.logoKey === null ? 'true' : undefined}
+              aria-hidden="true"
+            >
+              {brand.logoKey === null ? (
+                <span className={styles.initial}>{brandInitial(name)}</span>
+              ) : (
+                <DiscoveryPhoto
+                  imageKey={brand.logoKey}
+                  alt=""
+                  sizes={BRAND_RAIL_SIZES}
+                  className={styles.logo}
+                />
+              )}
             </span>
             <span className={styles.name}>{name}</span>
           </Link>

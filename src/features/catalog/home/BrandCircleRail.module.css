@@ -76,11 +76,40 @@
   background: transparent;
 }
 
-/* The no-logo fallback: the brand's own initials, on the page's own surface. */
-.initials {
-  font-size: clamp(16px, 4.5vw, 22px);
+/*
+ * The no-logo mark: one letter set as a monogram on a pale plate. The four tones are the same four
+ * the square brand tile already uses (lavender, pink, mint, warm), so a run of letter tiles reads as
+ * a set rather than as missing images. The plate is a step, not a decoration: no ring, no shadow.
+ */
+.circle[data-fallback='true'] {
+  border-color: transparent;
+}
+
+.circle[data-fallback='true'][data-tone='0'] {
+  background: #f3edff;
+}
+
+.circle[data-fallback='true'][data-tone='1'] {
+  background: #fdeef3;
+}
+
+.circle[data-fallback='true'][data-tone='2'] {
+  background: #eef7f3;
+}
+
+.circle[data-fallback='true'][data-tone='3'] {
+  background: #fdf6ec;
+}
+
+.initial {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  font-family: var(--font-display);
+  font-size: clamp(22px, 6vw, 34px);
   font-weight: 700;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.03em;
   line-height: 1;
   color: var(--color-action);
 }

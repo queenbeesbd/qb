@@ -76,6 +76,24 @@ export function DiscoveryPhoto({
  * the brand index and the circle on the homepage rail - and two copies of this rule would eventually
  * disagree about what a three-word brand is called.
  */
+/**
+ * The one letter a brand's no-logo tile shows (homepage rail, 2026-11-05).
+ *
+ * The first letter or digit of the stored name, never an invented mark. Two initials in a 100px
+ * circle read as uneven text; one letter set large in the display face reads as a monogram.
+ */
+export function brandInitial(name: string): string {
+  const match = /[a-z0-9]/i.exec(name);
+  return match === null ? '·' : match[0].toUpperCase();
+}
+
+/** A stable tone index from the slug, so a brand keeps the same plate on every visit. */
+export function brandTone(slug: string): string {
+  let hash = 0;
+  for (const character of slug) hash = (hash * 31 + character.charCodeAt(0)) % 997;
+  return String(hash % 4);
+}
+
 export function brandInitials(name: string): string {
   return name
     .split(/\s+/)
@@ -125,7 +143,5 @@ export function BrandMark({
  * neighbouring tiles differ. Presentational only: it never carries meaning the name does not.
  */
 function toneFor(slug: string): string {
-  let hash = 0;
-  for (const character of slug) hash = (hash * 31 + character.charCodeAt(0)) % 997;
-  return String(hash % 4);
+  return brandTone(slug);
 }

@@ -192,7 +192,7 @@ padding so a focus ring has room.
 **The brand row is a card per brand** (owner reference: Ghorer Bazar's "Our Brands", anatomy only, not
 styling): the mark centred on a white card, the brand's name beneath it and its product count under that,
 four across on a desktop. The brand's own soft tint stays as a rounded logo chip inside the card, and the
-name is always drawn - a brand with no logo shows its initials, and the name is what says whose mark it is.
+name is always drawn - a brand with no logo shows one large display-face letter on a pale plate derived from its slug, and the name is what says whose mark it is.
 
 **The footer is short (owner feedback: "very lengthy").** The department list is gone - five links into
 categories the header, the tab bar and the index already reach - leaving the shop's own line, two groups of
@@ -964,7 +964,7 @@ wrap from 720px. Seven columns because the catalog holds 14 departments: 7+7 is 
 the product count under the name, in the shared `Carousel` (`size="circle"`). The circle frames a logo
 rather than cropping one - a mark is rendered with `object-fit: contain` on the circle's own white
 surface, because a favicon is drawn to the edges of its square and a circular crop would cut a wordmark
-in half. A brand with no logo draws its initials in the circle. The square-card rail this replaced is
+in half. A brand with no logo draws a single-letter monogram on a pale plate in the circle. The square-card rail this replaced is
 gone rather than kept beside it, so the page has one brand presentation. The brand **index** keeps its
 circles, and since 2026-11-05 the **category index draws the same circle**, with the photograph filling
 it (`object-fit: cover`, centre crop) instead of sitting inside a square tile.
@@ -987,7 +987,7 @@ tiles are generated at the same two widths as product photography (600 and 1050)
 
 **Brand marks are verified, not guessed.** A brand's favicon is only used when the brand's own page
 names it in `<title>` and the icon is at least 96px; a brand that cannot prove itself keeps
-`logo_key = null` and the tile draws its initials. A wrong mark on a right name is worse than no mark.
+`logo_key = null` and the tile draws its first letter as a monogram. A wrong mark on a right name is worse than no mark.
 
 **The owner can replace a brand mark.** `/admin/catalog/brands` lists the brands with the logo each one
 shows, and `/admin/catalog/brands/[brandId]` associates a different image from the shop's own asset

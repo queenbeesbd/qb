@@ -14,6 +14,15 @@ No entry may describe a deployment: nothing has been deployed.
 
 ## [Unreleased]
 
+### Changed - 2026-11-05: single-letter brand monograms
+
+A brand with no logo in the homepage Shop By Brand rail no longer shows two initials in a bare white
+circle. It shows **one letter** from the stored name, set in the display face at about 34% of the
+circle, on one of the four pale plates the square brand tile already uses (lavender, pink, mint,
+warm), chosen deterministically from the brand's slug. The plate is a tone step with no ring or
+shadow, so a run of letter tiles reads as a deliberate set. Category circles and logo tiles are
+unchanged.
+
 ### Changed - 2026-11-05: filled storefront controls take the light lavender
 
 Every filled storefront control - primary actions, add to cart, checkout, campaign CTA, support discs,
