@@ -1080,10 +1080,11 @@ export const dictionary = {
   'admin.catalog.attachExisting': 'Attach an existing photograph',
   'admin.upload.file': 'Image from your computer',
   'admin.upload.help':
-    'JPG, PNG or WebP, up to 4 MB. The shop crops and resizes it for every place the image appears.',
+    'JPG, PNG or WebP. A large photo is compressed in your browser before it is sent, then the shop crops and resizes it for every place the image appears.',
+  'admin.upload.preparing': 'Preparing the image for upload…',
   'admin.upload.submit': 'Upload image',
   'admin.catalog.uploadHelp':
-    'The file is cropped and resized on the server; the original stays on your computer.',
+    'The file is compressed in your browser if it is large, then cropped and resized on the server. The original stays on your computer.',
   'admin.catalog.uploadImage': 'Upload a photograph',
   'admin.catalog.attachedLibrary': 'Or attach one already on the server',
   'admin.catalog.imageKeyHelp':

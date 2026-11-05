@@ -6,6 +6,7 @@ import { imageVariantPath } from '@/lib/images';
 import { useTranslation } from '@/i18n/useTranslation';
 import { AdminIcon } from './icons';
 import { ConfirmSubmit } from './ConfirmSubmit';
+import { AdminImageInput } from './AdminImageInput';
 import { SubmitButton } from './SubmitButton';
 import styles from '../admin.module.css';
 
@@ -89,11 +90,9 @@ export function ProductMediaPanel({
           <input type="hidden" name="productId" value={productId} />
           <div className={styles.field}>
             <label htmlFor="productImageUpload">{t('admin.upload.file')}</label>
-            <input
+            <AdminImageInput
               className={styles.input}
               id="productImageUpload"
-              type="file"
-              name="file"
               accept="image/jpeg,image/png,image/webp"
               required
             />

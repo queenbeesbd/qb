@@ -229,8 +229,12 @@ upload fails. The path
 `/hero/[...path]` was added beside `/catalog/[...path]` so an uploaded banner in the bucket resolves without
 being part of the build.
 
-**Caps and refusals.** 4 MB per request (below Vercel's 4.5 MB body ceiling). Non-image bytes, an empty file,
-an oversized file, or an unreadable image is refused with the editor's own invalid notice. Uploading is
+**Caps and refusals.** 4 MB per request (below Vercel's 4.5 MB body ceiling). The admin file input
+(`AdminImageInput`) prepares a large photograph **in the browser first**: it decodes it, scales the long
+edge to 1600px and re-encodes it as WebP, so a 5-15 MB camera JPEG arrives as roughly 1 MB and the 4 MB
+cap is no longer the owner's problem. If the browser cannot decode the file (HEIC from an iPhone is the
+usual case) the original is submitted and the cap still states its refusal. Non-image bytes, an empty
+file, an oversized file, or an unreadable image is refused with the editor's own invalid notice. Uploading is
 gated on the same permissions as the association it replaces (`catalog.write`, `settings.write` for hero),
 with CSRF and origin checks from `guardMutation`.
 

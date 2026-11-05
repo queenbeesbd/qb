@@ -8,6 +8,7 @@ import { imageVariantPath } from '@/lib/images';
 import { slugPreview } from '@/lib/slug-preview';
 import { AdminIcon } from '../../_ui/icons';
 import { RequiredMark } from '../../_ui/RequiredMark';
+import { AdminImageInput } from '../../_ui/AdminImageInput';
 import { SubmitButton } from '../../_ui/SubmitButton';
 import styles from '../../admin.module.css';
 
@@ -299,11 +300,9 @@ export function CategoryForm({
                     <input type="hidden" name="returnTo" value={selfHref} />
                     <div className={styles.field}>
                       <label htmlFor="categoryImageUpload">{t('admin.categories.imageUploadTitle')}</label>
-                      <input
+                      <AdminImageInput
                         className={styles.input}
                         id="categoryImageUpload"
-                        type="file"
-                        name="file"
                         accept="image/jpeg,image/png,image/webp"
                         required
                       />

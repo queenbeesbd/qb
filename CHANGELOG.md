@@ -14,6 +14,24 @@ An entry may describe a deployment only once it has actually happened and been o
 
 ## [Unreleased]
 
+### Changed - 2026-11-05: phone-sized photographs are compressed before upload, and stale auth rows are gone
+A 5 MB photo used to be refused: the request cap is 4 MB and a phone JPEG is routinely larger. Every
+admin upload input is now `AdminImageInput`, which decodes the chosen file **in the browser**, scales the
+long edge to 1600px and re-encodes it as WebP before the form posts. A 15 MB test JPEG arrived at the
+server as **1.2 MB** and was stored as 320/600/1050 WebP. A file the browser cannot decode (HEIC) falls
+back to the original and the server's cap still states the refusal.
+
+**Database cleanup (production).** The database was already small (15 MB); the removable data was
+stale auth state only. Deleted **97 revoked/expired `staff_session` rows**, **4 used/expired
+`staff_recovery_token` rows**, and the soft-deleted upload-probe image row, then `VACUUM FULL`ed those
+tables: **15 MB → 14 MB**. No customer, product, order, audit or movement row was touched, and none of
+the append-only tables was written.
+
+**Verification.** In headless Chromium against the local admin, a 15 MB JPEG was compressed to 1.2 MB in
+the input and uploaded successfully (`imageAttached`), then the probe association and files were removed.
+Production cleanup was read back after the statements. typecheck, lint (0 errors), `check:i18n`,
+`build`.
+
 ### Changed - 2026-11-05: every catalog image is WebP, and a card gets a thumbnail
 The owner asked for one pipeline: whatever image is uploaded is compressed once and stored as WebP, and
 a card should not download the detail master. `src/server/catalog/uploads.ts` now encodes **WebP only**

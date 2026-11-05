@@ -2,6 +2,7 @@
 
 import { useTranslation } from '@/i18n/useTranslation';
 import { imageVariantPath } from '@/lib/images';
+import { AdminImageInput } from '../../../../_ui/AdminImageInput';
 import { SubmitButton } from '../../../../_ui/SubmitButton';
 import styles from '../../../../admin.module.css';
 
@@ -64,11 +65,9 @@ export function BrandLogoForm({
             <input type="hidden" name="returnTo" value={selfHref} />
             <div className={styles.field}>
               <label htmlFor="brandLogoUpload">{t('admin.brandLogo.uploadTitle')}</label>
-              <input
+              <AdminImageInput
                 className={styles.input}
                 id="brandLogoUpload"
-                type="file"
-                name="file"
                 accept="image/jpeg,image/png,image/webp"
                 required
               />

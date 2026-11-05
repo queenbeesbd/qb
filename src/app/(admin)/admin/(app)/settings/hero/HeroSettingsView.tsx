@@ -9,6 +9,7 @@ import { AdminIcon } from '../../../_ui/icons';
 import { ConfirmSubmit } from '../../../_ui/ConfirmSubmit';
 import { Notice } from '../../../_ui/Notice';
 import { PageHeader } from '../../../_ui/PageHeader';
+import { AdminImageInput } from '../../../_ui/AdminImageInput';
 import { SubmitButton } from '../../../_ui/SubmitButton';
 import styles from '../../../admin.module.css';
 
@@ -245,11 +246,9 @@ export function HeroSettingsView({
               <input type="hidden" name="operation" value="upload" />
               <div className={styles.field}>
                 <label htmlFor="hero-upload-file">{t('admin.hero.uploadTitle')}</label>
-                <input
+                <AdminImageInput
                   className={styles.input}
                   id="hero-upload-file"
-                  type="file"
-                  name="file"
                   accept="image/jpeg,image/png,image/webp"
                   required
                 />
