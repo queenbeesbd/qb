@@ -122,6 +122,7 @@ export function BrandMark({
     <span
       className={`${styles.brandMark} ${className ?? ''}`.trim()}
       data-tone={toneFor(slug)}
+      data-fallback={logoKey === null ? 'true' : undefined}
     >
       <DiscoveryPhoto
         imageKey={logoKey}

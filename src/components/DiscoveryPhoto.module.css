@@ -32,60 +32,51 @@
 }
 
 /*
- * A brand logo sits on white with a little breathing room, because a favicon is usually drawn to the
- * edges of its own canvas. `contain` keeps the mark's proportions rather than cropping it.
+ * The brand index draws the **same circle as a category tile** (owner direction, 2026-11-05).
+ *
+ * A logo is contained rather than cropped - cutting a wordmark in half is worse than a little
+ * breathing room - but the inset is only 8%: the tiles used to be squares with 18% padding, which
+ * made every mark look shrunken and left the page reading as a grid of empty plates. The assets were
+ * also trimmed to their ink (`assets:logos`), so a padded favicon now fills the circle instead of
+ * floating in the middle of it.
  */
 .brandMark {
   display: grid;
   place-items: center;
   width: 100%;
   aspect-ratio: 1 / 1;
-  /* The same rule: the tile is as tall as it is wide, never as tall as the source file. */
-  border-radius: var(--radius-lg);
+  border-radius: 50%;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
-  padding: 18%;
+  padding: 8%;
   overflow: hidden;
 }
 
-.brandMark[data-tone='0'] {
+/* Tints belong to the no-logo tile; a real mark keeps a white surface so its own colours read true. */
+.brandMark[data-fallback='true'][data-tone='0'] {
   background: #f6f1ff;
 }
 
-.brandMark[data-tone='1'] {
+.brandMark[data-fallback='true'][data-tone='1'] {
   background: #fdeef3;
 }
 
-.brandMark[data-tone='2'] {
+.brandMark[data-fallback='true'][data-tone='2'] {
   background: #eef7f3;
 }
 
-.brandMark[data-tone='3'] {
+.brandMark[data-fallback='true'][data-tone='3'] {
   background: #fdf6ec;
 }
 
+/* `className` lands on the `<img>` itself, so this is the image's own rule, not a descendant's. */
 .brandLogo {
+  display: block;
   width: 100%;
-}
-
-.brandLogo :global(img) {
+  height: 100%;
   aspect-ratio: 1 / 1;
   object-fit: contain;
   background: transparent;
-}
-
-/*
- * The chip variant: a small square mark inside a pill (the homepage's brand rail). The default
- * tile's 18% padding and `width: 100%` sizing are for a standalone grid tile; a chip states its own
- * size and a shallower inset, and this rule lives beside the tile's own styles so the two cannot
- * drift apart unnoticed.
- */
-.brandMarkChip {
-  width: 44px;
-  height: 44px;
-  flex: none;
-  padding: 12%;
-  border-radius: var(--radius-md);
 }
 
 .brandInitials {

@@ -14,6 +14,18 @@ An entry may describe a deployment only once it has actually happened and been o
 
 ## [Unreleased]
 
+### Changed - 2026-11-05: the brand index uses the category circle, and logos fill it
+The brand index was a grid of padded squares: a favicon with its own whitespace rendered as a small mark
+floating in a large plate, which read as an empty grid next to the category index. Every brand tile is
+now a **circle**, exactly like a category, and the logo is contained at 92% of an 8%-inset circle.
+`npm run assets:logos` (new) trims each logo's uniform empty border, places it in a square at 92%, and
+rebuilds 320/600/1050 WebP; all 60 logo keys were rebuilt and re-uploaded. Initials keep a pale tinted
+circle; a real mark gets a white one so its own colours read true.
+
+**Verification.** On a served local build at 1568px the first ten tiles are 125px circles; a logo image
+is 103px with `object-fit: contain` and the trimmed 320 WebP is what the browser fetches. Screenshot
+reviewed before deploy; production was checked after it.
+
 ### Changed - 2026-11-05: the active phone tab is a deep-lavender capsule, not a white one
 On the lavender tab bar, the current destination used a white capsule behind its icon, which read as a
 hole punched in the bar. It is now `--brand-primary-deep` (#8155ef) with a white glyph (4.7:1); labels

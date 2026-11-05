@@ -959,6 +959,11 @@ previous/next controls and slide dots appear. The hero advances every 9 seconds,
 and the same component `size="circle"` as the brand rail. The circle is the subject: the photograph
 fills it with a centre crop and the name sits beneath.
 
+**Brand index.** The brand index draws the **same circle** as the category index, with the logo
+contained at 92% of an 8%-inset circle; `npm run assets:logos` trims each logo's empty border before
+rebuilding its WebP variants, so a padded favicon fills the frame instead of floating in it. The white
+surface belongs to the mark; the four pale tints belong to the no-logo monogram.
+
 **Brand rail.** The homepage draws brands in the **same circle** as the categories above them
 (owner direction, 2026-11-05): one round tile per brand, the mark inset inside it, the name beneath and
 the product count under the name, in the shared `Carousel` (`size="circle"`). The circle frames a logo
