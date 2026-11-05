@@ -32,7 +32,6 @@ export default async function IntegrationsPage() {
     <>
       <PageHeader
         title={translate('admin.integrations.title')}
-        description={translate('admin.integrations.body')}
       />
 
       <section className={styles.section} aria-labelledby="integration-list">

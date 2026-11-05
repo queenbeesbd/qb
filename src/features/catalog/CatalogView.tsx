@@ -209,14 +209,12 @@ export function CatalogView({
           ? (pick(category.name) ?? category.slug)
           : t('catalog.title');
 
-  const description =
-    brand != null && !query.q
-      ? t('catalog.brandDescription')
-      : query.q
-        ? t('catalog.searchDescription')
-        : category !== null
-          ? pick(category.blurb)
-          : t('catalog.description');
+  /*
+   * Only the category's own blurb is worth printing under the heading: it is owner-written content.
+   * "Every product in the shop", "products matching your search" and the brand's own name add nothing
+   * a shopper cannot read from the page itself (owner direction, 2026-11-05).
+   */
+  const description = category !== null ? pick(category.blurb) : null;
 
   const countLabel =
     matchCount === 1

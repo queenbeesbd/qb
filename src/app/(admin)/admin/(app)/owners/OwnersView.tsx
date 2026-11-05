@@ -98,11 +98,7 @@ export function OwnersView({
         </div>
       )}
 
-      <section className={styles.section} aria-labelledby="owners-list-heading">
-        <div className={styles.sectionHead}>
-          <h2 id="owners-list-heading">{t('admin.owners.listTitle')}</h2>
-          <p>{t('admin.owners.listBody')}</p>
-        </div>
+      <section className={styles.section} aria-label={t('admin.owners.title')}>
 
         {owners.length === 0 ? (
           <EmptyState title={t('admin.owners.emptyTitle')} body={t('admin.owners.emptyBody')} icon="owners" />

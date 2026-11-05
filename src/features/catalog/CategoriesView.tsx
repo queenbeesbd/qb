@@ -40,13 +40,9 @@ export function CategoriesView({
     <div className={styles.page}>
       <header className={styles.header}>
         <h1>{t('categories.title')}</h1>
-        <p className={styles.body}>{t('categories.indexBody')}</p>
       </header>
 
-      <section aria-labelledby="departments-title" className={styles.section}>
-        <h2 id="departments-title" className={styles.sectionTitle}>
-          {t('categories.departments')}
-        </h2>
+      <section aria-label={t('categories.title')} className={styles.section}>
         <ul className={styles.tileGrid}>
           {categories.map((category) => {
             const count = counts[category.slug] ?? 0;
@@ -69,9 +65,6 @@ export function CategoriesView({
                   </span>
                   <span className={styles.tileText}>
                     <span className={styles.tileName}>{name}</span>
-                    {category.tagline !== null && (
-                      <span className={styles.tileTagline}>{category.tagline}</span>
-                    )}
                     <span className={styles.tileCountLabel}>
                       {count === 1 ? t('categories.countOne') : t('categories.count', { count })}
                     </span>
@@ -83,12 +76,6 @@ export function CategoriesView({
         </ul>
       </section>
 
-
-      <p className={styles.footnote}>
-        <Link href="/products">{t('categories.allProducts')}</Link>
-        <span aria-hidden="true"> · </span>
-        <Link href="/brands">{t('nav.brands')}</Link>
-      </p>
     </div>
   );
 }

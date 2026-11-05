@@ -34,7 +34,6 @@ export default async function NewCategoryPage({
     <>
       <PageHeader
         title={translate('admin.categories.createTitle')}
-        description={translate('admin.categories.createBody')}
       />
 
       {notice !== null && (

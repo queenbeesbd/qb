@@ -170,7 +170,7 @@ export function PromoCodeForm({
     <>
       <PageHeader
         title={mode === 'create' ? t('admin.promo.newTitle') : t('admin.promo.editTitle')}
-        description={mode === 'create' ? t('admin.promo.newBody') : t('admin.promo.editBody')}
+        description={mode === 'edit' ? t('admin.promo.editBody') : undefined}
         actions={
           <Link className={`${styles.button} ${styles.buttonSecondary}`} href="/admin/promo-codes">
             {t('admin.promo.backToList')}

@@ -97,7 +97,6 @@ export function AnalyticsView({ data }: { data: AnalyticsViewData }) {
     <>
       <PageHeader
         title={t('admin.analytics.title')}
-        description={t('admin.analytics.body')}
         actions={
           <nav className={styles.filterTabs} aria-label={t('admin.analytics.periodLabel')}>
             {periods.map((value) => (

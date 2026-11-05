@@ -56,7 +56,6 @@ export default async function EditBrandPage({
     <>
       <PageHeader
         title={brand.nameEn}
-        description={translate('admin.brandLogo.body')}
         actions={
           <Link className={`${styles.button} ${styles.buttonSecondary} ${styles.buttonSmall}`} href="/admin/catalog/brands">
             {translate('admin.brandLogo.back')}

@@ -35,19 +35,9 @@ export function BrandIndexView({ brands }: { brands: readonly CatalogBrand[] }) 
     <div className={styles.page}>
       <header className={styles.header}>
         <h1>{t('categories.brandIntroTitle')}</h1>
-        <p className={styles.body}>{t('categories.brandIntroBody')}</p>
       </header>
 
-      <section aria-labelledby="brand-index-title" className={styles.section}>
-        <div className={styles.sectionHeader}>
-          <h2 id="brand-index-title" className={styles.sectionTitle}>
-            {t('categories.brandTitle')}
-          </h2>
-          <Link className={styles.viewAll} href="/categories">
-            {t('nav.categories')}
-          </Link>
-        </div>
-
+      <section aria-label={t('categories.brandIntroTitle')} className={styles.section}>
         <div className={styles.brandFilter}>
           <label className="sr-only" htmlFor="brand-index-filter">
             {t('categories.searchBrandLabel')}

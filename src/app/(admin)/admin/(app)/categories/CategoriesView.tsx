@@ -88,7 +88,6 @@ export function CategoriesView({
     <>
       <PageHeader
         title={t('admin.categories.title')}
-        description={t('admin.categories.body')}
         actions={
           <Link className={styles.button} href="/admin/categories/new">
             <AdminIcon name="plus" width={15} height={15} />
@@ -101,12 +100,7 @@ export function CategoriesView({
         <Notice tone={noticeIsError ? 'error' : 'success'}>{t(CATEGORY_NOTICE_KEYS[notice])}</Notice>
       )}
 
-      <section className={styles.section} aria-labelledby="category-list-heading">
-        <div className={styles.sectionHead}>
-          <h2 id="category-list-heading">{t('admin.categories.listTitle')}</h2>
-          <p>{t('admin.categories.listBody')}</p>
-        </div>
-
+      <section className={styles.section} aria-label={t('admin.categories.title')}>
         <ListToolbar>
           <FilterTabs
             label={t('admin.categories.filterLabel')}

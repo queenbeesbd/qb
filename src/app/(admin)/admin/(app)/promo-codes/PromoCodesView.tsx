@@ -121,7 +121,6 @@ export function PromoCodesView({
     <>
       <PageHeader
         title={t('admin.promo.title')}
-        description={t('admin.promo.body')}
         actions={
           <Link className={`${styles.button}`} href="/admin/promo-codes/new">
             {t('admin.promo.new')}

@@ -45,7 +45,7 @@ export default async function EditCategoryPage({
 
   return (
     <>
-      <PageHeader title={category.nameEn} description={translate('admin.categories.editBody')} />
+      <PageHeader title={category.nameEn} />
 
       {notice !== null && (
         <Notice tone={CATEGORY_NOTICE_ERRORS.includes(notice) ? 'error' : 'success'}>

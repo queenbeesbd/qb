@@ -77,8 +77,6 @@ export const dictionary = {
   'home.slideLabel': 'Go to slide {index} of {count}',
 
   'catalog.title': 'All products',
-  'catalog.description': 'Every product currently published in the shop.',
-  'catalog.searchDescription': 'Products matching your search.',
   'catalog.searchPlaceholder': 'Search this collection',
   'catalog.breadcrumbLabel': 'Breadcrumb',
   'catalog.count': '{count} products',
@@ -275,26 +273,16 @@ export const dictionary = {
   'search.chip': '“{query}”',
 
   'categories.title': 'Categories',
-  'categories.body': 'Every product in the shop sits in one of these.',
   'categories.count': '{count} products',
   'categories.countOne': '1 product',
-  'categories.allProducts': 'See every product',
-  'categories.departments': 'Departments',
-  'categories.indexBody':
-    'Every product sits in one of these departments. Pick a picture to start browsing.',
   'categories.viewProducts': 'Shop {name}',
   'categories.noImage': 'No photo yet',
-  'categories.brandTitle': 'Brands',
   'categories.brandIntroTitle': 'Shop by brand',
-  'categories.brandIntroBody':
-    'Every brand this shop carries, each with the products it holds. New arrivals from a favourite brand are one tap away.',
   'categories.brandCount': '{count} products',
   'categories.brandCountOne': '1 product',
   'categories.searchBrandLabel': 'Filter brands',
   'categories.searchBrandPlaceholder': 'Type a brand name',
   'categories.brandEmpty': 'No brand matches that name.',
-  'catalog.brandDescription':
-    'Every product this shop carries from this brand. Filter by price, availability or department to narrow it.',
   'brands.title': 'Brands',
 
   'footer.shop': 'Shop',
@@ -474,7 +462,6 @@ export const dictionary = {
 
   'admin.overview.title': 'Overview',
   'admin.overview.greeting': 'Welcome back, {name}',
-  'admin.overview.body': 'The last thirty days at a glance, then the calls waiting on you.',
   'admin.overview.queueClear': 'Nothing is waiting for a call right now.',
   'admin.overview.queueSummaryOne': 'One order is waiting for a call. It has waited {age}.',
   'admin.overview.queueSummary': '{count} orders are waiting for a call. The oldest has waited {age}.',
@@ -675,7 +662,6 @@ export const dictionary = {
   'admin.catalog.sectionStatus': 'Publication and stock',
   'admin.catalog.field.priceHelp': 'Enter Bangladeshi taka, for example 750.10.',
   'admin.catalog.newProduct': 'New product',
-  'admin.catalog.editBody': 'Edit this product’s details, price and stock state.',
   'admin.catalog.searchLabel': 'Search products',
   'admin.catalog.searchPlaceholder': 'Name, slug or SKU',
   'admin.catalog.filterLabel': 'Filter by stock state',
@@ -685,8 +671,6 @@ export const dictionary = {
   'admin.catalog.emptyBody': 'Add the first product to get started.',
   'admin.catalog.noImagesBadge': 'No image',
   'admin.catalog.availabilitySwitch': 'Change the stock state of {product}',
-  'admin.categories.listBody':
-    'Live categories. A category with products or subcategories cannot be archived.',
   'admin.categories.emptyTitle': 'No categories yet',
   'admin.categories.emptyBody':
     'The storefront category navigation stays empty until one exists. Products keep their own pages either way.',
@@ -700,8 +684,6 @@ export const dictionary = {
   'admin.categories.subcategoryCountValue': 'Subcategories: {count}',
   'admin.categories.orderValue': 'Order {count}',
   'admin.integrations.title': 'Integrations',
-  'admin.integrations.body':
-    'Where the shop sends information it already holds. Each integration is a destination, never a second copy of the data.',
   'admin.integrations.listTitle': 'Available integrations',
   'admin.integrations.listBody':
     'An integration is off until it is configured. Nothing is sent anywhere by default.',
@@ -797,7 +779,6 @@ export const dictionary = {
   'admin.customers.ordersTitle': 'Orders',
 
   'admin.orders.title': 'All orders',
-  'admin.orders.body': 'Every order the store has taken, newest first. Search by order number, name or phone — open an order to see it in full.',
   'admin.orders.searchLabel': 'Search orders',
   'admin.orders.searchPlaceholder': 'Number, name or phone',
   'admin.orders.filterLabel': 'Filter by status',
@@ -967,7 +948,6 @@ export const dictionary = {
   'admin.customers.noOrdersTitle': 'No orders',
   'admin.customers.noOrdersBody': 'This customer has not placed an order yet.',
   'admin.customers.flaggedNoReason': 'No reason was recorded.',
-  'admin.owners.listBody': 'Every owner account. Each has full access.',
   'admin.owners.emptyTitle': 'No owner accounts',
   'admin.owners.emptyBody': 'Create the first owner account.',
   'admin.owners.lastSeenValue': 'Last seen {time}',
@@ -988,7 +968,6 @@ export const dictionary = {
   'admin.owners.title': 'Owner accounts',
   'admin.owners.body':
     'QueenBee’s is a single store. Every owner has the same full access. There are no staff or support roles, and no role picker or permission-management interface.',
-  'admin.owners.listTitle': 'Owner accounts',
   'admin.owners.empty': 'There are no owner accounts yet.',
   'admin.owners.status': 'Status',
   'admin.owners.statusActive': 'Active',
@@ -1101,8 +1080,6 @@ export const dictionary = {
   'admin.catalog.readOnly': 'This account can view this product but not change it.',
   'admin.catalog.notice.createdShort': 'Product created. Add photographs below.',
   'admin.catalog.title': 'Products',
-  'admin.catalog.body':
-    'Names, descriptions, category, brand, price, imagery and availability are maintained here. Prices are entered in taka.',
   'admin.catalog.availabilityTitle': 'Availability',
   'admin.catalog.availabilityBody':
     'This is a state — In Stock or Out of Stock. It is not a quantity, a count or a countdown, and an out-of-stock product cannot be ordered.',
@@ -1112,7 +1089,6 @@ export const dictionary = {
   'admin.catalog.markOutOfStock': 'Mark Out of Stock',
   'admin.catalog.published': 'Published',
   'admin.catalog.unpublished': 'Unpublished',
-  'admin.catalog.listTitle': 'Product list',
   'admin.catalog.empty': 'There are no products yet.',
   'admin.catalog.createTitle': 'New product',
   'admin.catalog.editTitle': 'Edit product',
@@ -1172,15 +1148,8 @@ export const dictionary = {
     'Check the fields: an English name, a category, a brand, a whole price in BDT and a valid availability state are required. A Bangla name is optional.',
 
   'admin.categories.title': 'Categories',
-  'admin.categories.body':
-    'Categories group products on the storefront. Names are kept in both languages, and the display order decides where a category appears.',
-  'admin.categories.listTitle': 'Category list',
   'admin.categories.createTitle': 'New category',
-  'admin.categories.createBody':
-    'A category groups products and gives them a page in the storefront navigation.',
   'admin.categories.editTitle': 'Edit category',
-  'admin.categories.editBody':
-    'This category’s names, address, placement and visibility. Archiving stays on the list.',
   'admin.categories.field.nameBn': 'Name (Bangla)',
   'admin.categories.field.nameEn': 'Name (English)',
   'admin.categories.field.slug': 'Slug',
@@ -1218,11 +1187,6 @@ export const dictionary = {
   'admin.categories.imageRemoveHint':
     'Removing the photo keeps the category; the tile falls back to its icon.',
   'admin.brands.title': 'Brands',
-  'admin.brands.body':
-    'Each brand shows one mark on the storefront: on the homepage brand rail and on the brand index.',
-  'admin.brands.listTitle': 'Brand list',
-  'admin.brands.listBody':
-    'A brand with no logo shows its initials rather than a made-up mark. Proportions are preserved, so no logo is cropped.',
   'admin.brands.searchLabel': 'Search brands',
   'admin.brands.searchPlaceholder': 'Search by name or slug',
   'admin.brands.emptyTitle': 'No brands yet',
@@ -1241,7 +1205,6 @@ export const dictionary = {
   'admin.brands.notice.denied': 'Your account does not have permission to change the catalog.',
   'admin.brands.notice.conflict': 'That brand no longer exists, so nothing was saved.',
   'admin.brands.notice.invalid': 'That request was not understood, so nothing was saved.',
-  'admin.brandLogo.body': 'The mark this brand shows on the storefront.',
   'admin.brandLogo.sectionTitle': 'Brand logo',
   'admin.brandLogo.sectionBody':
     'Upload a logo from your computer, or choose one already on the server. A brand with no logo shows its initials.',
@@ -1320,7 +1283,7 @@ export const dictionary = {
   'admin.cod.notice.conflict': 'That order has already been decided.',
   'admin.cod.notice.invalid': 'Check the fields — a reason is required.',
   'admin.customers.title': 'Customers',
-  'admin.customers.body': 'Minimal on purpose: identity, standing, and a suspension control. A suspension follows only a confirmed fake order, with a reason. This is not a CRM and not a role-management surface.',
+  'admin.customers.body': 'A suspension follows only a confirmed fake order, and always carries a reason.',
   'admin.customers.empty': 'There are no customer accounts yet.',
   'admin.customers.customer': 'Customer',
   'admin.customers.status': 'Status',
@@ -1542,7 +1505,6 @@ export const dictionary = {
   'admin.overview.promoNone': 'No code is live. Create one to offer a discount.',
 
   'admin.analytics.title': 'Analytics',
-  'admin.analytics.body': 'What the shop sold, and what it kept.',
   'admin.analytics.periodLabel': 'Reporting period',
   'admin.analytics.lastDays': 'Last {count} days',
   'admin.analytics.unavailable': 'Not available',
@@ -1594,10 +1556,8 @@ export const dictionary = {
     'Visits and page views are not reported: the storefront collects no browsing data, so this page states orders and money only.',
 
   'admin.promo.title': 'Promo codes',
-  'admin.promo.body': 'Codes that take money off a cart, and what each has cost.',
   'admin.promo.new': 'New promo code',
   'admin.promo.newTitle': 'New promo code',
-  'admin.promo.newBody': 'One rule, one code. It can be paused at any time.',
   'admin.promo.editTitle': 'Edit promo code',
   'admin.promo.editBody': 'Changing a rule never rewrites an order that already used it.',
   'admin.promo.backToList': 'Back to codes',

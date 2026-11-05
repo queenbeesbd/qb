@@ -116,7 +116,6 @@ export function CatalogView({
     <>
       <PageHeader
         title={t('admin.catalog.title')}
-        description={t('admin.catalog.body')}
         actions={
           <Link className={styles.button} href="/admin/catalog/new">
             <AdminIcon name="plus" width={15} height={15} />
@@ -129,11 +128,7 @@ export function CatalogView({
         <Notice tone={noticeIsError ? 'error' : 'success'}>{t(NOTICE_KEYS[notice])}</Notice>
       )}
 
-      <section className={styles.section} aria-labelledby="list-heading">
-        <div className={styles.sectionHead}>
-          <h2 id="list-heading">{t('admin.catalog.listTitle')}</h2>
-        </div>
-
+      <section className={styles.section} aria-label={t('admin.catalog.title')}>
         <ListToolbar>
           <FilterTabs
             label={t('admin.catalog.filterLabel')}

@@ -14,6 +14,23 @@ An entry may describe a deployment only once it has actually happened and been o
 
 ## [Unreleased]
 
+### Changed - 2026-11-05: editorial cleanup of index pages and the admin shell
+Filler copy is gone from the surfaces a shopper and the owner read first. `/categories` and `/brands`
+lost their intro sentences, duplicate section headings and trailing nav footnote, and the category tiles
+no longer print a tagline under the name (the tagline remains owner data and still describes the
+category on its own listing). `/products`, search results and brand listings keep only the category's
+own owner-written blurb as a sub-heading; the generic "every product…" lines were removed.
+
+In the admin, twelve pages lost their one-line descriptions, and the duplicate "Product list", "Category
+list", "Brand list" and "Owner accounts" section headings were replaced by section labels (so screen
+readers still name the region) along with the notes that explained the obvious. Security and policy
+notes remain: audit immutability, COD call-then-decide, delivery areas, guest checkout, storage and
+support behaviour.
+
+**Verification.** 22 dictionary keys and the now-dead stylesheet rules were removed (`check:i18n`
+1437 keys). typecheck, lint (0 errors), `build`; `/categories`, `/brands` at 390px and the admin
+catalog/categories lists at 1280px were inspected in Chromium.
+
 ### Changed - 2026-11-05: five circles on a phone row for Shop By Category and Shop By Brand
 Both homepage rails showed four circles on a phone, leaving the fifth department behind a swipe with no
 reading reason. The shared `Carousel` circle scale is now `(100% - 4*gap) / 5`, so five circles fit at

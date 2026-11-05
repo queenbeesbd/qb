@@ -56,7 +56,7 @@ export function BrandsView({
 
   return (
     <>
-      <PageHeader title={t('admin.brands.title')} description={t('admin.brands.body')} />
+      <PageHeader title={t('admin.brands.title')} />
 
       {notice !== null && (
         <Notice tone={BRAND_NOTICE_ERRORS.includes(notice) ? 'error' : 'success'}>
@@ -64,12 +64,7 @@ export function BrandsView({
         </Notice>
       )}
 
-      <section className={styles.section} aria-labelledby="brand-list-heading">
-        <div className={styles.sectionHead}>
-          <h2 id="brand-list-heading">{t('admin.brands.listTitle')}</h2>
-          <p>{t('admin.brands.listBody')}</p>
-        </div>
-
+      <section className={styles.section} aria-label={t('admin.brands.title')}>
         <ListToolbar>
           <ListSearch
             action="/admin/catalog/brands"

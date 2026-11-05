@@ -196,7 +196,6 @@ export function OverviewView({
     <>
       <PageHeader
         title={firstName === '' ? t('admin.overview.title') : t('admin.overview.greeting', { name: firstName })}
-        description={t('admin.overview.body')}
         actions={
           canReadOrders ? (
             <Link className={`${styles.button} ${styles.buttonSecondary}`} href="/admin/analytics">

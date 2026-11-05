@@ -80,7 +80,6 @@ export default async function EditProductPage({
     <>
       <PageHeader
         title={data.product.nameEn}
-        description={translate('admin.catalog.editBody')}
       />
 
       {notice !== null && (

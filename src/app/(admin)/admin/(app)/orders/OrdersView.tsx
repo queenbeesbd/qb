@@ -122,7 +122,6 @@ export function AdminOrdersView({
     <>
       <PageHeader
         title={t('admin.orders.title')}
-        description={t('admin.orders.body')}
       />
 
       <ListToolbar>
