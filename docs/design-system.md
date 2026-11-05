@@ -79,7 +79,7 @@ Rules that hold everywhere:
 
 ## Logo and favicon
 
-Status: redesigned in the brand-mark phase (2026-10-11).
+Status: the owner's `logo.jpeg` is the identity (2026-11-05), in the header **and** the browser tab. The drawn crown mark described below is retired from every surface; `logo.svg` and `logo-mark.svg` remain only as reference files.
 
 ### Concept
 
@@ -101,12 +101,11 @@ The three shapes map one-to-one onto the approved palette, which is what keeps t
 | --- | --- | --- |
 | Horizontal lockup | `public/brand/logo.svg` | Retired from the header on 2026-11-05; the file remains for reference. |
 | Circular brand mark | `public/brand/logo-round-96.jpeg`, `logo-round-192.jpeg` | Header, 44-48px. Generated from the owner's `logo.jpeg` by `npm run assets:brand`; drawn in a circular box with `object-fit: cover`, so any square upload is centre-cropped to the circle. |
-| Standalone symbol | `public/brand/logo-mark.svg` | Compact placements. 40x40. |
-| Favicon | `public/brand/favicon.svg` | Browser tab. 32x32, reversed symbol on a `#56358C` tile. |
+| Standalone symbol | `public/brand/logo-mark.svg` | Retired with the drawn mark; kept for reference only. |
+| Favicon | `public/brand/favicon-32.png`, `favicon-192.png` | Browser tab, generated from `logo.jpeg`. **Round**, with a transparent outside, so it sits on a light or dark tab without a white square. |
+| Apple touch icon | `public/brand/apple-touch-icon.png` | 180x180 home-screen icon. Square and opaque because iOS applies its own rounded mask and flattens transparency. |
 
-`public/brand/logo-dark.svg` was **removed**: no surface used it, and an unreferenced asset invites drift from the real mark. The favicon is the reversed variant for anyone who needs light-on-dark.
-
-Asset paths are unchanged from the previous mark, so the header `<img>` and the metadata icon needed no path changes.
+`public/brand/favicon.svg` (the reversed crown tile) and `public/brand/logo-dark.svg` were **removed**: neither is referenced, and an unreferenced asset invites drift from the real mark. `npm run assets:brand` writes every raster asset above from the owner's master, so all of them move together when the logo changes. `src/app/layout.tsx` links the icons through the metadata `icons` field; there is no `app/icon.*` file, so there is exactly one declaration.
 
 ### Wordmark
 
@@ -119,7 +118,7 @@ Outlined text is not real text, so the SVG carries `role="img"` and an `aria-lab
 - The lockup renders at a fixed 32px height with `width: auto` and **`object-fit: contain`**.
 - The global `img { max-width: 100% }` rule caps the box on narrow screens while the height stays fixed, which would otherwise squash the artwork (measured 3.04:1 against a true 4.33:1 at 320px). Contain keeps the drawn mark proportionate inside whatever box it gets; the leftover space reads as letterboxing, not distortion.
 - Below 360px the height steps down to 26px so the lockup and the action buttons keep room.
-- The favicon is verified to 16px: the tile remains the dominant colour on both light and dark tab backgrounds, and the reversed symbol keeps its ink.
+- The favicon is the same logo, and it is verified at 32px: the outer corners are fully transparent, the drawn circle and ink survive at 16px, and `verify:browser` measures exactly that rather than trusting the file.
 
 ## Components
 

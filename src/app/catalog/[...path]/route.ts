@@ -71,8 +71,14 @@ export async function GET(
     status: 308,
     headers: {
       Location: `${base}/${asset.key}-${asset.file.slice(asset.key.length + 1)}`,
-      // An asset key names immutable bytes, so the redirect can be cached for a year.
-      'Cache-Control': 'public, max-age=31536000, immutable',
+      /*
+       * The bytes are immutable; this redirect is not. Its target is deployment configuration
+       * (`CATALOG_ASSET_BASE_URL`), and a year-long `immutable` entry survived a move to a different
+       * Neon branch and kept pointing browsers at a bucket the CSP no longer allows - empty image
+       * frames with nothing wrong in the database. Five minutes keeps the route cheap while letting a
+       * configuration change heal on its own, and `stale-while-revalidate` hides the recheck.
+       */
+      'Cache-Control': 'public, max-age=300, stale-while-revalidate=86400',
     },
   });
 }

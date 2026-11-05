@@ -1786,14 +1786,16 @@ async function main() {
     const brand = await evaluate(client, `Promise.all([
       fetch('/brand/logo-round-96.jpeg').then((r) => ({ url: '/brand/logo-round-96.jpeg', status: r.status })),
       fetch('/brand/logo-round-192.jpeg').then((r) => ({ url: '/brand/logo-round-192.jpeg', status: r.status })),
-      fetch('/brand/favicon.svg').then(async (r) => ({ url: '/brand/favicon.svg', status: r.status, body: await r.text() })),
+      fetch('/brand/favicon-32.png').then((r) => ({ url: '/brand/favicon-32.png', status: r.status, type: r.headers.get('content-type') })),
+      fetch('/brand/favicon-192.png').then((r) => ({ url: '/brand/favicon-192.png', status: r.status })),
+      fetch('/brand/apple-touch-icon.png').then((r) => ({ url: '/brand/apple-touch-icon.png', status: r.status })),
+      fetch('/brand/favicon.svg').then((r) => ({ url: '/brand/favicon.svg', status: r.status })),
       fetch('/brand/logo-dark.svg').then((r) => ({ url: '/brand/logo-dark.svg', status: r.status })),
     ])`);
     const byUrl = Object.fromEntries(brand.map((b) => [b.url, b]));
     const mark96 = byUrl['/brand/logo-round-96.jpeg'];
     const mark192 = byUrl['/brand/logo-round-192.jpeg'];
-    const favicon = byUrl['/brand/favicon.svg'];
-    const safe = (svg) => svg && !/<script/i.test(svg) && !/xlink:href|href=\"http|url\(/i.test(svg);
+    const favicon = byUrl['/brand/favicon-32.png'];
     const headerBrand = await evaluate(client, `(() => {
       const img = document.querySelector('header img[src="/brand/logo-round-192.jpeg"]');
       const box = img ? img.closest('span') : null;
@@ -1811,45 +1813,51 @@ async function main() {
         linkName: link ? (link.getAttribute('aria-label') || '').trim() : '',
       };
     })()`);
-    const faviconLink = await evaluate(client, `(() => {
-      const link = document.querySelector('link[rel="icon"]');
-      return link ? { href: link.getAttribute('href'), type: link.getAttribute('type') } : null;
+    const faviconLinks = await evaluate(client, `(() => {
+      const read = (rel) => [...document.querySelectorAll('link[rel="' + rel + '"]')]
+        .map((l) => ({ href: l.getAttribute('href'), type: l.getAttribute('type'), sizes: l.getAttribute('sizes') }));
+      return { icon: read('icon'), apple: read('apple-touch-icon'), shortcut: read('shortcut') };
     })()`);
-    record('40. the brand mark is the owner logo in a filled circle, with the drawn favicon intact',
+    const icon32 = faviconLinks.icon.find((l) => l.href === '/brand/favicon-32.png');
+    const appleIcon = faviconLinks.apple.find((l) => l.href === '/brand/apple-touch-icon.png');
+    record('40. the brand mark is the owner logo in a filled circle, and the logo is the favicon',
       mark96.status === 200 && mark192.status === 200 && favicon.status === 200 &&
-      byUrl['/brand/logo-dark.svg'].status === 404 &&
-      safe(favicon.body) &&
+      favicon.type === 'image/png' &&
+      byUrl['/brand/favicon-192.png'].status === 200 && byUrl['/brand/apple-touch-icon.png'].status === 200 &&
+      byUrl['/brand/favicon.svg'].status === 404 && byUrl['/brand/logo-dark.svg'].status === 404 &&
       headerBrand.present && headerBrand.loaded && headerBrand.declared === '48x48' &&
       headerBrand.fit === 'cover' && headerBrand.radius === '50%' && headerBrand.square &&
       headerBrand.size <= 48 && headerBrand.linkName.length > 0 &&
-      faviconLink && faviconLink.href === '/brand/favicon.svg' && faviconLink.type === 'image/svg+xml',
-      { mark96: mark96.status, mark192: mark192.status, favicon: favicon.status, headerBrand, faviconLink,
-        oldVariantStatus: byUrl['/brand/logo-dark.svg'].status });
+      icon32 !== undefined && icon32.type === 'image/png' && icon32.sizes === '32x32' &&
+      appleIcon !== undefined && appleIcon.sizes === '180x180',
+      { mark96: mark96.status, mark192: mark192.status, favicon: favicon.status, headerBrand, faviconLinks,
+        oldSvgStatus: byUrl['/brand/favicon.svg'].status, oldVariantStatus: byUrl['/brand/logo-dark.svg'].status });
 
-    // 40b - the symbol stays legible when rendered at favicon size
+    // 40b - the tab icon is round: transparent outside the drawn circle, ink inside it
     const favProbe = await evaluate(client, `(async () => {
       const img = new Image();
-      img.src = '/brand/favicon.svg?' + Math.random();
-      img.style.cssText = 'width:16px;height:16px;position:absolute;left:-9999px';
+      img.src = '/brand/favicon-32.png?' + Math.random();
       document.body.appendChild(img);
       await new Promise((res, rej) => { img.onload = res; img.onerror = () => rej(new Error('favicon load')); });
       const c = document.createElement('canvas');
       c.width = 16; c.height = 16;
       c.getContext('2d').drawImage(img, 0, 0, 16, 16);
       const d = c.getContext('2d').getImageData(0, 0, 16, 16).data;
-      const palette = {};
+      let transparent = 0, dark = 0, opaque = 0;
       for (let i = 0; i < d.length; i += 4) {
-        const key = d[i] + ',' + d[i + 1] + ',' + d[i + 2];
-        palette[key] = (palette[key] || 0) + 1;
+        if (d[i + 3] === 0) transparent += 1;
+        else {
+          opaque += 1;
+          if (d[i] + d[i + 1] + d[i + 2] < 300) dark += 1;
+        }
       }
-      const top = Object.entries(palette).sort((a, b) => b[1] - a[1]).slice(0, 4);
-      const total = Object.values(palette).reduce((n, v) => n + v, 0);
+      const corner = d[3];
       img.remove();
-      return { top, total, tilePixels: palette['86,53,140'] || 0 };
+      return { natural: [img.naturalWidth, img.naturalHeight], transparent, opaque, dark, corner };
     })()`);
-    record('40b. the favicon mark keeps its ink and tile colour at 16px',
-      favProbe.total === 256 && favProbe.tilePixels >= 140 && favProbe.top[0][0] === '86,53,140' &&
-      favProbe.top.length >= 3,
+    record('40b. the favicon is a round logo: transparent corners and drawn ink at 16px',
+      favProbe.natural[0] === 32 && favProbe.natural[1] === 32 &&
+      favProbe.corner === 0 && favProbe.transparent > 15 && favProbe.dark > 10,
       favProbe);
     // 41 - one content grid: container, gutters and aligned chrome at every width
     const widthViewports = [

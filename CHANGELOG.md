@@ -8,11 +8,43 @@ number. Phases 0-46 are recorded here in condensed form from `docs/implementatio
 
 **How to update:** every phase adds a dated entry naming the phase, the ADR it implements (if any), the
 behaviour that changed, and the verification actually run. Do not record a check that was not run.
-No entry may describe a deployment: nothing has been deployed.
+An entry may describe a deployment only once it has actually happened and been observed.
 
 ---
 
 ## [Unreleased]
+
+### Fixed - 2026-11-05: catalog images were blocked in browsers that had cached the old storage redirect
+The deployed storefront rendered empty category circles, brand logos and product frames while every
+image URL answered **200** to an uncached request - the database was fine. `/catalog/<key>-<width>.<ext>`
+redirects to Neon Object Storage, and the route had marked that redirect
+`public, max-age=31536000, immutable`. When production moved to a different Neon branch, browsers that
+had already cached the redirect kept following it to the old bucket, which the CSP no longer allows
+(`img-src` names the configured origin), so the image was refused before any byte was read. The
+redirect now carries `max-age=300, stale-while-revalidate=86400` - the bytes are immutable, the
+**target is configuration** and must be allowed to change. Because a cached entry cannot be recalled,
+every rendered catalog path also carries `?v=2` (`CATALOG_ASSET_VERSION` in `src/lib/images.ts`), which
+makes this deployment's URLs new while the storage origin stays configuration. The query reaches
+neither the bucket nor the local file.
+
+**Verification.** Reproduced in headless Chromium against `queenbees.vercel.app`: the console reported
+a CSP violation for `br-lingering-frost-…storage.c-1…`, while the uncached redirect resolved to the
+configured `br-polished-wind-…storage.c-2…`; an image loaded with a cache-busting query succeeded.
+After the change, the same browser loads every homepage image with `?v=2` and no failures. typecheck,
+unit **207/207**, `check:catalog`.
+
+### Changed - 2026-11-05: the favicon is the owner's logo
+The browser tab now carries the same mark as the header. `npm run assets:brand` writes
+`public/brand/favicon-32.png` and `favicon-192.png` as **round PNGs with a transparent outside** (the
+same crop the header applies with CSS), plus an opaque square `apple-touch-icon.png` because iOS masks
+the icon itself and flattens transparency. `src/app/layout.tsx` links them through the metadata `icons`
+field; the retired `public/brand/favicon.svg` (the reversed crown tile) was deleted rather than left
+unreferenced.
+
+**Verification.** The generated files measure 32x32, 192x192 and 180x180; at 16px the outer corners are
+transparent and the ink survives. In headless Chromium the metadata links resolve to the PNGs and
+`verify:browser` checks 40/40b assert the round icon, the Apple link and the absent SVG. typecheck,
+lint (0 errors), `check:i18n`, `build`.
 
 ### Changed - 2026-11-05: primary lavender is #C8B6FF
 The owner asked for one more shift of the brand lavender: `--brand-primary` is now **#C8B6FF** (was

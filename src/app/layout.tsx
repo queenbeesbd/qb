@@ -23,8 +23,18 @@ export const metadata: Metadata = {
   },
   description:
     'QueenBee’s cosmetics shop. Browse the catalog and place a cash-on-delivery order.',
+  /*
+   * The browser tab carries the owner's own logo (owner direction, 2026-11-05), generated from
+   * `logo.jpeg` by `npm run assets:brand` rather than the retired drawn SVG mark. The 32px icon is a
+   * round PNG with a transparent outside, so it sits on a light or dark tab without a white square.
+   */
   icons: {
-    icon: [{ url: '/brand/favicon.svg', type: 'image/svg+xml' }],
+    icon: [
+      { url: '/brand/favicon-32.png', type: 'image/png', sizes: '32x32' },
+      { url: '/brand/favicon-192.png', type: 'image/png', sizes: '192x192' },
+    ],
+    shortcut: '/brand/favicon-32.png',
+    apple: [{ url: '/brand/apple-touch-icon.png', type: 'image/png', sizes: '180x180' }],
   },
   robots: {
     index: false,

@@ -114,6 +114,24 @@ export type HeroImageSources = {
 };
 
 /**
+ * Cache-busting token on every rendered catalog path (2026-11-05).
+ *
+ * `/catalog/<key>-<width>.<ext>` is answered with a redirect to the configured storage bucket, and
+ * browsers had cached that redirect as immutable for a year. When the deployment moved to a different
+ * Neon branch, every already-cached redirect kept sending the browser to the old bucket, which the
+ * Content-Security-Policy no longer allows - the site rendered with empty image frames and nothing in
+ * the database was wrong. The redirect is no longer cached for a year (see the route), but a cached
+ * entry cannot be recalled, so the URL itself has to change once. Bump this when the storage origin
+ * moves again; the query never reaches the bucket, and local files ignore it.
+ */
+export const CATALOG_ASSET_VERSION = '2';
+
+/** One catalog asset path, versioned. The key names bytes that never change; the version names where. */
+function catalogPath(file: string): string {
+  return `/catalog/${file}?v=${CATALOG_ASSET_VERSION}`;
+}
+
+/**
  * Every rendered path for one hero image, derived from its key.
  *
  * The same contract product imagery uses: the database holds a key, this function builds the paths,
@@ -151,11 +169,13 @@ export function imageVariantPath(
   key: string,
   width: (typeof IMAGE_WIDTHS)[number] = IMAGE_WIDTHS[0],
 ): string {
-  return `/catalog/${key}-${width}.jpg`;
+  return catalogPath(`${key}-${width}.jpg`);
 }
 
 function buildSrcSet(key: string, extension: 'webp' | 'jpg'): string {
-  return IMAGE_WIDTHS.map((width) => `/catalog/${key}-${width}.${extension} ${width}w`).join(', ');
+  return IMAGE_WIDTHS.map((width) => `${catalogPath(`${key}-${width}.${extension}`)} ${width}w`).join(
+    ', ',
+  );
 }
 
 /**
@@ -166,7 +186,7 @@ export function imageSources(image: CatalogImage): ImageSources {
   return {
     webpSrcSet: buildSrcSet(image.key, 'webp'),
     jpgSrcSet: buildSrcSet(image.key, 'jpg'),
-    fallbackSrc: `/catalog/${image.key}-${IMAGE_WIDTHS[0]}.jpg`,
+    fallbackSrc: catalogPath(`${image.key}-${IMAGE_WIDTHS[0]}.jpg`),
     width: IMAGE_ASPECT.width,
     height: IMAGE_ASPECT.height,
   };
