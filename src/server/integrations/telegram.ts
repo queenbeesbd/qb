@@ -287,14 +287,19 @@ const DISTRICT_LABEL: Record<string, string> = {
   other: 'Other districts',
 };
 
+/** Telegram HTML needs three characters escaped in every value the order supplies, or a note becomes markup. */
+function escapeHtml(value: string): string {
+  return value.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
+}
+
 /**
  * The message an owner reads on their phone.
  *
  * A short receipt rather than a one-line ping: the owner approves COD by calling the customer, so the
  * message carries the reference, the amount, the recorded lines, the delivery address, the customer's
- * note and the phone number. Plain text, no Markdown and no HTML - Telegram's parse modes would need
- * escaping on every value, and an escaped order number looks like a bug - so the layout is emoji
- * headings and aligned totals, which Telegram renders as written.
+ * note and the phone number. It is sent with **HTML parse mode** so the section labels can be bold
+ * (owner direction, 2026-11-05); every value the order supplies is escaped, because a customer's note
+ * must never be able to become markup. No delivery time or payment state is invented.
  *
  * Nothing here promises a delivery time, a courier or a payment state the order does not have. The
  * timestamp is Dhaka time because every other operational time in this shop is.
@@ -318,25 +323,32 @@ export function composeOrderMessage(order: OrderNotification): string {
     .replace(/\b(am|pm)\b/, (period) => period.toUpperCase());
 
   const lines: string[] = [
-    `🛍️ New order · ${order.orderNumber}`,
+    `<b>🛍️ New order · ${escapeHtml(order.orderNumber)}</b>`,
     `💵 ${formatMoney(order.totalMinor)} · Cash on delivery`,
     `🕒 ${placedAt}`,
     '',
-    `📦 Items · ${itemCount} ${itemCount === 1 ? 'item' : 'items'}`,
+    `<b>📦 Items · ${itemCount} ${itemCount === 1 ? 'item' : 'items'}</b>`,
   ];
 
   for (const item of order.items) {
-    const variant = item.variantLabel === null || item.variantLabel.trim() === '' ? '' : ` (${item.variantLabel.trim()})`;
-    lines.push(`• ${item.quantity}× ${item.nameEn}${variant} — ${formatMoney(item.lineTotalMinor)}`);
+    const variant =
+      item.variantLabel === null || item.variantLabel.trim() === ''
+        ? ''
+        : ` (<i>${escapeHtml(item.variantLabel.trim())}</i>)`;
+    lines.push(
+      `• ${item.quantity}× ${escapeHtml(item.nameEn)}${variant} — ${formatMoney(item.lineTotalMinor)}`,
+    );
   }
 
-  lines.push('', `Subtotal   ${formatMoney(order.itemsSubtotalMinor)}`);
-  if (order.discountMinor > 0) lines.push(`Discount   −${formatMoney(order.discountMinor)}`);
+  lines.push('', `<b>Subtotal</b>   ${formatMoney(order.itemsSubtotalMinor)}`);
+  if (order.discountMinor > 0) {
+    lines.push(`<b>Discount</b>   −${formatMoney(order.discountMinor)}`);
+  }
   lines.push(
-    `Delivery   ${formatMoney(order.shippingMinor)}`,
-    `Total      ${formatMoney(order.totalMinor)}`,
+    `<b>Delivery</b>   ${formatMoney(order.shippingMinor)}`,
+    `<b>Total</b>      ${formatMoney(order.totalMinor)}`,
     '',
-    `📍 Deliver to · ${area}`,
+    `<b>📍 Deliver to · ${escapeHtml(area)}</b>`,
   );
 
   const contact = [
@@ -345,10 +357,10 @@ export function composeOrderMessage(order: OrderNotification): string {
     order.addressLine.trim(),
     [order.area.trim(), order.city.trim()].filter((part) => part !== '').join(', '),
   ];
-  for (const line of contact) if (line !== '') lines.push(line);
+  for (const line of contact) if (line !== '') lines.push(escapeHtml(line));
 
   if ((order.deliveryNote ?? '').trim() !== '') {
-    lines.push('', '📝 Notes', order.deliveryNote?.trim() ?? '');
+    lines.push('', '<b>📝 Notes</b>', escapeHtml(order.deliveryNote?.trim() ?? ''));
   }
 
   lines.push('', '⏳ Cash on delivery · awaiting approval');
@@ -371,7 +383,12 @@ export async function sendTelegramMessage(
     const response = await fetch(`${TELEGRAM_API}/bot${token}/sendMessage`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ chat_id: chatId, text, disable_web_page_preview: true }),
+      body: JSON.stringify({
+        chat_id: chatId,
+        text,
+        parse_mode: 'HTML',
+        disable_web_page_preview: true,
+      }),
       signal: AbortSignal.timeout(SEND_TIMEOUT_MS),
       cache: 'no-store',
     });

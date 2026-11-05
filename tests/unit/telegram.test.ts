@@ -115,10 +115,31 @@ describe('order notification message', () => {
 
   it('prints the recorded lines, the address and the customer note', () => {
     const message = composeOrderMessage(ORDER);
-    assert.match(message, /1× Nutty Chocolate Mini \(15 Piece Box\) — Tk 1,000/);
+    assert.match(message, /1× Nutty Chocolate Mini \(<i>15 Piece Box<\/i>\) — Tk 1,000/);
     assert.match(message, /House 1, Road 2/);
     assert.match(message, /Dhanmondi, Dhaka/);
     assert.match(message, /Call before coming/);
+  });
+
+  it('bolds the section labels the owner scans for', () => {
+    const message = composeOrderMessage(ORDER);
+    assert.match(message, /<b>🛍️ New order · QB6F627EA11CCFA304<\/b>/);
+    assert.match(message, /<b>📦 Items · 2 items<\/b>/);
+    assert.match(message, /<b>Subtotal<\/b>/);
+    assert.match(message, /<b>Total<\/b>/);
+    assert.match(message, /<b>📍 Deliver to · Dhaka<\/b>/);
+    assert.match(message, /<b>📝 Notes<\/b>/);
+  });
+
+  it('escapes order-supplied text so a note can never become markup', () => {
+    const message = composeOrderMessage({
+      ...ORDER,
+      recipientName: '<b>Name</b>',
+      deliveryNote: 'ring & <script>alert(1)</script>',
+    });
+    assert.match(message, /&lt;b&gt;Name&lt;\/b&gt;/);
+    assert.match(message, /ring &amp; &lt;script&gt;alert\(1\)&lt;\/script&gt;/);
+    assert.doesNotMatch(message, /<script>/);
   });
 
   it('omits a blank contact line rather than printing whitespace', () => {

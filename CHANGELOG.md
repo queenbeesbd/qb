@@ -33,8 +33,10 @@ A new order now sends the owner a phone-readable receipt: reference and total, t
 `Asia/Dhaka`, every recorded line with quantity, variant and line total, subtotal / discount when one
 applies / delivery / total, the delivery area, name, phone, address, the customer's note, and the COD
 state. Totals and lines come from the order transaction (`CreatedOrder` now returns them), never
-recomputed in the notifier; it remains plain text with no Markdown, no delivery promise and no reply
-channel. Verified against a rendered sample and 17/17 Telegram unit tests.
+recomputed in the notifier. Section labels are **bold** (owner direction, 2026-11-05): the message is
+sent with Telegram's HTML parse mode and every order-supplied value is escaped, so a customer note
+cannot become markup. No delivery promise and no reply channel. Verified against a rendered sample and
+19/19 Telegram unit tests.
 
 ### Changed - 2026-11-05: one letter mark for every category and brand without a picture
 A category with no photograph used to draw a category icon, and a brand with no logo drew two initials
