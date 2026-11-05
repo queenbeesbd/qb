@@ -2,7 +2,7 @@
  * The storefront's phone navigation.
  *
  * **The bar wears the brand's light lavender (owner direction, 2026-11-05).** The ground is
- * `--brand-primary` (#dccfff) with ink labels; the current destination is a white capsule behind its
+ * `--brand-primary` (#c8b6ff) with ink labels; the current destination is a white capsule behind its
  * icon. Ink on that lavender is 13:1, so the labels never depend on weight or a fade to be read - and
  * the bar is one clean field rather than a white strip with a lavender chip inside it.
  *

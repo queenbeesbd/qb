@@ -10,11 +10,11 @@ Product-led, calm, precise. The shopper compares brand, pack size, price and ava
 
 | Token | Value | Role |
 | --- | --- | --- |
-| `--brand-primary` | `#DCCFFF` | Owner-chosen light lavender (2026-11-05). Surfaces and accents; ink rides on it. |
+| `--brand-primary` | `#C8B6FF` | Owner-chosen light lavender (2026-11-05). Surfaces and accents; ink rides on it. |
 | `--brand-secondary` | `#F6B3CC` | Approved accent anchor. Sparse supporting surfaces. |
-| `--color-button` | `#DCCFFF` | Storefront filled controls. Ink on it, never white. |
-| `--color-button-hover` | `#CDBCFF` | The same field one step deeper. |
-| `--color-button-ink` | `#201A29` | Label and glyph on a filled storefront control (11.6:1). |
+| `--color-button` | `#C8B6FF` | Storefront filled controls. Ink on it, never white. |
+| `--color-button-hover` | `#B9A4FF` | The same field one step deeper. |
+| `--color-button-ink` | `#201A29` | Label and glyph on a filled storefront control (9.3:1). |
 | `--color-action` | `#56358C` | Navigation states, saturated marks and link ink. |
 | `--color-action-hover` | `#462A75` | Action hover. |
 | `--color-action-soft` | `#F3EDFF` | Tinted panels, active chips, icon wells. |
@@ -36,9 +36,9 @@ Product-led, calm, precise. The shopper compares brand, pack size, price and ava
 
 | Pair | Ratio | Verdict |
 | --- | --- | --- |
-| White on `#DCCFFF` | 1.46:1 | **Fails** - never used for text or a glyph |
+| White on `#C8B6FF` | 1.81:1 | **Fails** - never used for text or a glyph |
 | White on `#F6B3CC` | 1.72:1 | **Fails** - decorative only |
-| Ink on `#DCCFFF` | 11.61:1 | Passes AAA |
+| Ink on `#C8B6FF` | 9.34:1 | Passes AAA |
 | White on `#56358C` | 9.20:1 | Passes AAA - all filled actions |
 | Muted on white | 5.89:1 | Passes AA |
 | Ink on `#F3EDFF` | 14.2:1 | Passes AAA |
@@ -88,7 +88,7 @@ The identity is a **crown of three petals** over a **body band** - a queen bee a
 | Element | Reading | Colour |
 | --- | --- | --- |
 | Centre petal, tallest and forward | The queen, and the regal peak of a crown | `--color-action` `#56358C` |
-| Two side petals, symmetric and lower | Crown points; also the mirrored wings of a bee in flight | `--brand-primary` `#DCCFFF` |
+| Two side petals, symmetric and lower | Crown points; also the mirrored wings of a bee in flight | `--brand-primary` `#C8B6FF` |
 | Rounded band beneath | The striped abdomen of a bee; a cosmetic swatch | `--brand-secondary` `#F6B3CC` |
 
 Deliberate exclusions: no clip-art bee, no stripes-as-literal-lines, no gradients, no facial features, no drop shadow. Three shapes carry the whole mark, so it stays legible when reduced.
@@ -210,11 +210,11 @@ hold - and still links to the brand index.
 "Category") rather than a truncated "Categorie…"; the measured label widths are checked at 360 and 390px and
 none clips.
 
-**The bar wears the brand (owner direction, 2026-11-05).** It is `--brand-primary` (#dccfff) rather than a
+**The bar wears the brand (owner direction, 2026-11-05).** It is `--brand-primary` (#c8b6ff) rather than a
 white strip, with labels and icons in `--color-ink` - 6.1:1 on that lavender. The current destination is a
 **white capsule behind the icon** (40x30, `border-radius: 999px`) plus a 700-weight label; ink on white is
 15:1, so the state is louder than the surface. The cart count is `--brand-secondary` pink with ink on it
-(11.6:1). **White text on the lavender is never used** (1.46:1).
+(9.3:1). **White text on the lavender is never used** (1.81:1).
 
 The bar's craft rules, after the 2026-11-05 refinement:
 
@@ -301,7 +301,7 @@ set, heading and counts stay the server's until it answers, and the grid is dimm
 
 **Card price and saving (2026-11-05).** The current price is set in `--color-action` - the shop's
 accessible purple, 7.4:1 on white, the same ink every filled action uses - rather than the literal
-`--brand-primary` (#dccfff), a light field that carries ink rather than white.
+`--brand-primary` (#c8b6ff), a light field that carries ink rather than white.
 The saving ("Save Tk 100 · -8%") is a quiet chip on `--color-accent-soft` (the secondary anchor's soft
 tint) with a pill radius, ink text at ~15:1, so the shape carries the emphasis and the price stays the
 loudest fact on the card.
@@ -923,7 +923,7 @@ rendered.
 **A floating cart box** sits at the right edge, vertically centred at every width - omitted on `/cart` and `/checkout`, where
 the page's own summary repeats its two facts and the fixed box covered them - filled with `--brand-primary-deep`
 (#8155ef) and carrying white marks (4.6:1). The lighter `--brand-primary` is not used behind white: at
-1.46:1 a white icon or label would not be visible, so the control carries the field with ink on it and the
+1.81:1 a white icon or label would not be visible, so the control carries the field with ink on it and the
 lavender stays a surface for ink. It states the item count always and the
 subtotal when every line can be priced; the prices come from `GET /api/cart/prices` (ids from the `qb_cart`
 cookie, unit prices from the database) and are multiplied by the browser's quantities for display only -
@@ -1031,8 +1031,8 @@ components did.
   vertical centre, over the merchandise) and is hidden from 1024px, where the header cart replaces it.
   The support rail renders **only on the homepage**, bottom-left on a phone, inline below the browse
   row from 1024px - it used to follow every route and cover the hero on desktop.
-- **Storefront card.** Hover lifts with `--shadow-md` and tints toward action ink; the `#DCCFFF`
-  hairline (1.46:1) is gone. The price uses the display face.
+- **Storefront card.** Hover lifts with `--shadow-md` and tints toward action ink; the `#C8B6FF`
+  hairline (1.81:1) is gone. The price uses the display face.
 
 Verified on a served development build at 390px and 1440px: the homepage, listing, brands and cart
 render with no horizontal overflow, the support rail is absent everywhere but `/`, the admin

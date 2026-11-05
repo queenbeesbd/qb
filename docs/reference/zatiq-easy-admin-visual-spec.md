@@ -65,8 +65,8 @@ Font stack resolves to the system sans (no custom webfont observed in the comput
 | Status pill | radius **26 px** (fully rounded); padding 2 px 8 px; tinted background `lab(96.49 -1.15 -5.11)` with violet text `lab(36.91 35.10 -85.69)` |
 
 **Contrast note.** The reference uses a saturated violet fill with white text for primary actions. It
-passes at this size, but QueenBee's deliberately does not copy it: `#DCCFFF` with white fails at
-1.46:1, which is why QueenBee's filled actions use the lavender field with ink (`--color-button`).
+passes at this size, but QueenBee's deliberately does not copy it: `#C8B6FF` with white fails at
+1.81:1, which is why QueenBee's filled actions use the lavender field with ink (`--color-button`).
 
 ## 4. Surfaces
 

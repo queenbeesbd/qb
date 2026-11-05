@@ -13,7 +13,7 @@
 
 .card:hover {
   /*
-   * The old hover drew a `--brand-primary` (#dccfff) hairline - 1.46:1 on white, the same value the
+   * The old hover drew a `--brand-primary` (#c8b6ff) hairline - 1.81:1 on white, the same value the
    * palette refuses for text, and close enough to a focus ring that the two states were confusable.
    * The card now lifts with the ambient shadow and tints toward the action ink.
    */
@@ -137,7 +137,7 @@
   /*
    * The price is the card's one commercial fact, so it carries the shop's purple - the same
    * `--color-action` ink every filled action uses, which is 7.4:1 on white. `--brand-primary`
-   * (#dccfff) would be the obvious literal choice and is only 1.46:1 here, which is exactly the
+   * (#c8b6ff) would be the obvious literal choice and is only 1.81:1 here, which is exactly the
    * contrast failure this palette exists to avoid. The price is still the loudest thing on the card.
    */
   color: var(--color-action);

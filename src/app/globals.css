@@ -16,7 +16,7 @@
 
 :root {
   /* Brand anchors (approved) */
-  --brand-primary: #dccfff;
+  --brand-primary: #c8b6ff;
   --brand-secondary: #f6b3cc;
 
   /* Accessible derived palette */
@@ -24,7 +24,7 @@
   /*
    * The brand lavender, deepened until white passes on it.
    *
-   * `--brand-primary` (#dccfff) is a light field, so a filled primary control with a white
+   * `--brand-primary` (#c8b6ff) is a light field, so a filled primary control with a white
    * glyph - the support buttons and the floating cart box - uses this instead: 4.6:1, which is AA for
    * normal text and comfortable for a 20px icon. It is the same hue one step down, not a second brand
    * colour.
@@ -32,11 +32,11 @@
   --brand-primary-deep: #8155ef;
   /*
    * Filled controls use the owner's light lavender (2026-11-05), so a primary button is the brand's
-   * field rather than a second purple. Ink on it is 11.6:1; white is 1.46:1 and is never used. The
+   * field rather than a second purple. Ink on it is 9.3:1; white is 1.81:1 and is never used. The
    * hover step deepens the field slightly instead of changing the ink.
    */
   --color-button: var(--brand-primary);
-  --color-button-hover: #cdbcff;
+  --color-button-hover: #b9a4ff;
   --color-button-ink: var(--color-ink);
   --color-action-hover: #462a75;
   --color-action-soft: #f3edff;

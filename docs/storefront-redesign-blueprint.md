@@ -13,7 +13,7 @@ files that were actually read.
 ### What the storefront already does well
 
 - **A real design system exists.** `src/app/globals.css` defines a coherent token set: brand anchors
-  (`#dccfff`, `#f6b3cc`), an accessible derived action palette (`#56358c`), a full type scale with a
+  (`#c8b6ff`, `#f6b3cc`), an accessible derived action palette (`#56358c`), a full type scale with a
   documented iOS-zoom guard, a spacing scale, radii, two shadows, a container system (`--container:
   1440px`, fluid gutters) and admin tokens. Any redesign should *extend* this, not replace it.
 - **Component quality is high.** `HomeSections.tsx`, `ProductDetailView.tsx` and `CategoriesView.tsx`

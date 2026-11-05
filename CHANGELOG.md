@@ -14,6 +14,16 @@ No entry may describe a deployment: nothing has been deployed.
 
 ## [Unreleased]
 
+### Changed - 2026-11-05: primary lavender is #C8B6FF
+The owner asked for one more shift of the brand lavender: `--brand-primary` is now **#C8B6FF** (was
+`#DCCFFF`), and the filled-control field follows it through `--color-button`. Hover deepens to
+`#B9A4FF`. Ink `#201A29` measures **9.34:1** on the new field and white measures **1.81:1**, so filled
+controls keep ink labels and glyphs; white-on-lavender stays unused. `--brand-primary-deep` (#8155EF)
+is unchanged for the two surfaces that do carry white marks. The admin shell's brand mark uses the new
+hex, and the docs' hex references and contrast rows were updated.
+
+**Verification.** typecheck, lint (0 errors), `check:i18n`, `build`; computed styles in Chromium.
+
 ### Changed - 2026-11-05: single-letter brand monograms
 
 A brand with no logo in the homepage Shop By Brand rail no longer shows two initials in a bare white

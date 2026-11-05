@@ -6,7 +6,7 @@
  * workspace, hairline rules instead of nested cards, and typographic hierarchy doing the work.
  *
  * Rules that carry over from the storefront and are not negotiable:
- * - Filled actions use --color-action; white on #DCCFFF fails contrast (1.46:1).
+ * - Filled actions use --color-action; white on #C8B6FF fails contrast (1.81:1).
  * - No letter-spacing on Bengali text. Tracking appears only on Latin micro-labels, and
  *   html[lang='bn'] resets it below.
  * - Font weights stay 400/500/600/700.
