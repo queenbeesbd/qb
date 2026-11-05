@@ -14,6 +14,16 @@ An entry may describe a deployment only once it has actually happened and been o
 
 ## [Unreleased]
 
+### Changed - 2026-11-05: the active phone tab is a deep-lavender capsule, not a white one
+On the lavender tab bar, the current destination used a white capsule behind its icon, which read as a
+hole punched in the bar. It is now `--brand-primary-deep` (#8155ef) with a white glyph (4.7:1); labels
+stay ink on the lavender (9.3:1). The capsule's geometry is unchanged (icon padding plus an equal
+negative margin, 40x30), so nothing shifts when the destination changes and the active state never fills
+the tab cell.
+
+**Verification.** Computed styles in Chromium at 390px: capsule `rgb(129,85,239)`, glyph
+`rgb(255,255,255)`, label ink; screenshot of the Home tab reviewed.
+
 ### Changed - 2026-11-05: editorial cleanup of index pages and the admin shell
 Filler copy is gone from the surfaces a shopper and the owner read first. `/categories` and `/brands`
 lost their intro sentences, duplicate section headings and trailing nav footnote, and the category tiles

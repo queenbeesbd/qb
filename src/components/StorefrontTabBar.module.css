@@ -2,9 +2,10 @@
  * The storefront's phone navigation.
  *
  * **The bar wears the brand's light lavender (owner direction, 2026-11-05).** The ground is
- * `--brand-primary` (#c8b6ff) with ink labels; the current destination is a white capsule behind its
- * icon. Ink on that lavender is 13:1, so the labels never depend on weight or a fade to be read - and
- * the bar is one clean field rather than a white strip with a lavender chip inside it.
+ * `--brand-primary` (#c8b6ff) with ink labels; the current destination carries a **deep-lavender
+ * capsule** behind its icon with a white glyph (4.7:1). A white capsule read as a hole punched in the
+ * bar, so the active state stays in the same hue family instead of switching to paper (owner feedback,
+ * 2026-11-05). Ink on the ground is 9.3:1, so the labels never depend on weight or a fade to be read.
  *
  * Six destinations stay (owner direction, 2026-11-02); the labels remain short because a truncated
  * tab is worse than a shorter word.
@@ -62,7 +63,8 @@
 /*
  * The capsule is drawn by the icon's own padding plus an equal negative margin, so it never changes
  * the tab's layout - the icon stays optically centred and the label never shifts when the current
- * destination changes.
+ * destination changes. It is the only place a white mark sits on this bar, and it sits on the deep
+ * step (4.7:1), never on the light field (1.8:1).
  */
 .icon {
   position: relative;
@@ -82,8 +84,8 @@
 }
 
 .tab[aria-current='page'] .icon {
-  background: var(--color-surface);
-  color: var(--color-action);
+  background: var(--brand-primary-deep);
+  color: #ffffff;
 }
 
 /*
@@ -107,7 +109,7 @@
 
 /*
  * The cart count is the one saturated mark in the bar: ink on the brand's pink (8.4:1), legible on
- * the lavender ground and inside the white capsule without changing colour.
+ * the lavender ground and on the deep capsule without changing colour.
  */
 .badge {
   position: absolute;

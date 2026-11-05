@@ -210,17 +210,17 @@ hold - and still links to the brand index.
 none clips.
 
 **The bar wears the brand (owner direction, 2026-11-05).** It is `--brand-primary` (#c8b6ff) rather than a
-white strip, with labels and icons in `--color-ink` - 6.1:1 on that lavender. The current destination is a
-**white capsule behind the icon** (40x30, `border-radius: 999px`) plus a 700-weight label; ink on white is
-15:1, so the state is louder than the surface. The cart count is `--brand-secondary` pink with ink on it
-(9.3:1). **White text on the lavender is never used** (1.81:1).
+white strip, with labels and icons in `--color-ink` - 9.3:1 on that lavender. The current destination is a
+**deep-lavender capsule behind the icon** (`--brand-primary-deep`, 40x30, `border-radius: 999px`) with a
+white glyph (4.7:1) plus a 700-weight label. The cart count is `--brand-secondary` pink with ink on it.
+**White text on the light lavender is never used** (1.8:1); white is confined to the deep capsule.
 
 The bar's craft rules, after the 2026-11-05 refinement:
 
 - The surface lifts ~12% at its top edge and carries a 1px light inset highlight; **no dark hairline** under
   the content - it drew a second line across every screen.
 - **The active state never fills the tab cell.** A cell is ~65x64, so a full-cell pill is nearly square and
-  reads as a bubble pressed against the label. The capsule hugs the 22px icon and the label keeps the cell's
+  reads as a bubble pressed against the label. A white capsule was rejected on sight by the owner (it read as a hole in the bar), so the active state stays in the brand's own hue. The capsule hugs the 22px icon and the label keeps the cell's
   full width.
 - Tabs answer a press (`scale(0.94)`, 120ms) and hover is gated behind `(hover: hover) and (pointer: fine)`,
   because on a touch screen a hover wash fires on tap and looks like a stuck selection.
@@ -1025,7 +1025,7 @@ components did.
   band; empty-state icons are neutral rather than success green.
 - **Phone tab bar.** The lavender band, gradient lift, inset highlight and white icon capsule were
   removed. The bar is the header's surface (white, one hairline, one soft shadow); the current
-  destination is a pale lavender capsule behind its icon with ink text; the cart count is action
+  destination is a deep-lavender capsule behind its icon with a white glyph; the cart count is action
   purple with white. Six destinations, 64px, unchanged.
 - **Floating chrome.** The cart box is centred on the right edge (owner direction, 2026-11-05) and the support rail sits bottom-right above the tab bar (it used to sit at the
   vertical centre, over the merchandise) and is hidden from 1024px, where the header cart replaces it.
