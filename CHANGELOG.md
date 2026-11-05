@@ -14,6 +14,16 @@ An entry may describe a deployment only once it has actually happened and been o
 
 ## [Unreleased]
 
+### Changed - 2026-11-05: support links move to the bottom-right corner
+The Facebook/WhatsApp rail moved from the bottom-left corner to the **bottom-right** (owner direction),
+mirroring the cart box that owns the right edge halfway up: the two floating surfaces no longer sit on
+opposite thumbs and cannot overlap. On a phone the rail keeps a 12px inset above the tab bar; from
+1024px it uses the page's own 16px margin.
+
+**Verification.** In headless Chromium with temporary local links, the rail measured right 378/390 and
+bottom 768/844 at 390px, clear of the cart box (308-390 × 395-449), and 16px from both edges at 1280px.
+The temporary links were then cleared.
+
 ### Changed - 2026-11-05: phone-sized photographs are compressed before upload, and stale auth rows are gone
 A 5 MB photo used to be refused: the request cap is 4 MB and a phone JPEG is routinely larger. Every
 admin upload input is now `AdminImageInput`, which decodes the chosen file **in the browser**, scales the

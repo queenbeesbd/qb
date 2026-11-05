@@ -928,7 +928,7 @@ subtotal when every line can be priced; the prices come from `GET /api/cart/pric
 cookie, unit prices from the database) and are multiplied by the browser's quantities for display only -
 the order transaction recomputes every line.
 
-**A support rail** sits in the bottom-left corner, clear of the tab bar, with a Facebook and a WhatsApp button, drawn as our own outlined
+**A support rail** sits in the bottom-right corner, clear of the tab bar, with a Facebook and a WhatsApp button, drawn as our own outlined
 marks in white on that same `--brand-primary-deep` fill (never the providers' brand colours, never white
 on the lighter lavender). Their addresses are the owner's `store_setting`
 values, edited at Settings -> Support links: a blank field renders **no button**, and both are validated as
@@ -1026,9 +1026,9 @@ components did.
   removed. The bar is the header's surface (white, one hairline, one soft shadow); the current
   destination is a pale lavender capsule behind its icon with ink text; the cart count is action
   purple with white. Six destinations, 64px, unchanged.
-- **Floating chrome.** The cart box is centred on the right edge (owner direction, 2026-11-05) and the support rail sits bottom-left above the tab bar (it used to sit at the
+- **Floating chrome.** The cart box is centred on the right edge (owner direction, 2026-11-05) and the support rail sits bottom-right above the tab bar (it used to sit at the
   vertical centre, over the merchandise) and is hidden from 1024px, where the header cart replaces it.
-  The support rail renders **only on the homepage**, bottom-left on a phone, inline below the browse
+  The support rail renders **only on the homepage**, bottom-right on a phone, inline below the browse
   row from 1024px - it used to follow every route and cover the hero on desktop.
 - **Storefront card.** Hover lifts with `--shadow-md` and tints toward action ink; the `#C8B6FF`
   hairline (1.81:1) is gone. The price uses the display face.

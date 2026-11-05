@@ -1,16 +1,16 @@
 /* ---------------------------------------------------------------------------
  * Support links (Facebook, WhatsApp)
  *
- * Fixed to the bottom-left corner at every width, clear of the phone tab bar and of the device's
- * home-indicator inset (owner direction, 2026-11-05): the basket owns the right edge halfway down, the
- * support links own the left corner where a second thumb rests. Two 44px circles - the smallest size
- * that is still a comfortable thumb target.
+ * Fixed to the **bottom-right** corner at every width (owner direction, 2026-11-05), clear of the phone
+ * tab bar and of the device's home-indicator inset. The basket is centred on the same right edge
+ * halfway up, so the two never meet: mid-height belongs to the cart, the corner to support. Two 44px
+ * circles - the smallest size that is still a comfortable thumb target.
  * ------------------------------------------------------------------------- */
 
 .rail {
   position: fixed;
   z-index: 45;
-  left: var(--space-3);
+  right: var(--space-3);
   bottom: calc(var(--admin-bottom-nav-height) + env(safe-area-inset-bottom) + var(--space-3));
   display: flex;
   flex-direction: column;
@@ -49,11 +49,12 @@
 }
 
 /*
- * The rail stays fixed on a wide screen too, in the same left corner. The tab bar is not drawn there,
+ * The rail stays fixed on a wide screen too, in the same right corner. The tab bar is not drawn there,
  * so it sits at the page's own outer margin.
  */
 @media (min-width: 1024px) {
   .rail {
+    right: var(--space-4);
     bottom: var(--space-4);
   }
 }
