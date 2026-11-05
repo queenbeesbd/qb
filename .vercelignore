@@ -8,7 +8,11 @@
 # and are served by `public/` before the route is reached.
 public/catalog/zq-*
 
-# Local-only state that is never part of a deployment.
+# Local-only state that is never part of a deployment. Environment files hold credentials for this
+# machine only; the deployment's values come from the project's environment variables.
+.env
+.env.*
+!.env.example
 .dev-pg/
 .tmp-*/
 .playwright-cli/
