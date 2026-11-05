@@ -66,7 +66,6 @@ export function BrandLogoForm({
             <div className={styles.field}>
               <label htmlFor="brandLogoUpload">{t('admin.brandLogo.uploadTitle')}</label>
               <AdminImageInput
-                className={styles.input}
                 id="brandLogoUpload"
                 accept="image/jpeg,image/png,image/webp"
                 required

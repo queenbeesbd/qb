@@ -1063,6 +1063,8 @@ export const dictionary = {
   'admin.upload.file': 'Image from your computer',
   'admin.upload.help':
     'JPG, PNG or WebP. A large photo is compressed in your browser before it is sent, then the shop crops and resizes it for every place the image appears.',
+  'admin.upload.choose': 'Choose image',
+  'admin.upload.noFile': 'No file selected',
   'admin.upload.preparing': 'Preparing the image for upload…',
   'admin.upload.submit': 'Upload image',
   'admin.catalog.uploadHelp':

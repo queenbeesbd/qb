@@ -91,7 +91,6 @@ export function ProductMediaPanel({
           <div className={styles.field}>
             <label htmlFor="productImageUpload">{t('admin.upload.file')}</label>
             <AdminImageInput
-              className={styles.input}
               id="productImageUpload"
               accept="image/jpeg,image/png,image/webp"
               required

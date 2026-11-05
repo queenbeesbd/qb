@@ -14,6 +14,21 @@ An entry may describe a deployment only once it has actually happened and been o
 
 ## [Unreleased]
 
+### Changed - 2026-11-05: a designed file picker, and hero cards stack on a phone
+The upload forms rendered the browser's own "Choose File / No file chosen" widget, which read as a
+different application beside every 40px admin control. `AdminImageInput` now draws the control: a
+40px **Choose image** button (upload glyph, quiet border, hover and visible focus) plus the selected
+file's name and size, or "No file selected". The native input is still the real form field, visually
+hidden and focused by the label; the browser's compression step, names and validation are unchanged.
+This benefits the hero, product, category and brand upload forms because they share the component.
+
+On `/admin/settings/hero`, each carousel row now **stacks on a phone**: the 16:9 banner takes the full
+card width and the description field gets the whole column instead of 208px beside a thumbnail.
+
+**Verification.** At 1280 the picker button measures 40×148 and reports `hero-pick.jpg · 6 KB` after a
+selection; at 390 the hero card stacks with a 332px input, no page overflow, and the required-file check
+still blocks an empty submit. typecheck, lint (0 errors), `check:i18n`, `build`.
+
 ### Fixed - 2026-11-05: a guest order opens in the owner panel, and the COD actions share one edge
 `adminOrderDetail` inner-joined `customer`, so a guest order (`customer_id = null`) resolved to nothing:
 it appeared in the waiting queue and 404'd at `/admin/orders/<reference>`. The join is now a **left

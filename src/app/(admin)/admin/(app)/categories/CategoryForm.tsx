@@ -301,7 +301,6 @@ export function CategoryForm({
                     <div className={styles.field}>
                       <label htmlFor="categoryImageUpload">{t('admin.categories.imageUploadTitle')}</label>
                       <AdminImageInput
-                        className={styles.input}
                         id="categoryImageUpload"
                         accept="image/jpeg,image/png,image/webp"
                         required

@@ -2,6 +2,8 @@
 
 import { useState, type ChangeEvent } from 'react';
 
+import { UploadIcon } from '@/components/icons';
+
 import { useTranslation } from '@/i18n/useTranslation';
 
 import styles from '../admin.module.css';
@@ -22,24 +24,26 @@ import styles from '../admin.module.css';
  */
 export function AdminImageInput({
   id,
-  className,
   name = 'file',
   accept = 'image/jpeg,image/png,image/webp',
   required = false,
 }: {
   id: string;
-  className?: string;
   name?: string;
   accept?: string;
   required?: boolean;
 }) {
   const { t } = useTranslation();
   const [preparing, setPreparing] = useState(false);
+  const [chosen, setChosen] = useState<{ name: string; bytes: number } | null>(null);
 
   async function prepare(event: ChangeEvent<HTMLInputElement>): Promise<void> {
     const input = event.currentTarget;
     const file = input.files?.[0];
     if (file === undefined) return;
+    const originalName = file.name;
+    setChosen({ name: originalName, bytes: file.size });
+
     // Small enough to post as-is, and no decode cost for the common case.
     if (file.size <= 2 * 1024 * 1024) return;
 
@@ -50,6 +54,7 @@ export function AdminImageInput({
         const transfer = new DataTransfer();
         transfer.items.add(prepared);
         input.files = transfer.files;
+        setChosen({ name: originalName, bytes: prepared.size });
       }
     } catch {
       // Keep the original; the server states the size refusal if it cannot be accepted.
@@ -59,9 +64,13 @@ export function AdminImageInput({
   }
 
   return (
-    <>
+    <div className={styles.filePicker}>
+      {/*
+        The native control is visually hidden, never removed: the label below opens it, keyboard focus
+        still reaches it, and the form posts the same `file` field it always did.
+      */}
       <input
-        className={className}
+        className={styles.fileInput}
         id={id}
         type="file"
         name={name}
@@ -70,11 +79,26 @@ export function AdminImageInput({
         onChange={(event) => void prepare(event)}
         aria-busy={preparing}
       />
-      <span className={styles.hint} aria-live="polite">
-        {preparing ? t('admin.upload.preparing') : ''}
+      <label className={styles.fileButton} htmlFor={id}>
+        <UploadIcon width={16} height={16} />
+        {t('admin.upload.choose')}
+      </label>
+      <span className={styles.fileName} data-empty={chosen === null} aria-live="polite">
+        {preparing
+          ? t('admin.upload.preparing')
+          : chosen === null
+            ? t('admin.upload.noFile')
+            : `${chosen.name} · ${formatBytes(chosen.bytes)}`}
       </span>
-    </>
+    </div>
   );
+}
+
+/** A file size a person can read, rounded to one decimal above a kilobyte. */
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 /** The longest edge kept before the server builds its 320/600/1050 set. */

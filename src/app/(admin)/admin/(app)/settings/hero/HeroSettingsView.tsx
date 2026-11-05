@@ -247,7 +247,6 @@ export function HeroSettingsView({
               <div className={styles.field}>
                 <label htmlFor="hero-upload-file">{t('admin.hero.uploadTitle')}</label>
                 <AdminImageInput
-                  className={styles.input}
                   id="hero-upload-file"
                   accept="image/jpeg,image/png,image/webp"
                   required
