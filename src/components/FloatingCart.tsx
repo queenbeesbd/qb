@@ -33,7 +33,11 @@ export function FloatingCart() {
   const { lines, itemCount } = useCart();
   const prices = useCartPrices(lines);
 
-  if (pathname === '/cart' || pathname === '/checkout') return null;
+  // The cart page and checkout already state the count and the money; the account hub has its own
+  // rail and the box would sit across it at mid-screen.
+  if (pathname === '/cart' || pathname === '/checkout' || pathname.startsWith('/account')) {
+    return null;
+  }
 
   let subtotal = 0;
   let priced = 0;

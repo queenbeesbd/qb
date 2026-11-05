@@ -144,7 +144,7 @@ with the owner's stored order as the sequence. It is a CSS scroll-snap track lik
 phone swipes it without custom gesture code and the keyboard arrows work when the track has focus. From
 720px two 44px circular arrows overlay the banner; on a phone they stay hidden and the dots are the visible
 control. The dots sit on the image's lower-left corner as in the owner's reference, are 32px targets with an
-8px mark, and state aria-current. There is no autoplay, no timer and no traffic-light animation; a single
+8px mark, and state aria-current. **Since 2026-11-05 the hero advances every 9 seconds and loops** (hover/focus pause it, `prefers-reduced-motion` stops it); there is no play/pause control. It is still one real scroll, not a separate animation, and a single
 banner renders no dots. The h1 remains in the section for the document outline but is visually hidden,
 because the banner's message is inside the owner's artwork.
 
@@ -949,7 +949,7 @@ removed with it: the hero no longer derives from product recency, and the carous
 
 **The offer shelf** is a CSS scroll-snap track: 62% card width on a phone (the next card is visibly
 cut, which is the affordance), 44% at 480px, 30% at 720px and a quarter of the track from 1024px, where
-previous/next controls and slide dots appear. No autoplay, no timer, no JS scrolling: the controls call
+previous/next controls and slide dots appear. The hero advances every 9 seconds, wrapping at the end (2026-11-05); the controls call
 `scrollBy` and the shelf works with them removed. The dots are 8px marks inside 24px pressable areas.
 
 **Category rail.** A horizontal strip of 84px squares on a phone (94px at 480px), becoming a 7-column

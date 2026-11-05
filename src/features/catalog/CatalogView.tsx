@@ -426,6 +426,7 @@ export function CatalogView({
                       product={product}
                       frame={LISTING_CARD_FRAME}
                       sizes={LISTING_CARD_SIZES}
+                      addToCart
                     />
                   ))}
                 </ProductGrid>

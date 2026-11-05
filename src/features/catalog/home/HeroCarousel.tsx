@@ -13,26 +13,38 @@ export type HeroSlide = {
   readonly altText: string;
 };
 
+/** How long a banner stays before the next one takes its place. */
+const AUTOPLAY_MS = 9_000;
+
 /**
  * The homepage's hero carousel.
  *
- * One banner at a time, at the reference's 16:9 frame: swipe on a phone, paged arrows from 720px, and
- * dots that name the slide they go to. The order is the owner's, read from the database on the server
- * and handed here as plain data - this component never decides which banner is first.
+ * One banner at a time at the 16:9 frame: swipe on a phone, arrows from 720px, and dots that name the
+ * slide they go to. The order is the owner's, read from the database on the server and handed here as
+ * plain data.
  *
- * **It is a CSS scroll-snap track, not a JavaScript slider.** Native scrolling supplies momentum,
- * touch behaviour and the keyboard's own arrows; the buttons only call `scrollTo`, and the dots do
- * not animate by themselves. That is the same mechanism the homepage's product carousels use
- * (`src/components/Carousel.tsx`), so the shop has one shelf behaviour rather than two.
+ * **It advances by itself, and it loops** (owner direction, 2026-11-05). Every 9 seconds the next
+ * banner eases in; after the last one the first returns, and the arrows do the same at either end
+ * rather than disabling. The movement is a real scroll of the same snap track, so autoplay, a swipe,
+ * an arrow and a dot all produce the same result and the scroll position always matches the slide
+ * that is announced.
  *
- * Every image is a generated WebP/JPEG pair under `/hero`, and the description is the owner's own.
- * A banner made of baked-in type has no text a screen reader can see, which is why the description is
- * required before an image can be added at all.
+ * Hover or keyboard focus pauses the timer so reading a banner does not race it, and
+ * `prefers-reduced-motion` disables autoplay entirely - a banner that pages itself is motion the
+ * visitor asked not to receive. Arrows and dots still work in both cases.
+ *
+ * The images are generated WebP/JPEG pairs under `/hero`, and every description is the owner's own.
  */
 export function HeroCarousel({ images }: { images: readonly HeroSlide[] }) {
   const { t } = useTranslation();
   const trackRef = useRef<HTMLUListElement | null>(null);
   const [active, setActive] = useState(0);
+  const activeRef = useRef(0);
+  const pausedRef = useRef(false);
+
+  useEffect(() => {
+    activeRef.current = active;
+  }, [active]);
 
   useEffect(() => {
     const track = trackRef.current;
@@ -54,21 +66,51 @@ export function HeroCarousel({ images }: { images: readonly HeroSlide[] }) {
     };
   }, [images.length]);
 
-  if (images.length === 0) return null;
-
   const goToSlide = (index: number): void => {
     const track = trackRef.current;
     if (track === null) return;
     track.scrollTo({ left: index * track.clientWidth, behavior: 'smooth' });
   };
 
+  useEffect(() => {
+    if (images.length < 2) return;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+    const timer = window.setInterval(() => {
+      if (pausedRef.current) return;
+      if (document.visibilityState !== 'visible') return;
+      const next = (activeRef.current + 1) % images.length;
+      goToSlide(next);
+    }, AUTOPLAY_MS);
+
+    return () => window.clearInterval(timer);
+  }, [images.length]);
+
+  if (images.length === 0) return null;
+
+  /** Wraps at either end: the carousel is a loop, not a filmstrip with two dead ends. */
   const byPage = (direction: 1 | -1): void => {
-    const next = Math.min(images.length - 1, Math.max(0, active + direction));
-    goToSlide(next);
+    goToSlide((active + direction + images.length) % images.length);
   };
 
   return (
-    <section className={styles.hero} aria-label={t('home.heroCarouselLabel')} data-hero-carousel="">
+    <section
+      className={styles.hero}
+      aria-label={t('home.heroCarouselLabel')}
+      data-hero-carousel=""
+      onPointerEnter={() => {
+        pausedRef.current = true;
+      }}
+      onPointerLeave={() => {
+        pausedRef.current = false;
+      }}
+      onFocusCapture={() => {
+        pausedRef.current = true;
+      }}
+      onBlurCapture={() => {
+        pausedRef.current = false;
+      }}
+    >
       <div className={styles.viewport}>
         <ul
           className={styles.track}
@@ -115,7 +157,6 @@ export function HeroCarousel({ images }: { images: readonly HeroSlide[] }) {
               className={`${styles.control} ${styles.previous}`}
               data-hero-arrow="previous"
               onClick={() => byPage(-1)}
-              disabled={active === 0}
               aria-label={t('home.heroPrevious')}
             >
               <ArrowIcon width={18} height={18} />
@@ -125,7 +166,6 @@ export function HeroCarousel({ images }: { images: readonly HeroSlide[] }) {
               className={styles.control}
               data-hero-arrow="next"
               onClick={() => byPage(1)}
-              disabled={active === images.length - 1}
               aria-label={t('home.heroNext')}
             >
               <ArrowIcon width={18} height={18} />
@@ -134,19 +174,21 @@ export function HeroCarousel({ images }: { images: readonly HeroSlide[] }) {
         )}
 
         {images.length > 1 && (
-          <div className={styles.dots}>
-            {images.map((image, index) => (
-              <button
-                key={image.id}
-                type="button"
-                className={styles.dot}
-                data-hero-dot=""
-                data-active={index === active ? 'true' : undefined}
-                aria-label={t('home.heroSlideLabel', { index: index + 1, count: images.length })}
-                aria-current={index === active ? 'true' : undefined}
-                onClick={() => goToSlide(index)}
-              />
-            ))}
+          <div className={styles.bottomBar}>
+            <div className={styles.dots}>
+              {images.map((image, index) => (
+                <button
+                  key={image.id}
+                  type="button"
+                  className={styles.dot}
+                  data-hero-dot=""
+                  data-active={index === active ? 'true' : undefined}
+                  aria-label={t('home.heroSlideLabel', { index: index + 1, count: images.length })}
+                  aria-current={index === active ? 'true' : undefined}
+                  onClick={() => goToSlide(index)}
+                />
+              ))}
+            </div>
           </div>
         )}
       </div>

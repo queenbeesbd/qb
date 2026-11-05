@@ -269,3 +269,4 @@ export function CategoryIcon({ name, ...props }: IconProps & { name: string }) {
       );
   }
 }
+

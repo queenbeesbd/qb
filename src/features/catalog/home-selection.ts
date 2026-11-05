@@ -94,7 +94,15 @@ export function selectHomepage({
    */
   bestSellerIds: readonly string[];
 }): HomepageSelection {
-  const productById = new Map(products.map((product) => [product.id, product]));
+  /*
+   * **The homepage never advertises something that cannot be ordered.** Availability is the only
+   * ordering gate (ADR 0013), so a shelf of out-of-stock cards would be a row of dead ends. The
+   * catalogue row is filtered once here, on the server, and every selection below reads it - the
+   * empty state still describes the catalogue, not the filtered list, so a shop whose whole stock is
+   * unavailable says so rather than pretending it has no products.
+   */
+  const purchasable = products.filter((product) => product.availability === 'in_stock');
+  const productById = new Map(purchasable.map((product) => [product.id, product]));
 
   /** The busiest departments first, then everything else in the catalog's own order. */
   const primary = selectDepartments(categories, products, 4);
@@ -115,7 +123,7 @@ export function selectHomepage({
    * newest row) would publish a "Recently added" list that is not the newest products, which is a
    * different, false claim.
    */
-  const newArrivals = selectRecentlyAdded(products).slice(0, NEW_ARRIVALS_LIMIT);
+  const newArrivals = selectRecentlyAdded(purchasable).slice(0, NEW_ARRIVALS_LIMIT);
   const recentShown = new Set(newArrivals.map((product) => product.id));
 
   /*
@@ -133,7 +141,7 @@ export function selectHomepage({
     .slice(0, HOMEPAGE_SECTION_SIZE);
   const featuredShown = new Set(featured.map((product) => product.id));
 
-  const deals = products
+  const deals = purchasable
     .filter(
       (product) =>
         !recentShown.has(product.id) &&
@@ -154,7 +162,7 @@ export function selectHomepage({
   );
   const curated = byCuratedId(collectionIds).filter((product) => !shownIds.has(product.id));
   const curatedIds = new Set(curated.map((product) => product.id));
-  const remainder = products.filter(
+  const remainder = purchasable.filter(
     (product) => !shownIds.has(product.id) && !curatedIds.has(product.id),
   );
   const browse = [...curated, ...remainder].slice(0, BROWSE_LIMIT);

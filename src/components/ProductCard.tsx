@@ -26,8 +26,9 @@ export function ProductCard({
   frame?: string;
   sizes?: string;
   /**
-   * Draw the card's own "Add to cart" control. The homepage rows ask for it; the listing does not,
-   * because a grid being scanned and filtered is a different task from a shelf being shopped.
+   * Draw the card's own "Add to cart" control. Homepage shelves and the catalog listing ask for it;
+   * related products on a product page do not, because there the page's own buy action is already
+   * on screen.
    */
   addToCart?: boolean;
 }) {

@@ -14,6 +14,28 @@ No entry may describe a deployment: nothing has been deployed.
 
 ## [Unreleased]
 
+### Changed - 2026-11-05: in-stock shelves, listing cart controls, a sliding hero and a new account hub
+
+**Homepage availability.** `selectHomepage` filters the catalogue to In Stock once, before every
+product row is selected, so the homepage can never advertise a product that cannot be ordered. The
+catalogue-empty state still describes the catalogue, not the filtered list.
+
+**Listing.** `/products` and category listings pass `addToCart`, so every card in the grid carries the
+same Add to cart control as a homepage card. Related products on a product page still omit it.
+
+**Hero.** The homepage carousel advances every 9 seconds and wraps from the last banner to the first;
+the arrows wrap too instead of disabling. Hover and keyboard focus pause the timer, and
+`prefers-reduced-motion` stops autoplay. No play/pause control was added (owner direction).
+
+**Account.** `/account` was rebuilt from scratch on the `framed-sheet` app direction (seed 1922153422):
+a lavender frame carries identity, the real order count, password help and sign-out; a white sheet
+carries the greeting and the three newest orders read from the same customer-scoped query as the
+orders page. The floating cart is hidden on account routes.
+
+**Verification.** typecheck, `check:i18n` (1,476 keys); browser checks at 1280 and 390px for the hub
+(one real order placed through checkout), the listing cards' Add to cart, zero out-of-stock cards on
+the homepage, and hero auto-advance measured as 0 → 1216px → 0 (loop) at 9-second intervals.
+
 ### Changed - 2026-11-05: brand lavender, circular imagery, browser uploads and a working production target
 
 **Storefront.** The brand anchor changed to the owner's light lavender `#dccfff`; the phone tab bar is
