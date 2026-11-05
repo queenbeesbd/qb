@@ -22,7 +22,6 @@ import sharp from 'sharp';
 import { IMAGE_WIDTHS } from '../src/lib/images';
 
 const DIR = join(process.cwd(), 'public', 'catalog');
-const PREFIX = 'brand-logo-';
 /** Ink occupies 92% of the square, leaving the circle's border visible. */
 const CONTENT = 0.92;
 

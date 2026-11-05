@@ -5,9 +5,9 @@ import Link from 'next/link';
 import { useTranslation } from '@/i18n/useTranslation';
 import { CIRCLE_RAIL_SIZES } from '@/lib/images';
 import type { CatalogCategory } from '@/lib/types';
-import { CategoryIcon } from '@/components/icons';
 import { Carousel } from '@/components/Carousel';
 import { DiscoveryPhoto } from '@/components/DiscoveryPhoto';
+import { LetterMark } from '@/components/LetterMark';
 import styles from './CategoryCircleRail.module.css';
 
 /**
@@ -42,11 +42,7 @@ export function CategoryCircleRail({ categories }: { categories: readonly Catalo
                 alt=""
                 sizes={CIRCLE_RAIL_SIZES}
                 className={styles.photo}
-                fallback={
-                  <span className={styles.glyph}>
-                    <CategoryIcon name={category.icon} width={30} height={30} />
-                  </span>
-                }
+                fallback={<LetterMark name={name} />}
               />
             </span>
             <span className={styles.name}>{name}</span>

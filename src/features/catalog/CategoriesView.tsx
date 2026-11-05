@@ -4,8 +4,8 @@ import Link from 'next/link';
 import { useTranslation } from '@/i18n/useTranslation';
 import { CATEGORY_TILE_SIZES } from '@/lib/images';
 import type { CatalogCategory } from '@/lib/types';
-import { CategoryIcon } from '@/components/icons';
 import { DiscoveryPhoto } from '@/components/DiscoveryPhoto';
+import { LetterMark } from '@/components/LetterMark';
 import styles from './CategoriesView.module.css';
 
 /**
@@ -56,11 +56,7 @@ export function CategoriesView({
                       alt=""
                       sizes={CATEGORY_TILE_SIZES}
                       className={styles.tileImage}
-                      fallback={
-                        <span className={styles.tileGlyph}>
-                          <CategoryIcon name={category.icon} width={30} height={30} />
-                        </span>
-                      }
+                      fallback={<LetterMark name={name} />}
                     />
                   </span>
                   <span className={styles.tileText}>

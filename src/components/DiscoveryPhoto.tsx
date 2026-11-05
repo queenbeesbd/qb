@@ -1,4 +1,5 @@
 import { imageSources } from '@/lib/images';
+import { LetterMark } from './LetterMark';
 import styles from './DiscoveryPhoto.module.css';
 
 /**
@@ -79,49 +80,23 @@ export function DiscoveryPhoto({
  * The first letter or digit of the stored name, never an invented mark. Two initials in a 100px
  * circle read as uneven text; one letter set large in the display face reads as a monogram.
  */
-export function brandInitial(name: string): string {
-  const match = /[a-z0-9]/i.exec(name);
-  return match === null ? '·' : match[0].toUpperCase();
-}
-
-/** A stable tone index from the slug, so a brand keeps the same plate on every visit. */
-export function brandTone(slug: string): string {
-  let hash = 0;
-  for (const character of slug) hash = (hash * 31 + character.charCodeAt(0)) % 997;
-  return String(hash % 4);
-}
-
-export function brandInitials(name: string): string {
-  return name
-    .split(/\s+/)
-    .filter((word) => /[a-z0-9]/i.test(word))
-    .slice(0, 2)
-    .map((word) => word[0]?.toUpperCase() ?? '')
-    .join('');
-}
-
 export function BrandMark({
   logoKey,
   name,
-  slug,
   sizes,
   priority = false,
   className,
 }: {
   logoKey: string | null;
   name: string;
-  slug: string;
   sizes: string;
   priority?: boolean;
   /** Extra class on the tile, for contexts that size the mark differently (e.g. a chip). */
   className?: string;
 }) {
-  const initials = brandInitials(name);
-
   return (
     <span
       className={`${styles.brandMark} ${className ?? ''}`.trim()}
-      data-tone={toneFor(slug)}
       data-fallback={logoKey === null ? 'true' : undefined}
     >
       <DiscoveryPhoto
@@ -130,16 +105,8 @@ export function BrandMark({
         sizes={sizes}
         priority={priority}
         className={styles.brandLogo}
-        fallback={<span className={styles.brandInitials}>{initials || '·'}</span>}
+        fallback={<LetterMark name={name} />}
       />
     </span>
   );
-}
-
-/**
- * One of four tints, chosen from the slug so a brand keeps the same tile colour on every visit while
- * neighbouring tiles differ. Presentational only: it never carries meaning the name does not.
- */
-function toneFor(slug: string): string {
-  return brandTone(slug);
 }

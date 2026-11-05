@@ -969,14 +969,14 @@ surface belongs to the mark; the four pale tints belong to the no-logo monogram.
 the product count under the name, in the shared `Carousel` (`size="circle"`). The circle frames a logo
 rather than cropping one - a mark is rendered with `object-fit: contain` on the circle's own white
 surface, because a favicon is drawn to the edges of its square and a circular crop would cut a wordmark
-in half. A brand with no logo draws a single-letter monogram on a pale plate in the circle. The square-card rail this replaced is
+in half. A brand with no logo draws the shared **letter mark** — the first letter in Bricolage Grotesque at 46% of a circle, on one of four pale plates chosen by that letter, so the same letter is the same mark everywhere (`src/components/LetterMark.tsx`). The square-card rail this replaced is
 gone rather than kept beside it, so the page has one brand presentation. The brand **index** keeps its
 circles, and since 2026-11-05 the **category index draws the same circle**, with the photograph filling
 it (`object-fit: cover`, centre crop) instead of sitting inside a square tile.
 
 **Category index.** Square photographs, 2 across on a phone, 3 at 480px, 4 at 720px, 5 at 1024px. Each
 tile shows the photograph, the name, a one-line label and the product count as a small chip on the
-photograph. A category with no photograph draws its icon in the same square.
+photograph. A category with no photograph draws the same shared letter mark in its circle.
 
 **Product page.** Gallery **square** on a phone (a 3:4 frame at 390px is 520px tall - a full screen
 above the price), 4:5 from 480px. From 880px the media column is capped at **480px** and the gallery is

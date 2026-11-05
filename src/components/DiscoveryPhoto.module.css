@@ -52,21 +52,9 @@
   overflow: hidden;
 }
 
-/* Tints belong to the no-logo tile; a real mark keeps a white surface so its own colours read true. */
-.brandMark[data-fallback='true'][data-tone='0'] {
-  background: #f6f1ff;
-}
-
-.brandMark[data-fallback='true'][data-tone='1'] {
-  background: #fdeef3;
-}
-
-.brandMark[data-fallback='true'][data-tone='2'] {
-  background: #eef7f3;
-}
-
-.brandMark[data-fallback='true'][data-tone='3'] {
-  background: #fdf6ec;
+/* A letter mark fills its circle; a logo keeps the 8% breathing room. */
+.brandMark[data-fallback='true'] {
+  padding: 0;
 }
 
 /* `className` lands on the `<img>` itself, so this is the image's own rule, not a descendant's. */
@@ -79,10 +67,3 @@
   background: transparent;
 }
 
-.brandInitials {
-  font-size: clamp(18px, 5vw, 26px);
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  color: var(--color-action);
-  line-height: 1;
-}

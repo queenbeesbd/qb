@@ -75,14 +75,6 @@
  * section (the tint the page no longer uses anywhere else); one icon on the page's own grey says
  * "this department has no photograph yet" without dressing it up.
  */
-.glyph {
-  display: grid;
-  place-items: center;
-  width: 100%;
-  height: 100%;
-  background: var(--color-surface-sunken);
-  color: var(--color-action);
-}
 
 .name {
   font-size: var(--text-xs);

@@ -66,7 +66,6 @@ export function BrandIndexView({ brands }: { brands: readonly CatalogBrand[] }) 
                   <BrandMark
                     logoKey={brand.logoKey}
                     name={pick(brand.name) ?? brand.slug}
-                    slug={brand.slug}
                     sizes="(max-width: 599px) 22vw, 120px"
                   />
                   <span className={styles.brandName}>{pick(brand.name) ?? brand.slug}</span>

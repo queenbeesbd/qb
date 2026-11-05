@@ -6,7 +6,8 @@ import { useTranslation } from '@/i18n/useTranslation';
 import { BRAND_RAIL_SIZES } from '@/lib/images';
 import type { CatalogBrand } from '@/lib/types';
 import { Carousel } from '@/components/Carousel';
-import { brandInitial, brandTone, DiscoveryPhoto } from '@/components/DiscoveryPhoto';
+import { DiscoveryPhoto } from '@/components/DiscoveryPhoto';
+import { LetterMark } from '@/components/LetterMark';
 import styles from './BrandCircleRail.module.css';
 
 /**
@@ -38,12 +39,10 @@ export function BrandCircleRail({ brands }: { brands: readonly CatalogBrand[] })
           <Link key={brand.id} className={styles.link} href={`/brands/${brand.slug}`}>
             <span
               className={styles.circle}
-              data-tone={brandTone(brand.slug)}
-              data-fallback={brand.logoKey === null ? 'true' : undefined}
               aria-hidden="true"
             >
               {brand.logoKey === null ? (
-                <span className={styles.initial}>{brandInitial(name)}</span>
+                <LetterMark name={name} />
               ) : (
                 <DiscoveryPhoto
                   imageKey={brand.logoKey}

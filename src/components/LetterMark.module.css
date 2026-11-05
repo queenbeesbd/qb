@@ -1,0 +1,44 @@
+/*
+ * The letter mark: one alphabet, used wherever a category or brand has no picture.
+ *
+ * The field is a 1:1 circle and the letter is drawn in the display face at 46% of that circle inside
+ * an SVG viewBox, so the same mark is correct at 62px (homepage rail) and 125px (brand index) with no
+ * size-specific rule. The four plates are the shop's own pale tones, chosen by the letter so A is the
+ * same everywhere.
+ */
+.mark {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: #f6f1ff;
+  color: var(--color-action);
+  overflow: hidden;
+}
+
+.mark[data-tone='1'] {
+  background: #fdeef3;
+}
+
+.mark[data-tone='2'] {
+  background: #eef7f3;
+}
+
+.mark[data-tone='3'] {
+  background: #fdf6ec;
+}
+
+.glyph {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.glyph text {
+  fill: currentColor;
+  font-family: var(--font-display);
+  font-size: 46px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}

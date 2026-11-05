@@ -14,6 +14,19 @@ An entry may describe a deployment only once it has actually happened and been o
 
 ## [Unreleased]
 
+### Changed - 2026-11-05: one letter mark for every category and brand without a picture
+A category with no photograph used to draw a category icon, and a brand with no logo drew two initials
+on a slug-tinted plate - two placeholder vocabularies for the same gap. Both now use `LetterMark`
+(`src/components/LetterMark.tsx`): the **first letter** of the name, uppercase, in the display face
+(Bricolage Grotesque 800) at 46% of a circle, on one of four pale plates chosen by the **letter** - so
+every "A" in the shop wears the same mark whether it is a category or a brand. The letter is drawn in
+an SVG viewBox, so one drawing is correct at a 62px rail circle and a 125px index tile. The old
+`brandInitial`/`brandInitials` helpers and the slug-based tone function are deleted.
+
+**Verification.** On a served local build at 1568px and 390px: brand fallbacks render D/D on the same
+plate, A on the same plate as any other A, logos still render unfilled and circular; homepage brand rail
+and category rail use the same component. typecheck, lint (0 errors), `build`.
+
 ### Changed - 2026-11-05: the brand index uses the category circle, and logos fill it
 The brand index was a grid of padded squares: a favicon with its own whitespace rendered as a small mark
 floating in a large plate, which read as an empty grid next to the category index. Every brand tile is
