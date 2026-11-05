@@ -4,6 +4,16 @@
 
 Every implementation prompt and completed implementation report must end with one recommended next step from docs/implementation-plan.md: name it, explain why, state prerequisites and owner approval, and give its acceptance condition. If blocked, recommend the prerequisite action instead. Do not execute the recommended next phase without explicit authorization. Avoid unrelated work and new features.
 
+## Mandatory commit-and-push rule
+
+**Every completed prompt or unit of work must end with a commit pushed to GitHub** before the report is written. This is not optional and not deferred to a later turn.
+
+- Commit only the work of that prompt (plus its documentation and changelog entry). Never leave a completed change uncommitted or unpushed, and never batch several unrelated prompts into one commit.
+- Run the checks that apply, then commit with a message that states the change and why.
+- Push to `origin main` (`https://github.com/queenbeesbd/qb`) and confirm the remote-tracking branch is level with the commit. If the HTTPS remote cannot authenticate in the current shell, push the same commit over the SSH remote (`git@github.com:queenbeesbd/qb.git`) and fetch the tracking ref back over SSH - do not fall back to leaving it local.
+- Never commit `.env*`, credentials, tokens, connection strings, dumps or generated secrets. `.gitignore` stays the guard.
+- If a check fails and cannot be fixed within the prompt, do not push broken work silently: commit nothing, state the failure, and leave the tree clean.
+
 ## Scope and authority
 
 - **The product is a single-store, owner-operated shop (ADR 0008).** QueenBee's is one store whose owner sells that store's own goods to that store's own customers. It is **not** a marketplace, multi-vendor platform, SaaS store builder or hosted platform for other businesses. There are no third-party merchants, vendor onboarding, seller registration, seller dashboards, commissions, marketplace payouts or tenant isolation - and no `store_id`, `tenant_id` or `merchant_id` abstraction. Do not add one "for future flexibility". Read `docs/decisions/0008-single-store-product-model.md` before any identity, role, authorization or multi-store work.
