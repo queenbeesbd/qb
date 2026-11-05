@@ -23,6 +23,10 @@ database test seeds the guest shape and asserts the detail resolves.
 The COD card's Accept/Reject pair could sit two pixels apart at some zooms: the reject form was a block,
 so its button rested on a line box with a descender gap while the approve button sat flush. Both action
 forms are now flex containers, measured identical (top/bottom equal to two decimals) at 1280/1440/1568.
+On the order detail, the destructive partner (`Cancel the order`, `Failed delivery`) now carries
+`actionConfirmEnd`, so it ends on the same line as `Mark dispatched` / `Mark delivered` instead of
+sitting at the top of the grid beside the note field. Measured identical boxes (459×40, same
+top/bottom) on a confirmed order.
 
 ### Changed - 2026-11-05: the Telegram alert is a receipt, not a one-liner
 A new order now sends the owner a phone-readable receipt: reference and total, the placement time in
