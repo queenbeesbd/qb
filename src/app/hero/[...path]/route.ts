@@ -46,7 +46,12 @@ export async function GET(
     status: 308,
     headers: {
       Location: `${base}/${file}`,
-      'Cache-Control': 'public, max-age=31536000, immutable',
+      /*
+       * Same rule as `/catalog`: the banner bytes are immutable, this redirect is not. Its target is
+       * `CATALOG_ASSET_BASE_URL`, so a year-long `immutable` entry would outlive a storage move and
+       * point at a bucket the CSP does not allow.
+       */
+      'Cache-Control': 'public, max-age=300, stale-while-revalidate=86400',
     },
   });
 }
