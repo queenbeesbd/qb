@@ -34,9 +34,12 @@ uploads the imported product tree that a deployment does not carry.
 **Admin.** The image editors gained their upload forms, previews are circles, and the phone bottom
 navigation uses the same lavender field as the storefront.
 
-**Production target.** The Vercel project now points at the dedicated `queenbees` Neon project (schema
-migrated, catalog data restored, new `catalog` bucket), and its storage credentials were replaced. The
-previous project was over quota and served 500s; the deployment is recorded in `docs/project-status.md`.
+**Production wiring (not deployed).** The dedicated `queenbees` Neon project now holds the migrated schema
+and the restored catalog, with a public `catalog` storage bucket whose imported product tree was uploaded.
+Vercel's project environment was pointed at it, including new storage credentials. **No deployment
+succeeded:** every new Vercel deployment (CLI and git) is returned as `Blocked` by the account before it
+builds, and the MCP connection's OAuth token expired mid-session. The existing production alias therefore
+still serves the old 500, and the deployment step remains open.
 
 **Verification.** `typecheck`, `lint` (0 errors), `check:catalog`, `check:i18n` (1465 keys) and `build`
 pass. Browser checks were run against the local dev cluster for the tab bar, rails, floating chrome,
