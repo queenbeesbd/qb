@@ -41,16 +41,16 @@
   min-height: 44px;
   padding: 0 var(--space-5);
   border-radius: var(--radius-pill);
-  background: var(--color-action);
-  color: #fff;
+  background: var(--color-button);
+  color: var(--color-button-ink);
   font-size: var(--text-sm);
   font-weight: 600;
   transition: background var(--transition-fast), transform 120ms ease-out;
 }
 
 .cta:hover {
-  background: var(--color-action-hover);
-  color: #fff;
+  background: var(--color-button-hover);
+  color: var(--color-button-ink);
 }
 
 .cta:active {

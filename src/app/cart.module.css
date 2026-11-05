@@ -211,8 +211,8 @@
   min-height: 46px;
   padding: 0 var(--space-5);
   border-radius: var(--radius-md);
-  background: var(--color-action);
-  color: #fff;
+  background: var(--color-button);
+  color: var(--color-button-ink);
   font-weight: 600;
   transition: background-color 140ms ease, transform 120ms ease-out;
 }
@@ -222,7 +222,8 @@
 }
 
 .primaryAction:hover {
-  background: var(--color-action-hover);
+  background: var(--color-button-hover);
+  color: var(--color-button-ink);
   color: #fff;
 }
 

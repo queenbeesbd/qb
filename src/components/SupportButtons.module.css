@@ -18,10 +18,9 @@
 }
 
 /*
- * Filled with the brand (owner direction, 2026-11-05): a primary-lavender disc with the white mark on
- * it, and `--color-action` rather than `--brand-primary`: white on the lighter lavender is 2.9:1 and a
- * white glyph has to be visible. It is the same plum as every filled control (9.2:1), so the rail reads
- * as part of the shop rather than as a third brand colour.
+ * Filled with the brand (owner direction, 2026-11-05): the owner's light lavender field with ink marks
+ * (11.6:1). White on it would be 1.46:1, so the glyph is ink; it is the same field and ink as every
+ * filled control, so the rail reads as part of the shop rather than as a third brand colour.
  */
 .button {
   display: inline-flex;
@@ -30,9 +29,9 @@
   width: 44px;
   height: 44px;
   border-radius: 50%;
-  border: 1px solid var(--color-action);
-  background: var(--color-action);
-  color: #fff;
+  border: 1px solid var(--color-button);
+  background: var(--color-button);
+  color: var(--color-button-ink);
   box-shadow: var(--shadow-sm);
   transition: background var(--transition-fast), color var(--transition-fast),
     border-color var(--transition-fast), transform 120ms var(--ease-out-ui);
@@ -40,9 +39,9 @@
 
 .button:hover,
 .button:focus-visible {
-  background: var(--color-action-hover);
-  border-color: var(--color-action-hover);
-  color: #fff;
+  background: var(--color-button-hover);
+  border-color: var(--color-button-hover);
+  color: var(--color-button-ink);
 }
 
 .button:active {

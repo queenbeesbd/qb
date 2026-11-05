@@ -7,12 +7,11 @@
  * ------------------------------------------------------------------------- */
 
 /*
- * The cart box wears the brand too (owner direction, 2026-11-05): a primary-lavender box with white
- * marks, matching the support rail beneath it.
+ * The cart box wears the brand (owner direction, 2026-11-05): the owner's light lavender field with
+ * ink marks, matching the support rail and the tab bar.
  *
- * The fill is `--color-action` (#56358c): white on it is 9.2:1, so the count and the subtotal are
- * readable in sunlight. It is the same ink as every filled control, which means the phone shows two
- * purples instead of four - the decorative lavender and the action plum.
+ * Ink on #dccfff is 11.6:1, so the count and subtotal read in sunlight; white would be 1.46:1 and is
+ * never used on this field.
  */
 .box {
   position: fixed;
@@ -25,12 +24,12 @@
   gap: 1px;
   min-width: 82px;
   padding: var(--space-2) var(--space-3);
-  border: 1px solid var(--color-action);
+  border: 1px solid var(--color-button);
   border-inline-end: 0;
   border-start-start-radius: var(--radius-md);
   border-end-start-radius: var(--radius-md);
-  background: var(--color-action);
-  color: #fff;
+  background: var(--color-button);
+  color: var(--color-button-ink);
   box-shadow: var(--shadow-md);
   transition: background var(--transition-fast), color var(--transition-fast),
     border-color var(--transition-fast), transform 120ms var(--ease-out-ui);
@@ -38,9 +37,9 @@
 
 .box:hover,
 .box:focus-visible {
-  background: var(--color-action-hover);
-  border-color: var(--color-action-hover);
-  color: #fff;
+  background: var(--color-button-hover);
+  border-color: var(--color-button-hover);
+  color: var(--color-button-ink);
 }
 
 .box:active {
@@ -49,15 +48,14 @@
 
 .icon {
   display: inline-flex;
-  color: #fff;
+  color: var(--color-button-ink);
 }
 
 .count {
   font-size: 11px;
   font-weight: 600;
   line-height: 1.3;
-  /* White on the deep brand lavender (4.6:1) - never a faded white, which would drop the count. */
-  color: #fff;
+  color: var(--color-button-ink);
   white-space: nowrap;
 }
 
@@ -67,7 +65,7 @@
   font-variant-numeric: tabular-nums;
   line-height: 1.3;
   white-space: nowrap;
-  color: #fff;
+  color: var(--color-button-ink);
 }
 
 /*

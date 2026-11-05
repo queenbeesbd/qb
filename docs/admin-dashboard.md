@@ -26,7 +26,7 @@ A purpose-built dashboard for a **comparatively small cosmetics retailer**. The 
 Design constraints inherited from the storefront's approved design system:
 
 - Restrained, data-dense, professional. This is a working tool, not a marketing surface.
-- Brand anchors `#A680FF` and `#F6B3CC` are used deliberately, not painted over every surface. Filled actions use `--color-action` (`#56358C`) because white on `#A680FF` fails contrast at 2.94:1.
+- Brand anchors `#DCCFFF` (owner choice, 2026-11-05) and `#F6B3CC` are used deliberately, not painted over every surface. White on `#DCCFFF` is 1.46:1, so filled actions use ink on the lavender (`--color-button` / `--color-button-ink`) or `--color-action` (`#56358C`) with white.
 - CSS Modules plus the existing custom-property tokens. No UI component library and no animation library without a demonstrated need and approval.
 - Bangla and English both work: no letter-spacing on Bengali text, no fixed-height text containers, and font weights restricted to 400/500/600/700.
 - All money is integer poisha and formatted in BDT.

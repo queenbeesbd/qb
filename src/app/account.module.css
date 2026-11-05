@@ -28,6 +28,13 @@
   letter-spacing: -0.02em;
 }
 
+.pageKicker {
+  margin: 0;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--color-action);
+}
+
 /* ---------- Auth: sign in / register / redeem ---------- */
 
 .authPage {
@@ -274,14 +281,14 @@
 }
 
 .primaryAction {
-  background: var(--color-action);
-  color: #fff;
+  background: var(--color-button);
+  color: var(--color-button-ink);
   transition: background-color 140ms ease, transform 120ms ease-out;
 }
 
 .primaryAction:hover {
-  background: var(--color-action-hover);
-  color: #fff;
+  background: var(--color-button-hover);
+  color: var(--color-button-ink);
 }
 
 .primaryAction:active {
@@ -335,6 +342,67 @@
   .authChoice {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+}
+
+.accountGrid {
+  display: grid;
+  gap: var(--space-4);
+  align-items: start;
+}
+
+.accountCard,
+.accountCardQuiet {
+  display: grid;
+  align-content: start;
+  gap: var(--space-3);
+  padding: var(--space-5);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+}
+
+/* The session card is the least important thing on the page and says so. */
+.accountCardQuiet {
+  background: var(--color-page);
+}
+
+.accountCardHead h2 {
+  font-size: var(--text-md);
+  letter-spacing: -0.005em;
+}
+
+.cardAction {
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  font-weight: 600;
+  font-size: var(--text-sm);
+  color: var(--color-action);
+}
+
+.cardAction:hover {
+  text-decoration: underline;
+}
+
+.cardNote {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  margin: 0;
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--color-action-soft);
+  font-size: var(--text-sm);
+  color: var(--color-ink);
+  line-height: var(--leading-snug);
+}
+
+.cardNoteIcon {
+  display: inline-flex;
+  flex: none;
+  margin-top: 1px;
+  color: var(--color-action);
 }
 
 /* ---------- Facts and order summaries ---------- */
@@ -564,438 +632,8 @@
     font-size: var(--text-xl);
   }
 
-}
-
-/* ---------------------------------------------------------------------------
- * The account hub (2026-11-05)
- *
- * Direction: `framed-sheet` (seed 1922153422), mapped onto the shop's own palette. One lavender frame
- * holds the identity, the navigation and the session; the work sits on a white sheet inset from the
- * frame, separated by one tone step and one hairline - no shadow, no card grid inside a card grid.
- *
- * The sheet is the reading column. The order list is the largest block because "where are my orders?"
- * is the question this page exists to answer; identity and password help sit under it in their own
- * band, and the sign-out control lives in the frame where the session fact is stated.
- * ------------------------------------------------------------------------- */
-
-.hub {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  overflow: hidden;
-  background: var(--brand-primary);
-}
-
-.hubFrame {
-  display: grid;
-  align-content: start;
-  gap: var(--space-4);
-  padding: var(--space-5);
-}
-
-.hubBrand {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  color: var(--color-ink);
-}
-
-.hubMark {
-  display: block;
-  flex: none;
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  overflow: hidden;
-  background: var(--color-surface);
-  border: 1px solid rgba(32, 26, 41, 0.12);
-}
-
-.hubMark img {
-  display: block;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.hubBrandText {
-  display: grid;
-  gap: 1px;
-  min-width: 0;
-}
-
-.hubKicker {
-  margin: 0;
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: rgba(32, 26, 41, 0.68);
-}
-
-.hubName {
-  font-size: var(--text-md);
-  font-weight: 700;
-  letter-spacing: -0.01em;
-  overflow-wrap: anywhere;
-}
-
-.hubEmail {
-  margin: 0;
-  font-size: var(--text-sm);
-  color: rgba(32, 26, 41, 0.74);
-  overflow-wrap: anywhere;
-}
-
-.hubNav {
-  display: grid;
-  gap: 2px;
-}
-
-.hubNavCurrent,
-.hubNavLink {
-  display: grid;
-  gap: 2px;
-  padding: var(--space-2) var(--space-3);
-  border-radius: var(--radius-sm);
-  color: var(--color-ink);
-  font-size: var(--text-sm);
-  font-weight: 600;
-  transition: background-color var(--transition-fast);
-}
-
-.hubNavCurrent {
-  /* The frame carries no brand chrome beyond its own field; selection is a white sheet inside it. */
-  background: var(--color-surface);
-}
-
-.hubNavLink:hover {
-  background: rgba(255, 255, 255, 0.55);
-}
-
-.hubNavCount,
-.hubNavNote {
-  font-size: 11px;
-  font-weight: 500;
-  color: rgba(32, 26, 41, 0.66);
-}
-
-.hubFrameFoot {
-  display: grid;
-  gap: var(--space-2);
-  margin-top: var(--space-2);
-  padding-top: var(--space-4);
-  border-top: 1px solid rgba(32, 26, 41, 0.14);
-}
-
-.hubSession {
-  margin: 0;
-  font-size: var(--text-xs);
-  line-height: 1.5;
-  color: rgba(32, 26, 41, 0.68);
-}
-
-.hubSignOut {
-  display: inline-flex;
-  align-items: center;
-  min-height: 40px;
-  padding: 0 var(--space-3);
-  border: 1px solid rgba(32, 26, 41, 0.22);
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--color-ink);
-  font: inherit;
-  font-size: var(--text-sm);
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.hubSignOut:hover {
-  background: var(--color-surface);
-}
-
-.hubSheet {
-  display: grid;
-  gap: var(--space-5);
-  min-width: 0;
-  margin: 8px;
-  padding: var(--space-5);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  background: var(--color-surface);
-}
-
-.hubHeader {
-  display: grid;
-  gap: var(--space-4);
-  align-items: start;
-  padding-bottom: var(--space-4);
-  border-bottom: 1px solid var(--color-border);
-}
-
-.hubHeaderText {
-  display: grid;
-  gap: var(--space-1);
-  min-width: 0;
-}
-
-.hubHeader h1 {
-  font-size: clamp(1.5rem, 3.4vw, 2rem);
-  letter-spacing: -0.025em;
-  line-height: 1.1;
-  overflow-wrap: anywhere;
-}
-
-.hubBody {
-  margin: 0;
-  max-width: 58ch;
-  font-size: var(--text-sm);
-  line-height: 1.6;
-  color: var(--color-ink-muted);
-}
-
-.hubPrimary,
-.hubSecondary {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  justify-self: start;
-  min-height: 44px;
-  padding: 0 var(--space-4);
-  border-radius: var(--radius-sm);
-  font-size: var(--text-sm);
-  font-weight: 600;
-}
-
-.hubPrimary {
-  background: var(--color-action);
-  color: #fff;
-}
-
-.hubPrimary:hover {
-  background: var(--color-action-hover);
-}
-
-.hubSecondary {
-  border: 1px solid var(--color-border-strong);
-  color: var(--color-ink);
-}
-
-.hubSecondary:hover {
-  border-color: var(--color-action);
-  color: var(--color-action);
-}
-
-.hubOrders {
-  display: grid;
-  gap: var(--space-3);
-}
-
-.hubSectionHead {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--space-3);
-}
-
-.hubSectionHead h2,
-.hubCard h2 {
-  font-size: var(--text-md);
-  letter-spacing: -0.005em;
-}
-
-.hubTextLink {
-  font-size: var(--text-sm);
-  font-weight: 600;
-  color: var(--color-action);
-  white-space: nowrap;
-}
-
-.hubTextLink:hover {
-  text-decoration: underline;
-}
-
-.hubEmpty {
-  display: grid;
-  gap: var(--space-2);
-  padding: var(--space-4);
-  border: 1px dashed var(--color-border-strong);
-  border-radius: var(--radius-md);
-  background: var(--color-page);
-}
-
-.hubEmptyTitle {
-  margin: 0;
-  font-weight: 600;
-}
-
-.hubOrderList {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  gap: 1px;
-  background: var(--color-border);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  overflow: hidden;
-}
-
-.hubOrderRow {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 2px var(--space-3);
-  padding: var(--space-3);
-  background: var(--color-surface);
-  color: var(--color-ink);
-  transition: background-color var(--transition-fast);
-}
-
-.hubOrderRow:hover {
-  background: var(--color-action-soft);
-}
-
-.hubOrderIdentity {
-  display: grid;
-  gap: 2px;
-  min-width: 0;
-}
-
-.hubOrderNumber {
-  font-weight: 700;
-  font-size: var(--text-sm);
-  font-variant-numeric: tabular-nums;
-}
-
-.hubOrderWhen,
-.hubOrderItems {
-  font-size: var(--text-xs);
-  color: var(--color-ink-muted);
-}
-
-.hubOrderItems {
-  grid-column: 1;
-}
-
-.hubOrderStatus {
-  justify-self: end;
-  align-self: center;
-  padding: 2px var(--space-2);
-  border-radius: var(--radius-pill);
-  background: var(--color-surface-sunken);
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--color-ink);
-  white-space: nowrap;
-}
-
-.hubOrderStatus[data-status='completed'],
-.hubOrderStatus[data-status='delivered'] {
-  background: var(--color-success-soft);
-  color: var(--color-success);
-}
-
-.hubOrderStatus[data-status='cancelled'],
-.hubOrderStatus[data-status='returned'] {
-  background: var(--color-danger-soft);
-  color: var(--color-danger);
-}
-
-.hubOrderTotal {
-  justify-self: end;
-  font-weight: 700;
-  font-size: var(--text-sm);
-  font-variant-numeric: tabular-nums;
-}
-
-.hubOrderArrow {
-  grid-column: 2;
-  justify-self: end;
-  align-self: end;
-  color: var(--color-ink-subtle);
-}
-
-.hubColumns {
-  display: grid;
-  gap: var(--space-4);
-}
-
-.hubCard {
-  display: grid;
-  align-content: start;
-  gap: var(--space-2);
-  padding-top: var(--space-4);
-  border-top: 1px solid var(--color-border);
-}
-
-.hubFacts {
-  margin: 0;
-  display: grid;
-  gap: var(--space-2);
-}
-
-.hubFacts div {
-  display: grid;
-  gap: 1px;
-}
-
-.hubFacts dt {
-  font-size: var(--text-xs);
-  color: var(--color-ink-muted);
-}
-
-.hubFacts dd {
-  margin: 0;
-  font-size: var(--text-sm);
-  font-weight: 600;
-  overflow-wrap: anywhere;
-}
-
-.hubNote {
-  margin: 0;
-  padding: var(--space-2) var(--space-3);
-  border-radius: var(--radius-sm);
-  background: var(--color-action-soft);
-  font-size: var(--text-xs);
-  line-height: 1.5;
-  color: var(--color-ink);
-}
-
-@media (min-width: 720px) {
-  .hubHeader {
-    grid-template-columns: minmax(0, 1fr) auto;
-    align-items: end;
-  }
-
-  .hubColumns {
+  .accountGrid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: var(--space-5);
-  }
-
-  .hubOrderRow {
-    grid-template-columns: minmax(0, 1.4fr) auto auto auto 16px;
-    align-items: center;
-  }
-
-  .hubOrderItems,
-  .hubOrderArrow {
-    grid-column: auto;
-    align-self: center;
-  }
-}
-
-@media (min-width: 1024px) {
-  .hub {
-    grid-template-columns: 280px minmax(0, 1fr);
-  }
-
-  .hubSheet {
-    margin: 8px 8px 8px 0;
-    padding: var(--space-6);
-  }
-
-  .hubFrame {
-    padding: var(--space-6);
   }
 }

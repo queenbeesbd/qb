@@ -12,7 +12,10 @@ Product-led, calm, precise. The shopper compares brand, pack size, price and ava
 | --- | --- | --- |
 | `--brand-primary` | `#DCCFFF` | Owner-chosen light lavender (2026-11-05). Surfaces and accents; ink rides on it. |
 | `--brand-secondary` | `#F6B3CC` | Approved accent anchor. Sparse supporting surfaces. |
-| `--color-action` | `#56358C` | Filled actions with white labels. |
+| `--color-button` | `#DCCFFF` | Storefront filled controls. Ink on it, never white. |
+| `--color-button-hover` | `#CDBCFF` | The same field one step deeper. |
+| `--color-button-ink` | `#201A29` | Label and glyph on a filled storefront control (11.6:1). |
+| `--color-action` | `#56358C` | Admin filled actions, saturated marks and link ink. |
 | `--color-action-hover` | `#462A75` | Action hover. |
 | `--color-action-soft` | `#F3EDFF` | Tinted panels, active chips, icon wells. |
 | `--color-accent-soft` | `#FDEEF3` | Pink tint for decorative surfaces. |
@@ -33,9 +36,9 @@ Product-led, calm, precise. The shopper compares brand, pack size, price and ava
 
 | Pair | Ratio | Verdict |
 | --- | --- | --- |
-| White on `#DCCFFF` | 1.32:1 | **Fails** - never used for text or a glyph |
+| White on `#DCCFFF` | 1.46:1 | **Fails** - never used for text or a glyph |
 | White on `#F6B3CC` | 1.72:1 | **Fails** - decorative only |
-| Ink on `#DCCFFF` | 13.11:1 | Passes AAA |
+| Ink on `#DCCFFF` | 11.61:1 | Passes AAA |
 | White on `#56358C` | 9.20:1 | Passes AAA - all filled actions |
 | Muted on white | 5.89:1 | Passes AA |
 | Ink on `#F3EDFF` | 14.2:1 | Passes AAA |
@@ -211,7 +214,7 @@ none clips.
 white strip, with labels and icons in `--color-ink` - 6.1:1 on that lavender. The current destination is a
 **white capsule behind the icon** (40x30, `border-radius: 999px`) plus a 700-weight label; ink on white is
 15:1, so the state is louder than the surface. The cart count is `--brand-secondary` pink with ink on it
-(11:1). **White text on the lavender is never used** (2.9:1).
+(11.6:1). **White text on the lavender is never used** (1.46:1).
 
 The bar's craft rules, after the 2026-11-05 refinement:
 
@@ -920,7 +923,7 @@ rendered.
 **A floating cart box** sits at the right edge, vertically centred at every width - omitted on `/cart` and `/checkout`, where
 the page's own summary repeats its two facts and the fixed box covered them - filled with `--brand-primary-deep`
 (#8155ef) and carrying white marks (4.6:1). The lighter `--brand-primary` is not used behind white: at
-2.9:1 a white icon or label would not be visible, so the same hue one step down carries the fill and the
+1.46:1 a white icon or label would not be visible, so the control carries the field with ink on it and the
 lavender stays a surface for ink. It states the item count always and the
 subtotal when every line can be priced; the prices come from `GET /api/cart/prices` (ids from the `qb_cart`
 cookie, unit prices from the database) and are multiplied by the browser's quantities for display only -
@@ -1028,8 +1031,8 @@ components did.
   vertical centre, over the merchandise) and is hidden from 1024px, where the header cart replaces it.
   The support rail renders **only on the homepage**, bottom-left on a phone, inline below the browse
   row from 1024px - it used to follow every route and cover the hero on desktop.
-- **Storefront card.** Hover lifts with `--shadow-md` and tints toward action ink; the `#A680FF`
-  hairline (2.9:1) is gone. The price uses the display face.
+- **Storefront card.** Hover lifts with `--shadow-md` and tints toward action ink; the `#DCCFFF`
+  hairline (1.46:1) is gone. The price uses the display face.
 
 Verified on a served development build at 390px and 1440px: the homepage, listing, brands and cart
 render with no horizontal overflow, the support rail is absent everywhere but `/`, the admin

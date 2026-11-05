@@ -30,6 +30,14 @@
    * colour.
    */
   --brand-primary-deep: #8155ef;
+  /*
+   * Filled controls use the owner's light lavender (2026-11-05), so a primary button is the brand's
+   * field rather than a second purple. Ink on it is 11.6:1; white is 1.46:1 and is never used. The
+   * hover step deepens the field slightly instead of changing the ink.
+   */
+  --color-button: var(--brand-primary);
+  --color-button-hover: #cdbcff;
+  --color-button-ink: var(--color-ink);
   --color-action-hover: #462a75;
   --color-action-soft: #f3edff;
   --color-accent-soft: #fdeef3;

@@ -314,15 +314,15 @@
   min-height: 46px;
   border: none;
   border-radius: var(--radius-md);
-  background: var(--color-action);
-  color: #fff;
+  background: var(--color-button);
+  color: var(--color-button-ink);
   font-weight: 600;
   cursor: pointer;
   transition: background var(--transition-fast), transform 120ms ease-out;
 }
 
 .addButton:hover {
-  background: var(--color-action-hover);
+  background: var(--color-button-hover);
 }
 
 .addButton:active {
@@ -458,13 +458,13 @@
 }
 
 .confirmationPrimary {
-  background: var(--color-action);
-  color: #fff;
+  background: var(--color-button);
+  color: var(--color-button-ink);
 }
 
 .confirmationPrimary:hover {
-  background: var(--color-action-hover);
-  color: #fff;
+  background: var(--color-button-hover);
+  color: var(--color-button-ink);
 }
 
 .confirmationSecondary {

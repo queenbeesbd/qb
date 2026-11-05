@@ -729,10 +729,10 @@
 .priceApply {
   min-height: 32px;
   padding: 0 10px;
-  border: 1px solid var(--color-action);
+  border: 1px solid var(--color-button);
   border-radius: 6px;
-  background: var(--color-action);
-  color: #fff;
+  background: var(--color-button);
+  color: var(--color-button-ink);
   font: inherit;
   font-size: 12px;
   font-weight: 600;
@@ -741,8 +741,8 @@
 }
 
 .priceApply:hover {
-  border-color: var(--color-action-hover);
-  background: var(--color-action-hover);
+  border-color: var(--color-button-hover);
+  background: var(--color-button-hover);
 }
 
 .priceApply:active {
@@ -1043,16 +1043,16 @@
   min-height: 40px;
   padding: 0 var(--space-4);
   border-radius: var(--radius-md);
-  background: var(--color-action);
-  color: #fff;
+  background: var(--color-button);
+  color: var(--color-button-ink);
   font-size: var(--text-sm);
   font-weight: 600;
   text-decoration: none;
 }
 
 .emptyAction:hover {
-  background: var(--color-action-hover);
-  color: #fff;
+  background: var(--color-button-hover);
+  color: var(--color-button-ink);
 }
 
 /* ----------------------------------------------------------------- pager */
@@ -1272,10 +1272,10 @@
 
 .drawerApply {
   min-height: 46px;
-  border: 1px solid var(--color-action);
+  border: 1px solid var(--color-button);
   border-radius: var(--radius-md);
-  background: var(--color-action);
-  color: #fff;
+  background: var(--color-button);
+  color: var(--color-button-ink);
   font: inherit;
   font-size: var(--text-sm);
   font-weight: 600;
@@ -1283,8 +1283,8 @@
 }
 
 .drawerApply:hover {
-  border-color: var(--color-action-hover);
-  background: var(--color-action-hover);
+  border-color: var(--color-button-hover);
+  background: var(--color-button-hover);
 }
 
 @media (min-width: 1024px) {

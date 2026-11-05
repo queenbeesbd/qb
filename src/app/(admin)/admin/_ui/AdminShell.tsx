@@ -352,7 +352,7 @@ export function AdminShell({
 function AdminMark() {
   return (
     <svg width="28" height="28" viewBox="0 0 40 40" aria-hidden="true" focusable="false">
-      <path d="M20 6c3 5 4.6 9 4.6 13.4 0 3.6-1.5 6.4-4.6 6.4s-4.6-2.8-4.6-6.4C15.4 15 17 11 20 6Z" fill="#A680FF" />
+      <path d="M20 6c3 5 4.6 9 4.6 13.4 0 3.6-1.5 6.4-4.6 6.4s-4.6-2.8-4.6-6.4C15.4 15 17 11 20 6Z" fill="#DCCFFF" />
       <path d="M8.4 14.6c4.9 1 8.4 3.4 9.6 6.8 1.1 3.3-.4 5.8-3.4 6.6-2.9.9-5.3-.9-5.4-4.4-.1-3.2 1.4-6.4 2.9-7.9Z" fill="#F6B3CC" />
       <path d="M31.6 14.6c-4.9 1-8.4 3.4-9.6 6.8-1.1 3.3.4 5.8 3.4 6.6 2.9.9 5.3-.9 5.4-4.4.1-3.2-1.4-6.4-2.9-7.9Z" fill="#56358C" />
       <rect x="10" y="28" width="20" height="4" rx="2" fill="#F6B3CC" opacity="0.55" />

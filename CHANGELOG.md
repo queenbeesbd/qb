@@ -14,6 +14,21 @@ No entry may describe a deployment: nothing has been deployed.
 
 ## [Unreleased]
 
+### Changed - 2026-11-05: filled storefront controls take the light lavender
+
+Every filled storefront control - primary actions, add to cart, checkout, campaign CTA, support discs,
+the floating cart box and the account/auth primary button - now uses the owner's `#dccfff` field with
+ink (`--color-button` / `--color-button-ink`) instead of the deep plum. Hover is `#cdbcff`. Badges,
+checkbox marks, range fills and current-page indicators keep `--color-action` because they are not
+buttons and need a saturated mark. Admin controls keep their own action palette.
+
+The account hub rebuild was reverted at the same time; the docs' primary hex and contrast notes were
+corrected to the measured values (ink 11.61:1, white 1.46:1 on `#dccfff`).
+
+**Verification.** typecheck, lint (0 errors), `check:i18n`; browser checks confirm the add-to-cart
+button computes `rgb(220, 207, 255)` and the cart's primary action does too, and `/account` renders the
+previous card grid.
+
 ### Changed - 2026-11-05: in-stock shelves, listing cart controls, a sliding hero and a new account hub
 
 **Homepage availability.** `selectHomepage` filters the catalogue to In Stock once, before every
@@ -27,10 +42,9 @@ same Add to cart control as a homepage card. Related products on a product page 
 the arrows wrap too instead of disabling. Hover and keyboard focus pause the timer, and
 `prefers-reduced-motion` stops autoplay. No play/pause control was added (owner direction).
 
-**Account.** `/account` was rebuilt from scratch on the `framed-sheet` app direction (seed 1922153422):
-a lavender frame carries identity, the real order count, password help and sign-out; a white sheet
-carries the greeting and the three newest orders read from the same customer-scoped query as the
-orders page. The floating cart is hidden on account routes.
+**Account.** A `framed-sheet` rebuild was tried and then **reverted on owner feedback**; `/account` is
+the previous card-grid hub again (orders, details, password help, session). The floating cart stays
+hidden on account routes.
 
 **Verification.** typecheck, `check:i18n` (1,476 keys); browser checks at 1280 and 390px for the hub
 (one real order placed through checkout), the listing cards' Add to cart, zero out-of-stock cards on

@@ -210,15 +210,15 @@
 }
 
 .primaryAction {
-  background: var(--color-action);
-  color: #fff;
+  background: var(--color-button);
+  color: var(--color-button-ink);
   border: none;
   transition: background-color 140ms ease, transform 120ms ease-out;
 }
 
 .primaryAction:hover {
-  background: var(--color-action-hover);
-  color: #fff;
+  background: var(--color-button-hover);
+  color: var(--color-button-ink);
 }
 
 .primaryAction:active {
