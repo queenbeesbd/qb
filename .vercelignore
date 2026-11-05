@@ -6,7 +6,11 @@
 #
 # A handful of committed placeholder assets stay in the build because they are part of the repository
 # and are served by `public/` before the route is reached.
-public/catalog/zq-*
+# Every catalog raster (product photography, category photographs and brand marks) is delivered from
+# object storage by `/catalog/[...path]`; only the small SVGs stay in the build so a placeholder still
+# resolves without the bucket.
+public/catalog/*.jpg
+public/catalog/*.webp
 
 # Local-only state that is never part of a deployment. Environment files hold credentials for this
 # machine only; the deployment's values come from the project's environment variables.
