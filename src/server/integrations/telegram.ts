@@ -261,11 +261,24 @@ export async function removeTelegramRecipient(
 
 export type OrderNotification = {
   readonly orderNumber: string;
+  readonly placedAt: Date;
+  readonly itemsSubtotalMinor: number;
+  readonly shippingMinor: number;
+  readonly discountMinor: number;
   readonly totalMinor: number;
-  readonly itemCount: number;
+  readonly items: readonly {
+    readonly nameEn: string;
+    readonly variantLabel: string | null;
+    readonly quantity: number;
+    readonly lineTotalMinor: number;
+  }[];
   readonly districtCode: string | null;
   readonly recipientName: string;
   readonly recipientPhone: string;
+  readonly addressLine: string;
+  readonly area: string;
+  readonly city: string;
+  readonly deliveryNote: string | null;
 };
 
 const DISTRICT_LABEL: Record<string, string> = {
@@ -277,20 +290,68 @@ const DISTRICT_LABEL: Record<string, string> = {
 /**
  * The message an owner reads on their phone.
  *
- * Plain text, no Markdown and no HTML: Telegram's parse modes would need escaping on every value, and an
- * escaped order number looks like a bug. It names what the owner needs to act - the reference, the
- * amount, how many items, which area, who to call - and never invents a delivery promise.
+ * A short receipt rather than a one-line ping: the owner approves COD by calling the customer, so the
+ * message carries the reference, the amount, the recorded lines, the delivery address, the customer's
+ * note and the phone number. Plain text, no Markdown and no HTML - Telegram's parse modes would need
+ * escaping on every value, and an escaped order number looks like a bug - so the layout is emoji
+ * headings and aligned totals, which Telegram renders as written.
+ *
+ * Nothing here promises a delivery time, a courier or a payment state the order does not have. The
+ * timestamp is Dhaka time because every other operational time in this shop is.
  */
 export function composeOrderMessage(order: OrderNotification): string {
-  const lines = [
-    `New order ${order.orderNumber} · ${formatMoney(order.totalMinor)}`,
-    `${order.itemCount} ${order.itemCount === 1 ? 'item' : 'items'} · ${
-      order.districtCode === null ? 'area not recorded' : (DISTRICT_LABEL[order.districtCode] ?? order.districtCode)
-    }`,
+  const itemCount = order.items.reduce((total, item) => total + item.quantity, 0);
+  const area =
+    order.districtCode === null
+      ? 'area not recorded'
+      : (DISTRICT_LABEL[order.districtCode] ?? order.districtCode);
+  const placedAt = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Asia/Dhaka',
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  })
+    .format(order.placedAt)
+    .replace(/\b(am|pm)\b/, (period) => period.toUpperCase());
+
+  const lines: string[] = [
+    `🛍️ New order · ${order.orderNumber}`,
+    `💵 ${formatMoney(order.totalMinor)} · Cash on delivery`,
+    `🕒 ${placedAt}`,
+    '',
+    `📦 Items · ${itemCount} ${itemCount === 1 ? 'item' : 'items'}`,
   ];
-  if (order.recipientName.trim() !== '') lines.push(order.recipientName.trim());
-  if (order.recipientPhone.trim() !== '') lines.push(order.recipientPhone.trim());
-  lines.push('Cash on delivery · awaiting approval');
+
+  for (const item of order.items) {
+    const variant = item.variantLabel === null || item.variantLabel.trim() === '' ? '' : ` (${item.variantLabel.trim()})`;
+    lines.push(`• ${item.quantity}× ${item.nameEn}${variant} — ${formatMoney(item.lineTotalMinor)}`);
+  }
+
+  lines.push('', `Subtotal   ${formatMoney(order.itemsSubtotalMinor)}`);
+  if (order.discountMinor > 0) lines.push(`Discount   −${formatMoney(order.discountMinor)}`);
+  lines.push(
+    `Delivery   ${formatMoney(order.shippingMinor)}`,
+    `Total      ${formatMoney(order.totalMinor)}`,
+    '',
+    `📍 Deliver to · ${area}`,
+  );
+
+  const contact = [
+    order.recipientName.trim(),
+    order.recipientPhone.trim(),
+    order.addressLine.trim(),
+    [order.area.trim(), order.city.trim()].filter((part) => part !== '').join(', '),
+  ];
+  for (const line of contact) if (line !== '') lines.push(line);
+
+  if ((order.deliveryNote ?? '').trim() !== '') {
+    lines.push('', '📝 Notes', order.deliveryNote?.trim() ?? '');
+  }
+
+  lines.push('', '⏳ Cash on delivery · awaiting approval');
   return lines.join('\n');
 }
 

@@ -87,11 +87,19 @@ export async function POST(request: Request): Promise<Response> {
       after(async () => {
         await notifyOrderPlaced({
           orderNumber: created.orderNumber,
+          placedAt: created.placedAt,
+          itemsSubtotalMinor: created.itemsSubtotalMinor,
+          shippingMinor: created.shippingMinor,
+          discountMinor: created.discountMinor,
           totalMinor: created.totalMinor,
-          itemCount: lines.length,
+          items: created.items,
           districtCode: contact.districtCode,
           recipientName: contact.recipientName,
           recipientPhone: contact.recipientPhone,
+          addressLine: contact.addressLine,
+          area: contact.area,
+          city: contact.city,
+          deliveryNote: contact.deliveryNote,
         }).catch(() => {
           // A notification failure is not the customer's problem and never changes this response.
         });

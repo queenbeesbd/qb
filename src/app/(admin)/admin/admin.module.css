@@ -1328,7 +1328,14 @@ html[lang='bn'] .sectionHead h2 {
   min-width: 8.5rem;
 }
 
+/*
+ * Both action forms are flex containers. The reject form used to be a block, so its button sat on a
+ * line box with a descender gap below it; at some zooms that gap is a fractional two pixels and one
+ * button stood lower than the other. A flex form has no line box, so the two buttons share one edge.
+ */
 .orderFooter > form {
+  display: flex;
+  align-items: flex-end;
   min-width: 0;
 }
 

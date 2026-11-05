@@ -81,6 +81,27 @@ describe('owner order detail and history (Phase 20)', { skip: toolingAvailable ?
     assert.equal(detail.customerId, seeded.customerId);
   });
 
+  it('opens a guest order, which has no customer row', async () => {
+    /*
+     * Guest checkout (D12/ADR 0024) writes `customer_id = null`, and `order` freezes that column, so
+     * the fixture seeds the row in its final shape. The detail query used an inner join to
+     * `customer`, so a guest order appeared in the queue and then 404'd when the owner clicked it.
+     */
+    const seeded = await seedOrder(fixture.pool, {
+      paymentMethod: 'cod',
+      shippingMinor: 12000,
+      districtCode: 'dhaka',
+      withReservation: false,
+      guest: true,
+    });
+
+    const detail = await withTransaction((tx) => adminOrderDetail(tx, seeded.orderNumber));
+    assert.ok(detail, 'a guest order must resolve by its own reference');
+    assert.equal(detail.customerId, null);
+    assert.equal(detail.customerEmail, null);
+    assert.equal(detail.contact.recipientName, 'Recipient');
+  });
+
   it('answers a reference that names no order with null, never with another order', async () => {
     const missing = await withTransaction((tx) => adminOrderDetail(tx, 'QBDEC0FFEE0000000'));
     assert.equal(missing, null);
@@ -242,7 +263,9 @@ describe('owner order detail and history (Phase 20)', { skip: toolingAvailable ?
     assert.equal(page.rows.length, 1);
     assert.equal(page.total >= 1, true);
 
-    const detail = await withTransaction((tx) => customerDetail(tx, seeded.customerId));
+    const { customerId } = seeded;
+    assert.ok(customerId !== null, 'this fixture seeds a customer order');
+    const detail = await withTransaction((tx) => customerDetail(tx, customerId));
     assert.notEqual(detail, null);
     assert.equal(detail?.orderTotal, 1);
     assert.equal(detail?.orders.length, 1);

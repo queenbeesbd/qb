@@ -58,7 +58,8 @@ export async function startMigratedDatabase(): Promise<DbFixture> {
 }
 
 export type Seeded = {
-  customerId: number;
+  /** `null` for a guest order, which has no customer row. */
+  customerId: number | null;
   staffId: number;
   variantId: number;
   orderId: number;
@@ -85,6 +86,8 @@ export type SeedOptions = {
   shippingMinor?: number;
   /** Canonical delivery-area code. Omitted means the pre-Phase-19 shape, where the column is NULL. */
   districtCode?: string | null;
+  /** Seed a guest order (no customer row), as guest checkout writes one. */
+  guest?: boolean;
 };
 
 /**
@@ -110,11 +113,14 @@ export async function seedOrder(pool: Pool, options: SeedOptions = {}): Promise<
   if (reservationQuantity < 0) throw new Error('seedOrder: reservationQuantity must be >= 0');
   const orderNumber = `QB${Math.random().toString(36).slice(2, 12).toUpperCase()}`;
 
-  const customer = await pool.query<{ id: string }>(
-    `insert into customer (email, display_name) values ($1, 'Test Customer') returning id`,
-    [`customer-${orderNumber.toLowerCase()}@example.test`],
-  );
-  const customerId = Number(customer.rows[0]?.id);
+  let customerId: number | null = null;
+  if (options.guest !== true) {
+    const customer = await pool.query<{ id: string }>(
+      `insert into customer (email, display_name) values ($1, 'Test Customer') returning id`,
+      [`customer-${orderNumber.toLowerCase()}@example.test`],
+    );
+    customerId = Number(customer.rows[0]?.id);
+  }
 
   const staff = await pool.query<{ id: string }>(
     `insert into staff_user (email, display_name) values ($1, 'Test Staff') returning id`,

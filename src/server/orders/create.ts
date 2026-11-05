@@ -93,7 +93,18 @@ export class OrderRefusalError extends Error {
 export type CreatedOrder = {
   readonly orderId: number;
   readonly orderNumber: string;
+  readonly itemsSubtotalMinor: number;
+  readonly shippingMinor: number;
+  readonly discountMinor: number;
   readonly totalMinor: number;
+  /** The lines as written, so a notification can name what was ordered without re-reading the order. */
+  readonly items: readonly {
+    readonly nameEn: string;
+    readonly variantLabel: string | null;
+    readonly quantity: number;
+    readonly unitPriceMinor: number;
+    readonly lineTotalMinor: number;
+  }[];
   readonly paymentMethod: string;
   readonly status: string;
   readonly paymentState: string;
@@ -339,7 +350,17 @@ export async function createOrder(tx: Transaction, input: CreateOrderInput): Pro
   return {
     orderId: created.id,
     orderNumber: created.orderNumber,
+    itemsSubtotalMinor: subtotalMinor,
+    shippingMinor,
+    discountMinor,
     totalMinor,
+    items: resolved.map((line) => ({
+      nameEn: line.nameEn,
+      variantLabel: line.variantLabel,
+      quantity: line.quantity,
+      unitPriceMinor: line.priceMinor,
+      lineTotalMinor: line.priceMinor * line.quantity,
+    })),
     paymentMethod,
     status: 'pending',
     paymentState,
@@ -366,6 +387,9 @@ async function loadCreatedOrder(
     .select({
       orderId: order.id,
       orderNumber: order.orderNumber,
+      itemsSubtotalMinor: order.itemsSubtotalMinor,
+      shippingMinor: order.shippingMinor,
+      discountMinor: order.discountMinor,
       totalMinor: order.totalMinor,
       paymentMethod: order.paymentMethod,
       status: order.status,
@@ -378,7 +402,11 @@ async function loadCreatedOrder(
       sql`${order.customerId} is not distinct from ${customerId} and ${order.orderNumber} = ${orderNumber}`,
     );
 
-  return rows[0] ?? null;
+  const row = rows[0];
+  if (row === undefined) return null;
+  // A replay is not notified, so the line list has no consumer on this path; the totals still come
+  // from the stored order rather than being recomputed.
+  return { ...row, items: [] };
 }
 
 /** One cart line, priced from database state. The only shape order creation writes from. */

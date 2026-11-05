@@ -14,6 +14,24 @@ An entry may describe a deployment only once it has actually happened and been o
 
 ## [Unreleased]
 
+### Fixed - 2026-11-05: a guest order opens in the owner panel, and the COD actions share one edge
+`adminOrderDetail` inner-joined `customer`, so a guest order (`customer_id = null`) resolved to nothing:
+it appeared in the waiting queue and 404'd at `/admin/orders/<reference>`. The join is now a **left
+join**, and the customer panel states "Guest order" with the reason instead of inventing a profile. A
+database test seeds the guest shape and asserts the detail resolves.
+
+The COD card's Accept/Reject pair could sit two pixels apart at some zooms: the reject form was a block,
+so its button rested on a line box with a descender gap while the approve button sat flush. Both action
+forms are now flex containers, measured identical (top/bottom equal to two decimals) at 1280/1440/1568.
+
+### Changed - 2026-11-05: the Telegram alert is a receipt, not a one-liner
+A new order now sends the owner a phone-readable receipt: reference and total, the placement time in
+`Asia/Dhaka`, every recorded line with quantity, variant and line total, subtotal / discount when one
+applies / delivery / total, the delivery area, name, phone, address, the customer's note, and the COD
+state. Totals and lines come from the order transaction (`CreatedOrder` now returns them), never
+recomputed in the notifier; it remains plain text with no Markdown, no delivery promise and no reply
+channel. Verified against a rendered sample and 17/17 Telegram unit tests.
+
 ### Changed - 2026-11-05: one letter mark for every category and brand without a picture
 A category with no photograph used to draw a category icon, and a brand with no logo drew two initials
 on a slug-tinted plate - two placeholder vocabularies for the same gap. Both now use `LetterMark`

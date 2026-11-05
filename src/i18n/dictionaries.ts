@@ -923,6 +923,9 @@ export const dictionary = {
   'admin.order.auditPermission': 'Reading the audit trail requires the audit.read permission.',
   'admin.order.noAuditTitle': 'No audit records',
   'admin.order.noAuditBody': 'The audit trail holds nothing about this order yet.',
+  'admin.order.guestCustomer': 'Guest order',
+  'admin.order.guestCustomerNote':
+    'Placed without an account. The delivery details above are the only contact record for it.',
   'admin.order.customerTitle': 'Customer',
   'admin.order.viewCustomer': 'Customer profile',
   'admin.order.customerUnnamed': 'Unnamed customer',

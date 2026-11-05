@@ -82,10 +82,11 @@ export type AdminOrderDetail = {
   readonly confirmedAt: Date | null;
   readonly cancelledAt: Date | null;
   readonly cancelledReason: string | null;
-  readonly customerId: number;
-  readonly customerEmail: string;
+  /** `null` on a guest order: the checkout switch allows a buyer with no account (D12/ADR 0024). */
+  readonly customerId: number | null;
+  readonly customerEmail: string | null;
   readonly customerDisplayName: string | null;
-  readonly customerStatus: string;
+  readonly customerStatus: string | null;
   readonly contact: {
     readonly recipientName: string;
     readonly recipientPhone: string;
@@ -164,7 +165,12 @@ export async function adminOrderDetail(
     })
     .from(order)
     .innerJoin(orderContact, sql`${orderContact.orderId} = ${order.id}`)
-    .innerJoin(customer, sql`${customer.id} = ${order.customerId}`)
+    /*
+     * **A left join, deliberately.** An owner may allow guest checkout, and a guest order has
+     * `customer_id = null`; the inner join this replaced dropped exactly those rows, so the order
+     * appeared in the queue and then 404'd when the owner opened it.
+     */
+    .leftJoin(customer, sql`${customer.id} = ${order.customerId}`)
     .where(sql`${order.orderNumber} = ${orderNumber}`)
     .limit(1);
 

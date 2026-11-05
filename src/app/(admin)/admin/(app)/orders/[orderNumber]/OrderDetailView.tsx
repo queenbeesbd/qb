@@ -70,8 +70,16 @@ export type AdminOrderDetailModel = {
   completedAt: string | null;
   cancelledAt: string | null;
   cancelledReason: string | null;
-  /** email is null when the viewer may not read customer profiles; it is not sent at all. */
-  customer: { id: number; email: string | null; displayName: string | null; status: string };
+  /**
+   * `id` is null on a guest order (no account). `email` is also null when the viewer may not read
+   * customer profiles; it is not sent at all.
+   */
+  customer: {
+    id: number | null;
+    email: string | null;
+    displayName: string | null;
+    status: string | null;
+  };
   contact: {
     recipientName: string;
     recipientPhone: string;
@@ -739,31 +747,42 @@ export function AdminOrderDetailView({
 
           <div className={styles.panel}>
             <h2 className={styles.panelTitle}>{t('admin.order.customerTitle')}</h2>
-            <p className={styles.factValue}>{order.customer.displayName ?? t('admin.order.customerUnnamed')}</p>
-            {canReadCustomers && order.customer.email !== null ? (
-              <p className={styles.note}>{order.customer.email}</p>
+            {order.customer.id === null ? (
+              <>
+                <p className={styles.factValue}>{t('admin.order.guestCustomer')}</p>
+                <p className={styles.note}>{t('admin.order.guestCustomerNote')}</p>
+              </>
             ) : (
-              <p className={styles.note}>{t('admin.order.customerPermission')}</p>
-            )}
-            <div className={styles.factGrid}>
-              <div className={styles.fact}>
-                <span className={styles.factLabel}>{t('admin.customers.status')}</span>
-                <span>
-                  <StatusPill tone={order.customer.status === 'active' ? 'success' : 'danger'}>
-                    {order.customer.status === 'active'
-                      ? t('admin.customers.active')
-                      : t('admin.customers.suspended')}
-                  </StatusPill>
-                </span>
-              </div>
-            </div>
-            {canReadCustomers && (
-              <Link
-                className={styles.button + ' ' + styles.buttonSecondary + ' ' + styles.buttonSmall}
-                href={'/admin/customers/' + order.customer.id}
-              >
-                {t('admin.order.viewCustomer')}
-              </Link>
+              <>
+                <p className={styles.factValue}>
+                  {order.customer.displayName ?? t('admin.order.customerUnnamed')}
+                </p>
+                {canReadCustomers && order.customer.email !== null ? (
+                  <p className={styles.note}>{order.customer.email}</p>
+                ) : (
+                  <p className={styles.note}>{t('admin.order.customerPermission')}</p>
+                )}
+                <div className={styles.factGrid}>
+                  <div className={styles.fact}>
+                    <span className={styles.factLabel}>{t('admin.customers.status')}</span>
+                    <span>
+                      <StatusPill tone={order.customer.status === 'active' ? 'success' : 'danger'}>
+                        {order.customer.status === 'active'
+                          ? t('admin.customers.active')
+                          : t('admin.customers.suspended')}
+                      </StatusPill>
+                    </span>
+                  </div>
+                </div>
+                {canReadCustomers && (
+                  <Link
+                    className={styles.button + ' ' + styles.buttonSecondary + ' ' + styles.buttonSmall}
+                    href={'/admin/customers/' + order.customer.id}
+                  >
+                    {t('admin.order.viewCustomer')}
+                  </Link>
+                )}
+              </>
             )}
           </div>
         </aside>

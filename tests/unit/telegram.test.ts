@@ -65,11 +65,22 @@ describe('telegram chat id', () => {
 
 const ORDER: OrderNotification = {
   orderNumber: 'QB6F627EA11CCFA304',
+  placedAt: new Date('2026-11-05T10:56:00Z'),
+  itemsSubtotalMinor: 200000,
+  shippingMinor: 13000,
+  discountMinor: 0,
   totalMinor: 213000,
-  itemCount: 2,
+  items: [
+    { nameEn: 'Nutty Chocolate Mini', variantLabel: '15 Piece Box', quantity: 1, lineTotalMinor: 100000 },
+    { nameEn: 'Mixed Nut', variantLabel: '250gm', quantity: 1, lineTotalMinor: 100000 },
+  ],
   districtCode: 'dhaka',
   recipientName: 'Nusrat Jahan',
   recipientPhone: '01712345678',
+  addressLine: 'House 1, Road 2',
+  area: 'Dhanmondi',
+  city: 'Dhaka',
+  deliveryNote: 'Call before coming',
 };
 
 describe('order notification message', () => {
@@ -99,12 +110,20 @@ describe('order notification message', () => {
   });
 
   it('uses the singular for one item', () => {
-    assert.match(composeOrderMessage({ ...ORDER, itemCount: 1 }), /1 item\b/);
+    assert.match(composeOrderMessage({ ...ORDER, items: ORDER.items.slice(0, 1) }), /1 item\b/);
   });
 
-  it('omits a blank name rather than printing an empty line', () => {
-    const message = composeOrderMessage({ ...ORDER, recipientName: '   ' });
-    assert.ok(!message.includes('\n\n'));
+  it('prints the recorded lines, the address and the customer note', () => {
+    const message = composeOrderMessage(ORDER);
+    assert.match(message, /1× Nutty Chocolate Mini \(15 Piece Box\) — Tk 1,000/);
+    assert.match(message, /House 1, Road 2/);
+    assert.match(message, /Dhanmondi, Dhaka/);
+    assert.match(message, /Call before coming/);
+  });
+
+  it('omits a blank contact line rather than printing whitespace', () => {
+    const message = composeOrderMessage({ ...ORDER, recipientName: '   ', deliveryNote: null });
+    assert.doesNotMatch(message, /\n[ \t]+\n/);
     assert.match(message, /01712345678/);
   });
 });
