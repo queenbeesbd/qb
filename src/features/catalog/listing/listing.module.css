@@ -119,13 +119,21 @@
     display: block;
     align-self: start;
     /*
-     * The page is the only scroll container.
+     * Sticky (owner direction, 2026-11-05), so the filters travel with the grid on a laptop: a shopper
+     * three rows down can narrow the listing without scrolling back to the top.
      *
-     * The rail used to be sticky with its own max-height and overflow, which produced a second
-     * scrollbar on ordinary laptop heights - and that scrollbar is what made the filters feel like a
-     * panel to fight. It is static now, its secondary sections start collapsed, and the page scrolls
-     * naturally. No filter is ever hidden behind an inner scroll.
+     * The height is capped against the viewport rather than left open, and the overflow is `auto` - so
+     * a rail taller than the screen (every section expanded on a short window) scrolls itself instead
+     * of losing its last rows off the bottom. That inner scrollbar appears only in that case: the
+     * sections start collapsed, so the ordinary rail is far shorter than the viewport and nothing
+     * scrolls inside it. The page is still the primary scroll container.
      */
+    position: sticky;
+    top: calc(var(--header-height) + var(--space-3));
+    max-height: calc(100dvh - var(--header-height) - var(--space-5));
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
   }
 }
 

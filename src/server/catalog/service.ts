@@ -37,7 +37,7 @@ import { recordAudit } from '../auth/audit';
 import { ConflictError, ValidationError, requirePermission, type ActorContext } from '../authz/authorize';
 import { PERMISSIONS } from '../authz/permissions';
 
-import { readAsset } from './assets';
+import { isKnownAsset, readAsset, type AssetDescriptor } from './assets';
 import {
   parseAvailability,
   parseId,
@@ -120,6 +120,167 @@ export async function createBrand(
   });
 
   return { brandId };
+}
+
+/** Rows per page for the admin brand list. */
+export const BRAND_PAGE_SIZE = 25;
+
+/**
+ * Brands, for the admin list.
+ *
+ * The product count is a correlated `count(*)` over live product rows - never a stored counter - so a
+ * row cannot advertise a number the catalog does not hold. `search` matches the English name, the
+ * Bangla name and the slug; the footer's total runs over the same predicate as the page.
+ */
+export async function listBrandsForAdmin(
+  tx: Transaction,
+  options: {
+    readonly search?: string;
+    readonly limit?: number;
+    readonly offset?: number;
+  } = {},
+): Promise<{
+  readonly rows: {
+    id: number;
+    slug: string;
+    nameBn: string;
+    nameEn: string;
+    logoKey: string | null;
+    productCount: number;
+  }[];
+  readonly total: number;
+}> {
+  const search = options.search?.trim() ?? '';
+  const searchClause =
+    search === ''
+      ? sql`true`
+      : sql`(${brand.nameEn} ilike ${likeTerm(search)}
+          or ${brand.nameBn} ilike ${likeTerm(search)}
+          or ${brand.slug} ilike ${likeTerm(search)})`;
+  const where = sql`${brand.deletedAt} is null and ${searchClause}`;
+  const limit = Math.min(Math.max(options.limit ?? BRAND_PAGE_SIZE, 1), 100);
+  const offset = Math.max(options.offset ?? 0, 0);
+
+  const rows = await tx
+    .select({
+      id: brand.id,
+      slug: brand.slug,
+      nameBn: brand.nameBn,
+      nameEn: brand.nameEn,
+      logoKey: brand.logoKey,
+      productCount: sql<number>`(
+        select count(*)::int from "product"
+        where "product"."brand_id" = "brand"."id" and "product"."deleted_at" is null
+      )`,
+    })
+    .from(brand)
+    .where(where)
+    .orderBy(brand.nameEn)
+    .limit(limit)
+    .offset(offset);
+
+  const counted = await tx.select({ total: sql<number>`count(*)::int` }).from(brand).where(where);
+
+  return { rows, total: counted[0]?.total ?? 0 };
+}
+
+/**
+ * One live brand by id, for the logo editor.
+ *
+ * Returns `null` for an archived row, an unknown id or a malformed one, so a hand-typed id cannot
+ * disclose an archived record and a stale link is a 404 rather than an empty editor.
+ */
+export async function getBrandForAdmin(
+  tx: Transaction,
+  brandId: unknown,
+): Promise<{
+  id: number;
+  slug: string;
+  nameBn: string;
+  nameEn: string;
+  logoKey: string | null;
+  productCount: number;
+} | null> {
+  const id = parseId(brandId);
+  if (id === null) return null;
+
+  const rows = await tx
+    .select({
+      id: brand.id,
+      slug: brand.slug,
+      nameBn: brand.nameBn,
+      nameEn: brand.nameEn,
+      logoKey: brand.logoKey,
+      productCount: sql<number>`(
+        select count(*)::int from "product"
+        where "product"."brand_id" = "brand"."id" and "product"."deleted_at" is null
+      )`,
+    })
+    .from(brand)
+    .where(sql`${brand.id} = ${id} and ${brand.deletedAt} is null`);
+
+  return rows[0] ?? null;
+}
+
+/**
+ * Sets or clears a brand's logo.
+ *
+ * The same contract as `setCategoryImage`, because it is the same kind of decision: the value is an
+ * **asset key**, validated first by shape and then against the server's own inventory, and nothing
+ * about the image comes from the browser except which key was chosen. A brand cannot be pointed at a
+ * URL, a path outside `public/catalog`, or a file that does not exist.
+ *
+ * `null` / `''` clear the column and the storefront draws the brand's initials - a stated gap rather
+ * than a substituted mark. Every change is audited with the key it replaced.
+ *
+ * **There is no upload here, deliberately.** Writing new bytes would mean accepting, re-encoding and
+ * generating two widths inside a request handler, which needs an image-processing library at runtime
+ * and, for a deployment, object storage (ADR 0006) - neither of which is approved. The editor therefore
+ * lists the assets the shop already owns. That gap is stated in the interface, not implied away.
+ */
+export async function setBrandImage(
+  tx: Transaction,
+  actor: ActorContext,
+  input: { brandId: unknown; imageKey: unknown; asset?: AssetDescriptor | null },
+): Promise<{ logoKey: string | null }> {
+  const id = parseId(input.brandId);
+  if (id === null) throw new ValidationError('a brand id is required');
+  await requirePermission(actor, CATALOG, 'brand', id);
+
+  const rows = await tx
+    .select({ id: brand.id, slug: brand.slug, logoKey: brand.logoKey, deletedAt: brand.deletedAt })
+    .from(brand)
+    .where(sql`${brand.id} = ${id}`);
+  const row = rows[0];
+  if (row === undefined || row.deletedAt !== null) throw new ConflictError('no such brand');
+
+  const raw = typeof input.imageKey === 'string' ? input.imageKey.trim() : '';
+  let logoKey: string | null = null;
+  if (raw !== '') {
+    logoKey = parseImageKey(raw);
+    if (logoKey === null) throw new ValidationError('that is not a valid image key');
+    // An upload was decoded and written by `saveUpload` in this same request, so its descriptor is the
+    // server's own reading of the bytes; anything else is resolved against the catalog inventory.
+    const asset = input.asset ?? (await readAsset(logoKey));
+    if ((asset === null || asset.key !== logoKey) && !(await isKnownAsset(logoKey))) {
+      throw new ValidationError('that image is not a complete, supported asset in the catalog directory');
+    }
+  }
+
+  await tx.update(brand).set({ logoKey, updatedAt: new Date() }).where(sql`${brand.id} = ${id}`);
+
+  await recordAudit(tx, {
+    actorType: 'staff',
+    actorStaffId: actor.staffUserId,
+    actorRoleCodes: actor.roleCodes,
+    action: 'catalog.brand_image_updated',
+    entityType: 'brand',
+    entityId: id,
+    before: { logoKey: row.logoKey },
+    after: { logoKey },
+  });
+
+  return { logoKey };
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -989,7 +1150,7 @@ export async function setAvailability(
 export async function setCategoryImage(
   tx: Transaction,
   actor: ActorContext,
-  input: { categoryId: unknown; imageKey: unknown },
+  input: { categoryId: unknown; imageKey: unknown; asset?: AssetDescriptor | null },
 ): Promise<{ imageKey: string | null }> {
   const id = parseId(input.categoryId);
   if (id === null) throw new ValidationError('a category id is required');
@@ -1007,7 +1168,8 @@ export async function setCategoryImage(
   if (raw !== '') {
     imageKey = parseImageKey(raw);
     if (imageKey === null) throw new ValidationError('that is not a valid image key');
-    if ((await readAsset(imageKey)) === null) {
+    const asset = input.asset ?? (await readAsset(imageKey));
+    if ((asset === null || asset.key !== imageKey) && !(await isKnownAsset(imageKey))) {
       throw new ValidationError('that image is not a complete, supported asset in the catalog directory');
     }
   }
@@ -1221,6 +1383,7 @@ export async function attachImage(
     altEn?: unknown;
     isPrimary?: unknown;
     sortOrder?: unknown;
+    asset?: AssetDescriptor | null;
   },
 ): Promise<{ imageId: string }> {
   const productId = parseId(input.productId);
@@ -1237,8 +1400,8 @@ export async function attachImage(
     .where(sql`${product.id} = ${productId} and ${product.deletedAt} is null`);
   if (productRows.length === 0) throw new ConflictError('no such product');
 
-  const asset = await readAsset(key);
-  if (asset === null) {
+  const asset = input.asset ?? (await readAsset(key));
+  if (asset === null || asset.key !== key) {
     throw new ValidationError('that asset is not a complete, supported image in the catalog directory');
   }
 

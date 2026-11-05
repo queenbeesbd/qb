@@ -4,43 +4,45 @@
   border-top: 1px solid var(--color-border);
 }
 
+/*
+ * Two short columns beside the brand block from 720px, and the same two columns under it on a phone:
+ * three links each, so the footer is four short rows instead of a page of a directory.
+ */
 .inner {
   max-width: var(--container);
   margin: 0 auto;
-  padding: var(--space-7) var(--gutter) var(--space-6);
+  padding: var(--space-6) var(--gutter) var(--space-5);
   display: grid;
-  gap: var(--space-6);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-5) var(--space-4);
 }
 
 .brandColumn {
-  max-width: 42ch;
+  grid-column: 1 / -1;
+  display: grid;
+  gap: var(--space-2);
+  max-width: 46ch;
 }
 
 .brandName {
-  font-size: var(--text-lg);
+  font-size: var(--text-base);
   font-weight: 700;
 }
 
 .tagline {
-  margin-top: var(--space-3);
-  max-width: 34ch;
   color: var(--color-ink-muted);
   font-size: var(--text-sm);
   line-height: var(--leading-snug);
-}
-
-.meta {
-  margin-top: var(--space-2);
-  color: var(--color-ink-subtle);
-  font-size: var(--text-xs);
+  max-width: 40ch;
 }
 
 .columnTitle {
-  font-size: var(--text-sm);
+  font-size: 11px;
+  font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: var(--color-ink-muted);
-  margin-bottom: var(--space-3);
+  color: var(--color-ink-subtle);
+  margin-bottom: var(--space-2);
 }
 
 .column ul {
@@ -48,11 +50,24 @@
   margin: 0;
   padding: 0;
   display: grid;
-  gap: var(--space-2);
+  gap: var(--space-1);
 }
 
+/*
+ * A link is a 40px row on a phone: the footer is not a dense directory any more, so its handful of
+ * destinations can each be pressable with a thumb.
+ */
 .column a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
   font-size: var(--text-sm);
+  color: var(--color-ink-muted);
+}
+
+.column a:hover {
+  color: var(--color-action);
+  text-decoration: underline;
 }
 
 .bottomBar {
@@ -70,8 +85,22 @@
 
 @media (min-width: 720px) {
   .inner {
-    grid-template-columns: 2fr 1fr 1fr;
-    padding-top: var(--space-8);
+    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr);
+    align-items: start;
+    padding-top: var(--space-7);
     padding-bottom: var(--space-6);
+  }
+
+  .brandColumn {
+    grid-column: auto;
+  }
+
+  /* A desktop footer is a summary, not a list of rows: no 40px targets needed. */
+  .column a {
+    min-height: 0;
+  }
+
+  .column ul {
+    gap: var(--space-2);
   }
 }

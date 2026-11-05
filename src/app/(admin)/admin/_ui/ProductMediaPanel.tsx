@@ -77,6 +77,47 @@ export function ProductMediaPanel({
         <p>{t('admin.catalog.imagesBody')}</p>
       </div>
 
+      {canManage && (
+        <form
+          className={styles.attachForm}
+          action="/api/admin/catalog/image"
+          method="post"
+          encType="multipart/form-data"
+        >
+          <input type="hidden" name="csrf" value={csrfToken} />
+          <input type="hidden" name="operation" value="upload" />
+          <input type="hidden" name="productId" value={productId} />
+          <div className={styles.field}>
+            <label htmlFor="productImageUpload">{t('admin.upload.file')}</label>
+            <input
+              className={styles.input}
+              id="productImageUpload"
+              type="file"
+              name="file"
+              accept="image/jpeg,image/png,image/webp"
+              required
+            />
+            <p className={styles.hint}>{t('admin.catalog.uploadHelp')}</p>
+          </div>
+          <div className={styles.formGrid}>
+            <div className={styles.field}>
+              <label htmlFor="altEnUpload">{t('admin.catalog.altEn')}</label>
+              <input className={styles.input} id="altEnUpload" name="altEn" maxLength={300} />
+            </div>
+            <div className={styles.field}>
+              <label htmlFor="altBnUpload">{t('admin.catalog.altBn')}</label>
+              <input className={styles.input} id="altBnUpload" name="altBn" maxLength={300} lang="bn" />
+            </div>
+          </div>
+          <div className={styles.formActions}>
+            <SubmitButton
+              label={t('admin.catalog.uploadImage')}
+              pendingLabel={t('admin.common.working')}
+            />
+          </div>
+        </form>
+      )}
+
       {ordered.length === 0 ? (
         <p className={styles.note}>{t('admin.catalog.noImages')}</p>
       ) : (
@@ -227,6 +268,10 @@ export function ProductMediaPanel({
             </form>
           )}
         </>
+      )}
+
+      {canManage && (
+        <p className={styles.hint}>{t('admin.catalog.attachedLibrary')}</p>
       )}
 
       {assets.length === 0 ? (

@@ -83,6 +83,39 @@
   min-width: 0;
 }
 
+/*
+ * The two gallery compositions. Below 880px the phone shows `GalleryCarousel`
+ * (`.mediaMobile`); from 880px the desktop shows the thumbnail composition
+ * (`.mediaDesktop`). One is always `display: none`.
+ */
+.mediaMobile {
+  min-width: 0;
+}
+
+.mediaDesktop {
+  display: none;
+}
+
+/*
+ * The main photograph is a zoom trigger: a real button so keyboard users reach the
+ * uncropped image too. All visual styling stays on the inner figure; the button is
+ * transparent chrome around it.
+ */
+.zoomTrigger {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: zoom-in;
+  border-radius: var(--radius-lg);
+}
+
+.zoomTrigger:focus-visible {
+  outline: 2px solid var(--color-action);
+  outline-offset: 2px;
+}
+
 .gallery {
   min-width: 0;
 }
@@ -477,10 +510,10 @@
   /*
    * The two-column layout, with the gallery deliberately **smaller than its column**.
    *
-   * A 3:4 frame filling half of a 1440px container is ~656x875 - taller than the information beside
-   * it, which made the page read as a photograph with some text next to it. The media column is
-   * capped at 480px and its frame at 4:5, so the product page is read top-down at a sane length and
-   * the price, the facts and the actions sit beside the photograph rather than below it.
+   * The rebalance: the media column is capped at 480px and the main frame is a **square**, so a 3:4
+   * master never produces a photograph taller than the information beside it. The crop is presentation
+   * only — `ZoomModal` shows the uncropped stored photograph on demand, which is what lets the page
+   * stay compact without ever hiding the product's real shape.
    */
   .layout {
     grid-template-columns: minmax(0, 480px) minmax(0, 1fr);
@@ -488,14 +521,25 @@
     align-items: start;
   }
 
-  .media {
+  /* The compositions swap: the carousel is the phone's, the thumb rail the desktop's. */
+  .mediaMobile {
+    display: none;
+  }
+
+  .mediaDesktop {
+    display: grid;
+    gap: var(--space-3);
+  }
+
+  .media,
+  .mediaDesktop {
     position: sticky;
     top: var(--space-5);
   }
 
   .figure img,
   .figure picture {
-    aspect-ratio: 4 / 5;
+    aspect-ratio: 1 / 1;
   }
 
   /*
@@ -503,6 +547,8 @@
    * a readability limit, not a layout one.
    */
   .info {
+    position: sticky;
+    top: calc(var(--header-height) + var(--space-4));
     max-width: 62ch;
   }
 

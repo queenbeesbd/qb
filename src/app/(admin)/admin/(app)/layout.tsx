@@ -4,18 +4,21 @@ import { redirect } from 'next/navigation';
 import {
   ADMIN_ROOT,
   ANALYTICS_PATH,
+  BRANDS_PATH,
   CATALOG_PATH,
   CATEGORIES_PATH,
   COD_PATH,
   CUSTOMERS_PATH,
   ANNOUNCEMENT_SETTINGS_PATH,
   DELIVERY_SETTINGS_PATH,
+  HERO_SETTINGS_PATH,
   INTEGRATIONS_PATH,
   LOGIN_PATH,
   OTHER_SETTINGS_PATH,
   ORDERS_PATH,
   OWNERS_PATH,
   PROMO_CODES_PATH,
+  SUPPORT_SETTINGS_PATH,
 } from '@/server/auth/constants';
 import { currentStaffPrincipal } from '@/server/auth/guard';
 import { hasPermission } from '@/server/authz/principal';
@@ -84,6 +87,8 @@ export default async function AdminShellLayout({ children }: { children: React.R
       mobileRank: 3,
     });
     items.push({ href: CATEGORIES_PATH, labelKey: 'admin.nav.categories', group: 'commerce', icon: 'categories' });
+    // Brands are a destination because each one now carries the logo the storefront draws.
+    items.push({ href: BRANDS_PATH, labelKey: 'admin.nav.brands', group: 'commerce', icon: 'image' });
   }
   if (hasPermission(principal, PERMISSIONS.settingsWrite)) {
     items.push({ href: PROMO_CODES_PATH, labelKey: 'admin.nav.promo', group: 'commerce', icon: 'tag' });
@@ -103,6 +108,20 @@ export default async function AdminShellLayout({ children }: { children: React.R
       labelKey: 'admin.nav.announcement',
       group: 'settings',
       icon: 'list',
+    });
+    // The two floating support buttons' addresses: the shop's own Facebook and WhatsApp.
+    items.push({
+      href: SUPPORT_SETTINGS_PATH,
+      labelKey: 'admin.nav.support',
+      group: 'settings',
+      icon: 'bell',
+    });
+    // The homepage's first screen: the owner's own hero images and the order they run in.
+    items.push({
+      href: HERO_SETTINGS_PATH,
+      labelKey: 'admin.nav.hero',
+      group: 'settings',
+      icon: 'image',
     });
     // Integrations is a hub, so the sidebar gains one entry however many providers exist later.
     items.push({

@@ -1,10 +1,13 @@
 'use client';
 
 import Link from 'next/link';
+import { useEffect, useRef, useState } from 'react';
 import { CARD_FRAME, CARD_SIZES } from '@/lib/images';
 import { discountAmount, discountPercent } from '@/lib/money';
 import { useTranslation } from '@/i18n/useTranslation';
 import type { CatalogItem } from '@/lib/types';
+import { useCart } from '@/features/cart/useCart';
+import { CartIcon } from './icons';
 import { ProductPhoto } from './ProductPhoto';
 import styles from './ProductCard.module.css';
 
@@ -14,13 +17,19 @@ import styles from './ProductCard.module.css';
  */
 export function ProductCard({
   product,
-  /** Frame and source-size hints, so the listing can use a taller crop than the homepage rows. */
   frame = CARD_FRAME,
   sizes = CARD_SIZES,
+  addToCart = false,
 }: {
   product: CatalogItem;
+  /** The card's photo frame. One measurement everywhere; see `CARD_FRAME`. */
   frame?: string;
   sizes?: string;
+  /**
+   * Draw the card's own "Add to cart" control. The homepage rows ask for it; the listing does not,
+   * because a grid being scanned and filtered is a different task from a shelf being shopped.
+   */
+  addToCart?: boolean;
 }) {
   const { t, pick, price } = useTranslation();
   const name = pick(product.name) ?? product.slug;
@@ -113,7 +122,70 @@ export function ProductCard({
         {product.availability === 'unknown' && (
           <p className={styles.availability}>{t('product.availability.unknown')}</p>
         )}
+
+        {addToCart && <AddToCartButton product={product} />}
       </div>
     </article>
+  );
+}
+
+/**
+ * The card's own add-to-cart control.
+ *
+ * Three honest states, and no fourth:
+ *
+ * 1. **In stock** - one tap adds a single unit and the label confirms it for a moment. Nothing is sent
+ *    to the server here; the cart is browser state and checkout recomputes the price.
+ * 2. **Out of stock** - the control is disabled and says so, because an out-of-stock product cannot be
+ *    ordered (D19). It is never hidden: the customer must be able to see that the product exists and
+ *    that it cannot be bought right now.
+ * 3. **Unknown** - likewise disabled; the shop does not guess.
+ *
+ * The confirmation is text, not colour, and it reverts on its own so the button never claims a state it
+ * is no longer in. The timer is cleared on unmount, so a fast scroll cannot leave a stray update.
+ */
+function AddToCartButton({ product }: { product: CatalogItem }) {
+  const { t } = useTranslation();
+  const { addItem } = useCart();
+  const [added, setAdded] = useState(false);
+  const timer = useRef<number | null>(null);
+
+  useEffect(
+    () => () => {
+      if (timer.current !== null) window.clearTimeout(timer.current);
+    },
+    [],
+  );
+
+  const available = product.availability === 'in_stock';
+
+  return (
+    <button
+      type="button"
+      className={styles.buy}
+      data-state={added ? 'added' : undefined}
+      disabled={!available}
+      aria-label={
+        available
+          ? `${t('product.addToCart')}: ${product.name.en ?? product.slug}`
+          : `${t('product.availability.unavailable')}: ${product.name.en ?? product.slug}`
+      }
+      onClick={() => {
+        if (!available) return;
+        addItem(product.id);
+        setAdded(true);
+        if (timer.current !== null) window.clearTimeout(timer.current);
+        timer.current = window.setTimeout(() => setAdded(false), 1600);
+      }}
+    >
+      <CartIcon width={16} height={16} />
+      <span>
+        {!available
+          ? t('product.availability.unavailable')
+          : added
+            ? t('product.added')
+            : t('product.addToCart')}
+      </span>
+    </button>
   );
 }

@@ -1584,6 +1584,7 @@ async function main(): Promise<void> {
               '/admin/catalog',
               '/admin/settings/delivery',
               '/admin/settings/other',
+              '/admin/settings/hero',
               '/admin/settings/integrations/telegram',
             ]) {
               await browser.navigate(route);

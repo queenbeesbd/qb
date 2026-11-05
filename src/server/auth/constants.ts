@@ -70,12 +70,16 @@ export const REDEEM_PATH = '/admin/redeem';
  */
 export const OWNERS_PATH = '/admin/owners';
 export const CATALOG_PATH = '/admin/catalog';
+export const BRANDS_PATH = '/admin/catalog/brands';
 export const CATEGORIES_PATH = '/admin/categories';
 export const DELIVERY_SETTINGS_PATH = '/admin/settings/delivery';
 export const PROMO_CODES_PATH = '/admin/promo-codes';
 /** The derived figures screen: revenue, orders and what is selling (Phase 38). */
 export const ANALYTICS_PATH = '/admin/analytics';
 export const ANNOUNCEMENT_SETTINGS_PATH = '/admin/settings/announcement';
+export const SUPPORT_SETTINGS_PATH = '/admin/settings/support';
+/** The homepage hero carousel's images and their order (Phase 51). */
+export const HERO_SETTINGS_PATH = '/admin/settings/hero';
 /**
  * Integrations (Phase 39): outbound notification destinations.
  *

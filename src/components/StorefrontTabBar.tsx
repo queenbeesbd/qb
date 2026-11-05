@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useTranslation } from '@/i18n/useTranslation';
 import { useCart } from '@/features/cart/useCart';
-import { CartIcon, GridIcon, HomeIcon, TagIcon, UserIcon } from './icons';
+import { BrandIcon, CartIcon, GridIcon, HomeIcon, TagIcon, UserIcon } from './icons';
 import styles from './StorefrontTabBar.module.css';
 
 /**
@@ -16,9 +16,14 @@ import styles from './StorefrontTabBar.module.css';
  * the thumb reaches it, the current section is always visible, and the cart count is never more than a
  * glance away.
  *
- * Five tabs rather than four-plus-More: every destination is a real, distinct surface, so a "More"
- * sheet would hold nothing but a second copy of these links. Categories exists as a route for the same
- * reason - without it, category discovery on a phone would have no home once the drawer was gone.
+ * Tabs rather than a More sheet: every destination is a real, distinct surface, so a "More" sheet
+ * would hold nothing but a second copy of these links. Categories and Brands both exist as routes for
+ * the same reason - without them, discovery on a phone would have no home once the drawer was gone.
+ *
+ * **Six since 2026-11-02.** Brands became its own index and its own destination, and it sits directly
+ * after Categories - the same order the desktop header uses. Six tabs on a 360px screen leaves ~60px
+ * each, so the two longest labels are the ones that had to be shortened; a tab label that truncated
+ * with an ellipsis would be worse than a shorter word.
  *
  * The bar is presentational chrome: it renders the same links at every scroll position and is hidden
  * entirely from 1024px up, where the header's own navigation takes over.
@@ -34,7 +39,8 @@ export function StorefrontTabBar() {
   const tabs = [
     { href: '/', label: t('nav.home'), icon: <HomeIcon width={22} height={22} /> },
     { href: '/products', label: t('nav.tabShop'), icon: <GridIcon width={22} height={22} /> },
-    { href: '/categories', label: t('nav.categories'), icon: <TagIcon width={22} height={22} /> },
+    { href: '/categories', label: t('nav.tabCategories'), icon: <TagIcon width={22} height={22} /> },
+    { href: '/brands', label: t('nav.brands'), icon: <BrandIcon width={22} height={22} /> },
     { href: '/cart', label: t('nav.cart'), icon: <CartIcon width={22} height={22} />, badge: itemCount },
     { href: '/account', label: t('nav.tabAccount'), icon: <UserIcon width={22} height={22} /> },
   ];

@@ -59,10 +59,12 @@
 }
 
 /* ---------------------------------------------------------------------------
- * Departments: square tiles
+ * Departments: circles (owner direction, 2026-11-05)
  *
- * Two columns on a phone, three from 480px, four from 720px and five from 1024px. Every tile is a
- * square photograph with the name under it, so the grid reads in rows whatever the catalogue holds.
+ * The same circle the homepage rail draws and the same grid scale the brand index uses - three across a
+ * phone, six from 720px, 120px circles from 1024px - so a department looks like itself on every surface.
+ * The photograph fills the circle with a centre crop; a department with no photograph draws its icon in
+ * the same circle rather than a pale placeholder square.
  * ------------------------------------------------------------------------- */
 
 .tileGrid {
@@ -70,8 +72,8 @@
   margin: 0;
   padding: 0;
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--space-3);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-4) var(--space-3);
 }
 
 .tileItem {
@@ -81,6 +83,8 @@
 .tile {
   display: grid;
   gap: var(--space-2);
+  justify-items: center;
+  text-align: center;
 }
 
 .tile:hover {
@@ -90,12 +94,28 @@
 .tilePhoto {
   position: relative;
   display: block;
-  border-radius: var(--radius-lg);
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  border-radius: 50%;
   overflow: hidden;
   background: var(--color-surface-sunken);
   border: 1px solid var(--color-border);
   transition: border-color var(--transition-fast), transform var(--transition-fast),
     box-shadow var(--transition-fast);
+}
+
+/* The photograph is the circle: a centre crop that fills it, never a letterboxed picture inside it. */
+.tileImage {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.tileImage :global(img) {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
 }
 
 .tile:hover .tilePhoto {
@@ -108,27 +128,10 @@
   display: grid;
   place-items: center;
   width: 100%;
+  height: 100%;
   aspect-ratio: 1 / 1;
   background: var(--color-action-soft);
   color: var(--color-action);
-}
-
-/*
- * The count sits on the photograph as a small, quiet chip. It is the one piece of metadata a shopper
- * actually uses ("is this department worth opening?"), and it does not compete with the name.
- */
-.tileCount {
-  position: absolute;
-  top: var(--space-2);
-  right: var(--space-2);
-  padding: 2px var(--space-2);
-  border-radius: var(--radius-pill);
-  background: rgb(255 255 255 / 0.92);
-  color: var(--color-ink);
-  font-size: 11px;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  line-height: 1.5;
 }
 
 .tileText {
@@ -266,7 +269,7 @@
 
 @media (min-width: 480px) {
   .tileGrid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 
   .brandGrid {
@@ -284,7 +287,7 @@
   }
 
   .tileGrid {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(6, minmax(0, 1fr));
     gap: var(--space-4);
   }
 
@@ -295,7 +298,7 @@
 
 @media (min-width: 1024px) {
   .tileGrid {
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
     gap: var(--space-5) var(--space-4);
   }
 

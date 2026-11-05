@@ -14,266 +14,6 @@
 }
 
 /* ---------------------------------------------------------------------------
- * Hero
- *
- * Two compositions, one per size class (see the view):
- *
- * - **Phone**: copy, then a *spotlight row* - two newest products, each a 112px square photograph
- *   with its name and price. A purchasable product is on the first screen.
- * - **From 1024px**: copy on the left, the three-frame collage on the right, exactly as before.
- *
- * The spotlight is not a mobile fallback for the collage: it is the composition that fits a phone,
- * and the collage is hidden below 1024px rather than shrunk into a strip too small to read.
- * ------------------------------------------------------------------------- */
-
-.hero {
-  display: grid;
-  gap: var(--space-4);
-  padding: var(--space-4) 0 0;
-}
-
-.heroCopy {
-  max-width: 34ch;
-}
-
-.heroTitle {
-  font-size: 1.75rem;
-  line-height: 1.12;
-  letter-spacing: -0.025em;
-  text-wrap: balance;
-}
-
-.heroBody {
-  margin-top: var(--space-2);
-  color: var(--color-ink-muted);
-  font-size: var(--text-base);
-  max-width: 46ch;
-}
-
-/* Equal-width actions on a phone: two buttons of different widths look accidental. */
-.heroActions {
-  margin-top: var(--space-4);
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--space-3);
-}
-
-.primaryAction {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 48px;
-  padding: 0 var(--space-3);
-  border-radius: var(--radius-md);
-  background: var(--color-action);
-  color: #fff;
-  font-size: var(--text-sm);
-  font-weight: 600;
-  text-align: center;
-  line-height: 1.2;
-  transition: background-color 140ms ease, transform 120ms ease-out;
-}
-
-.primaryAction:hover {
-  background: var(--color-action-hover);
-  color: #fff;
-}
-
-.primaryAction:active {
-  transform: scale(0.98);
-}
-
-.secondaryAction {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 48px;
-  padding: 0 var(--space-3);
-  border: 1px solid var(--color-border-strong);
-  border-radius: var(--radius-md);
-  background: var(--color-surface);
-  font-size: var(--text-sm);
-  font-weight: 600;
-  color: var(--color-ink);
-  text-align: center;
-  line-height: 1.2;
-  transition: border-color 140ms ease, color 140ms ease, transform 120ms var(--ease-out-ui);
-}
-
-.secondaryAction:active {
-  transform: scale(0.98);
-}
-
-.secondaryAction:hover {
-  border-color: var(--color-action);
-  color: var(--color-action);
-}
-
-.heroMedia {
-  display: grid;
-  gap: var(--space-2);
-  min-width: 0;
-}
-
-/* ---------------------------------------------------------------------------
- * The phone's spotlight rows
- * ------------------------------------------------------------------------- */
-
-.spotlight {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  gap: var(--space-2);
-}
-
-.spotlightItem {
-  min-width: 0;
-}
-
-.spotlightLink {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-2);
-  padding-inline-end: var(--space-3);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  background: var(--color-surface);
-  transition: border-color var(--transition-fast), transform var(--transition-fast);
-}
-
-.spotlightLink:hover {
-  border-color: var(--brand-primary);
-  color: var(--color-ink);
-}
-
-.spotlightLink:active {
-  transform: scale(0.995);
-}
-
-.spotlightPhoto {
-  display: block;
-  flex: none;
-  width: 72px;
-  border-radius: var(--radius-md);
-  overflow: hidden;
-  background: var(--color-surface-sunken);
-}
-
-.spotlightPhoto > picture,
-.spotlightPhoto > img {
-  display: block;
-  width: 100%;
-}
-
-.spotlightText {
-  display: grid;
-  gap: 1px;
-  min-width: 0;
-  flex: 1;
-}
-
-.spotlightKicker {
-  font-size: 10.5px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--color-action);
-}
-
-.spotlightName {
-  font-size: var(--text-sm);
-  font-weight: 600;
-  line-height: 1.3;
-  /*
-   * Two lines and then an ellipsis. Imported vendor names run long; a spotlight row that grew to fit
-   * one would stop being a row.
-   */
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  overflow: hidden;
-}
-
-.spotlightPrice {
-  font-size: var(--text-base);
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-}
-
-.spotlightChevron {
-  flex: none;
-  display: inline-flex;
-  color: var(--color-ink-subtle);
-}
-
-/* ---------------------------------------------------------------------------
- * The desktop collage - hidden on a phone, which has the spotlight instead
- * ------------------------------------------------------------------------- */
-
-.heroCollage {
-  display: none;
-  min-width: 0;
-  grid-template-columns: minmax(0, 1fr);
-}
-
-.collageList {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  gap: var(--space-2);
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-
-.collageItem {
-  min-width: 0;
-}
-
-.collageLink {
-  display: block;
-  border-radius: var(--radius-lg);
-  overflow: hidden;
-  border: 1px solid var(--color-border);
-  background: var(--color-surface);
-  transition: border-color var(--transition-base), transform var(--transition-base);
-}
-
-.collageLink:hover {
-  border-color: var(--brand-primary);
-}
-
-.collagePhoto {
-  display: block;
-}
-
-/* The lead product's name and price, on one line under its photographs. */
-.heroLead {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--space-3);
-  padding: var(--space-2) var(--space-1) 0;
-}
-
-.heroLeadName {
-  font-size: var(--text-sm);
-  font-weight: 600;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.heroLeadPrice {
-  flex: none;
-  font-size: var(--text-base);
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-}
-
-/* ---------------------------------------------------------------------------
  * Sections
  * ------------------------------------------------------------------------- */
 
@@ -283,230 +23,63 @@
   min-width: 0;
 }
 
+/*
+ * A section heading is centred, and its one route into the full listing sits beneath it (owner
+ * direction, 2026-11-05 - the reference the owner pointed at announces each row from the middle of
+ * the screen). Centring the title while a link stayed pinned to the right corner read as two
+ * unrelated things, so the link follows the title instead.
+ */
 .sectionHeader {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: var(--space-3);
-}
-
-.sectionHeaderText {
-  flex: 1 1 10rem;
-  min-width: 0;
+  display: grid;
+  justify-items: center;
+  gap: var(--space-1);
+  text-align: center;
 }
 
 .sectionHeader h2 {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: var(--space-2);
   font-size: var(--text-xl);
   letter-spacing: -0.015em;
 }
 
-.titleIcon {
-  display: inline-flex;
-  color: var(--brand-primary);
-}
+/* ---------------------------------------------------------------------------
+ * Circular category carousel
+ *
+ * The homepage's category presentation lives in its own component now
+ * (`src/features/catalog/home/CategoryCircleRail.module.css`): circular
+ * photographs, bold names beneath, a snap-scrolling rail at every width. The
+ * square-tile grid it replaced here remains only on the `/categories` index.
+ * ------------------------------------------------------------------------- */
+/* ---------------------------------------------------------------------------
+ * Section counts on a phone
+ *
+ * The two sections that are not carousels fill their rows. The phone grid is two columns, so an
+ * odd count leaves a card stretching across a whole row and a hole beside it; the owner's rule is
+ * an even number at every width - four featured cards and eight browse cards. `nth-child` is
+ * 1-based, so `n + 5` hides the fifth card and everything after it. From 720px the grid holds
+ * three columns and the desktop rows stay five across.
+ * ------------------------------------------------------------------------- */
 
-.sectionBody {
-  margin-top: 2px;
-  color: var(--color-ink-muted);
-  font-size: var(--text-sm);
-  line-height: var(--leading-snug);
-  max-width: 60ch;
+@media (max-width: 719px) {
+  .featuredGrid > li:nth-child(n + 5),
+  .browseGrid > li:nth-child(n + 9) {
+    display: none;
+  }
 }
 
 /*
- * A section's only way in. A bare 13px word was a 49x21 target in the corner of the thumb zone, so
- * it takes the standard 40px control height while keeping the text weight it had.
+ * Between 720px and 1199px the grid holds three columns, so "More to explore" draws nine of its ten
+ * cards: three full rows instead of three rows and one lonely card. The tenth returns with the fifth
+ * column at 1200px.
  */
-.viewAll {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-  flex: none;
-  min-height: 40px;
-  padding-inline: var(--space-1);
-  margin-inline-end: calc(-1 * var(--space-1));
-  font-size: var(--text-sm);
-  font-weight: 600;
-  color: var(--color-action);
-  white-space: nowrap;
+@media (min-width: 720px) and (max-width: 1199px) {
+  .browseGrid > li:nth-child(n + 10) {
+    display: none;
+  }
 }
-
-.viewAll:hover {
-  text-decoration: underline;
-}
-
-/* ---------------------------------------------------------------------------
- * Category rail
- *
- * A horizontal strip of square photographs on a phone, scrolling inside its own box; a wrapping grid
- * from 720px. The picture carries the department and the name under it names it, so the rail is
- * readable at a glance rather than a row of words.
- * ------------------------------------------------------------------------- */
-
-.categoryRail {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: 84px;
-  gap: var(--space-3);
-  margin-inline: calc(-1 * var(--gutter));
-  padding-inline: var(--gutter);
-  padding-bottom: var(--space-1);
-  overflow-x: auto;
-  overscroll-behavior-x: contain;
-  scroll-snap-type: x proximity;
-  scrollbar-width: none;
-  contain: layout paint;
-}
-
-.categoryRail::-webkit-scrollbar {
-  display: none;
-}
-
-.categoryRailItem {
-  min-width: 0;
-  scroll-snap-align: start;
-}
-
-.categoryRailLink {
-  display: grid;
-  gap: var(--space-2);
-  justify-items: center;
-  text-align: center;
-}
-
-.categoryRailLink:hover {
-  color: var(--color-ink);
-}
-
-.categoryTile {
-  display: block;
-  width: 100%;
-  border-radius: var(--radius-lg);
-  overflow: hidden;
-  background: var(--color-surface-sunken);
-  border: 1px solid var(--color-border);
-  transition: border-color var(--transition-fast), transform var(--transition-fast);
-}
-
-.categoryRailLink:hover .categoryTile {
-  border-color: var(--brand-primary);
-  transform: translateY(-2px);
-}
-
-.categoryTilePhoto {
-  display: block;
-}
-
-.categoryTileGlyph {
-  display: grid;
-  place-items: center;
-  width: 100%;
-  aspect-ratio: 1 / 1;
-  background: var(--color-action-soft);
-  color: var(--color-action);
-}
-
-.categoryRailName {
-  font-size: var(--text-xs);
-  font-weight: 600;
-  line-height: 1.25;
-  overflow-wrap: anywhere;
-  /*
-   * Always two lines. Department names here run from "Bags" to "Face Powder (Loose/Compact)", and a
-   * rail whose names take one line in one tile and three in the next reads as a broken grid. The box
-   * is reserved so every tile's name occupies the same height.
-   */
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  overflow: hidden;
-  min-height: 2.5em;
-}
-
-/* ---------------------------------------------------------------------------
- * Brand rail
- * ------------------------------------------------------------------------- */
-
-.brandRail {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: 104px;
-  gap: var(--space-3);
-  margin-inline: calc(-1 * var(--gutter));
-  padding-inline: var(--gutter);
-  padding-bottom: var(--space-1);
-  overflow-x: auto;
-  overscroll-behavior-x: contain;
-  scroll-snap-type: x proximity;
-  scrollbar-width: none;
-  contain: layout paint;
-}
-
-.brandRail::-webkit-scrollbar {
-  display: none;
-}
-
-.brandRailItem {
-  min-width: 0;
-  scroll-snap-align: start;
-}
-
-.brandRailLink {
-  display: grid;
-  gap: var(--space-2);
-  justify-items: center;
-  text-align: center;
-  /*
-   * The tile is capped rather than filling its grid track. Five tracks across a 1360px container are
-   * ~260px each, and a 260px square for a 96px logo is a wall of pastel: the mark stops being the
-   * subject and the padding becomes the picture. 132px is large enough to read a wordmark and small
-   * enough that five brands sit in one calm row.
-   */
-  max-width: 132px;
-  margin: 0 auto;
-}
-
-.brandRailLink:hover {
-  color: var(--color-ink);
-}
-
-.brandRailLink > span:first-child {
-  transition: transform var(--transition-fast), border-color var(--transition-fast);
-}
-
-.brandRailLink:hover > span:first-child {
-  transform: translateY(-2px);
-  border-color: var(--brand-primary);
-}
-
-.brandRailName {
-  font-size: var(--text-xs);
-  font-weight: 600;
-  line-height: 1.25;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  max-width: 100%;
-}
-
-.brandRailCount {
-  font-size: 11px;
-  color: var(--color-ink-subtle);
-  font-variant-numeric: tabular-nums;
-}
-
-/* ---------------------------------------------------------------------------
- * The page's way out
- * ------------------------------------------------------------------------- */
 
 .viewMoreRow {
   display: flex;
@@ -560,103 +133,8 @@
  * Wider screens
  * ------------------------------------------------------------------------- */
 
-@media (min-width: 480px) {
-  .categoryRail {
-    grid-auto-columns: 96px;
-  }
-
-  .brandRail {
-    grid-auto-columns: 118px;
-  }
-}
-
 @media (min-width: 720px) {
   .page {
     gap: var(--space-7);
-  }
-
-  .heroTitle {
-    font-size: 2.25rem;
-  }
-
-  .heroActions {
-    display: flex;
-    flex-wrap: wrap;
-  }
-
-  /*
-   * The rails become wrapping grids once there is room for more than a swipe, and the column counts
-   * are chosen so the rows come out even: the catalog's 14 departments are 7+7 and the rail's 10
-   * brands are 5+5. `auto-fill` looked tidier in the markup and worse on the page - it fitted nine
-   * departments on the first row and left five on the second.
-   */
-  .categoryRail {
-    grid-auto-flow: row;
-    grid-template-columns: repeat(7, minmax(0, 1fr));
-    grid-auto-columns: auto;
-    overflow: visible;
-    margin-inline: 0;
-    padding-inline: 0;
-    contain: none;
-  }
-
-  .brandRail {
-    grid-auto-flow: row;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
-    overflow: visible;
-    margin-inline: 0;
-    padding-inline: 0;
-    contain: none;
-  }
-}
-
-@media (min-width: 1024px) {
-  .hero {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr);
-    align-items: center;
-    gap: var(--space-7);
-    padding-top: var(--space-6);
-    padding-bottom: var(--space-3);
-  }
-
-  .heroCopy {
-    max-width: 36ch;
-  }
-
-  .heroActions {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--space-3);
-  }
-
-  .primaryAction,
-  .secondaryAction {
-    flex: 1 1 auto;
-    font-size: var(--text-base);
-    padding: 0 var(--space-4);
-  }
-
-  /* The desktop composition replaces the phone's spotlight rows - they would repeat it. */
-  .spotlight {
-    display: none;
-  }
-
-  .heroCollage {
-    display: grid;
-    gap: var(--space-3);
-  }
-
-  .categoryRail {
-    grid-template-columns: repeat(7, minmax(0, 1fr));
-    gap: var(--space-4) var(--space-3);
-  }
-
-  .categoryRailName {
-    font-size: var(--text-sm);
-  }
-
-  .brandRail {
-    grid-template-columns: repeat(5, minmax(0, 1fr));
-    gap: var(--space-4) var(--space-3);
   }
 }

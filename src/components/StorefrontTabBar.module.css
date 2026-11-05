@@ -1,22 +1,32 @@
+/*
+ * The storefront's phone navigation.
+ *
+ * **The bar wears the brand's light lavender (owner direction, 2026-11-05).** The ground is
+ * `--brand-primary` (#dccfff) with ink labels; the current destination is a white capsule behind its
+ * icon. Ink on that lavender is 13:1, so the labels never depend on weight or a fade to be read - and
+ * the bar is one clean field rather than a white strip with a lavender chip inside it.
+ *
+ * Six destinations stay (owner direction, 2026-11-02); the labels remain short because a truncated
+ * tab is worse than a shorter word.
+ */
 .bar {
   position: fixed;
   inset-inline: 0;
   bottom: 0;
   z-index: 50;
-  background: var(--color-surface);
-  border-top: 1px solid var(--color-border);
+  background: var(--brand-primary);
+  border-top: 0;
   /* The device's own home-indicator area is reserved, so the labels never sit under it. */
   padding-bottom: env(safe-area-inset-bottom);
-  box-shadow: 0 -2px 12px rgba(32, 26, 41, 0.05);
 }
 
 .list {
   list-style: none;
   margin: 0 auto;
   padding: 0;
-  max-width: 32rem;
+  max-width: 34rem;
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
 }
 
 .list > li {
@@ -24,48 +34,67 @@
 }
 
 .tab {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 3px;
+  gap: 4px;
   min-height: 4rem;
-  padding: var(--space-1) 2px var(--space-2);
-  color: var(--color-ink-muted);
-  text-align: center;
-  transition: color var(--transition-fast), background var(--transition-fast);
-}
-
-.tab:hover {
+  padding: 6px 1px 7px;
   color: var(--color-ink);
+  text-align: center;
+  transition: color 140ms var(--ease-out-ui);
 }
 
-.tab[aria-current='page'] {
-  color: var(--color-action);
+@media (hover: hover) and (pointer: fine) {
+  .tab:hover {
+    color: var(--color-ink);
+  }
 }
 
-.tab[aria-current='page'] .icon::before {
-  content: '';
-  position: absolute;
-  inset-inline: -10px;
-  top: -7px;
-  height: 3px;
-  border-radius: var(--radius-pill);
-  background: var(--color-action);
+/* Press feedback on the content, not the cell: the cell is already the tap target. */
+.tab:active > .icon {
+  transform: scale(0.92);
+  transition: transform 120ms var(--ease-out-ui);
 }
 
+/*
+ * The capsule is drawn by the icon's own padding plus an equal negative margin, so it never changes
+ * the tab's layout - the icon stays optically centred and the label never shifts when the current
+ * destination changes.
+ */
 .icon {
   position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  padding: 4px 10px;
+  margin: -4px -10px;
+  border-radius: var(--radius-pill);
+  transition:
+    background-color 140ms var(--ease-out-ui),
+    color 140ms var(--ease-out-ui);
 }
 
+.tab[aria-current='page'] {
+  color: var(--color-ink);
+}
+
+.tab[aria-current='page'] .icon {
+  background: var(--color-surface);
+  color: var(--color-action);
+}
+
+/*
+ * Six labels in a 360px row are ~59px each. 10.5px is the largest size at which "Categories" and
+ * "Account" fit without an ellipsis, and the label still carries the word rather than an icon alone.
+ */
 .label {
-  font-size: 11px;
+  font-size: 10.5px;
   line-height: 1.2;
   font-weight: 500;
-  letter-spacing: 0.01em;
+  letter-spacing: 0;
   max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -76,6 +105,10 @@
   font-weight: 600;
 }
 
+/*
+ * The cart count is the one saturated mark in the bar: ink on the brand's pink (8.4:1), legible on
+ * the lavender ground and inside the white capsule without changing colour.
+ */
 .badge {
   position: absolute;
   top: -5px;
@@ -84,13 +117,25 @@
   height: 16px;
   padding: 0 4px;
   border-radius: var(--radius-pill);
-  background: var(--color-action);
-  color: #fff;
+  background: var(--brand-secondary);
+  color: var(--color-ink);
   font-size: 10px;
   font-weight: 700;
   line-height: 16px;
   text-align: center;
-  box-shadow: 0 0 0 2px var(--color-surface);
+  box-shadow: 0 1px 3px rgb(32 26 41 / 0.24);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tab,
+  .icon,
+  .tab:active > .icon {
+    transition-duration: 0ms;
+  }
+
+  .tab:active > .icon {
+    transform: none;
+  }
 }
 
 @media (min-width: 1024px) {

@@ -2,7 +2,7 @@ import { activeAnnouncements } from '@/data/announcements';
 import type { AnnouncementItem } from '@/components/AnnouncementBar';
 import { withTransaction } from '@/db/client';
 import { CartProvider } from '@/features/cart/CartProvider';
-import { DEPARTMENTS_SHOWN, selectDepartments } from '@/features/catalog/departments';
+import { selectDepartments } from '@/features/catalog/departments';
 import { loadAnnouncement } from '@/server/settings/announcement';
 import { getStorefrontCatalog } from '@/server/catalog/storefront';
 import { currentCustomerPrincipal } from '@/server/customer-auth/guard';
@@ -69,7 +69,6 @@ export default async function StorefrontLayout({ children }: { children: React.R
     <CartProvider productIds={catalog.products.map((product) => product.id)}>
       <Shell
         categories={byDepartmentSize}
-        departments={byDepartmentSize.slice(0, DEPARTMENTS_SHOWN)}
         customer={
           principal === null ? null : { email: principal.email, displayName: principal.displayName }
         }

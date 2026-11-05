@@ -212,3 +212,55 @@ the no-inner-scroll rule **10/10**. The full `verify:browser` then passed **97/9
 after the 320px grid-track overflow and the suite's compact-search selector were corrected; its new
 check 6b pins the static, non-scrolling rail.
 
+
+## Phase 51 - homepage revision (2026-11-02)
+
+Owner feedback on the homepage, and what changed in answer to it:
+
+- **Pastel section fields removed.** The hero, the offer row and the brand row sat on lavender and pink
+  panels; the page is now one canvas, and the campaign band uses the same bordered surface as a card. The
+  hero keeps its composition - its redesign is the owner's next taste decision.
+- **Explanatory lines removed from every section.** "Priced below their published comparison price" and its
+  seven siblings are gone, from the page and from the dictionary.
+- **One carousel, one card size.** `src/components/Carousel.tsx` replaces the offer-only slider: a CSS
+  scroll-snap track with measured page counts, `aria-current` dots and desktop paging buttons. Its
+  `size="product"` reproduces the featured grid's track exactly, so On offer (10), Recently added (10) and
+  the featured grid draw the same card at the same width.
+- **Category circles (10) and brand cards (10)** ride the same carousel. The category hover no longer clips:
+  the ring and lift became a border on the circle's own box, a zoom the circle crops, and an inset outline.
+  The brand row became a card per brand (the owner's Ghorer Bazar reference, anatomy only).
+- **Row counts on a phone**: featured draws four of five cards, "More to explore" eight of ten (nine between
+  720px and 1199px, ten from 1200px). CSS hides the extra cards; nothing is duplicated or re-ordered.
+- **The footer is short**: no department directory, two groups of three links and the year.
+- **Brands is its own destination**: last item of the desktop navigation, fourth tab of the phone bar (six
+  tabs), a footer link, and no longer a teaser block on `/categories`.
+
+**Verified locally:** typecheck, lint (0 errors), `check:i18n` (1,360 keys), `check:catalog`, `check:secrets`,
+unit **214/214**, `build`, hand-driven headless Chromium at 360/390/768/1024/1440 (sections, dots, card
+counts, tab-label widths, zero horizontal overflow), and `verify:browser` **91/97** against the served build.
+The six failures are explained, not outstanding work: four are data-limited (this database holds the
+22-product seed, so it has 2 featured products, 4 offers and 5 categories against checks that expect 5, 5+ and
+10), and two read the product page, where the uncommitted Phase 50 gallery renders 24px dot buttons and lazy
+photographs below the fold - neither file is touched by this change. The row limits (10/10/10/10 and two browse
+rows) are reached only by the imported catalogue. Real devices and screen readers remain unverified. Nothing
+is deployed.
+
+
+## Phase 51 - homepage hero carousel (2026-11-04)
+
+Implemented locally and not deployed. The homepage's first screen is now the owner's ordered image
+carousel, and the sequence is read from `hero_image` on every request. Migration
+`0013_homepage_hero_images` adds the 47th table; `npm run assets:hero` generates the 800/1600px WebP and
+JPEG variants from the masters in `hero/`, and Settings -> Homepage hero associates them: 1..10 images,
+manual order, required descriptions, audited writes. There is no upload - the shop's asset pipeline owns
+files and the database owns which of them the carousel shows. The former copy, spotlight rows and
+three-photograph collage are removed; an empty table renders no hero rather than a placeholder. Verified
+locally with typecheck, lint, `check:i18n`, unit **207/207**, `tests/db/hero.test.ts` **5/5**, build, served
+HTTP mutations and headless Chromium at 390 and 1440. `verify:storefront` reached **91/97** browser checks:
+28/28b/28c/36/36b pass; the six failures are the already-recorded Phase 50 gallery checks (8, 20) and the
+seed's data limits (27, 31, 35, 36d: 2 featured, 4 offers, 5 categories), so the customer HTTP flow was not
+reached. `verify:admin` reached **198/200**, with the hero route in the control-scale sweep passing; its two
+failures are a pre-existing Telegram removal-dialog flake and the documented absent-CSP check. Real devices,
+screen readers and the imported catalogue were not used. Nothing is deployed and no
+cloud resource exists.
+

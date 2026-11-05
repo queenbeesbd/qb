@@ -161,6 +161,39 @@ export async function listPublishedProducts(tx: Transaction): Promise<CatalogPro
   return rows.map((row) => projectProduct(row, imagesByProduct.get(String(row.id)) ?? []));
 }
 
+/**
+ * Unit prices for a handful of product ids, keyed by id.
+ *
+ * This exists for the floating cart box: the browser knows its quantities, the server knows the prices,
+ * and the box needs the second half without downloading the catalog. **Prices only** - the basket's
+ * quantities, totals and any decision about what a customer is charged stay where they were. The order
+ * transaction reads the price again from `product_variant`; nothing here is authoritative for a charge.
+ *
+ * Ids are matched as text because a catalog id arrives as a string, and an id that is not in the
+ * catalog is simply absent from the map - the caller shows fewer priced lines rather than guessing.
+ */
+export async function listUnitPricesByIds(
+  tx: Transaction,
+  ids: readonly string[],
+): Promise<Map<string, number>> {
+  if (ids.length === 0) return new Map();
+
+  const rows = await tx
+    .select({ id: product.id, priceMinor: productVariant.priceMinor })
+    .from(product)
+    .innerJoin(
+      productVariant,
+      sql`${productVariant.productId} = ${product.id}
+          and ${productVariant.isDefault} and ${productVariant.isActive}`,
+    )
+    .where(
+      sql`${product.deletedAt} is null and ${product.isPublished}
+          and ${product.id}::text in (${sql.join(ids.map((id) => sql`${id}`), sql`, `)})`,
+    );
+
+  return new Map(rows.map((row) => [String(row.id), row.priceMinor]));
+}
+
 /** One published product by slug, or `null`. Used by a future product route adapter. */
 export async function getPublishedProductBySlug(
   tx: Transaction,

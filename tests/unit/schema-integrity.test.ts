@@ -20,11 +20,12 @@ function schemaTableNames(): string[] {
 }
 
 describe('schema and migration integrity', () => {
-  it('declares exactly the 46 approved tables', () => {
+  it('declares exactly the 47 approved tables', () => {
     // 42 through Phase 21; Phase 22 added `order_additional_cost` (ADR 0018); Phase 39 added
-    // `telegram_recipient` (ADR 0022). Every addition is additive and has its own migration.
+    // `telegram_recipient` (ADR 0022); the homepage hero carousel added `hero_image`. Every
+    // addition is additive and has its own migration.
     const names = schemaTableNames();
-    assert.equal(names.length, 46, `expected 46 tables, found ${names.length}: ${names.join(', ')}`);
+    assert.equal(names.length, 47, `expected 47 tables, found ${names.length}: ${names.join(', ')}`);
   });
 
   it('generated SQL matches the TypeScript schema exactly (no unregenerated drift)', () => {

@@ -1,0 +1,60 @@
+/* ---------------------------------------------------------------------------
+ * Support links (Facebook, WhatsApp)
+ *
+ * Fixed to the bottom-left corner at every width, clear of the phone tab bar and of the device's
+ * home-indicator inset (owner direction, 2026-11-05): the basket owns the right edge halfway down, the
+ * support links own the left corner where a second thumb rests. Two 44px circles - the smallest size
+ * that is still a comfortable thumb target.
+ * ------------------------------------------------------------------------- */
+
+.rail {
+  position: fixed;
+  z-index: 45;
+  left: var(--space-3);
+  bottom: calc(var(--admin-bottom-nav-height) + env(safe-area-inset-bottom) + var(--space-3));
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+/*
+ * Filled with the brand (owner direction, 2026-11-05): a primary-lavender disc with the white mark on
+ * it, and `--color-action` rather than `--brand-primary`: white on the lighter lavender is 2.9:1 and a
+ * white glyph has to be visible. It is the same plum as every filled control (9.2:1), so the rail reads
+ * as part of the shop rather than as a third brand colour.
+ */
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 1px solid var(--color-action);
+  background: var(--color-action);
+  color: #fff;
+  box-shadow: var(--shadow-sm);
+  transition: background var(--transition-fast), color var(--transition-fast),
+    border-color var(--transition-fast), transform 120ms var(--ease-out-ui);
+}
+
+.button:hover,
+.button:focus-visible {
+  background: var(--color-action-hover);
+  border-color: var(--color-action-hover);
+  color: #fff;
+}
+
+.button:active {
+  transform: scale(0.94);
+}
+
+/*
+ * The rail stays fixed on a wide screen too, in the same left corner. The tab bar is not drawn there,
+ * so it sits at the page's own outer margin.
+ */
+@media (min-width: 1024px) {
+  .rail {
+    bottom: var(--space-4);
+  }
+}

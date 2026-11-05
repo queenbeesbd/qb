@@ -69,10 +69,26 @@
   width: fit-content;
 }
 
-.authBrand img {
-  height: 26px;
-  width: auto;
-  object-fit: contain;
+/*
+ * The account pages state the same circular mark the header does (owner direction, 2026-11-05): the
+ * owner's logo inside a circle, `cover`-cropped so any square upload fills it.
+ */
+.authBrandMark {
+  display: block;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  overflow: hidden;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+}
+
+.authBrandMark img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
 }
 
 .authAsideTitle {
@@ -607,8 +623,9 @@
     padding: var(--space-7) var(--space-6);
   }
 
-  .authBrand img {
-    height: 30px;
+  .authBrandMark {
+    width: 48px;
+    height: 48px;
   }
 
   .authAsideTitle {

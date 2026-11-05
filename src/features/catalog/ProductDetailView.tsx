@@ -11,6 +11,8 @@ import { ProductCard } from '@/components/ProductCard';
 import { ProductGrid } from '@/components/ProductGrid';
 import { QuantityStepper } from '@/components/QuantityStepper';
 import { ProductPhoto } from '@/components/ProductPhoto';
+import { GalleryCarousel } from './product/GalleryCarousel';
+import { ZoomModal } from './product/ZoomModal';
 import { CheckIcon } from '@/components/icons';
 import styles from '@/app/product.module.css';
 
@@ -87,6 +89,12 @@ export function ProductDetailView({
   const [pastGallery, setPastGallery] = useState(false);
   const [purchaseInView, setPurchaseInView] = useState(true);
   const barVisible = pastGallery && !purchaseInView;
+  /**
+   * The zoom modal's open state. The trigger is a real button wrapping the main
+   * photograph, so keyboard users reach the uncropped image too; Escape and the
+   * backdrop close it, and focus returns to the trigger.
+   */
+  const [zoomOpen, setZoomOpen] = useState(false);
 
   useEffect(() => {
     const gallery = galleryRef.current;
@@ -128,46 +136,88 @@ export function ProductDetailView({
       </nav>
 
       <div className={styles.layout}>
-        <div className={styles.media} ref={galleryRef}>
-          <figure className={styles.figure}>
-            <ProductPhoto
-              image={image}
-              alt={pick(image?.alt) ?? name}
-              sizes={DETAIL_SIZES}
-              priority
-              fallbackLabel={t('product.imagePlaceholder')}
-            />
-          </figure>
-          {/*
-            A thumbnail strip only when there is a choice to make. Each control is a real button, so it
-            is operable by keyboard and announced as a pressed state; the image inside it is decorative
-            because the button's own label says which photograph it shows. The strip scrolls inside its
-            own box, so a product with many photographs cannot widen the page.
-          */}
-          {images.length > 1 && (
-            <div className={styles.gallery} role="group" aria-label={t('product.gallery')}>
-              <ul className={styles.galleryList}>
-                {images.map((candidate, index) => (
-                  <li key={candidate.key}>
-                    <button
-                      type="button"
-                      className={styles.galleryThumb}
-                      data-active={index === activeIndex ? 'true' : undefined}
-                      aria-pressed={index === activeIndex}
-                      aria-label={t('product.galleryThumb', {
-                        index: index + 1,
-                        count: images.length,
-                      })}
-                      onClick={() => setActiveImage(index)}
-                    >
-                      <ProductPhoto image={candidate} alt="" sizes="72px" />
-                    </button>
-                  </li>
-                ))}
-              </ul>
+        {/*
+          Two gallery compositions, one per size, never both rendered at once:
+
+          - **Below 880px**: `GalleryCarousel` — a full-width snap carousel with dot
+            indicators, the phone's native pattern for photograph sets.
+          - **From 880px**: the clicked-thumbnail composition — a horizontal thumb
+            strip under a square main frame, and the frame is a real button that
+            opens `ZoomModal`, where the photograph shows at its uncropped stored
+            3:4 ratio. The crop on the page is presentation; the zoom is the
+            customer's way to see the whole product.
+        */}
+        {images.length > 1 ? (
+          <>
+            <div className={styles.mediaMobile} ref={galleryRef}>
+              <GalleryCarousel images={images} name={name} />
             </div>
-          )}
-        </div>
+            <div className={styles.mediaDesktop} ref={galleryRef}>
+              <button
+                type="button"
+                className={styles.zoomTrigger}
+                onClick={() => setZoomOpen(true)}
+                aria-label={t('product.zoomOpen', { name })}
+              >
+                <figure className={styles.figure}>
+                  <ProductPhoto
+                    image={image}
+                    alt={pick(image?.alt) ?? name}
+                    sizes={DETAIL_SIZES}
+                    priority
+                    fallbackLabel={t('product.imagePlaceholder')}
+                  />
+                </figure>
+              </button>
+              {/*
+                A thumbnail strip only when there is a choice to make. Each control is a real button, so it
+                is operable by keyboard and announced as a pressed state; the image inside it is decorative
+                because the button's own label says which photograph it shows. The strip scrolls inside its
+                own box, so a product with many photographs cannot widen the page.
+              */}
+              <div className={styles.gallery} role="group" aria-label={t('product.gallery')}>
+                <ul className={styles.galleryList}>
+                  {images.map((candidate, index) => (
+                    <li key={candidate.key}>
+                      <button
+                        type="button"
+                        className={styles.galleryThumb}
+                        data-active={index === activeIndex ? 'true' : undefined}
+                        aria-pressed={index === activeIndex}
+                        aria-label={t('product.galleryThumb', {
+                          index: index + 1,
+                          count: images.length,
+                        })}
+                        onClick={() => setActiveImage(index)}
+                      >
+                        <ProductPhoto image={candidate} alt="" sizes="72px" />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </>
+        ) : (
+          <div className={styles.media} ref={galleryRef}>
+            <button
+              type="button"
+              className={styles.zoomTrigger}
+              onClick={() => setZoomOpen(true)}
+              aria-label={t('product.zoomOpen', { name })}
+            >
+              <figure className={styles.figure}>
+                <ProductPhoto
+                  image={image}
+                  alt={pick(image?.alt) ?? name}
+                  sizes={DETAIL_SIZES}
+                  priority
+                  fallbackLabel={t('product.imagePlaceholder')}
+                />
+              </figure>
+            </button>
+          </div>
+        )}
 
         <div className={styles.info}>
           {/*
@@ -365,6 +415,8 @@ export function ProductDetailView({
           </ProductGrid>
         </section>
       )}
+
+      {zoomOpen && <ZoomModal image={image} name={name} onClose={() => setZoomOpen(false)} />}
     </div>
   );
 }

@@ -22,6 +22,7 @@ export function ProductGrid({
   children,
   density = 'full',
   oddLast = 'stretch',
+  className,
 }: {
   children: React.ReactNode;
   density?: 'full' | 'sidebar';
@@ -35,11 +36,18 @@ export function ProductGrid({
    * opt-in so the homepage rows are untouched.
    */
   oddLast?: 'stretch' | 'wide';
+  /**
+   * A caller's own class on the list, for the one thing a shared grid cannot decide: how many cards
+   * a named section shows at a given width. The homepage uses it to draw four featured cards and
+   * eight browse cards on a phone - an even count fills the two-column grid - while the desktop rows
+   * stay five across.
+   */
+  className?: string;
 }) {
   const count = Children.count(children);
   return (
     <ul
-      className={styles.grid}
+      className={className === undefined ? styles.grid : `${styles.grid} ${className}`}
       data-density={density}
       data-count-odd={count % 2 === 1 ? 'true' : undefined}
       data-odd-last={oddLast}

@@ -62,6 +62,22 @@ export function TagIcon(props: IconProps) {
   );
 }
 
+/**
+ * The brand index's glyph: a ribboned medallion.
+ *
+ * Brands were added to the phone's own navigation in 2026-11-02, after Categories, and the tab needs a
+ * mark that is not a tag (Categories) or a grid (Shop). A medallion says "a maker's mark" without
+ * borrowing a star, which would read as a rating.
+ */
+export function BrandIcon(props: IconProps) {
+  return (
+    <svg {...base} {...props}>
+      <circle cx="12" cy="9" r="5" />
+      <path d="M8.6 13.2 7.4 20l4.6-2.4 4.6 2.4-1.2-6.8" />
+    </svg>
+  );
+}
+
 export function CartIcon(props: IconProps) {
   return (
     <svg {...base} {...props}>
@@ -161,6 +177,35 @@ export function SparkIcon(props: IconProps) {
     <svg {...base} {...props}>
       <path d="M12 3.5c.6 3.9 1.9 5.6 5.9 6.6-4 .9-5.3 2.6-5.9 6.6-.6-4-1.9-5.7-5.9-6.6 4-1 5.3-2.7 5.9-6.6Z" />
       <path d="M17.8 15.4c.3 1.6.8 2.3 2.4 2.7-1.6.4-2.1 1.1-2.4 2.7-.3-1.6-.8-2.3-2.4-2.7 1.6-.4 2.1-1.1 2.4-2.7Z" />
+    </svg>
+  );
+}
+
+/**
+ * Facebook. The 'f' glyph only - no wordmark, no brand blue: the button's colour comes from this
+ * site's own tokens, and the mark identifies the destination rather than importing another palette.
+ */
+export function FacebookIcon(props: IconProps) {
+  return (
+    <svg {...base} {...props}>
+      <path
+        d="M14.5 7.5h2.2V4.6h-2.6c-2.2 0-3.7 1.5-3.7 3.8v1.8H8.2v3h2.2V21h3.2v-7.8h2.5l.4-3h-2.9V8.7c0-.8.3-1.2 1.4-1.2Z"
+        fill="currentColor"
+        stroke="none"
+      />
+    </svg>
+  );
+}
+
+/**
+ * WhatsApp. An outline handset inside the chat bubble - the recognisable shape at 20px, drawn rather
+ * than borrowed, so the icon carries this shop's stroke weight like every other control.
+ */
+export function WhatsAppIcon(props: IconProps) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M20.5 11.7a8.5 8.5 0 0 1-12.6 7.5L3.5 20.5l1.3-4.3A8.5 8.5 0 1 1 20.5 11.7Z" />
+      <path d="M8.9 8.2c.4-.1.7 0 .9.4l.7 1.4c.1.3 0 .5-.2.7l-.4.4c.6 1.2 1.6 2.1 2.8 2.6l.4-.5c.2-.2.4-.3.7-.2l1.4.7c.3.2.4.5.4.9-.2 1-1 1.6-2 1.6-2.9 0-6-3.1-6-6 0-1 .5-1.8 1.3-2Z" />
     </svg>
   );
 }

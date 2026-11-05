@@ -282,6 +282,39 @@ export const productImageDerivative = pgTable(
   ],
 );
 
+/**
+ * The homepage hero carousel's images, in the owner's order (Phase 51).
+ *
+ * A hero image is **an asset key, never a URL** - the same rule product imagery follows (ADR 0006) -
+ * and it is validated against the server's own `public/hero` inventory before it is stored. The
+ * row exists separately from `store_setting` because the carousel is an ordered list with its own
+ * uniqueness, bounds and manual reordering, not one scalar value.
+ *
+ * **At least one and at most ten** are enforced by the service, which counts and rewrites dense
+ * positions inside the transaction. The schema enforces the parts a row can state on its own: a
+ * syntactically usable key, a unique image, a non-empty description and a bounded position.
+ */
+export const heroImage = pgTable(
+  'hero_image',
+  {
+    id: bigint('id', { mode: 'number' }).generatedAlwaysAsIdentity().primaryKey(),
+    imageKey: text('image_key').notNull(),
+    /** The description announced for the banner. A banner made of type has no text a reader can see. */
+    altText: text('alt_text').notNull(),
+    /** Dense 0..n-1. The carousel renders ascending, so this is the owner's sequence. */
+    sortOrder: integer('sort_order').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex('hero_image_key_unique').on(t.imageKey),
+    index('hero_image_sort_idx').on(t.sortOrder),
+    check('hero_image_key_format', sql`${t.imageKey} ~ '^[a-z0-9]+(-[a-z0-9]+)*$'`),
+    check('hero_image_alt_len', sql`char_length(${t.altText}) between 1 and 200`),
+    check('hero_image_sort_order_range', sql`${t.sortOrder} >= 0 and ${t.sortOrder} < 10`),
+  ],
+);
+
 export const collection = pgTable(
   'collection',
   {

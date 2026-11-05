@@ -14,6 +14,35 @@ No entry may describe a deployment: nothing has been deployed.
 
 ## [Unreleased]
 
+### Changed - 2026-11-05: brand lavender, circular imagery, browser uploads and a working production target
+
+**Storefront.** The brand anchor changed to the owner's light lavender `#dccfff`; the phone tab bar is
+that field with ink labels and a white capsule behind the current icon. The floating cart box is centred
+on the right edge at every width and the support rail moved to the bottom-left corner. Category and
+brand rails no longer print taglines or product counts under their names, and neither rail carries a
+"view all" line beneath it. A brand mark now **fills** its circle with `object-fit: cover`, the same
+frame a category photograph uses.
+
+**Browser uploads.** The owner can upload from their computer for product photographs, category
+photographs, brand logos and hero banners. `src/server/catalog/uploads.ts` decodes with `sharp`,
+applies EXIF orientation, re-encodes each surface to its declared frames, strips metadata and refuses
+anything that is not a readable image (4 MB cap). Bytes go to `public/catalog` when writable and to the
+configured object-storage bucket; a deployment with neither refuses instead of reporting success. New
+route `/hero/[...path]` resolves an uploaded banner from storage. `npm run assets:upload:catalog`
+uploads the imported product tree that a deployment does not carry.
+
+**Admin.** The image editors gained their upload forms, previews are circles, and the phone bottom
+navigation uses the same lavender field as the storefront.
+
+**Production target.** The Vercel project now points at the dedicated `queenbees` Neon project (schema
+migrated, catalog data restored, new `catalog` bucket), and its storage credentials were replaced. The
+previous project was over quota and served 500s; the deployment is recorded in `docs/project-status.md`.
+
+**Verification.** `typecheck`, `lint` (0 errors), `check:catalog`, `check:i18n` (1465 keys) and `build`
+pass. Browser checks were run against the local dev cluster for the tab bar, rails, floating chrome,
+sign-in, and one upload through each of the four real admin routes. The full `verify:*` suites and real
+devices were not re-run.
+
 ### Changed - 2026-11-02: storefront discovery redesign (mobile-first)
 
 The storefront's homepage, category index and product page were rebuilt as a **picture-led, mobile-first

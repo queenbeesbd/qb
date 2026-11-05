@@ -287,6 +287,34 @@ export function CategoryForm({
                 </span>
 
                 <div className={styles.categoryImageControls}>
+                  <form
+                    className={styles.categoryImageForm}
+                    action="/api/admin/catalog/category-image"
+                    method="post"
+                    encType="multipart/form-data"
+                  >
+                    <input type="hidden" name="csrf" value={csrfToken} />
+                    <input type="hidden" name="operation" value="upload" />
+                    <input type="hidden" name="categoryId" value={categoryId} />
+                    <input type="hidden" name="returnTo" value={selfHref} />
+                    <div className={styles.field}>
+                      <label htmlFor="categoryImageUpload">{t('admin.categories.imageUploadTitle')}</label>
+                      <input
+                        className={styles.input}
+                        id="categoryImageUpload"
+                        type="file"
+                        name="file"
+                        accept="image/jpeg,image/png,image/webp"
+                        required
+                      />
+                      <p className={styles.hint}>{t('admin.upload.help')}</p>
+                    </div>
+                    <SubmitButton
+                      label={t('admin.categories.imageUploadSubmit')}
+                      pendingLabel={t('admin.common.working')}
+                    />
+                  </form>
+
                   <form className={styles.categoryImageForm} action="/api/admin/catalog/category-image" method="post">
                     <input type="hidden" name="csrf" value={csrfToken} />
                     <input type="hidden" name="operation" value="choose" />

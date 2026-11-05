@@ -80,6 +80,20 @@
   background: transparent;
 }
 
+/*
+ * The chip variant: a small square mark inside a pill (the homepage's brand rail). The default
+ * tile's 18% padding and `width: 100%` sizing are for a standalone grid tile; a chip states its own
+ * size and a shallower inset, and this rule lives beside the tile's own styles so the two cannot
+ * drift apart unnoticed.
+ */
+.brandMarkChip {
+  width: 44px;
+  height: 44px;
+  flex: none;
+  padding: 12%;
+  border-radius: var(--radius-md);
+}
+
 .brandInitials {
   font-size: clamp(18px, 5vw, 26px);
   font-weight: 700;

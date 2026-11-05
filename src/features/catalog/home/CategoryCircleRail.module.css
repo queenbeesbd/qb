@@ -1,0 +1,106 @@
+/* ---------------------------------------------------------------------------
+ * Circular category carousel (homepage)
+ *
+ * The circle is the subject: a square box cropped round, the photograph filling it, the name and the
+ * owner's tagline beneath. Everything the hover does stays inside that box - a scroll container
+ * clips on both axes, so a ring drawn outside the tile is a ring cut in half.
+ * ------------------------------------------------------------------------- */
+
+.link {
+  display: grid;
+  gap: var(--space-2);
+  justify-items: center;
+  text-align: center;
+  border-radius: var(--radius-lg);
+  color: var(--color-ink);
+}
+
+.circle {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  border-radius: 50%;
+  overflow: hidden;
+  background: var(--color-surface-sunken);
+  border: 1px solid var(--color-border);
+  transition: border-color var(--transition-base), background var(--transition-base);
+}
+
+/* The photograph zooms, the circle crops it: no box moves, so nothing can be clipped. */
+.circle > picture,
+.circle > span,
+.circle img {
+  transition: transform 240ms var(--ease-out-ui);
+}
+
+.link:hover .circle,
+.link:focus-visible .circle {
+  border-color: var(--brand-primary);
+}
+
+.link:hover .circle img,
+.link:focus-visible .circle img {
+  transform: scale(1.06);
+}
+
+.link:active .circle img {
+  transform: scale(1.02);
+}
+
+/*
+ * The outline is the keyboard's, and it is inset so the track's own clipping cannot cut it: at a
+ * 2px offset an outline on a circle inside `overflow-x: auto` loses its top and bottom.
+ */
+.link:focus-visible {
+  outline: 2px solid var(--color-action);
+  outline-offset: -2px;
+}
+
+.photo {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.photo :global(img) {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/*
+ * The no-photograph fallback: the department's own icon on the sunken surface.
+ *
+ * Neutral rather than lavender. A row of eight pale purple discs read as decoration across the
+ * section (the tint the page no longer uses anywhere else); one icon on the page's own grey says
+ * "this department has no photograph yet" without dressing it up.
+ */
+.glyph {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  background: var(--color-surface-sunken);
+  color: var(--color-action);
+}
+
+.name {
+  font-size: var(--text-xs);
+  font-weight: 700;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+  /*
+   * Two lines always, so every label reserves the same height and the rail scans in one movement.
+   */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  min-height: 2.5em;
+}
+
+@media (min-width: 720px) {
+  .name {
+    font-size: var(--text-sm);
+  }
+}

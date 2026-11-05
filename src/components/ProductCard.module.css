@@ -7,11 +7,19 @@
   /* 8px, not a large rounded capsule: the card is a frame for a photograph, not a decoration. */
   border-radius: var(--radius-md);
   overflow: hidden;
-  transition: border-color var(--transition-fast);
+  transition: border-color var(--transition-fast), transform var(--transition-fast),
+    box-shadow var(--transition-fast);
 }
 
 .card:hover {
-  border-color: var(--brand-primary);
+  /*
+   * The old hover drew a `--brand-primary` (#a680ff) hairline - 2.9:1 on white, the same value the
+   * palette refuses for text, and close enough to a focus ring that the two states were confusable.
+   * The card now lifts with the ambient shadow and tints toward the action ink.
+   */
+  border-color: color-mix(in srgb, var(--color-action) 34%, var(--color-border));
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
 }
 
 .imageLink {
@@ -122,9 +130,17 @@
 }
 
 .current {
+  font-family: var(--font-display);
   font-size: var(--text-lg);
-  font-weight: 700;
-  color: var(--color-ink);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  /*
+   * The price is the card's one commercial fact, so it carries the shop's purple - the same
+   * `--color-action` ink every filled action uses, which is 7.4:1 on white. `--brand-primary`
+   * (#a680ff) would be the obvious literal choice and is only 2.9:1 here, which is exactly the
+   * contrast failure this palette exists to avoid. The price is still the loudest thing on the card.
+   */
+  color: var(--color-action);
   font-variant-numeric: tabular-nums;
   /* A money amount must never break across lines mid-figure. */
   white-space: nowrap;
@@ -138,15 +154,33 @@
 }
 
 .saving {
+  /*
+   * The saving is a quiet chip rather than a line of green text: a baby-pink pill (the approved
+   * secondary anchor at its soft tint) that is strong enough to read at a glance and too pale to
+   * compete with the price above it. Ink on this tint is ~15:1, so the shape carries the emphasis
+   * without spending contrast on it.
+   */
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  max-width: 100%;
+  padding: 1px var(--space-2);
+  border-radius: var(--radius-pill);
+  background: var(--color-accent-soft);
+  color: var(--color-ink);
   font-size: 11.5px;
-  line-height: 1.5;
-  color: var(--color-success);
   font-weight: 600;
+  line-height: 1.6;
+  white-space: nowrap;
 }
 
 .percent {
   color: var(--color-ink-muted);
   font-weight: 500;
+  /* Truncate rather than let a long amount push the pill past the card. */
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .availability {
@@ -158,6 +192,59 @@
  * Out of stock is a text label plus a border, not a colour alone: the state must
  * survive a greyscale render and a screen reader.
  */
+/**
+ * The card's own add-to-cart control.
+ *
+ * An outlined control rather than a filled one: a grid of filled purple buttons reads as a wall of
+ * calls to action, and the card's subject is the product. It is a full-width 40px target so a thumb
+ * hits it, and it sits at the bottom of the card body so the price baselines above it still line up
+ * across a row.
+ */
+.buy {
+  margin-top: var(--space-2);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  width: 100%;
+  min-height: 40px;
+  padding: 0 var(--space-2);
+  border: 1px solid var(--color-action);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-action);
+  font: inherit;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--transition-fast), color var(--transition-fast),
+    border-color var(--transition-fast);
+}
+
+.buy:hover:not(:disabled) {
+  background: var(--color-action);
+  /* White on --color-action (7.4:1): the same pairing as every filled action in the shop. */
+  color: #fff;
+}
+
+.buy:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+/* Added is a confirmation, not a state the button stays in: it reverts on its own. */
+.buy[data-state='added'] {
+  background: var(--color-action);
+  color: #fff;
+}
+
+/* Unavailable is stated, never hidden - and it is not clickable. */
+.buy:disabled {
+  border-color: var(--color-border);
+  color: var(--color-ink-muted);
+  background: var(--color-surface-sunken);
+  cursor: not-allowed;
+}
+
 .outOfStock {
   align-self: flex-start;
   font-size: 11.5px;

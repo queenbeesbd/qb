@@ -1,0 +1,75 @@
+/* ---------------------------------------------------------------------------
+ * The zoom modal: the photograph at its uncropped stored ratio.
+ * ------------------------------------------------------------------------- */
+
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  padding: var(--space-4);
+  background: rgb(32 26 41 / 0.72);
+  /* Clicking the dark area closes; the frame below stops the propagation. */
+  cursor: zoom-out;
+}
+
+.frame {
+  position: relative;
+  display: grid;
+  gap: var(--space-3);
+  justify-items: center;
+  max-height: calc(100vh - var(--space-8));
+  max-width: min(560px, 100%);
+  padding: var(--space-4);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-md);
+  cursor: default;
+}
+
+.close {
+  position: absolute;
+  top: var(--space-2);
+  right: var(--space-2);
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border: none;
+  border-radius: var(--radius-pill);
+  background: var(--color-surface-sunken);
+  color: var(--color-ink);
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.close:hover {
+  background: var(--color-action-soft);
+  color: var(--color-action);
+}
+
+.figure {
+  margin: 0;
+  min-height: 0;
+  overflow: auto;
+  border-radius: var(--radius-md);
+  /* The uncropped 3:4 photograph; the frame scrolls if a short viewport needs it to. */
+  max-height: calc(100vh - 160px);
+}
+
+.figure img,
+.figure picture {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: calc(100vh - 160px);
+  object-fit: contain;
+}
+
+.hint {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--color-ink-subtle);
+}

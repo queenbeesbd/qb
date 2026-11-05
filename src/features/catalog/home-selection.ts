@@ -1,7 +1,7 @@
 import { discountAmount } from '@/lib/money';
 import type { CatalogBrand, CatalogCategory, CatalogItem } from '@/lib/types';
 import { selectDepartments } from './departments';
-import { HOMEPAGE_SECTION_SIZE, selectHeroProducts, selectRecentlyAdded } from './recent';
+import { HOMEPAGE_SECTION_SIZE, selectRecentlyAdded } from './recent';
 
 /**
  * How many products the offer carousel publishes.
@@ -14,24 +14,42 @@ import { HOMEPAGE_SECTION_SIZE, selectHeroProducts, selectRecentlyAdded } from '
 const DEALS_LIMIT = 10;
 
 /**
- * How many categories the homepage rail publishes.
+ * How many categories the homepage carousel publishes.
  *
- * Four across on a phone and seven on a desktop. Every visible department is offered, because the
- * rail is the *only* category discovery on a phone - the tab bar links to the index, but a shopper
- * scanning the home screen should not have to leave it to find out the shop sells lipstick.
+ * Ten: two pages of circles on a phone and one page of eight-plus on a desktop, which is enough of
+ * the range for a shopper to find the department they want without leaving the page, and still a
+ * carousel rather than a directory.
  */
-const CATEGORY_LIMIT = 14;
+const CATEGORY_LIMIT = 10;
 
-/** How many brands the rail shows before deferring to the brand index. */
+/** How many brands the carousel shows before deferring to the brand index. */
 const BRAND_LIMIT = 10;
 
-/** How many products the new-arrivals row publishes: one full desktop row. */
-const NEW_ARRIVALS_LIMIT = HOMEPAGE_SECTION_SIZE;
+/** How many products the new-arrivals carousel publishes: two desktop rows, five phone pages. */
+const NEW_ARRIVALS_LIMIT = 10;
+
+/**
+ * How many products the Most Selling row publishes.
+ *
+ * Ten, like the other shelves. The list itself is shorter than that until the shop has sold enough
+ * distinct products, and empty until it has sold anything at all.
+ */
+const BEST_SELLING_LIMIT = 10;
+
+/**
+ * How many products "More to explore" publishes: two desktop rows of five.
+ *
+ * On a phone the section draws eight of them (four rows of two) because an even count fills the
+ * two-column grid; that is a stylesheet decision made on the rendered list, not a second selection.
+ */
+const BROWSE_LIMIT = HOMEPAGE_SECTION_SIZE * 2;
 
 export type HomepageSelection = {
   departments: CatalogCategory[];
-  hero: CatalogItem[];
+  /** The owner's curated selection. Kept in the snapshot; the homepage rows no longer draw it. */
   featured: CatalogItem[];
+  /** Real ordered units, most first. Empty until the shop has sold something. */
+  bestSellers: CatalogItem[];
   deals: CatalogItem[];
   newArrivals: CatalogItem[];
   browse: CatalogItem[];
@@ -49,10 +67,10 @@ export type HomepageSelection = {
  * 1. **Featured** is the owner's curation (`collection_item`), in the owner's order.
  * 2. **Offers** is every product whose stored comparison price is genuinely higher than its price,
  *    largest saving first. Nothing is discounted to fill a slide.
- * 3. **New arrivals** is the newest by stored `created_at`, and it yields to nothing: recency is a
- *    fact, so the other rows drop whatever it already shows.
- * 4. **Browse** is the shop's second curation followed by the rest of the catalog, so the page ends
- *    with a way into everything rather than a dead end.
+ * 3. **New arrivals** is the newest ten by stored `created_at`, and it yields to nothing: recency is
+ *    a fact, so the other rows drop whatever it already shows.
+ * 4. **Browse** is the shop's second curation followed by the rest of the catalog, ten cards so the
+ *    page ends with two full rows and a way into everything rather than a dead end.
  *
  * No section repeats a card from another, and no section is padded: a short catalog renders shorter
  * rows instead of the same product twice.
@@ -63,12 +81,18 @@ export function selectHomepage({
   brands,
   featuredIds,
   collectionIds,
+  bestSellerIds,
 }: {
   products: readonly CatalogItem[];
   categories: readonly CatalogCategory[];
   brands: readonly CatalogBrand[];
   featuredIds: readonly string[];
   collectionIds: readonly string[];
+  /**
+   * Product ids ranked by real ordered units (`listBestSellingProductIds`). Read from the shop's own
+   * order lines, never from a curation - see `src/server/orders/best-sellers.ts`.
+   */
+  bestSellerIds: readonly string[];
 }): HomepageSelection {
   const productById = new Map(products.map((product) => [product.id, product]));
 
@@ -94,6 +118,16 @@ export function selectHomepage({
   const newArrivals = selectRecentlyAdded(products).slice(0, NEW_ARRIVALS_LIMIT);
   const recentShown = new Set(newArrivals.map((product) => product.id));
 
+  /*
+   * **Most Selling is the second fact row, and it yields only to recency.** Its ranking comes from the
+   * order lines; the one exclusion is a product already drawn as new, because the newest-products row
+   * cannot be filtered without becoming a different, false claim.
+   */
+  const bestSellers = byCuratedId(bestSellerIds)
+    .filter((product) => !recentShown.has(product.id))
+    .slice(0, BEST_SELLING_LIMIT);
+  const bestSellingShown = new Set(bestSellers.map((product) => product.id));
+
   const featured = byCuratedId(featuredIds)
     .filter((product) => !recentShown.has(product.id))
     .slice(0, HOMEPAGE_SECTION_SIZE);
@@ -101,7 +135,10 @@ export function selectHomepage({
 
   const deals = products
     .filter(
-      (product) => !recentShown.has(product.id) && !featuredShown.has(product.id),
+      (product) =>
+        !recentShown.has(product.id) &&
+        !bestSellingShown.has(product.id) &&
+        !featuredShown.has(product.id),
     )
     .filter((product) => discountAmount(product.priceMinor, product.compareAtPriceMinor) !== null)
     .sort(
@@ -112,23 +149,20 @@ export function selectHomepage({
     )
     .slice(0, DEALS_LIMIT);
 
-  const shownIds = new Set([
-    ...newArrivals,
-    ...featured,
-    ...deals,
-    ...selectHeroProducts(products),
-  ].map((product) => product.id));
+  const shownIds = new Set(
+    [...newArrivals, ...bestSellers, ...featured, ...deals].map((product) => product.id),
+  );
   const curated = byCuratedId(collectionIds).filter((product) => !shownIds.has(product.id));
   const curatedIds = new Set(curated.map((product) => product.id));
   const remainder = products.filter(
     (product) => !shownIds.has(product.id) && !curatedIds.has(product.id),
   );
-  const browse = [...curated, ...remainder].slice(0, HOMEPAGE_SECTION_SIZE);
+  const browse = [...curated, ...remainder].slice(0, BROWSE_LIMIT);
 
   return {
     departments,
-    hero: selectHeroProducts(products),
     featured,
+    bestSellers,
     deals,
     newArrivals,
     browse,

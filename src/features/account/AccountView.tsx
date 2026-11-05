@@ -36,8 +36,17 @@ export function AccountView({
       <div className={styles.authPage}>
         <div className={styles.authShell}>
           <aside className={styles.authAside}>
-            <Link href="/" className={styles.authBrand}>
-              <img src="/brand/logo.svg" alt={t('common.brand')} width={173} height={40} />
+            <Link href="/" className={styles.authBrand} aria-label={t('common.brand')}>
+              <span className={styles.authBrandMark} aria-hidden="true">
+              <img
+                src="/brand/logo-round-192.jpeg"
+                srcSet="/brand/logo-round-96.jpeg 96w, /brand/logo-round-192.jpeg 192w"
+                sizes="48px"
+                alt=""
+                width={48}
+                height={48}
+              />
+            </span>
             </Link>
             <h2 className={styles.authAsideTitle}>{t('account.authSignInAside')}</h2>
           </aside>

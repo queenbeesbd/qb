@@ -2,160 +2,83 @@
 
 import Link from 'next/link';
 import { useTranslation } from '@/i18n/useTranslation';
-import { CARD_FRAME, CATEGORY_RAIL_SIZES } from '@/lib/images';
 import type { CatalogBrand, CatalogCategory, CatalogItem } from '@/lib/types';
-import { ArrowIcon, CategoryIcon, InfoIcon, SparkIcon } from '@/components/icons';
-import { BrandMark, DiscoveryPhoto } from '@/components/DiscoveryPhoto';
+import { InfoIcon } from '@/components/icons';
+import { Carousel } from '@/components/Carousel';
 import { ProductCard } from '@/components/ProductCard';
 import { ProductGrid } from '@/components/ProductGrid';
-import { ProductPhoto } from '@/components/ProductPhoto';
-import { OfferCarousel } from './home/OfferCarousel';
+import { SupportButtons } from '@/components/SupportButtons';
+import { BrandCircleRail } from './home/BrandCircleRail';
+import { CampaignBand } from './home/CampaignBand';
+import { CategoryCircleRail } from './home/CategoryCircleRail';
+import { HeroCarousel, type HeroSlide } from './home/HeroCarousel';
 import styles from '@/app/home.module.css';
 
 /**
  * Homepage composition.
  *
- * **Mobile first, and the order is the mobile order.** A shopper on a phone lands on a headline they
- * can read at a glance, then goes straight to what is on offer - the one thing a shop has to say that
- * the product page cannot - then to the department rail, then to the shop's picks, then to brands,
- * then to what is new. Every section above "Featured" is one screen or less; none of them is a
- * full-height banner that makes a customer scroll before they see a price.
+ * **The order is the owner's (2026-11-05):** hero, Shop By Category, Shop By Brand, On Offer, Most
+ * Selling, Recently Added, More To Explore. Discovery comes before merchandise on purpose - a shopper
+ * who does not yet know what they want is met with departments and brands, and the shelves follow.
+ *
+ * **Every product card is the same card.** One portrait 4:5 frame at every width and in every section
+ * (`CARD_FRAME`), and the homepage rows carry the card's own add-to-cart control, because the homepage
+ * is where a customer starts buying rather than where they browse a filtered list.
+ *
+ * **Section headings are centred and title-cased**, and each carries at most one route into its full
+ * listing beneath the title.
+ *
+ * **Nothing explains itself.** A shopper does not need a caption to read a shelf of products.
  *
  * **Every selection is server-resolved.** `home-selection.ts` decides what each row holds from one
- * catalog snapshot, and this view receives only the cards. It never reads a product list, never picks
- * a product, and never invents one: an empty selection is stated as the gap it is.
- *
- * **The order of the rows below the hero is revised for this redesign** (it used to be hero,
- * categories, featured, offers, recently added, more). Offers now lead - they are the strongest
- * commercial statement the shop can make - the category rail follows immediately (it is the only
- * category discovery a phone gets), and the page closes with new arrivals and a way into everything.
+ * catalog snapshot (and, for Most Selling, from the shop's own order lines), and this view receives
+ * only the cards. It never reads a product list, never picks a product and never invents one: an empty
+ * selection is stated as the gap it is.
  */
 export function HomeView({
   departments,
-  heroProducts,
-  featured,
+  heroImages,
   deals,
+  bestSellers,
   newArrivals,
   browse,
   brands,
   isEmpty,
+  campaign,
+  support,
 }: {
   departments: readonly CatalogCategory[];
-  heroProducts: readonly CatalogItem[];
-  featured: readonly CatalogItem[];
+  heroImages: readonly HeroSlide[];
   deals: readonly CatalogItem[];
+  /** Products with real order lines, most units first. Empty until the shop has sold something. */
+  bestSellers: readonly CatalogItem[];
   newArrivals: readonly CatalogItem[];
   browse: readonly CatalogItem[];
   brands: readonly CatalogBrand[];
   isEmpty: boolean;
+  /**
+   * The owner's campaign, resolved server-side from `store_setting`. `null` renders
+   * no band - the section is absent, never a placeholder.
+   */
+  campaign: { headline: string; body: string | null; link: string | null } | null;
+  /**
+   * The owner's support links, resolved server-side on the homepage only. A link that is not set is
+   * `null` and renders no button.
+   */
+  support: { facebookUrl: string | null; whatsappUrl: string | null };
 }) {
-  const { t, pick, price } = useTranslation();
-  const lead = heroProducts[0];
+  const { t } = useTranslation();
 
   return (
     <div className={styles.page}>
       {/*
-        Hero.
-
-        **On a phone it is a compact band, not a full-screen banner.** A headline, one line about
-        what the shop sells, two actions, and then the newest product as a *spotlight row* - a small
-        photograph with its name and price beside it. That puts a real, purchasable product on the
-        first screen, above the offer shelf, instead of asking a customer to scroll a photograph
-        before they see a price.
-
-        **From 1024px it is the three-frame composition**, with the copy on the left: there is room
-        for the photographs to carry the section, and the spotlight row would be redundant beside
-        them. One of the two is always rendered; neither is a fallback for the other.
+        The page keeps one h1 even when the owner has not configured a banner: the carousel renders no
+        section for an empty table, and a page without a heading would be a missing outline rather than
+        an honest gap.
       */}
-      <section className={styles.hero} aria-labelledby="hero-title">
-        <div className={styles.heroCopy}>
-          <h1 id="hero-title" className={styles.heroTitle}>
-            {t('home.heroTitle')}
-          </h1>
-          <p className={styles.heroBody}>{t('home.heroBody')}</p>
-          <div className={styles.heroActions}>
-            <Link className={styles.primaryAction} href="/products">
-              {t('home.heroPrimary')}
-            </Link>
-            <Link className={styles.secondaryAction} href="/categories">
-              {t('home.heroSecondary')}
-            </Link>
-          </div>
-        </div>
+      <h1 className="sr-only">{t('home.heroTitle')}</h1>
 
-        {heroProducts.length > 0 && (
-          <div className={styles.heroMedia}>
-            {/*
-              The phone's spotlight: the newest product, its price, and one tap to its page. It is
-              the same record the desktop collage draws - the catalog's newest - so the two sizes
-              can never disagree about what the shop added last.
-            */}
-            <ul className={styles.spotlight} data-hero-spotlight>
-              {heroProducts.slice(0, 2).map((product, index) => (
-                <li key={product.id} className={styles.spotlightItem}>
-                  <Link
-                    className={styles.spotlightLink}
-                    href={`/products/${product.slug}`}
-                    aria-label={pick(product.name) ?? product.slug}
-                  >
-                    <span className={styles.spotlightPhoto}>
-                      <ProductPhoto
-                        image={product.images[0]}
-                        alt=""
-                        sizes="112px"
-                        priority={index === 0}
-                        frame="1 / 1"
-                      />
-                    </span>
-                    <span className={styles.spotlightText}>
-                      <span className={styles.spotlightKicker}>{t('home.newArrivalsTitle')}</span>
-                      <span className={styles.spotlightName}>{pick(product.name) ?? product.slug}</span>
-                      <span className={styles.spotlightPrice}>{price(product.priceMinor)}</span>
-                    </span>
-                    <span className={styles.spotlightChevron} aria-hidden="true">
-                      <ArrowIcon width={16} height={16} />
-                    </span>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-
-            <div className={styles.heroCollage}>
-              <ul className={styles.collageList} data-hero-collage>
-                {heroProducts.map((product, index) => (
-                  <li
-                    key={product.id}
-                    className={styles.collageItem}
-                    data-position={index === 0 ? 'lead' : index === 1 ? 'second' : 'third'}
-                  >
-                    <Link
-                      href={`/products/${product.slug}`}
-                      className={styles.collageLink}
-                      aria-label={pick(product.name) ?? product.slug}
-                    >
-                      <ProductPhoto
-                        image={product.images[0]}
-                        alt={pick(product.name) ?? product.slug}
-                        sizes="(max-width: 1023px) 30vw, 300px"
-                        priority={index === 0}
-                        className={styles.collagePhoto}
-                        frame={CARD_FRAME}
-                      />
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-              {lead !== undefined && (
-                /* The lead frame carries its name and price: a photograph alone is not a product. */
-                <Link className={styles.heroLead} href={`/products/${lead.slug}`}>
-                  <span className={styles.heroLeadName}>{pick(lead.name) ?? lead.slug}</span>
-                  <span className={styles.heroLeadPrice}>{price(lead.priceMinor)}</span>
-                </Link>
-              )}
-            </div>
-          </div>
-        )}
-      </section>
+      <HeroCarousel images={heroImages} />
 
       {isEmpty ? (
         <section className={styles.section} aria-labelledby="empty-catalog-title">
@@ -164,106 +87,61 @@ export function HomeView({
       ) : (
         <>
           {/*
-            Offers lead. The row is a swipeable shelf on a phone and a two-row slider on a desktop,
-            because a discount is the one message a shopper should not have to scroll to find.
-          */}
-          {deals.length > 0 && (
-            <section className={styles.section} aria-labelledby="deals-title">
-              <SectionHeader
-                id="deals-title"
-                title={t('home.dealsTitle')}
-                body={t('home.dealsBody')}
-                href="/products?sort=price-asc"
-                linkLabel={t('home.dealsViewAll')}
-                accent
-              />
-              <OfferCarousel products={deals} />
-            </section>
-          )}
-
-          {/*
-            The department rail. A horizontal strip of square photographs on a phone, a grid from
-            1024px - the shape the reference uses, and the reason the category index no longer needs to
-            be the only way to find a department on a small screen.
+            Where do I start? The circular department rail, first, because it is the question a
+            shopper who does not yet know the catalog is asking.
           */}
           {departments.length > 0 && (
             <section className={styles.section} aria-labelledby="categories-title" id="categories">
-              <SectionHeader
-                id="categories-title"
-                title={t('home.categoriesTitle')}
-                body={t('home.categoriesBody')}
-                href="/categories"
-                linkLabel={t('home.viewAll')}
-              />
-              <ul className={styles.categoryRail} data-category-rail>
-                {departments.map((category) => (
-                  <li key={category.id} className={styles.categoryRailItem}>
-                    <Link className={styles.categoryRailLink} href={`/categories/${category.slug}`}>
-                      <CatalogCategoryTile category={category} />
-                      <span className={styles.categoryRailName}>{pick(category.name)}</span>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
+              <SectionHeader id="categories-title" title={t('home.categoriesTitle')} />
+              <CategoryCircleRail categories={departments} />
             </section>
           )}
 
           {/*
-            The owner's picks ("Featured products"). A plain row of five, as it has been since the
-            owner's own decision: the selection is complete, so there is nothing off screen to scroll
-            to and no control to operate.
-          */}
-          {featured.length > 0 && (
-            <section className={styles.section} aria-labelledby="featured-title">
-              <SectionHeader
-                id="featured-title"
-                title={t('home.featuredTitle')}
-                body={t('home.featuredBody')}
-                icon
-              />
-              <ProductGrid>
-                {featured.map((product) => (
-                  <ProductCard key={product.id} product={product} />
-                ))}
-              </ProductGrid>
-            </section>
-          )}
-
-          {/*
-            Brands. The tile is the brand's own mark, or its initials when the shop has no logo - the
-            fallback is named in the section's own sentence so nobody mistakes it for broken artwork.
+            Who makes it? The same circle, the same row, the brand's own mark.
           */}
           {brands.length > 0 && (
             <section className={styles.section} aria-labelledby="brands-title">
-              <SectionHeader
-                id="brands-title"
-                title={t('home.brandTitle')}
-                body={t('home.brandBody')}
-                href="/brands"
-                linkLabel={t('home.brandsAll')}
-              />
-              <ul className={styles.brandRail} data-brand-rail>
-                {brands.map((brand) => (
-                  <li key={brand.id} className={styles.brandRailItem}>
-                    <Link className={styles.brandRailLink} href={`/brands/${brand.slug}`}>
-                      <BrandMark
-                        logoKey={brand.logoKey}
-                        name={pick(brand.name) ?? brand.slug}
-                        slug={brand.slug}
-                        sizes="96px"
-                      />
-                      <span className={styles.brandRailName}>{pick(brand.name) ?? brand.slug}</span>
-                      <span className={styles.brandRailCount}>
-                        {brand.productCount === 1
-                          ? t('categories.brandCountOne')
-                          : t('categories.brandCount', { count: brand.productCount })}
-                      </span>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
+              <SectionHeader id="brands-title" title={t('home.brandTitle')} />
+              <BrandCircleRail brands={brands} />
             </section>
           )}
+
+          {/*
+            Offers: a carousel of the shop's ten largest real savings, each derived from a stored
+            comparison price.
+          */}
+          {deals.length > 0 && (
+            <section className={styles.section} aria-labelledby="deals-title">
+              <SectionHeader id="deals-title" title={t('home.dealsTitle')} />
+              <Carousel label={t('home.dealsTitle')} size="product">
+                {deals.map((product) => (
+                  <ProductCard key={product.id} product={product} addToCart />
+                ))}
+              </Carousel>
+            </section>
+          )}
+
+          {/*
+            Most Selling is a fact about the shop's own order lines, never a curation: the section is
+            drawn from `home-selection.ts`'s best-seller selection, which counts real ordered units.
+            A shop that has not sold anything yet says so instead of showing a made-up ranking.
+          */}
+          <section className={styles.section} aria-labelledby="best-selling-title">
+            <SectionHeader id="best-selling-title" title={t('home.bestSellingTitle')} />
+            {bestSellers.length > 0 ? (
+              <Carousel label={t('home.bestSellingTitle')} size="product">
+                {bestSellers.map((product) => (
+                  <ProductCard key={product.id} product={product} addToCart />
+                ))}
+              </Carousel>
+            ) : (
+              <EmptyNote
+                title={t('home.bestSellingEmptyTitle')}
+                body={t('home.bestSellingEmptyBody')}
+              />
+            )}
+          </section>
 
           {/*
             New arrivals. Ordered by the stored creation timestamp, and omitted entirely when the
@@ -271,35 +149,40 @@ export function HomeView({
           */}
           {newArrivals.length > 0 && (
             <section className={styles.section} aria-labelledby="recently-added-title">
-              <SectionHeader
-                id="recently-added-title"
-                title={t('home.recentTitle')}
-                body={
-                  newArrivals.length < 5
-                    ? t('home.recentBodyPartial', { count: newArrivals.length })
-                    : t('home.recentBody')
-                }
-                href="/products?sort=newest"
-                linkLabel={t('home.newArrivalsAll')}
-              />
-              <ProductGrid>
+              <SectionHeader id="recently-added-title" title={t('home.recentTitle')} />
+              <Carousel label={t('home.recentTitle')} size="product">
                 {newArrivals.map((product) => (
-                  <ProductCard key={product.id} product={product} />
+                  <ProductCard key={product.id} product={product} addToCart />
                 ))}
-              </ProductGrid>
+              </Carousel>
             </section>
           )}
 
+          {/*
+            The campaign band, between the new-arrivals row and the browse row: a pause that breaks
+            the run of product sections with the owner's own seasonal statement. Rendered only when
+            the owner has saved and switched on a campaign - `null` means the section is absent.
+          */}
+          {campaign !== null && (
+            <CampaignBand
+              headline={campaign.headline}
+              body={campaign.body}
+              link={campaign.link}
+              linkLabel={t('home.campaignCta')}
+            />
+          )}
+
+          {/*
+            More to explore: the last row, and the only section with a button instead of a header
+            link. Two full desktop rows of five, and four phone rows of two - an even number at both
+            sizes, so no card has to stretch to fill a row.
+          */}
           {browse.length > 0 && (
             <section className={styles.section} aria-labelledby="collection-title">
-              <SectionHeader
-                id="collection-title"
-                title={t('home.collectionTitle')}
-                body={t('home.collectionBody')}
-              />
-              <ProductGrid>
+              <SectionHeader id="collection-title" title={t('home.collectionTitle')} />
+              <ProductGrid className={styles.browseGrid}>
                 {browse.map((product) => (
-                  <ProductCard key={product.id} product={product} />
+                  <ProductCard key={product.id} product={product} addToCart />
                 ))}
               </ProductGrid>
               <div className={styles.viewMoreRow}>
@@ -311,78 +194,27 @@ export function HomeView({
           )}
         </>
       )}
+
+      {/*
+        The support rail is a homepage element (owner direction, 2026-11-05): a customer who is
+        browsing the shop can reach the owner, but the two outbound links do not follow every product
+        page where they competed with the buy action.
+      */}
+      <SupportButtons facebookUrl={support.facebookUrl} whatsappUrl={support.whatsappUrl} />
     </div>
   );
 }
 
 /**
- * One section's heading: what it is, one sentence of what it holds, and - when there is more -
- * exactly one way in. The link is a real 40px control so it is reachable with a thumb.
+ * One section's heading: what the section is, and - when there is more - exactly one way in. Centred,
+ * with the link beneath the title rather than pushed to a corner: the row reads as one announcement,
+ * which is the reference the owner pointed at.
  */
-function SectionHeader({
-  id,
-  title,
-  body,
-  href,
-  linkLabel,
-  accent = false,
-  icon = false,
-}: {
-  id: string;
-  title: string;
-  body?: string;
-  href?: string;
-  linkLabel?: string;
-  /** A small spark beside the title, for the shop's own selection. Decorative, never a rating. */
-  accent?: boolean;
-  icon?: boolean;
-}) {
+function SectionHeader({ id, title }: { id: string; title: string }) {
   return (
-    <header className={styles.sectionHeader} data-accent={accent ? 'true' : undefined}>
-      <div className={styles.sectionHeaderText}>
-        <h2 id={id}>
-          {icon && (
-            <span className={styles.titleIcon} aria-hidden="true">
-              <SparkIcon width={16} height={16} />
-            </span>
-          )}
-          {title}
-        </h2>
-        {body !== undefined && <p className={styles.sectionBody}>{body}</p>}
-      </div>
-      {href !== undefined && linkLabel !== undefined && (
-        <Link className={styles.viewAll} href={href}>
-          {linkLabel}
-          <ArrowIcon width={14} height={14} />
-        </Link>
-      )}
+    <header className={styles.sectionHeader}>
+      <h2 id={id}>{title}</h2>
     </header>
-  );
-}
-
-/**
- * A category's square photograph, or its icon glyph when it has none.
- *
- * The tile is a fixed square and the name sits under it, so a rail of them scans in one movement
- * whatever mix of photographed and un-photographed departments the catalog holds.
- */
-function CatalogCategoryTile({ category }: { category: CatalogCategory }) {
-  const { pick } = useTranslation();
-  return (
-    <span className={styles.categoryTile}>
-      <DiscoveryPhoto
-        imageKey={category.imageKey}
-        alt=""
-        sizes={CATEGORY_RAIL_SIZES}
-        className={styles.categoryTilePhoto}
-        fallback={
-          <span className={styles.categoryTileGlyph}>
-            <CategoryIcon name={category.icon} width={30} height={30} />
-          </span>
-        }
-      />
-      <span className="sr-only">{pick(category.name)}</span>
-    </span>
   );
 }
 

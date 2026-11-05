@@ -27,11 +27,12 @@ import { roleCodes } from '@/server/authz/principal';
 import { PERMISSIONS } from '@/server/authz/permissions';
 import { AuthorizationError, ConflictError, ValidationError } from '@/server/authz/authorize';
 import { setCategoryImage } from '@/server/catalog/service';
+import { saveUpload } from '@/server/catalog/uploads';
 import { deny, redirectTo } from '../../responses';
 
 export const dynamic = 'force-dynamic';
 
-const OPERATIONS = ['choose', 'clear'] as const;
+const OPERATIONS = ['choose', 'upload', 'clear'] as const;
 
 /**
  * Where a refusal returns: the category editor that produced it, and nothing else.
@@ -67,10 +68,20 @@ export async function POST(request: Request): Promise<Response> {
   if (!(OPERATIONS as readonly string[]).includes(operation)) return back('invalid');
 
   try {
+    let asset: Awaited<ReturnType<typeof saveUpload>> | undefined;
+    if (operation === 'upload') {
+      try {
+        asset = await saveUpload(form.get('file'), 'square');
+      } catch {
+        return back('imageInvalid');
+      }
+    }
+
     await withTransaction((tx) =>
       setCategoryImage(tx, actor, {
         categoryId: form.get('categoryId'),
-        imageKey: operation === 'clear' ? '' : form.get('imageKey'),
+        imageKey: operation === 'clear' ? '' : operation === 'upload' ? asset?.key : form.get('imageKey'),
+        asset,
       }),
     );
     return back(operation === 'clear' ? 'imageRemoved' : 'imageUpdated');

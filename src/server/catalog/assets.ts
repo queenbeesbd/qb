@@ -27,7 +27,7 @@ import { join } from 'node:path';
 import { sql } from 'drizzle-orm';
 
 import { withTransaction } from '@/db/client';
-import { productImage } from '@/db/schema';
+import { brand, category, productImage } from '@/db/schema';
 import { IMAGE_WIDTHS } from '@/lib/images';
 
 import { readImageMetadata, type ImageFormat } from './image-metadata';
@@ -120,13 +120,28 @@ export async function listAssetKeys(): Promise<string[]> {
  */
 async function listRecordedAssetKeys(): Promise<string[]> {
   try {
-    const rows = await withTransaction((tx) =>
-      tx
-        .selectDistinct({ key: productImage.baseKey })
-        .from(productImage)
-        .where(sql`${productImage.deletedAt} is null`),
-    );
-    return rows.map((row) => row.key);
+    const keys = await withTransaction(async (tx) => {
+      const [images, categories, brands] = await Promise.all([
+        tx
+          .selectDistinct({ key: productImage.baseKey })
+          .from(productImage)
+          .where(sql`${productImage.deletedAt} is null`),
+        tx
+          .selectDistinct({ key: category.imageKey })
+          .from(category)
+          .where(sql`${category.imageKey} is not null`),
+        tx
+          .selectDistinct({ key: brand.logoKey })
+          .from(brand)
+          .where(sql`${brand.logoKey} is not null`),
+      ]);
+      return [
+        ...images.map((row) => row.key),
+        ...categories.map((row) => row.key),
+        ...brands.map((row) => row.key),
+      ].filter((key): key is string => typeof key === 'string' && key !== '');
+    });
+    return keys;
   } catch {
     // A database that cannot be read here is an absent recorded set, not a failed admin screen: the
     // local inventory still returns what it has.

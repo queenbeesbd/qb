@@ -1539,5 +1539,119 @@ Both are covered now. The remaining work this phase describes is therefore (a) `
 real catalogue, which is the suite that genuinely cannot run today, and (b) the coverage holes of the same
 kind - the storefront's own guest path and the Settings screens - rather than a suite that is simply broken.
 
+## Phase 51 - homepage revision: one canvas, one card size, one carousel (implemented locally, 2026-11-02)
 
+Owner direction, in their words: remove the pastel field from the sections, keep the hero until they decide
+its taste, drop the explanatory lines, give the offer / category / brand / new-arrivals rows ten products as
+carousels, keep the featured card as the homepage's measurement, give "Shop by brand" its own card carousel,
+make "More to explore" two desktop rows, shorten the footer, and make Brands its own page and its own
+navigation destination.
+
+**What changed.**
+
+- **No tinted section fields.** The hero, the offer row and the brand row lose their pastel backgrounds; the
+  campaign band takes the same bordered surface as every other card. The page is one canvas and space does
+  the separating. The hero's composition is untouched - its redesign is a separate owner decision.
+- **No explanatory sentences.** Every section heading lost its caption ("Priced below their published
+  comparison price" and seven siblings). The dictionary keys went with them.
+- **One card size.** The featured row's card is the homepage's measurement; the new shared
+  `Carousel` reproduces the product grid's track exactly (`(100% - 4 * gap) / 5` from 1200px, three from
+  720px, two below), so a shelf card and a grid card are the same width.
+- **One carousel component** (`src/components/Carousel.tsx`, replacing `OfferCarousel`): a CSS scroll-snap
+  track with measured page counts, dots that state `aria-current`, and previous/next buttons from 1024px.
+  It draws On offer (10), Shop by category (10 circles), Shop by brand (10 cards) and Recently added (10).
+- **The category circle hover no longer clips.** The ring and lift were drawn outside the tile, which a
+  scroll container cropped; the treatment is now a border on the circle's own box, a photograph zoom the
+  circle crops, and an inset focus outline. A missing category photograph is the page's sunken surface with
+  the department's icon, not a lavender disc.
+- **The brand row is a card per brand** (owner reference: Ghorer Bazar's "Our Brands" - anatomy only): the
+  mark centred on a white card, the brand's name and its product count beneath, four across on a desktop.
+- **Featured and "More to explore" fill their rows on a phone**: four of five featured cards and eight of ten
+  browse cards below 720px, nine of ten between 720px and 1199px (three columns), ten from 1200px. CSS only -
+  no product is repeated, re-ordered or invented to make a count.
+- **The footer is short**: the department list is gone, two groups of three links (Shop / Account) and the
+  year remain, and on a phone the groups sit side by side.
+- **Brands is its own destination.** `/brands` existed already; it is now the last item of the desktop header
+  navigation and the fourth tab of the phone bar (after Categories, six tabs in total), and the brand teaser
+  was removed from `/categories`, which answers only the department question and links out to the index.
+
+**Verification, 2026-11-02 (local only; nothing deployed).**
+
+| Check | Result |
+| --- | --- |
+| `npm run typecheck` | clean |
+| `npm run lint` | 0 errors (3 pre-existing warnings in tests/scripts) |
+| `npm run check:i18n` | 1,360 keys, all referenced keys present |
+| `npm run check:catalog` | 22 products, 5 categories, 5/5 featured, 5/5 collection |
+| `npm run check:secrets` | clean, no server-only marker in 57 client bundle files |
+| `npm test` | 214/214 (`tests/unit/recent.test.ts` updated: the section size is ten) |
+| `npm run build` | success |
+| Headless Chromium, 360/390/768/1024/1440 | sections, dots, card counts, tab-label widths and zero horizontal overflow measured by hand |
+| `npm run verify:browser` against the served build | **91/97**, six explained failures (below) |
+
+**The six failures in that run, all explained and none of them a defect in this change.**
+
+- **27, 31, 35, 36d** are **data-limited**: this development database holds the 22-product seed, not the
+  imported catalogue. Its curation holds **2** featured products (the checks require the row of five), it has
+  **4** products with a comparison price (the offer checks require five or more) and **5** categories (check
+  36d requires ten). The limits themselves - ten offers, ten categories, ten brands, ten new arrivals, two
+  browse rows - are set in `home-selection.ts` and are reached only by a catalogue that large.
+- **8 and 20** are **pre-existing and unrelated**: they read the product page, and the uncommitted Phase 50
+  gallery work (`src/features/catalog/product/GalleryCarousel.*`) renders 24px dot buttons - check 20 wants
+  40px - and lazy photographs below the fold that check 8 counts as unloaded. Neither file is touched here.
+
+The checks themselves were updated, not weakened, where the design changed: 42/42b/42c/44/45/48/48b now assert
+ten cards on a scroll-snap shelf whose card width is the standard grid's (\u00b18px for percentage rounding)
+and whose page never widens, that the section is headed as recency with **no caption**, and that the cards on
+screen have decoded while the rest stay lazy. A probe that read the first `<p>` in the section was corrected
+to read the section header: it had been reading a product card's brand line as the section's caption.
+
+Real iOS Safari, Android Chrome and screen readers remain unverified.
+
+
+
+
+## Phase 51 - Homepage hero carousel (2026-11-04)
+
+**Owner direction.** Replace the homepage hero with an image carousel following the supplied reference:
+one banner at a time, dots, responsive at every width. The images and their sequence are managed in
+Settings -> Homepage hero, with at least one image, at most ten, and manual ordering.
+
+**Implemented.**
+
+- **`hero_image`** (migration `0013_homepage_hero_images`, schema 46 -> 47 tables): an asset key, an
+  owner-written description, and a dense position. Unique key, key-format and alt-length checks, position
+  0..9. The 1..10 bound is enforced by the service under a transaction advisory lock, which also rewrites
+  dense positions atomically.
+- **`npm run assets:hero`** turns the owner's masters in `hero/` into 800 and 1600px variants in WebP
+  and JPEG under `public/hero`, cropped to 16:9. Association-only: no upload, no client path and no
+  metadata from the request; `readHeroAsset` checks the format, the complete variant set and the bytes.
+- **Settings -> Homepage hero**: ordered rows with preview, description editing, earlier/later movement,
+  remove-behind-confirmation, an add picker over the generated library, a save-order form, and the bounds
+  stated before they are hit.
+- **Storefront**: `HeroCarousel` is a CSS scroll-snap track with a required h1 for the outline, native
+  swipe, 32px dots with `aria-current` on the image's lower-left corner, and two 44px arrows from 720px.
+  No autoplay. An empty table renders no section, never a placeholder. The old copy/spotlight/collage
+  hero and its three dictionary keys were removed.
+- **Audit**: `settings.hero_image_added`, `_updated`, `_removed` and `settings.hero_images_reordered`.
+
+**Verification (2026-11-04, local only; nothing deployed).**
+
+| Check | Result |
+| --- | --- |
+| `npm run typecheck` | clean |
+| `npm run lint` | 0 errors |
+| `npm run check:i18n` | 1,395 keys, every referenced key present |
+| `npm run check:catalog` | unchanged, 22 products |
+| `npm test` | 207/207 |
+| `tests/db/hero.test.ts` | 5/5 (add, reorder, description, duplicate/unknown/empty refusal, last-image refusal, ten-image cap) |
+| `npm run build` | success |
+| HTTP against the served build | reorder persisted and the storefront's first slide changed; remove and add persisted; removing the last image returned `invalid` and left one row; duplicate -> `conflict`; traversal-shaped key -> `invalid` |
+| Headless Chromium | 390px: 2 slides, 2 loaded images, 0.563 aspect, 2 dots at 32px, dots switch the slide, no overflow, no arrows, and the hidden h1 is present; 1440px: 2 arrows visible and paging; admin: 2 rows in the stored order, thumbnails loaded, 40px row controls (34px only on the dense description action) |
+| `npm run verify:admin` | **198/200**. The hero route is included in the control-scale sweep and passes. The two failures are unrelated and pre-existing: a Telegram removal-dialog flake, and the documented absent-CSP check. |
+| `npm run verify:storefront` | **91/97** browser checks. Hero checks 28/28b/28c/36/36b pass. The six failures are the ones already recorded against this seed: 8 and 20 are the uncommitted Phase 50 gallery's 24px dots and below-fold lazy images; 27, 31, 35 and 36d are data-limited because this catalog seeds 2 featured products, 4 offers and 5 categories against checks that expect 5, 5+ and 10. The customer HTTP flow is not reached because the suite exits on the browser failure. |
+
+**Limits.** There is **no browser upload**: a new banner arrives through `npm run assets:hero` and is then
+associated in the admin screen, the same rule product imagery follows (no object storage is provisioned).
+This was verified against the 22-product seed; the imported catalogue and real devices were not used.
 

@@ -151,6 +151,24 @@ async function main(): Promise<void> {
       [deliveryStaffId],
     );
 
+    /*
+     * Two hero banners, in a deliberately non-document order (hero-2 first).
+     *
+     * The carousel's sequence is the stored `sort_order`, so seeding them out of key order is what
+     * proves the page follows the database rather than the filenames. The descriptions are the
+     * provider's own artwork described factually, not marketing claims. These rows exist only in this
+     * disposable cluster.
+     */
+    await fixture.pool.query(
+      `insert into hero_image (image_key, alt_text, sort_order) values
+         ('hero-2', 'Pinkflash makeup collection with a QueenBee''s thank-you card', 0),
+         ('hero-1', 'QueenBee''s wooden hair brush collection arranged in a basket', 1)`,
+    );
+    const heroRows = await fixture.pool.query<{ image_key: string }>(
+      'select image_key from hero_image order by sort_order, id',
+    );
+    const expectedHero = heroRows.rows.map((row) => row.image_key);
+
     // Both children get the same environment. The fixture opt-in is deleted, not merely unset: a
     // stray value in the caller's shell must not turn this run into a fixture run.
     const childEnv: NodeJS.ProcessEnv = {
@@ -213,6 +231,7 @@ async function main(): Promise<void> {
       ...process.env,
       QUEENBEES_BASE_URL: base,
       QUEENBEES_EXPECTED_RECENT: expectedRecent.join(','),
+      QUEENBEES_EXPECTED_HERO: expectedHero.join(','),
     });
     if (browserCode !== 0) {
       throw new Error(`the browser suite exited ${browserCode}`);

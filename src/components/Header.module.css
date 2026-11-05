@@ -33,15 +33,31 @@
   min-width: 0;
 }
 
-.brand img {
-  height: 30px;
-  width: auto;
-  /*
-   * The global `img { max-width: 100% }` rule caps the box width on narrow screens while the height
-   * stays fixed, which would squash the artwork. Contain keeps the mark proportionate inside whatever
-   * box it is given.
-   */
-  object-fit: contain;
+/*
+ * The brand mark: a circle with the owner's logo filling it.
+ *
+ * The circle is the shop's one frame for a brand image - the homepage rails, the brand index and the
+ * category index all draw one - so the header states the same shape. `cover` is what makes any upload
+ * work: a square (or non-square) image is centre-cropped to the circle rather than squashed or padded,
+ * which is the aesthetic the owner asked for.
+ */
+.brandMark {
+  display: block;
+  width: 48px;
+  height: 48px;
+  flex: none;
+  border-radius: 50%;
+  overflow: hidden;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+}
+
+.brandMark img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
 }
 
 /*
@@ -55,7 +71,15 @@
   margin-inline-start: auto;
 }
 
-.menuTrigger {
+/*
+ * The phone menu control. Hidden from 1024px, where the header's own navigation row is on screen.
+ */
+/*
+ * The phone menu control. Hidden from 1024px, where the header's own navigation row is on screen.
+ * Declared with the element's own class so it wins against `.iconButton`, which is defined later and
+ * would otherwise make it a visible control in the desktop bar.
+ */
+.iconButton.menuTrigger {
   display: none;
 }
 
@@ -308,20 +332,155 @@
     position: static;
   }
 
+  /*
+   * Three zones, and the logo is genuinely centred: equal outer tracks, with the brand in the middle
+   * one. A flex row could not do this - the two side groups are different widths, so "centred" would
+   * have meant "centred between whatever the left group happened to be".
+   */
   .inner {
+    display: grid;
+    grid-template-columns: 44px minmax(0, 1fr) 44px;
+    align-items: center;
+    gap: var(--space-2);
     min-height: 60px;
     padding-top: var(--space-2);
     padding-bottom: var(--space-2);
   }
 
-  .brand img {
-    height: 28px;
+  .iconButton.menuTrigger {
+    display: inline-flex;
+    justify-self: start;
+  }
+
+  .brand {
+    justify-self: center;
+    grid-column: 2;
+  }
+
+  .brandMark {
+    width: 44px;
+    height: 44px;
+  }
+
+  /* On a phone the actions are the cart alone; the account link lives in the drawer. */
+  .actions {
+    grid-column: 3;
+    justify-self: end;
+    margin-inline-start: 0;
+  }
+
+  .accountButton {
+    display: none;
   }
 }
 
 @media (max-width: 359px) {
-  .brand img {
-    height: 24px;
+  .brandMark {
+    width: 40px;
+    height: 40px;
+  }
+}
+
+
+/* ---------- The phone menu drawer ---------- */
+
+/*
+ * The drawer is a phone surface only. It sits above the tab bar, the floating cart and the support rail
+ * (all of which are below 60), because a modal that another fixed control can paint over is not modal.
+ */
+.drawerLayer {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+}
+
+.scrim {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  padding: 0;
+  background: rgb(32 26 41 / 0.42);
+  cursor: pointer;
+}
+
+.drawer {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  width: min(86vw, 22rem);
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  background: var(--color-surface);
+  border-inline-end: 1px solid var(--color-border);
+  box-shadow: var(--shadow-md);
+  padding-bottom: env(safe-area-inset-bottom);
+  overflow-y: auto;
+  animation: drawerIn 160ms var(--ease-out-ui);
+}
+
+@keyframes drawerIn {
+  from {
+    transform: translateX(-12px);
+    opacity: 0.6;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .drawer {
+    animation: none;
+  }
+}
+
+.drawerHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-2) var(--space-2) var(--space-4);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.drawerTitle {
+  font-size: var(--text-sm);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--color-ink-muted);
+}
+
+.drawerList {
+  list-style: none;
+  margin: 0;
+  padding: var(--space-2);
+  display: grid;
+  gap: 2px;
+}
+
+/* Every destination is a 44px row: a thumb target, and a height that reads as a list rather than a tag cloud. */
+.drawerLink {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-md);
+  font-size: var(--text-base);
+  font-weight: 500;
+  color: var(--color-ink);
+}
+
+.drawerLink:hover {
+  background: var(--color-surface-sunken);
+}
+
+.drawerLink[aria-current='page'] {
+  background: var(--color-action-soft);
+  color: var(--color-action);
+  font-weight: 600;
+}
+
+@media (min-width: 1024px) {
+  .drawerLayer {
+    display: none;
   }
 }
 

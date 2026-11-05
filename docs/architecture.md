@@ -124,7 +124,7 @@ untrusted on read: the cart filters against known ids, de-duplicates, clamps qua
 
 ## Database
 
-46 tables, 12 reviewed migrations, least-privilege grants, and append-only enforcement on `order_event`,
+47 tables, 14 reviewed migrations, least-privilege grants, and append-only enforcement on `order_event`,
 `order_item`, `audit_event` and `inventory_movement` (revoked `UPDATE`/`DELETE` plus a
 `BEFORE UPDATE OR DELETE` trigger, so it holds regardless of role). Money is integer poisha everywhere.
 Five separate state concepts are never collapsed: fulfilment, prepaid payment (retained, unused), COD,

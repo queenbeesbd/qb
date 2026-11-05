@@ -6,7 +6,7 @@ import type { TranslationKey } from '@/i18n/dictionaries';
 import { INTL_LOCALE } from '@/i18n/config';
 import { useTranslation } from '@/i18n/useTranslation';
 import { statusLabel } from '@/features/account/order-labels';
-import { AreaChart, DonutChart, type ChartTone } from '../../_ui/charts';
+import { AreaChart, DonutChart, Sparkline, type ChartTone } from '../../_ui/charts';
 import { EmptyState } from '../../_ui/EmptyState';
 import { PageHeader } from '../../_ui/PageHeader';
 import styles from '../../admin.module.css';
@@ -42,15 +42,23 @@ function compactMoney(minor: number): string {
   return String(taka);
 }
 
+/*
+ * Eight states, eight hues.
+ *
+ * The previous map gave `confirmed`, `processing` and `shipped` the same purple and `delivered` and
+ * `completed` the same green, so the ring drew two arcs and its legend repeated its own swatch. A
+ * chart whose categories cannot be told apart is not a chart; these are chosen to differ in hue and
+ * lightness in sequence (see `--chart-1`..`--chart-8`).
+ */
 const STATUS_TONES: Record<string, ChartTone> = {
-  pending: 'warning',
-  confirmed: 'action',
-  processing: 'action',
-  shipped: 'action',
-  delivered: 'success',
-  completed: 'success',
-  cancelled: 'danger',
-  returned: 'neutral',
+  pending: 'amber',
+  confirmed: 'blue',
+  processing: 'teal',
+  shipped: 'lavender',
+  delivered: 'green',
+  completed: 'violet',
+  cancelled: 'rose',
+  returned: 'slate',
 };
 
 /**
@@ -113,11 +121,13 @@ export function AnalyticsView({ data }: { data: AnalyticsViewData }) {
           <span className={styles.kpiNote}>
             {t('admin.analytics.kpiRevenueNote', { count: summary.completedOrders })}
           </span>
+          <Sparkline points={series.map((point) => point.revenueMinor)} />
         </div>
         <div className={styles.kpi}>
           <span className={styles.kpiLabel}>{t('admin.analytics.kpiOrders')}</span>
           <span className={styles.kpiValue}>{summary.ordersPlaced}</span>
           <span className={styles.kpiNote}>{t('admin.analytics.kpiOrdersNote')}</span>
+          <Sparkline points={series.map((point) => point.orders)} tone="blue" />
         </div>
         <div className={styles.kpi}>
           <span className={styles.kpiLabel}>{t('admin.analytics.kpiItems')}</span>
@@ -198,7 +208,7 @@ export function AnalyticsView({ data }: { data: AnalyticsViewData }) {
               slices={statuses.map((slice) => ({
                 label: t(statusLabel(slice.status) as TranslationKey),
                 value: slice.count,
-                tone: STATUS_TONES[slice.status] ?? 'neutral',
+                tone: STATUS_TONES[slice.status] ?? 'slate',
               }))}
             />
           )}

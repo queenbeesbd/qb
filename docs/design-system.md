@@ -10,7 +10,7 @@ Product-led, calm, precise. The shopper compares brand, pack size, price and ava
 
 | Token | Value | Role |
 | --- | --- | --- |
-| `--brand-primary` | `#A680FF` | Approved brand anchor. Accents and thin borders. |
+| `--brand-primary` | `#DCCFFF` | Owner-chosen light lavender (2026-11-05). Surfaces and accents; ink rides on it. |
 | `--brand-secondary` | `#F6B3CC` | Approved accent anchor. Sparse supporting surfaces. |
 | `--color-action` | `#56358C` | Filled actions with white labels. |
 | `--color-action-hover` | `#462A75` | Action hover. |
@@ -33,9 +33,9 @@ Product-led, calm, precise. The shopper compares brand, pack size, price and ava
 
 | Pair | Ratio | Verdict |
 | --- | --- | --- |
-| White on `#A680FF` | 2.94:1 | **Fails** - never used for text |
+| White on `#DCCFFF` | 1.32:1 | **Fails** - never used for text or a glyph |
 | White on `#F6B3CC` | 1.72:1 | **Fails** - decorative only |
-| Ink on `#A680FF` | 5.76:1 | Passes AA |
+| Ink on `#DCCFFF` | 13.11:1 | Passes AAA |
 | White on `#56358C` | 9.20:1 | Passes AAA - all filled actions |
 | Muted on white | 5.89:1 | Passes AA |
 | Ink on `#F3EDFF` | 14.2:1 | Passes AAA |
@@ -48,7 +48,7 @@ Product-led, calm, precise. The shopper compares brand, pack size, price and ava
 - Scale: 12 / 13 / 15 / 16 / 18 / 22 / 28 / 34 px. Body 15px, 1.6 leading.
 - No fixed-height text containers, so Bengali conjuncts and long product names never clip.
 
-**One interface language.** There is no language toggle, no locale store and no second dictionary (Phase 28). The header's action cluster holds account and cart only; the drawer lists search, categories and the account routes. A stored `queenbees.locale.v1` value from an older visit is inert: nothing reads it, and `verify:storefront` asserts that writing it changes nothing.
+**One interface language.** There is no language toggle, no locale store and no second dictionary (Phase 28). The header's action cluster holds the search, account and cart controls on a desktop, and the cart alone on a phone, where the modal drawer (ADR 0026) lists home, the catalog, the category index, every department, brands, cart and account. A stored `queenbees.locale.v1` value from an older visit is inert: nothing reads it, and `verify:storefront` asserts that writing it changes nothing.
 
 ## Price hierarchy
 
@@ -85,7 +85,7 @@ The identity is a **crown of three petals** over a **body band** - a queen bee a
 | Element | Reading | Colour |
 | --- | --- | --- |
 | Centre petal, tallest and forward | The queen, and the regal peak of a crown | `--color-action` `#56358C` |
-| Two side petals, symmetric and lower | Crown points; also the mirrored wings of a bee in flight | `--brand-primary` `#A680FF` |
+| Two side petals, symmetric and lower | Crown points; also the mirrored wings of a bee in flight | `--brand-primary` `#DCCFFF` |
 | Rounded band beneath | The striped abdomen of a bee; a cosmetic swatch | `--brand-secondary` `#F6B3CC` |
 
 Deliberate exclusions: no clip-art bee, no stripes-as-literal-lines, no gradients, no facial features, no drop shadow. Three shapes carry the whole mark, so it stays legible when reduced.
@@ -96,7 +96,8 @@ The three shapes map one-to-one onto the approved palette, which is what keeps t
 
 | Asset | Path | Use |
 | --- | --- | --- |
-| Horizontal lockup | `public/brand/logo.svg` | Header. 173x40 viewBox, symbol plus wordmark. |
+| Horizontal lockup | `public/brand/logo.svg` | Retired from the header on 2026-11-05; the file remains for reference. |
+| Circular brand mark | `public/brand/logo-round-96.jpeg`, `logo-round-192.jpeg` | Header, 44-48px. Generated from the owner's `logo.jpeg` by `npm run assets:brand`; drawn in a circular box with `object-fit: cover`, so any square upload is centre-cropped to the circle. |
 | Standalone symbol | `public/brand/logo-mark.svg` | Compact placements. 40x40. |
 | Favicon | `public/brand/favicon.svg` | Browser tab. 32x32, reversed symbol on a `#56358C` tile. |
 
@@ -121,12 +122,106 @@ Outlined text is not real text, so the SVG carries `role="img"` and an `aria-lab
 
 - **AnnouncementBar** - one left-aligned line above the header, carrying the owner's saved line only. No background and no second rule: the text starts on the same gutter as the brand, so it reads as the shop's own news rather than a promotion banner (owner decision, 2026-10-23 - it was a centred tinted strip). Absent entirely when that line is empty or switched off (ADR 0020).
 - **ProductPhoto** - one `<picture>` for all catalog imagery: WebP source, JPEG fallback, explicit dimensions, `sizes` hints, lazy by default and eager for the detail hero.
-- **ProductCard** - brand eyebrow, title, pack, price row and a derived saving. The homepage frame is 5:4; the catalog listing opts into a 4:5 frame (`LISTING_CARD_FRAME`). No rating, urgency claim or invented badge; the listing's discount tag is derived from the two stored prices.
+- **ProductCard** - brand eyebrow, title, pack, price row and a derived saving. **One 4:5 frame everywhere** (owner direction, 2026-11-05): `CARD_FRAME` and `LISTING_CARD_FRAME` are the same measurement, so a product looks the same on the homepage, in a carousel, in a category and in the listing. Homepage cards also carry their own **Add to cart** control (outlined, 40px, disabled and labelled when unavailable). No rating, urgency claim or invented badge; the listing's discount tag is derived from the two stored prices.
 - **Featured row** - the owner's five picks on the standard grid, one product per department. **No carousel**: there is no sixth card hiding off screen, so there are no controls, no horizontal bar and no scroll state to manage (owner decision, 2026-10-23 - it replaced a six-card scrolling shelf).
 - **QuantityStepper** - accessible minus/plus with a numeric input clamped to 1..20.
 - **Header** - sticky on desktop, static on a phone. From 1024px it is one row in reading order: logo, category navigation immediately after it, then search and account at the far end. The links are centred **vertically** - each is a 40px control - which is the correction the owner asked for after seeing a viewport-centred first attempt. The search field is a real 240px input at 1200px and a compact link to the catalog's own search between 1024 and 1199px. Below 1024px it holds brand, a full-width search field and the two icon controls.
 - **StorefrontTabBar** - the phone's only navigation: fixed to the bottom, five destinations (Home, Shop, Categories, Cart, Account), 64px targets, cart count on its tab, `aria-current` on the current section, and `env(safe-area-inset-bottom)` reserved. The shell reserves its height so it never covers the footer.
 - **AuthShell** - the two-panel frame shared by sign in, registration and the one-time-code page: a lavender intro panel and a white form panel, stacked on a phone with the intro reduced to the brand and one sentence.
+
+## Homepage revision (2026-11-02, owner direction)
+
+The homepage is one canvas, one card size and one carousel. This section supersedes the homepage parts of
+the earlier "storefront discovery" notes where they disagree.
+
+**One surface, no tinted fields.** The hero, the offer row and the brand row had pastel lavender and pink
+backgrounds. The owner's feedback: it read as a sequence of promotions rather than as one shop, so **no
+homepage section carries a background**. Space and type separate the rows. The hero now has a composition
+of its own (the owner's image carousel, below) and sits on the page canvas like every other section.
+
+**The hero is an image carousel (Phase 51).** One 16:9 banner at a time, full width of the page container,
+with the owner's stored order as the sequence. It is a CSS scroll-snap track like the other shelves, so a
+phone swipes it without custom gesture code and the keyboard arrows work when the track has focus. From
+720px two 44px circular arrows overlay the banner; on a phone they stay hidden and the dots are the visible
+control. The dots sit on the image's lower-left corner as in the owner's reference, are 32px targets with an
+8px mark, and state aria-current. There is no autoplay, no timer and no traffic-light animation; a single
+banner renders no dots. The h1 remains in the section for the document outline but is visually hidden,
+because the banner's message is inside the owner's artwork.
+
+**No section explains itself.** Every heading used to carry a sentence - "Priced below their published
+comparison price", "Picked from the catalog by the shop", "The most recently added products in the
+catalog". They are gone from the homepage: a heading, and when there is more, exactly one way in. The
+dictionary keys were removed with them rather than left as dead copy.
+
+**One card size everywhere: the featured row's.** The featured row is a static `ProductGrid` (five cards
+from 1200px, three from 720px, two on a phone) and its card is the homepage's measurement. The carousel
+reproduces that track exactly (`Carousel`'s `size="product"` is `calc((100% - 4 * gap) / 5)` from 1200px,
+`(100% - 2 * gap) / 3` from 720px and `(100% - gap) / 2` below), so a card inside a shelf and a card inside
+the grid are the same width at every breakpoint.
+
+**Every row that holds more than a screenful is a carousel** - one component, `src/components/Carousel.tsx`:
+
+| section | cards | phone | desktop |
+| --- | --- | --- | --- |
+| On offer | 10 | 5 pages of 2 | 2 pages of 5 |
+| Shop by category | 10 | 4 circles a page | 8 + a page |
+| Shop by brand | 10 | 2 cards a page | 4 cards a page |
+| Recently added | 10 | 5 pages of 2 | 2 pages of 5 |
+
+It is a CSS scroll-snap track, not a JavaScript slider: the browser supplies momentum, keyboard arrows and
+focus order, and the previous/next buttons only call `scrollBy`. Dots are buttons and state `aria-current`;
+they appear whenever there is more than one page, at every width. The track **measures its own geometry**
+(slide width and `column-gap`) to decide the page count, so a caller never declares a page size.
+
+**Featured and "More to explore" are the two sections that are not carousels**, and on a phone they publish
+an **even** number of cards so the two-column grid fills its rows: featured draws four of five
+(`li:nth-child(n + 5)` is hidden below 720px) and "More to explore" draws eight of ten (hides `n + 9`).
+Nothing is padded, repeated or re-ordered to make the count: the hidden cards are shown from 720px, where
+the grid holds three and five columns.
+
+**The category circle's hover is drawn inside the circle.** The previous version ringed the hovered tile
+with a `box-shadow` at a 2px offset and lifted it 2px; a scroll container clips on the cross axis, so the
+ring was cut off at the top and bottom - the defect the owner photographed. The treatment is now a border
+colour on the circle's own box, a photograph zoom clipped by the circle, and an **inset** focus outline. No
+homepage carousel moves or shadows a slide outside its own box, and every track carries 4px of vertical
+padding so a focus ring has room.
+
+**The brand row is a card per brand** (owner reference: Ghorer Bazar's "Our Brands", anatomy only, not
+styling): the mark centred on a white card, the brand's name beneath it and its product count under that,
+four across on a desktop. The brand's own soft tint stays as a rounded logo chip inside the card, and the
+name is always drawn - a brand with no logo shows its initials, and the name is what says whose mark it is.
+
+**The footer is short (owner feedback: "very lengthy").** The department list is gone - five links into
+categories the header, the tab bar and the index already reach - leaving the shop's own line, two groups of
+three links (Shop / Account) and the year. On a phone the two groups sit side by side under the brand
+block, so the whole footer is four short rows instead of two stacked columns of links.
+
+**Brands are their own destination (owner decision).** `/brands` already existed; what changed is that it
+is now a first-class route rather than a block inside `/categories`: it is the last item of the desktop
+header navigation, the fourth tab of the phone bar (after Categories), and a link in the footer. The brand
+teaser was **removed** from `/categories`, which now answers one question - which departments does the shop
+hold - and still links to the brand index.
+
+**The phone tab bar carries six destinations**: Home, Shop, Category, Brands, Cart, Account. Six tabs on a
+360px screen leave ~60px each, so the category tab's label is the short word (`nav.tabCategories` =
+"Category") rather than a truncated "Categorie…"; the measured label widths are checked at 360 and 390px and
+none clips.
+
+**The bar wears the brand (owner direction, 2026-11-05).** It is `--brand-primary` (#dccfff) rather than a
+white strip, with labels and icons in `--color-ink` - 6.1:1 on that lavender. The current destination is a
+**white capsule behind the icon** (40x30, `border-radius: 999px`) plus a 700-weight label; ink on white is
+15:1, so the state is louder than the surface. The cart count is `--brand-secondary` pink with ink on it
+(11:1). **White text on the lavender is never used** (2.9:1).
+
+The bar's craft rules, after the 2026-11-05 refinement:
+
+- The surface lifts ~12% at its top edge and carries a 1px light inset highlight; **no dark hairline** under
+  the content - it drew a second line across every screen.
+- **The active state never fills the tab cell.** A cell is ~65x64, so a full-cell pill is nearly square and
+  reads as a bubble pressed against the label. The capsule hugs the 22px icon and the label keeps the cell's
+  full width.
+- Tabs answer a press (`scale(0.94)`, 120ms) and hover is gated behind `(hover: hover) and (pointer: fine)`,
+  because on a touch screen a hover wash fires on tap and looks like a stuck selection.
 
 ## Catalog listing (2026-10-30)
 
@@ -137,7 +232,10 @@ card can never disagree.
 
 **Page anatomy.** Breadcrumb, title, optional category blurb, result count and page summary, then a
 single rule. The body is a two-column grid: a **252px** rail from 1024px, with a **28px** gap that
-opens to **32px** at 1280px. The rail is **static and never scrolls inside itself**: the page is the
+opens to **32px** at 1280px. The rail is **sticky** (owner direction, 2026-11-05) and capped to the
+viewport: with its secondary sections collapsed it is far shorter than the screen and nothing scrolls
+inside it; when every section is open on a short window the rail scrolls itself rather than losing its
+last rows. The page remains the primary scroll container. The rail was previously static: the page was the
 only scroll container, so there is one scrollbar and no nested panel to fight. It is a bordered white
 panel with section dividers, not a strip of pills. Below 1024px the rail does not exist; the Filters
 button opens a modal drawer.
@@ -198,8 +296,16 @@ resets the page to 1 and {`router.push`} is called with `scroll: false` so the s
 their place. The selected controls update optimistically inside the navigation transition; the result
 set, heading and counts stay the server's until it answers, and the grid is dimmed while pending.
 
-**Cards.** The listing passes `LISTING_CARD_FRAME` (4:5) to `ProductCard`; the homepage row keeps
-`CARD_FRAME` (5:4). Both use the same component: brand eyebrow, two-line title, pack, current price,
+**Card price and saving (2026-11-05).** The current price is set in `--color-action` - the shop's
+accessible purple, 7.4:1 on white, the same ink every filled action uses - rather than the literal
+`--brand-primary` (#dccfff), a light field that carries ink rather than white.
+The saving ("Save Tk 100 · -8%") is a quiet chip on `--color-accent-soft` (the secondary anchor's soft
+tint) with a pill radius, ink text at ~15:1, so the shape carries the emphasis and the price stays the
+loudest fact on the card.
+
+**Cards.** The listing and the homepage both use `ProductCard` at the same **4:5** frame (2026-11-05);
+`LISTING_CARD_FRAME` and `CARD_FRAME` are one value so the two surfaces cannot drift apart again: brand
+eyebrow, two-line title, pack, current price,
 struck comparison only when the derived saving is genuine, a "Save ..." line and an out-of-stock
 label. The listing adds a derived `-N%` tag over the photograph; it is `aria-hidden` because the
 saving line states the same fact as text. No rating, urgency claim or invented badge is added.
@@ -600,8 +706,9 @@ at 390, 768 and 1440 and reading geometry, not by eye alone.
   a brand, a long imported name or a pack size. The price block is **no longer bottom-anchored**: with
   `margin-top: auto` a short card opened a ~90px gap between its title and its price while its neighbour had
   none. Optional saving and availability lines follow naturally; the grid's stretch supplies the equal height.
-- **The hero collage is one row with one top and one bottom edge.** The 32px/12px stagger against 284px
-  photographs read as a failed alignment rather than a composition.
+- **The hero carousel keeps one frame and one edge.** Every banner is the same 16:9 box, so the track has
+  one top and one bottom edge and a slide cannot change the page's height as it advances. The old
+  32px/12px collage stagger is gone with the collage.
 - **The PDP quantity stepper and Add to cart are both 46px.** They were 42px and 46px, top-aligned, which is
   the kind of 4px mismatch that makes a purchase block feel unfinished.
 - **The COD card's money column fills the card on a phone.** `justify-items: start` left a 192px totals block
@@ -799,15 +906,46 @@ active), pause (`is_active = false`), resume (`true`), remove (dialog naming "Ve
 to a real Telegram account from a freshly registered id (no owner chat id in this environment), and real
 iOS/Android touch.
 
+## The phone header, the floating cart and the support rail (2026-11-05)
+
+**Three zones on a phone, and the logo is genuinely centred.** Below 1024px the header is a three-column
+grid - the menu control, the brand, the cart - with equal outer tracks, so the logo sits on the screen's
+centre line rather than in whatever space the side controls leave. The search row stays beneath it. The
+menu opens a **modal drawer**: 44px rows for home, the catalog, the category index, each department, brands,
+cart and account; focus moves in, Tab is trapped, Escape closes it, the page behind is locked, focus returns
+to the trigger, and it closes on navigation. The bottom tab bar is unchanged and remains the primary
+navigation. From 1024px the desktop bar is exactly what it was, and neither the drawer nor the tab bar is
+rendered.
+
+**A floating cart box** sits at the right edge, vertically centred at every width - omitted on `/cart` and `/checkout`, where
+the page's own summary repeats its two facts and the fixed box covered them - filled with `--brand-primary-deep`
+(#8155ef) and carrying white marks (4.6:1). The lighter `--brand-primary` is not used behind white: at
+2.9:1 a white icon or label would not be visible, so the same hue one step down carries the fill and the
+lavender stays a surface for ink. It states the item count always and the
+subtotal when every line can be priced; the prices come from `GET /api/cart/prices` (ids from the `qb_cart`
+cookie, unit prices from the database) and are multiplied by the browser's quantities for display only -
+the order transaction recomputes every line.
+
+**A support rail** sits in the bottom-left corner, clear of the tab bar, with a Facebook and a WhatsApp button, drawn as our own outlined
+marks in white on that same `--brand-primary-deep` fill (never the providers' brand colours, never white
+on the lighter lavender). Their addresses are the owner's `store_setting`
+values, edited at Settings -> Support links: a blank field renders **no button**, and both are validated as
+absolute `https` URLs at save time. They open in a new tab with `rel="noopener noreferrer"`.
+
+**Homepage order and headings.** Hero, Shop By Category, Shop By Brand, On Offer, Most Selling, Recently
+Added, More To Explore. Every section heading is centred and title-cased, with at most one link into its
+full listing beneath it. **Most Selling is derived from real `order_item` units** - cancelled orders
+excluded, recency given priority - and it states its gap in words rather than inventing a ranking when the
+shop has sold nothing.
+
 ## Storefront discovery (2026-11-02)
 
 The homepage, category index and product page were rebuilt around **pictures, at phone size first**.
 
-**Homepage order.** Hero, offers, categories, featured, brands, new arrivals, browse. The first screen
-carries the headline, the two actions and a **spotlight row** - the two newest products as 72px
-photographs with their names and prices - so a purchasable product is visible before any scrolling. From
-1024px the hero becomes the copy-and-three-photographs composition; the spotlight is hidden rather than
-shrunk, because the collage does its job better there.
+**Homepage order.** Hero (image carousel), offers, categories, featured, brands, new arrivals, browse.
+The first screen carries the owner's banner carousel (Phase 51, above), so the shop's own artwork is what a
+shopper sees first. The former copy-and-three-photographs composition and its phone spotlight row were
+removed with it: the hero no longer derives from product recency, and the carousel makes no arrival claim.
 
 **The offer shelf** is a CSS scroll-snap track: 62% card width on a phone (the next card is visibly
 cut, which is the affordance), 44% at 480px, 30% at 720px and a quarter of the track from 1024px, where
@@ -818,8 +956,15 @@ previous/next controls and slide dots appear. No autoplay, no timer, no JS scrol
 wrap from 720px. Seven columns because the catalog holds 14 departments: 7+7 is two even rows, where
 `auto-fill` fitted nine and left five stranded.
 
-**Brand rail.** Five columns from 720px, capped at a **132px tile**. A brand mark is the subject of the
-tile, not its background: at 260px the padding became the picture.
+**Brand rail.** The homepage draws brands in the **same circle** as the categories above them
+(owner direction, 2026-11-05): one round tile per brand, the mark inset inside it, the name beneath and
+the product count under the name, in the shared `Carousel` (`size="circle"`). The circle frames a logo
+rather than cropping one - a mark is rendered with `object-fit: contain` on the circle's own white
+surface, because a favicon is drawn to the edges of its square and a circular crop would cut a wordmark
+in half. A brand with no logo draws its initials in the circle. The square-card rail this replaced is
+gone rather than kept beside it, so the page has one brand presentation. The brand **index** keeps its
+circles, and since 2026-11-05 the **category index draws the same circle**, with the photograph filling
+it (`object-fit: cover`, centre crop) instead of sitting inside a square tile.
 
 **Category index.** Square photographs, 2 across on a phone, 3 at 480px, 4 at 720px, 5 at 1024px. Each
 tile shows the photograph, the name, a one-line label and the product count as a small chip on the
@@ -841,3 +986,54 @@ tiles are generated at the same two widths as product photography (600 and 1050)
 names it in `<title>` and the icon is at least 96px; a brand that cannot prove itself keeps
 `logo_key = null` and the tile draws its initials. A wrong mark on a right name is worse than no mark.
 
+**The owner can replace a brand mark.** `/admin/catalog/brands` lists the brands with the logo each one
+shows, and `/admin/catalog/brands/[brandId]` associates a different image from the shop's own asset
+inventory or removes it - the same contract as the category photograph, with a `returnTo` allowlisted
+to the editor's own shape and the refusal returned to the editor that produced it. The write route is
+`/api/admin/catalog/brand-image` (`choose` | `clear`), gated on `catalog.write` and audited as
+`catalog.brand_image_updated`.
+
+
+## Visual refinement — 2026-11-05
+
+A craft pass over both surfaces, driven by an owner review of the admin's figures and the phone
+chrome. No component, route, permission or business rule changed; the token layer and the presentation
+components did.
+
+- **A display face.** Bricolage Grotesque (self-hosted, `public/fonts`, 400-700) joins Inter. It is
+  applied to `h1`-`h4` and to money figures (`.kpiValue`, `.statValue`, `.donutValue`, the storefront
+  price). Inter stays the text face, and product/customer data stays in Inter/Noto so Bengali still
+  falls through correctly.
+- **Elevation.** `--shadow-sm`/`--shadow-md` were deepened and a `--shadow-lg` added; panels, KPI
+  tiles and the active nav item now use them. The old panels separated from the canvas by a 1.31:1
+  hairline alone.
+- **Shape.** `--radius-sm|md|lg` moved 4/8/12 -> 6/10/14.
+- **Tertiary text.** `--color-ink-subtle` moved `#857e8d` (3.91:1) -> `#79718a` (4.63:1), because it
+  is used at 12px for KPI notes, chart axes, legend shares and table hints.
+- **Charts.** Distinct categorical hues (`--chart-1`..`--chart-8`) replace the five semantic tones, so
+  the order-status ring can no longer render three statuses in one purple. Money ticks are 1-2-2.5-5 x
+  10^n instead of thirds of a ceiling; the plot height is fluid; the area is a gradient; points carry
+  dots; a pointer gets a crosshair and a value tooltip; the x labels sit under their points; and an
+  empty plot states the gap on a ruled baseline instead of inside a dashed placeholder box. Markers
+  and the tooltip are HTML, because the plot uses `preserveAspectRatio="none"`.
+- **Buttons, pills, tables, empty states.** Primary and destructive buttons carry a contact shadow and
+  an inner highlight; the secondary outline rests on `--color-border` (hover to strong) instead of
+  being permanently darker than its panel; status pills are capsules; table headers are a stronger
+  band; empty-state icons are neutral rather than success green.
+- **Phone tab bar.** The lavender band, gradient lift, inset highlight and white icon capsule were
+  removed. The bar is the header's surface (white, one hairline, one soft shadow); the current
+  destination is a pale lavender capsule behind its icon with ink text; the cart count is action
+  purple with white. Six destinations, 64px, unchanged.
+- **Floating chrome.** The cart box is centred on the right edge (owner direction, 2026-11-05) and the support rail sits bottom-left above the tab bar (it used to sit at the
+  vertical centre, over the merchandise) and is hidden from 1024px, where the header cart replaces it.
+  The support rail renders **only on the homepage**, bottom-left on a phone, inline below the browse
+  row from 1024px - it used to follow every route and cover the hero on desktop.
+- **Storefront card.** Hover lifts with `--shadow-md` and tints toward action ink; the `#A680FF`
+  hairline (2.9:1) is gone. The price uses the display face.
+
+Verified on a served development build at 390px and 1440px: the homepage, listing, brands and cart
+render with no horizontal overflow, the support rail is absent everywhere but `/`, the admin
+dashboard and analytics show the new figures, and a throwaway chart page exercised the data states
+(30 points, hover tooltip, eight-slice ring) before it was removed. `typecheck`, `lint` (0 errors),
+`check:i18n` (1452 keys) and `build` pass. Real iOS Safari, Android Chrome and screen readers remain
+unverified.

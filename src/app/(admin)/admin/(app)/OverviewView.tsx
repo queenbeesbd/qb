@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useTranslation } from '@/i18n/useTranslation';
 import { INTL_LOCALE } from '@/i18n/config';
 import { statusLabel } from '@/features/account/order-labels';
-import { AreaChart, DonutChart, type ChartTone } from '../_ui/charts';
+import { AreaChart, DonutChart, Sparkline, type ChartTone } from '../_ui/charts';
 import { AdminIcon } from '../_ui/icons';
 import { CodOrderCard, type CodOrderRow } from '../_ui/CodOrderCard';
 import { PageHeader } from '../_ui/PageHeader';
@@ -62,14 +62,14 @@ type DashboardAnalytics = {
 };
 
 const STATUS_TONES: Record<string, ChartTone> = {
-  pending: 'warning',
-  confirmed: 'action',
-  processing: 'action',
-  shipped: 'action',
-  delivered: 'success',
-  completed: 'success',
-  cancelled: 'danger',
-  returned: 'neutral',
+  pending: 'amber',
+  confirmed: 'blue',
+  processing: 'teal',
+  shipped: 'lavender',
+  delivered: 'green',
+  completed: 'violet',
+  cancelled: 'rose',
+  returned: 'slate',
 };
 
 const PILL_TONES: Record<string, 'warning' | 'info' | 'success' | 'danger'> = {
@@ -263,6 +263,7 @@ export function OverviewView({
             <span className={styles.kpiNote}>
               {t('admin.overview.kpiRevenueNote', { count: analytics.summary.completedOrders })}
             </span>
+            <Sparkline points={analytics.series.map((point) => point.revenueMinor)} />
           </div>
           <div className={styles.kpi}>
             <span className={styles.kpiLabel}>{t('admin.overview.kpiOrders')}</span>
@@ -279,7 +280,7 @@ export function OverviewView({
             <span className={styles.kpiValue}>{analytics.summary.customersServed}</span>
             <span className={styles.kpiNote}>{t('admin.overview.kpiCustomersNote')}</span>
           </div>
-          <div className={styles.kpi}>
+          <div className={pendingCount > 0 ? `${styles.kpi} ${styles.kpiHot}` : styles.kpi}>
             <span className={styles.kpiLabel}>{t('admin.overview.kpiWaiting')}</span>
             <span className={styles.kpiValue}>{pendingCount}</span>
             <span className={styles.kpiNote}>
@@ -336,7 +337,7 @@ export function OverviewView({
                 slices={(analytics.statuses ?? []).map((slice) => ({
                   label: t(statusLabel(slice.status)),
                   value: slice.count,
-                  tone: STATUS_TONES[slice.status] ?? 'neutral',
+                  tone: STATUS_TONES[slice.status] ?? 'slate',
                 }))}
               />
             )}

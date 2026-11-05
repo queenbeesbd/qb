@@ -1,0 +1,72 @@
+/* ---------------------------------------------------------------------------
+ * Mobile product gallery: a full-width snap carousel with dot indicators.
+ * ------------------------------------------------------------------------- */
+
+.wrapper {
+  display: grid;
+  gap: var(--space-2);
+  /* The strip bleeds to the screen edges; the page's gutter is restored inside each frame. */
+  margin-inline: calc(-1 * var(--gutter));
+}
+
+.strip {
+  display: flex;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+  contain: layout paint;
+}
+
+.strip::-webkit-scrollbar {
+  display: none;
+}
+
+.frame {
+  flex: 0 0 100%;
+  scroll-snap-align: center;
+  margin: 0;
+  padding: 0 var(--gutter);
+  min-width: 0;
+}
+
+.frame img,
+.frame picture {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+}
+
+.dots {
+  display: flex;
+  justify-content: center;
+  gap: var(--space-2);
+  padding-bottom: var(--space-1);
+}
+
+.dot {
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: var(--color-border-strong);
+  cursor: pointer;
+  /* The visible dot is a small inner circle; the 24px box keeps the touch target. */
+  background-clip: content-box;
+  padding: 7px;
+}
+
+.dotActive {
+  background-color: var(--color-action);
+}
+
+.dot:focus-visible {
+  outline: 2px solid var(--color-action);
+  outline-offset: 2px;
+}

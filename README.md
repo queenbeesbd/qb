@@ -56,7 +56,7 @@ Local PostgreSQL is a disposable cluster outside the repository (`./.dev-pg`), s
 npm install
 npm run dev:db                 # cluster on 127.0.0.1:55432, matching .env.local
 
-npm run db:migrate             # 12 reviewed migrations, 46 tables
+npm run db:migrate             # 14 reviewed migrations, 47 tables
 npm run db:seed                # permission catalogue + owner role
 npm run db:seed:catalog        # optional: the 22-product fixture seed
 
@@ -128,7 +128,7 @@ the accessor contract in `src/server/catalog/storefront.ts`, not on SQL.
 
 ## Data
 
-46 tables in 12 reviewed migrations, with append-only `order_event`, `order_item`, `audit_event` and
+47 tables in 14 reviewed migrations, with append-only `order_event`, `order_item`, `audit_event` and
 `inventory_movement` enforced twice (revoked grants and `BEFORE UPDATE OR DELETE` triggers). The state
 machines are designed in [data model](docs/data-model.md) and implemented in `src/db/schema/`.
 

@@ -2,6 +2,11 @@ import type { Metadata } from 'next';
 import { HomeView } from '@/features/catalog/HomeSections';
 import { selectHomepage } from '@/features/catalog/home-selection';
 import { getStorefrontCatalog } from '@/server/catalog/storefront';
+import { withTransaction } from '@/db/client';
+import { listBestSellingProductIds } from '@/server/orders/best-sellers';
+import { isCampaignRenderable, loadCampaign } from '@/server/settings/campaign';
+import { listHeroImages } from '@/server/settings/hero';
+import { loadSupportLinks } from '@/server/settings/support';
 
 export const metadata: Metadata = {
   title: 'QueenBee’s — Cosmetics storefront',
@@ -18,24 +23,51 @@ export const metadata: Metadata = {
  */
 export default async function HomePage() {
   const catalog = await getStorefrontCatalog();
+  /**
+   * The campaign band's content is the owner's, read from `store_setting` alongside the
+   * announcement the layout loads. Nothing saved and switched on means no band: the section is
+   * absent, never a placeholder.
+   *
+   * The best-seller ranking is read here, in the same transaction, from the shop's own order lines.
+   * It is a fact about traded units, so it is never derived from a curation or from a client value.
+   */
+  const [campaign, heroImages, bestSellerIds, support] = await withTransaction(async (tx) => {
+    const saved = await loadCampaign(tx);
+    const hero = await listHeroImages(tx);
+    const sold = await listBestSellingProductIds(tx, 10);
+    const links = await loadSupportLinks(tx);
+    return [saved, hero, sold, links] as const;
+  });
+
   const selection = selectHomepage({
     products: catalog.products,
     categories: catalog.categories,
     brands: catalog.brands,
     featuredIds: catalog.featuredIds,
     collectionIds: catalog.collectionIds,
+    bestSellerIds,
   });
 
   return (
     <HomeView
       departments={selection.departments}
-      heroProducts={selection.hero}
-      featured={selection.featured}
+      heroImages={heroImages.map((image) => ({
+        id: image.id,
+        imageKey: image.imageKey,
+        altText: image.altText,
+      }))}
       deals={selection.deals}
+      bestSellers={selection.bestSellers}
       newArrivals={selection.newArrivals}
       browse={selection.browse}
       brands={selection.brands}
       isEmpty={selection.isEmpty}
+      support={support}
+      campaign={
+        isCampaignRenderable(campaign)
+          ? { headline: campaign.headline ?? '', body: campaign.body, link: campaign.link }
+          : null
+      }
     />
   );
 }

@@ -1,0 +1,77 @@
+/* ---------------------------------------------------------------------------
+ * The floating cart box
+ *
+ * Docked to the right edge, vertically centred (owner direction, 2026-11-05): the reference shop
+ * puts its basket halfway down the screen, where a thumb can reach it from either grip, and the
+ * support rail answers on the opposite corner so the two never stack.
+ * ------------------------------------------------------------------------- */
+
+/*
+ * The cart box wears the brand too (owner direction, 2026-11-05): a primary-lavender box with white
+ * marks, matching the support rail beneath it.
+ *
+ * The fill is `--color-action` (#56358c): white on it is 9.2:1, so the count and the subtotal are
+ * readable in sunlight. It is the same ink as every filled control, which means the phone shows two
+ * purples instead of four - the decorative lavender and the action plum.
+ */
+.box {
+  position: fixed;
+  z-index: 44;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  display: grid;
+  justify-items: center;
+  gap: 1px;
+  min-width: 82px;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-action);
+  border-inline-end: 0;
+  border-start-start-radius: var(--radius-md);
+  border-end-start-radius: var(--radius-md);
+  background: var(--color-action);
+  color: #fff;
+  box-shadow: var(--shadow-md);
+  transition: background var(--transition-fast), color var(--transition-fast),
+    border-color var(--transition-fast), transform 120ms var(--ease-out-ui);
+}
+
+.box:hover,
+.box:focus-visible {
+  background: var(--color-action-hover);
+  border-color: var(--color-action-hover);
+  color: #fff;
+}
+
+.box:active {
+  transform: translateY(-50%) scale(0.96);
+}
+
+.icon {
+  display: inline-flex;
+  color: #fff;
+}
+
+.count {
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.3;
+  /* White on the deep brand lavender (4.6:1) - never a faded white, which would drop the count. */
+  color: #fff;
+  white-space: nowrap;
+}
+
+.total {
+  font-size: var(--text-sm);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.3;
+  white-space: nowrap;
+  color: #fff;
+}
+
+/*
+ * Drawn at every width. The header also carries a cart icon, but the box states the count and the
+ * subtotal without opening anything, and the reference the owner pointed at keeps that shortcut on
+ * desktop too.
+ */

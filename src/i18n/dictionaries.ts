@@ -31,7 +31,11 @@ export const dictionary = {
   'nav.menu': 'Menu',
   'nav.closeMenu': 'Close menu',
   'nav.openMenu': 'Open menu',
+  'nav.menuTitle': 'Menu',
   'nav.brands': 'Brands',
+  'nav.offers': 'Offers',
+  'nav.newIn': 'New In',
+  'nav.tabCategories': 'Category',
 
   'search.label': 'Search products',
   'search.placeholder': 'Search products or brands',
@@ -42,34 +46,30 @@ export const dictionary = {
   'search.noResultsBody': 'Try a different word or browse all products.',
 
   'home.heroTitle': 'Skincare and haircare, chosen one product at a time',
-  'home.heroBody':
-    'Every listing states the brand, the pack size and the price, so you can compare before you buy.',
-  'home.heroPrimary': 'Shop all products',
-  'home.heroSecondary': 'Browse categories',
-  'home.categoriesTitle': 'Shop by category',
-  'home.categoriesBody': 'The four busiest departments, each holding one kind of care.',
+  'home.heroCarouselLabel': 'Homepage hero',
+  'home.heroPrevious': 'Previous hero image',
+  'home.heroNext': 'Next hero image',
+  'home.heroSlideLabel': 'Show hero image {index} of {count}',
+  'home.categoriesTitle': 'Shop By Category',
   'home.featuredTitle': 'Featured products',
-  'home.featuredBody': 'Picked from the catalog by the shop.',
-  'home.recentTitle': 'Recently added',
-  'home.recentBody': 'The most recently added products in the catalog.',
-  'home.recentBodyPartial': 'The {count} products most recently added to the catalog.',
-  'home.dealsTitle': 'On offer',
-  'home.dealsBody': 'Priced below their published comparison price.',
+  'home.recentTitle': 'Recently Added',
+  'home.dealsTitle': 'On Offer',
   'home.dealsEmptyTitle': 'No discounted products',
   'home.dealsEmptyBody': 'No verified discount information is available right now.',
-  'home.collectionTitle': 'More to explore',
-  'home.collectionBody': 'The rest of the shop, beyond the rows above.',
+  'home.collectionTitle': 'More To Explore',
   'home.selectionEmptyTitle': 'Nothing to show',
   'home.selectionEmptyBody': 'No products are available for this selection right now.',
   'home.viewAll': 'View all',
   'home.viewMore': 'View more products',
   'home.dealsViewAll': 'All offers',
   'home.browseBy': 'Browse',
-  'home.brandTitle': 'Shop by brand',
-  'home.brandBody': 'The brands this shop carries, with the ones holding the most products first.',
+  'home.brandTitle': 'Shop By Brand',
+  'home.bestSellingTitle': 'Most Selling',
+  'home.bestSellingEmptyTitle': 'Nothing sold yet',
+  'home.bestSellingEmptyBody':
+    'This row ranks products by the units the shop has actually sold. It stays empty until the first order counts.',
   'home.brandsAll': 'All brands',
   'home.newArrivalsTitle': 'New arrivals',
-  'home.newArrivalsBody': 'The most recently added products in the catalog.',
   'home.newArrivalsAll': 'See everything',
   'home.carouselLabel': 'Featured products',
   'home.carouselPrev': 'Previous products',
@@ -142,7 +142,8 @@ export const dictionary = {
   'product.unavailableBody': 'This product can be ordered again once it is back in stock. Browse other products meanwhile.',
   'product.availabilityUnknownBody':
     'The stock state of this product has not been verified, so it cannot be ordered right now.',
-  'product.added': 'Added to cart',
+  'product.added': 'Added',
+  'product.availability.unavailable': 'Unavailable',
   'product.viewCart': 'View cart',
   'product.continueShopping': 'Continue shopping',
   'product.dismissConfirmation': 'Dismiss the confirmation',
@@ -184,6 +185,12 @@ export const dictionary = {
   'cart.total': 'Estimated total',
   'cart.totalNote': 'Excludes delivery — no charge is taken.',
   'cart.lineUnavailable': 'cannot be ordered right now',
+  'support.facebook': 'Open our Facebook page',
+  'support.whatsapp': 'Message us on WhatsApp',
+  'cartBox.label': 'Cart: {count} items',
+  'cartBox.labelWithTotal': 'Cart: {count} items, {total}',
+  'cartBox.count': '{count} Items',
+  'cartBox.countOne': '1 Item',
   'cart.unavailableWarning':
     'Your cart contains a product that cannot be ordered right now. Remove it before placing the order.',
   'cart.checkout': 'Proceed to checkout',
@@ -278,8 +285,6 @@ export const dictionary = {
   'categories.viewProducts': 'Shop {name}',
   'categories.noImage': 'No photo yet',
   'categories.brandTitle': 'Brands',
-  'categories.brandBody':
-    'A brand logo is the mark the brand publishes itself. Brands without one show their initials.',
   'categories.brandIntroTitle': 'Shop by brand',
   'categories.brandIntroBody':
     'Every brand this shop carries, each with the products it holds. New arrivals from a favourite brand are one tap away.',
@@ -295,6 +300,7 @@ export const dictionary = {
   'footer.shop': 'Shop',
   'footer.allProducts': 'All products',
   'footer.support': 'Support',
+  'footer.account': 'Account',
   'footer.about': 'About',
   'footer.contact': 'Contact',
   'footer.tagline': 'A small, owner-run cosmetics shop, selling its own stock to its own customers.',
@@ -310,6 +316,15 @@ export const dictionary = {
 
   'validation.quantityInvalid': 'Enter a number between 1 and {max}.',
 
+  'product.zoomOpen': 'View {name} at full size',
+  'product.zoomLabel': '{name}, full-size photograph',
+  'product.zoomClose': 'Close full-size photograph',
+  'product.zoomHint': 'The photograph at its stored proportions. Press Escape or the × to close.',
+  'product.galleryDotsLabel': 'Product photographs',
+  'product.galleryGoTo': 'Show photograph {index}',
+
+  'home.campaignCta': 'Shop the campaign',
+
   /* ---- Owner admin (Phases 12-13) ---- */
   'admin.title': 'Owner admin',
   'admin.skipToContent': 'Skip to main content',
@@ -323,13 +338,35 @@ export const dictionary = {
   'admin.nav.promo': 'Promo codes',
   'admin.nav.catalog': 'Products',
   'admin.nav.categories': 'Categories',
+  'admin.nav.brands': 'Brands',
   'admin.nav.owners': 'Owner accounts',
   'admin.nav.audit': 'Audit trail',
   'admin.nav.cod': 'COD orders',
   'admin.nav.orders': 'All orders',
   'admin.nav.customers': 'Customers',
   'admin.nav.delivery': 'Delivery charges',
+  'admin.support.title': 'Support links',
+  'admin.support.body':
+    'The Facebook and WhatsApp buttons shown at the right edge of the storefront. Leave a field blank to hide that button.',
+  'admin.support.facebookTitle': 'Facebook',
+  'admin.support.facebookBody':
+    'The shop’s own page. It opens in a new tab, so the address must be the public page URL.',
+  'admin.support.facebookField': 'Facebook page address',
+  'admin.support.whatsappTitle': 'WhatsApp',
+  'admin.support.whatsappBody':
+    'A wa.me link, or any https address that opens a conversation with the shop.',
+  'admin.support.whatsappField': 'WhatsApp link',
+  'admin.support.urlHelp':
+    'A full address starting with https://. Anything else is refused rather than saved, and a blank field removes the button.',
+  'admin.support.save': 'Save support links',
+  'admin.support.notice.saved': 'The support links are saved.',
+  'admin.support.notice.denied': 'Your account does not have permission to change the store settings.',
+  'admin.support.notice.invalid':
+    'That address is not a complete https link, so nothing was saved. Both fields were left as they were.',
+  'admin.nav.support': 'Support links',
+
   'admin.nav.announcement': 'Announcement bar',
+  'admin.nav.hero': 'Homepage hero',
   'admin.nav.integrations': 'Integrations',
   'admin.nav.otherSettings': 'Other settings',
 
@@ -353,6 +390,51 @@ export const dictionary = {
   'admin.settings.other.notice.denied': 'Your account does not have permission for that action.',
 
   'admin.nav.storefront': 'Back to the storefront',
+
+  'admin.hero.title': 'Homepage hero',
+  'admin.hero.body':
+    'The images the homepage carousel shows, in this order. At least one image is required and the carousel holds at most ten.',
+  'admin.hero.editorTitle': 'Carousel images',
+  'admin.hero.count': '{count} of {max} images',
+  'admin.hero.empty': 'The carousel has no images yet. Add one below before the homepage can show it.',
+  'admin.hero.position': 'Position {position}',
+  'admin.hero.moveUp': 'Move “{name}” earlier',
+  'admin.hero.moveDown': 'Move “{name}” later',
+  'admin.hero.remove': 'Remove',
+  'admin.hero.removeTitle': 'Remove this hero image?',
+  'admin.hero.removeBody':
+    'It disappears from the homepage carousel immediately. At least {min} image must stay, and the remaining images close the gap in their order.',
+  'admin.hero.minimum': 'At least {min} image must stay in the carousel, so the last one cannot be removed.',
+  'admin.hero.orderPending': 'The new order is not saved yet.',
+  'admin.hero.saveOrder': 'Save order',
+  'admin.hero.uploadTitle': 'Upload a banner from your computer',
+  'admin.hero.uploadBody':
+    'A 16:9 banner is cropped and resized on the server, then added to the end of the carousel.',
+  'admin.hero.uploadSubmit': 'Upload banner',
+  'admin.hero.addTitle': 'Add an image',
+  'admin.hero.addBody':
+    'Upload a banner from your computer, or add one that is already on the server. A banner is 16:9 and shows behind the homepage’s first screen.',
+  'admin.hero.assetsEmpty':
+    'There are no banners on the server yet. Upload one above, and it appears here for the carousel.',
+  'admin.hero.assetsAllUsed': 'Every image in the library is already in the carousel.',
+  'admin.hero.maximum': 'The carousel already holds its maximum of {max} images. Remove one to add another.',
+  'admin.hero.assetLabel': 'Image',
+  'admin.hero.choose': 'Choose an image',
+  'admin.hero.altLabel': 'Description',
+  'admin.hero.altPlaceholder': 'What the image shows',
+  'admin.hero.altHelp':
+    'Read aloud by screen readers and shown when the image cannot load. State what the banner shows; it is not a slogan.',
+  'admin.hero.add': 'Add to carousel',
+  'admin.hero.saveAlt': 'Save description',
+  'admin.hero.notice.added': 'Hero image added at the end of the carousel.',
+  'admin.hero.notice.updated': 'Hero image description saved.',
+  'admin.hero.notice.removed': 'Hero image removed.',
+  'admin.hero.notice.reordered': 'Carousel order saved.',
+  'admin.hero.notice.denied': 'Your account does not have permission for that action.',
+  'admin.hero.notice.invalid':
+    'That change was refused. A hero image needs a description from the library, the carousel must keep at least one image, and it holds at most ten.',
+  'admin.hero.notice.conflict':
+    'The carousel changed while this page was open, or that image is already in it. Reload and try again.',
 
   'admin.session.signedInAs': 'Signed in as',
   'admin.session.signOut': 'Sign out',
@@ -993,10 +1075,19 @@ export const dictionary = {
   'admin.catalog.mediaAfterCreateTitle': 'Images come after the product exists',
   'admin.catalog.mediaAfterCreateBody':
     'An image belongs to a product row, so this product must be created first. Save it, then attach photographs from the product’s edit screen.',
-  'admin.catalog.mediaEditHint': 'Attach photographs from this store’s library, then order them below.',
+  'admin.catalog.mediaEditHint':
+    'Upload a photograph from your computer, or attach one already on the server, then order them below.',
   'admin.catalog.attachExisting': 'Attach an existing photograph',
+  'admin.upload.file': 'Image from your computer',
+  'admin.upload.help':
+    'JPG, PNG or WebP, up to 4 MB. The shop crops and resizes it for every place the image appears.',
+  'admin.upload.submit': 'Upload image',
+  'admin.catalog.uploadHelp':
+    'The file is cropped and resized on the server; the original stays on your computer.',
+  'admin.catalog.uploadImage': 'Upload a photograph',
+  'admin.catalog.attachedLibrary': 'Or attach one already on the server',
   'admin.catalog.imageKeyHelp':
-    'Only images already generated into this store’s catalog library appear here. Dimensions and file size are read from the file itself.',
+    'Images already stored on the server appear here. Dimensions and file size are read from the file itself.',
   'admin.catalog.imageUnnamed': 'Image {key}',
   'admin.catalog.galleryPosition': 'Position {position}',
   'admin.catalog.saveAlt': 'Save alt text',
@@ -1051,7 +1142,7 @@ export const dictionary = {
   'admin.catalog.brandSubmit': 'Create brand',
   'admin.catalog.imagesTitle': 'Images',
   'admin.catalog.imagesBody':
-    'Only images already in the catalog directory can be attached. Width, height and size are read from the file, so they cannot be typed in.',
+    'Upload a photograph from your computer. The server crops and resizes it, and reads its width, height and size from the bytes.',
   'admin.catalog.noImages': 'This product has no images.',
   'admin.catalog.imageKey': 'Image',
   'admin.catalog.altBn': 'Alt text (Bangla)',
@@ -1108,14 +1199,16 @@ export const dictionary = {
     'The address is the category page; the order decides where the category sits.',
   'admin.categories.sectionImage': 'Category photo',
   'admin.categories.sectionImageBody':
-    'The square picture on the category index and the homepage category rail. Pick one of the shop’s own images; without one, the tile shows the category icon.',
+    'The picture on the category index and the homepage category rail. Upload one from your computer, or choose one already on the server; without one, the tile shows the category icon.',
   'admin.categories.field.image': 'Photo',
   'admin.categories.field.imageHelp':
-    'Upload a JPG, PNG or WebP up to 10 MB. It is cropped to a square and stored at two sizes.',
+    'Upload a JPG, PNG or WebP up to 4 MB. It is cropped to a square and stored at two sizes.',
   'admin.categories.field.tagline': 'One-line label',
   'admin.categories.field.taglineHelp':
     'Optional. Up to 120 characters, shown under the name on the category index.',
   'admin.categories.imageNone': 'No photo chosen',
+  'admin.categories.imageUploadTitle': 'Upload a photograph from your computer',
+  'admin.categories.imageUploadSubmit': 'Upload photograph',
   'admin.categories.imageChoose': 'Choose existing photo',
   'admin.categories.imagePick': 'Pick a photo',
   'admin.categories.imageUpload': 'Upload a photo',
@@ -1123,6 +1216,43 @@ export const dictionary = {
   'admin.categories.imageRemove': 'Remove photo',
   'admin.categories.imageRemoveHint':
     'Removing the photo keeps the category; the tile falls back to its icon.',
+  'admin.brands.title': 'Brands',
+  'admin.brands.body':
+    'Each brand shows one mark on the storefront: on the homepage brand rail and on the brand index.',
+  'admin.brands.listTitle': 'Brand list',
+  'admin.brands.listBody':
+    'A brand with no logo shows its initials rather than a made-up mark. Proportions are preserved, so no logo is cropped.',
+  'admin.brands.searchLabel': 'Search brands',
+  'admin.brands.searchPlaceholder': 'Search by name or slug',
+  'admin.brands.emptyTitle': 'No brands yet',
+  'admin.brands.emptyBody':
+    'Brands are created from the product list, because every product needs one.',
+  'admin.brands.searchEmptyTitle': 'No brand matches that search',
+  'admin.brands.searchEmptyBody': 'Try a shorter search, or clear it to see every brand.',
+  'admin.brands.productCountValue': '{count} products',
+  'admin.brands.noLogo': 'No logo',
+  'admin.brands.editLogo': 'Change logo',
+  'admin.brands.viewLogo': 'View logo',
+  'admin.brands.notice.imageUpdated': 'The brand logo is saved.',
+  'admin.brands.notice.imageRemoved': 'The brand logo is removed. The storefront shows the brand initials.',
+  'admin.brands.notice.imageInvalid':
+    'That image is not one of the complete assets in the shop library. Nothing was saved.',
+  'admin.brands.notice.denied': 'Your account does not have permission to change the catalog.',
+  'admin.brands.notice.conflict': 'That brand no longer exists, so nothing was saved.',
+  'admin.brands.notice.invalid': 'That request was not understood, so nothing was saved.',
+  'admin.brandLogo.body': 'The mark this brand shows on the storefront.',
+  'admin.brandLogo.sectionTitle': 'Brand logo',
+  'admin.brandLogo.sectionBody':
+    'Upload a logo from your computer, or choose one already on the server. A brand with no logo shows its initials.',
+  'admin.brandLogo.pick': 'Or choose a logo already on the server',
+  'admin.brandLogo.choose': 'Save logo for {brand}',
+  'admin.brandLogo.remove': 'Remove logo',
+  'admin.brandLogo.none': 'No logo chosen',
+  'admin.brandLogo.hint':
+    'This list is the shop’s own asset inventory. An upload is cropped to a square and added to it.',
+  'admin.brandLogo.uploadTitle': 'Upload a logo from your computer',
+  'admin.brandLogo.uploadSubmit': 'Upload logo',
+  'admin.brandLogo.back': 'Back to brands',
   'admin.categories.notice.imageUpdated': 'The category photo is updated.',
   'admin.categories.notice.imageRemoved': 'The category photo is removed.',
   'admin.categories.notice.imageInvalid':

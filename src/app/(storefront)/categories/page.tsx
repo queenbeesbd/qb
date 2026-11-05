@@ -16,5 +16,10 @@ export default async function CategoriesPage() {
     counts[product.categorySlug] = (counts[product.categorySlug] ?? 0) + 1;
   }
 
-  return <CategoriesView categories={catalog.categories} counts={counts} brands={catalog.brands} />;
+  /*
+   * Brands are no longer passed: they have their own page (owner decision, 2026-11-02) and this
+   * index answers only the department question. A brand teaser here duplicated /brands and made the
+   * shopper choose a browsing direction before knowing what either held.
+   */
+  return <CategoriesView categories={catalog.categories} counts={counts} />;
 }

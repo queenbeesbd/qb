@@ -1,16 +1,46 @@
+/*
+ * Bricolage Grotesque is the display face: headings, panel titles and money figures.
+ *
+ * Inter is a text face - it is excellent at 13-15px and anonymous at 28px. Pairing the two gives
+ * the interface a hierarchy the single family could not: a title, a figure and a label stop being
+ * the same voice at different sizes. The weight range stays 400-700 (the file is variable to 800
+ * but the product ships nothing heavier than 700, matching the Inter/Noto rule in AGENTS.md).
+ */
+@font-face {
+  font-family: 'Bricolage Grotesque';
+  src: url('/fonts/BricolageGrotesque-400_800.woff2') format('woff2');
+  font-weight: 400 700;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
   /* Brand anchors (approved) */
-  --brand-primary: #a680ff;
+  --brand-primary: #dccfff;
   --brand-secondary: #f6b3cc;
 
   /* Accessible derived palette */
   --color-action: #56358c;
+  /*
+   * The brand lavender, deepened until white passes on it.
+   *
+   * `--brand-primary` (#dccfff) is a light field, so a filled primary control with a white
+   * glyph - the support buttons and the floating cart box - uses this instead: 4.6:1, which is AA for
+   * normal text and comfortable for a 20px icon. It is the same hue one step down, not a second brand
+   * colour.
+   */
+  --brand-primary-deep: #8155ef;
   --color-action-hover: #462a75;
   --color-action-soft: #f3edff;
   --color-accent-soft: #fdeef3;
   --color-ink: #201a29;
   --color-ink-muted: #6a6172;
-  --color-ink-subtle: #857e8d;
+  /*
+   * 4.63:1 on white. The previous value (#857e8d) measured 3.91:1 and was used at 12px for KPI
+   * notes, chart axes, legend shares and table hints - small text that has to be read, not
+   * decoration. It stays one step lighter than --color-ink-muted (5.89:1), so the hierarchy survives.
+   */
+  --color-ink-subtle: #79718a;
   --color-page: #faf8fc;
   --color-surface: #ffffff;
   --color-surface-sunken: #f4f1f8;
@@ -24,8 +54,30 @@
   --color-warning: #755100;
   --color-warning-soft: #fdf3e2;
 
+  /*
+   * Categorical chart ramp.
+   *
+   * Status needs eight distinguishable hues; the semantic tones give five, three of which are
+   * reserved for meaning. These are chart-only: a slice, a series or a legend swatch, never a
+   * button or a status pill. Every entry is >= 3:1 against white, and adjacent entries in the
+   * sequence differ in both hue and lightness so a greyscale print still separates them.
+   */
+  --chart-1: #56358c; /* violet   - in progress */
+  --chart-2: #2f6db5; /* blue     - confirmed */
+  --chart-3: #1f7a5c; /* teal     - processing */
+  --chart-4: #a35f0a; /* amber    - pending */
+  --chart-5: #9b263e; /* rose     - cancelled */
+  --chart-6: #6b6375; /* slate    - returned */
+  --chart-7: #376f4b; /* green    - delivered */
+  --chart-8: #8155ef; /* lavender - shipped */
+
   /* Typography */
   --font-sans: var(--font-latin), system-ui, -apple-system, 'Segoe UI', sans-serif;
+  /*
+   * Headings, panel titles and money figures only. Never customer or product data: a Bengali
+   * product name must fall through to Noto Sans Bengali, and this family has no Bengali coverage.
+   */
+  --font-display: 'Bricolage Grotesque', var(--font-latin), system-ui, sans-serif;
   --font-bengali: var(--font-noto-bengali), var(--font-latin), system-ui, sans-serif;
   --text-xs: 0.75rem;
   --text-sm: 0.8125rem;
@@ -63,14 +115,25 @@
   --space-7: 48px;
   --space-8: 64px;
 
-  /* Shape */
-  --radius-sm: 4px;
-  --radius-md: 8px;
-  --radius-lg: 12px;
+  /*
+   * Shape: 6 / 10 / 14. The previous 4 / 8 / 12 read as a framework default - a 40px control with
+   * an 8px radius is almost square, and every card, input and panel wore the same tight corner. The
+   * step up is small enough to keep the ledger-like admin honest and large enough that surfaces read
+   * as objects rather than rules.
+   */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
   --radius-pill: 999px;
 
-  --shadow-sm: 0 1px 2px rgba(32, 26, 41, 0.06);
-  --shadow-md: 0 6px 18px rgba(32, 26, 41, 0.08);
+  /*
+   * Elevation. The old pair was a 2% and an 8% shadow, and panels used neither, so every surface was
+   * separated by a 1.31:1 hairline alone. These are layered: a tight contact shadow plus a wide,
+   * low-opacity ambient one - the same recipe the reference admin uses.
+   */
+  --shadow-sm: 0 1px 2px rgba(32, 26, 41, 0.07), 0 1px 1px rgba(32, 26, 41, 0.04);
+  --shadow-md: 0 2px 6px -2px rgba(32, 26, 41, 0.08), 0 10px 28px -14px rgba(32, 26, 41, 0.18);
+  --shadow-lg: 0 4px 10px -4px rgba(32, 26, 41, 0.1), 0 24px 56px -24px rgba(32, 26, 41, 0.24);
 
   /*
    * Layout width system. Every piece of page chrome (header, announcement,
@@ -202,9 +265,10 @@ h2,
 h3,
 h4 {
   margin: 0;
+  font-family: var(--font-display);
   font-weight: 600;
   line-height: var(--leading-tight);
-  letter-spacing: -0.01em;
+  letter-spacing: -0.02em;
 }
 
 /**

@@ -68,6 +68,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className={`${inter.variable} ${notoBengali.variable}`}>
       <body>
+        {/* React hoists this to the document head, so the display face is fetched while the CSS parses. */}
+        <link
+          rel="preload"
+          href="/fonts/BricolageGrotesque-400_800.woff2"
+          as="font"
+          type="font/woff2"
+          crossOrigin="anonymous"
+        />
         <Providers>{children}</Providers>
       </body>
     </html>

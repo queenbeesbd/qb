@@ -69,28 +69,45 @@ export function DiscoveryPhoto({
  * The initials are derived from the name the shop stores - never invented - and set on the brand's own
  * tint, so a row of logos and a row of initials still reads as one consistent set of tiles.
  */
+/**
+ * A brand's initials, derived from the stored name and never invented.
+ *
+ * Exported because two surfaces now draw the no-logo fallback in their own frame - the square tile on
+ * the brand index and the circle on the homepage rail - and two copies of this rule would eventually
+ * disagree about what a three-word brand is called.
+ */
+export function brandInitials(name: string): string {
+  return name
+    .split(/\s+/)
+    .filter((word) => /[a-z0-9]/i.test(word))
+    .slice(0, 2)
+    .map((word) => word[0]?.toUpperCase() ?? '')
+    .join('');
+}
+
 export function BrandMark({
   logoKey,
   name,
   slug,
   sizes,
   priority = false,
+  className,
 }: {
   logoKey: string | null;
   name: string;
   slug: string;
   sizes: string;
   priority?: boolean;
+  /** Extra class on the tile, for contexts that size the mark differently (e.g. a chip). */
+  className?: string;
 }) {
-  const initials = name
-    .split(/\s+/)
-    .filter((word) => /[a-z0-9]/i.test(word))
-    .slice(0, 2)
-    .map((word) => word[0]?.toUpperCase() ?? '')
-    .join('');
+  const initials = brandInitials(name);
 
   return (
-    <span className={styles.brandMark} data-tone={toneFor(slug)}>
+    <span
+      className={`${styles.brandMark} ${className ?? ''}`.trim()}
+      data-tone={toneFor(slug)}
+    >
       <DiscoveryPhoto
         imageKey={logoKey}
         alt=""

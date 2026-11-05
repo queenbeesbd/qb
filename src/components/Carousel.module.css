@@ -1,0 +1,204 @@
+/* ---------------------------------------------------------------------------
+ * The homepage's shared carousel chrome
+ *
+ * Only what is the same everywhere lives here: the snap track, the paged buttons, the dots, and the
+ * three slide widths the homepage uses. A product shelf is the product grid's own track exactly, so
+ * the offer row, the new-arrivals row and the featured grid below them draw the same card at the
+ * same size - the size the owner approved on the featured row.
+ *
+ * Nothing here scales, offsets or shadows its way outside its own box. A previous version ringed
+ * the hovered category with a 2px box-shadow at a 2px offset, and inside a scroll container, which
+ * clips on the cross axis too, the ring was cut off at the top and bottom. Each item's hover is now
+ * drawn inside its own box by its own stylesheet.
+ * ------------------------------------------------------------------------- */
+
+.carousel {
+  display: grid;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.viewport {
+  position: relative;
+  min-width: 0;
+}
+
+.track {
+  display: grid;
+  grid-auto-flow: column;
+  gap: var(--space-3);
+  list-style: none;
+  margin: 0;
+  /*
+   * The negative inline margin and matching padding let the first slide start on the page gutter (so
+   * the shelf lines up with every section above it) while the last slide can still scroll flush to
+   * the opposite edge. The content box is then exactly the page container's width, which is what
+   * makes `calc((100% - 4 * gap) / 5)` resolve to the width the product grid draws.
+   */
+  margin-inline: calc(-1 * var(--gutter));
+  padding-inline: var(--gutter);
+  /*
+   * Vertical breathing room, not decoration: the track clips on the cross axis too, so a focused
+   * slide's outline needs the room or it is cut in half.
+   */
+  padding-block: 4px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x mandatory;
+  scroll-padding-inline: var(--gutter);
+  contain: layout paint;
+  scrollbar-width: none;
+}
+
+.track::-webkit-scrollbar {
+  display: none;
+}
+
+.slide {
+  min-width: 0;
+  scroll-snap-align: start;
+}
+
+/* ---------------------------------------------------------------------------
+ * Slide widths
+ * ------------------------------------------------------------------------- */
+
+/* The product grid's own scale: two on a phone, three from 720px, five from 1200px. */
+.track[data-size='product'] {
+  grid-auto-columns: calc((100% - var(--space-3)) / 2);
+}
+
+.track[data-size='brand'] {
+  grid-auto-columns: calc((100% - var(--space-3)) / 2);
+}
+
+.track[data-size='circle'] {
+  grid-auto-columns: calc((100% - 3 * var(--space-3)) / 4);
+}
+
+/* ---------------------------------------------------------------------------
+ * Controls
+ * ------------------------------------------------------------------------- */
+
+/* A desktop affordance: on a phone the swipe is the control. */
+.control {
+  display: none;
+  position: absolute;
+  top: 40%;
+  z-index: 2;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface);
+  color: var(--color-ink);
+  box-shadow: var(--shadow-md);
+  cursor: pointer;
+  place-items: center;
+  transition: background var(--transition-fast), color var(--transition-fast),
+    border-color var(--transition-fast);
+}
+
+.control:hover {
+  border-color: var(--color-action);
+  color: var(--color-action);
+}
+
+.control:active {
+  transform: scale(0.94);
+}
+
+.previous {
+  left: -14px;
+  transform: rotate(180deg);
+}
+
+.next {
+  right: -14px;
+}
+
+.previous:active {
+  transform: rotate(180deg) scale(0.94);
+}
+
+.dots {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+/*
+ * A dot is an 8px mark with a 24px-tall touch target around it: small enough to read as a progress
+ * indicator, large enough to press.
+ */
+.dot {
+  width: 8px;
+  height: 8px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: var(--color-border-strong);
+  cursor: pointer;
+  position: relative;
+  transition: width var(--transition-base), background var(--transition-base);
+}
+
+.dot::before {
+  content: '';
+  position: absolute;
+  inset: -8px -4px;
+}
+
+.dot[data-active='true'] {
+  width: 22px;
+  background: var(--color-action);
+}
+
+/* ---------------------------------------------------------------------------
+ * Wider screens
+ * ------------------------------------------------------------------------- */
+
+@media (min-width: 720px) {
+  .track {
+    gap: var(--space-4);
+  }
+
+  .track[data-size='product'] {
+    grid-auto-columns: calc((100% - 2 * var(--space-4)) / 3);
+  }
+
+  .track[data-size='brand'] {
+    grid-auto-columns: calc((100% - 2 * var(--space-4)) / 3);
+  }
+
+  .track[data-size='circle'] {
+    grid-auto-columns: 104px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .control {
+    display: grid;
+  }
+
+  /* The featured row's gap, so a carousel card is exactly a grid card. */
+  .track[data-size='product'] {
+    gap: var(--space-5);
+  }
+
+  .track[data-size='brand'] {
+    grid-auto-columns: calc((100% - 3 * var(--space-4)) / 4);
+  }
+
+  .track[data-size='circle'] {
+    grid-auto-columns: 116px;
+  }
+}
+
+@media (min-width: 1200px) {
+  .track[data-size='product'] {
+    grid-auto-columns: calc((100% - 4 * var(--space-5)) / 5);
+  }
+}

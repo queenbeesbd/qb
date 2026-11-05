@@ -1,0 +1,155 @@
+/* ---------------------------------------------------------------------------
+ * Homepage hero carousel
+ *
+ * One 16:9 banner at a time, full width of the page container. The reference's proportions are kept
+ * exactly: the banner is the first screen's picture, not a strip with a caption.
+ *
+ * Native scroll-snap does the work, so the phone swipes and the keyboard scrolls without any custom
+ * gesture code. The dots sit on the image as they do in the reference, on a white surface with a
+ * hairline ring so they stay legible over a pale banner.
+ * ------------------------------------------------------------------------- */
+
+.hero {
+  display: grid;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.viewport {
+  position: relative;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: var(--color-surface-sunken);
+  min-width: 0;
+}
+
+.track {
+  display: flex;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scroll-behavior: smooth;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+}
+
+.track::-webkit-scrollbar {
+  display: none;
+}
+
+.slide {
+  flex: 0 0 100%;
+  min-width: 0;
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
+  aspect-ratio: 16 / 9;
+}
+
+.slide picture,
+.slide img {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.slide img {
+  object-fit: cover;
+}
+
+/*
+ * Paged arrows from 720px. On a phone the banner is swiped and the dots are the visible control; a
+ * pair of 44px circles over a 220px banner would cover the artwork they sit on.
+ */
+.controls {
+  position: absolute;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-3);
+  pointer-events: none;
+}
+
+.control {
+  pointer-events: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 1px solid rgba(20, 16, 28, 0.1);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--color-ink);
+  box-shadow: 0 2px 10px rgba(20, 16, 28, 0.14);
+  transition: background-color var(--transition-fast), opacity var(--transition-fast);
+}
+
+.control:hover:not(:disabled) {
+  background: #fff;
+}
+
+.control:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.previous svg {
+  transform: rotate(180deg);
+}
+
+.dots {
+  position: absolute;
+  bottom: var(--space-1);
+  left: var(--space-2);
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+/* 32px hit area with an 8px mark: thumb-sized without becoming a row of buttons. */
+.dot {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+}
+
+.dot::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.88);
+  box-shadow: 0 0 0 1px rgba(20, 16, 28, 0.22);
+  transition: width 160ms var(--ease-out-ui), background-color 160ms var(--ease-out-ui);
+}
+
+.dot[data-active='true']::before {
+  width: 20px;
+  border-radius: var(--radius-pill);
+  background: #fff;
+}
+
+@media (min-width: 720px) {
+  .controls {
+    display: flex;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .track {
+    scroll-behavior: auto;
+  }
+
+  .dot::before {
+    transition: none;
+  }
+}

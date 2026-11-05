@@ -10,15 +10,12 @@ import type { CatalogItem } from '@/lib/types';
  */
 export const HOMEPAGE_SECTION_SIZE = 5;
 
-/** The "Recently added" selection publishes one complete row of the homepage grid. */
-export const RECENT_LIMIT = HOMEPAGE_SECTION_SIZE;
-
 /**
- * How many product photographs the hero composition shows. Three is the composition's own shape (one
- * lead image and two supporting ones), not a data limit - the selection behind it is the newest products
- * in the catalog.
+ * The "Recently added" selection publishes two desktop rows - the homepage draws it as a carousel
+ * of ten since 2026-11-02, so a shopper can page through what arrived rather than see one row of it.
+ * A shorter catalog simply shows fewer cards; nothing is padded.
  */
-export const HERO_IMAGE_COUNT = 3;
+export const RECENT_LIMIT = 10;
 
 type DatedProduct = CatalogItem & { createdAt: string };
 
@@ -36,8 +33,9 @@ function isDated(product: CatalogItem): product is DatedProduct {
 /**
  * The newest products in the catalog, newest first.
  *
- * This is the one ordering rule behind both recency surfaces - the hero images and the "Recently
- * added" section - so the page cannot publish two different answers to "which products are newest".
+ * This is the one ordering rule behind the "Recently added" section, so every surface that claims
+ * recency answers "which products are newest" the same way. The homepage hero is not one of them: since
+ * Phase 51 it is the owner's image carousel and makes no recency claim.
  *
  * Ordering is decided by `createdAt` - a real stored timestamp - and never by list position, id
  * magnitude alone or a name heuristic. The comparison is applied here rather than trusting the query's
@@ -46,7 +44,7 @@ function isDated(product: CatalogItem): product is DatedProduct {
  * instant, and an unstable order would make "the three newest" change between identical requests.
  *
  * A product whose `createdAt` is `null` cannot participate: that is why a fixture-backed catalog shows
- * fewer than three - or no section at all - rather than three plausible-looking cards.
+ * fewer cards - or no section at all - rather than plausible-looking ones.
  */
 export function selectNewestProducts(
   products: readonly CatalogItem[],
@@ -73,21 +71,4 @@ export function selectRecentlyAdded(
   limit: number = RECENT_LIMIT,
 ): CatalogItem[] {
   return selectNewestProducts(products, limit);
-}
-
-/**
- * The product photographs for the hero composition: the newest products that can actually be shown.
- *
- * The hero renders images only, so a product with no photograph is skipped rather than taking a slot
- * the composition cannot fill - an empty frame in the hero is a broken image, not an honest gap. The
- * ordering is the same one "Recently added" uses, so the two surfaces agree about what is newest.
- */
-export function selectHeroProducts(
-  products: readonly CatalogItem[],
-  limit: number = HERO_IMAGE_COUNT,
-): CatalogItem[] {
-  return selectNewestProducts(
-    products.filter((product) => product.images.length > 0),
-    limit,
-  );
 }
