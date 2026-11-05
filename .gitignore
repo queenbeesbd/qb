@@ -31,3 +31,6 @@ coverage/
 # storefront can render them. A deployment needs the object-storage step, not a commit.
 public/catalog/zq-*
 .vercel
+
+# Design-tool working files (numbers, not application infrastructure)
+.taste-skill/
