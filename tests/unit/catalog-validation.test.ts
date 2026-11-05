@@ -189,7 +189,7 @@ describe('image metadata read from the file', () => {
       /*
        * The fixture photography is 3:4 portrait, which is where IMAGE_ASPECT comes from. Two other
        * families keep their own aspect ratio and are asserted on the invariant that actually holds
-       * for them - a 600-wide JPEG primary and four generated variants, both checked below:
+       * for them - a 600-wide WebP primary and three generated variants, both checked below:
        *
        * - `zq-` photography imported from the owner's previous store (source frames vary);
        * - discovery imagery (`category-`, `brand-logo-`), which is deliberately square.
@@ -198,9 +198,9 @@ describe('image metadata read from the file', () => {
       if (squareDiscoveryImage) assert.equal(asset.height, 600, `${key}: square discovery image`);
       else if (!key.startsWith('zq-')) assert.equal(asset.height, 800, `${key}: height`);
       assert.ok(asset.height > 0, `${key}: height`);
-      assert.equal(asset.contentType, 'image/jpeg');
+      assert.equal(asset.contentType, 'image/webp');
       assert.ok(asset.byteSize > 0);
-      assert.equal(asset.variants.length, 4, `${key}: expected four generated variants`);
+      assert.equal(asset.variants.length, 3, `${key}: expected three generated WebP widths`);
       for (const variant of asset.variants) {
         assert.ok(variant.byteSize > 0, `${key}: variant byte size`);
         assert.ok(variant.storageKey.startsWith('/catalog/'), `${key}: storage key prefix`);

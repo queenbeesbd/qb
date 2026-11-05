@@ -131,20 +131,17 @@ export function HeroCarousel({ images }: { images: readonly HeroSlide[] }) {
             const sources = heroImageSources(image.imageKey);
             return (
               <li className={styles.slide} key={image.id} data-hero-slide={index + 1}>
-                <picture>
-                  <source type="image/webp" srcSet={sources.webpSrcSet} sizes="(max-width: 1440px) 100vw, 1440px" />
-                  <img
-                    src={sources.fallbackSrc}
-                    srcSet={sources.jpgSrcSet}
-                    sizes="(max-width: 1440px) 100vw, 1440px"
-                    alt={image.altText}
-                    width={sources.width}
-                    height={sources.height}
-                    loading={index === 0 ? 'eager' : 'lazy'}
-                    decoding="async"
-                    {...(index === 0 ? { fetchPriority: 'high' as const } : {})}
-                  />
-                </picture>
+                <img
+                  src={sources.fallbackSrc}
+                  srcSet={sources.webpSrcSet}
+                  sizes="(max-width: 1440px) 100vw, 1440px"
+                  alt={image.altText}
+                  width={sources.width}
+                  height={sources.height}
+                  loading={index === 0 ? 'eager' : 'lazy'}
+                  decoding="async"
+                  {...(index === 0 ? { fetchPriority: 'high' as const } : {})}
+                />
               </li>
             );
           })}

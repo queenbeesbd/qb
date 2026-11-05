@@ -73,18 +73,11 @@ for (const product of products) {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(image.retrievedAt)) {
       errors.push(`${label}: image ${image.key} missing retrieval date`);
     }
-    // Every declared width must exist in both formats.
+    // Every declared width must exist as WebP (2026-11-05: one format, three widths).
     for (const width of IMAGE_WIDTHS) {
-      for (const extension of ['webp', 'jpg'] as const) {
-        const file = join(
-          process.cwd(),
-          'public',
-          'catalog',
-          `${image.key}-${width}.${extension}`,
-        );
-        if (!existsSync(file)) {
-          errors.push(`${label}: missing image asset ${image.key}-${width}.${extension}`);
-        }
+      const file = join(process.cwd(), 'public', 'catalog', `${image.key}-${width}.webp`);
+      if (!existsSync(file)) {
+        errors.push(`${label}: missing image asset ${image.key}-${width}.webp`);
       }
     }
   }

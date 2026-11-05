@@ -806,13 +806,13 @@ async function main() {
     await evaluate(client, `window.scrollTo(0, 0)`);
     const imagerySettled = await poll(
       client,
-      `(() => { const imgs = [...document.querySelectorAll('main article picture img')]; return imgs.length === ${facts.pageCards} && imgs.every((i) => i.complete && i.naturalWidth > 0); })()`,
+      `(() => { const imgs = [...document.querySelectorAll('main article img')]; return imgs.length === ${facts.pageCards} && imgs.every((i) => i.complete && i.naturalWidth > 0); })()`,
       20000,
     );
     const imagery = await evaluate(client, `(() => {
-      const imgs = [...document.querySelectorAll('main article picture img')];
+      const imgs = [...document.querySelectorAll('main article img')];
       const loaded = imgs.filter((i) => i.complete && i.naturalWidth > 0);
-      const webp = [...document.querySelectorAll('main article picture source[type="image/webp"]')];
+      const webp = imgs.filter((i) => /\.webp(?:\?|$)/.test(i.currentSrc || i.src));
       const ratios = [...new Set(imgs.map((i) => (i.getAttribute('width') + 'x' + i.getAttribute('height'))))];
       const altTexts = imgs.map((i) => i.getAttribute('alt'));
       return {
@@ -843,7 +843,7 @@ async function main() {
 
     await nav(client, samplePath);
     const detailImg = await evaluate(client, `(() => {
-      const img = document.querySelector('main picture img');
+      const img = document.querySelector('main img');
       const caption = document.querySelector('main figure figcaption');
       return {
         loaded: !!img && img.complete && img.naturalWidth > 0,
@@ -906,7 +906,7 @@ async function main() {
             document.documentElement.clientWidth / 2) < 3,
       }));
       const cards = [...document.querySelectorAll('main article')];
-      const photo = document.querySelector('main article picture img');
+      const photo = document.querySelector('main article img');
       const box = photo ? photo.getBoundingClientRect() : null;
       const buy = [...document.querySelectorAll('main article button')].filter((b) =>
         /add to cart|unavailable/i.test(b.textContent || ''));
@@ -996,7 +996,7 @@ async function main() {
       const section = document.querySelector('[data-hero-carousel]');
       if (!section) return { present: false };
       const slides = [...section.querySelectorAll('[data-hero-slide]')];
-      const photos = [...section.querySelectorAll('picture img')];
+      const photos = [...section.querySelectorAll('img')];
       const track = section.querySelector('[data-hero-track]');
       return {
         present: true,
@@ -1092,7 +1092,7 @@ async function main() {
         const section = heading ? heading.closest('section') : null;
         const grid = section ? section.querySelector('ul') : null;
         const card = grid ? grid.querySelector('article') : null;
-        const photo = card ? card.querySelector('picture img') : null;
+        const photo = card ? card.querySelector('img') : null;
         const box = photo ? photo.getBoundingClientRect() : null;
         const colsOf = (el) => (el ? getComputedStyle(el).gridTemplateColumns.split(' ').length : null);
         return {
@@ -1137,7 +1137,7 @@ async function main() {
      */
     await nav(client, '/products');
     const listingFrame = await evaluate(client, `(() => {
-      const img = document.querySelector('main article picture img');
+      const img = document.querySelector('main article img');
       const box = img ? img.getBoundingClientRect() : null;
       return box ? Number((box.width / box.height).toFixed(3)) : null;
     })()`);
@@ -2055,7 +2055,7 @@ async function main() {
       const heading = document.getElementById('recently-added-title');
       if (!heading) return [];
       const section = heading.closest('section');
-      return [...section.querySelectorAll('article picture img')].map((i) => ({
+      return [...section.querySelectorAll('article img')].map((i) => ({
         src: i.getAttribute('src'),
         alt: i.getAttribute('alt'),
         complete: i.complete,

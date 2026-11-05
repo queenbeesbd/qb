@@ -1,16 +1,10 @@
-.picture,
 .img {
   display: block;
   width: 100%;
-}
-
-/* Same replaced-element rule as a product photograph: never wider than the tile it sits in. */
-.picture {
+  /* Same replaced-element rule as a product photograph: never wider than the tile it sits in. */
   min-width: 0;
   max-width: 100%;
-}
 
-.img {
   /*
    * Height follows the width. An `aspect-ratio` alone is not enough: the `<img>` carries
    * `height="480"` so the browser can reserve space, and that presentation attribute wins over an

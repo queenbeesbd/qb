@@ -227,8 +227,8 @@ describe('catalog seed', { skip: toolingAvailable ? false : SKIP_REASON }, () =>
     const primary = rows[0];
     const gallery = rows[1];
     assert.ok(primary && gallery, 'both variants were attached');
-    // Content type and dimensions come from the JPEG header, never from the name or the fixture.
-    assert.equal(primary.contentType, 'image/jpeg');
+    // Content type and dimensions come from the WebP header, never from the name or the fixture.
+    assert.equal(primary.contentType, 'image/webp');
     assert.equal(primary.width, 600);
     assert.equal(primary.height, 800);
     assert.ok(primary.byteSize > 0);

@@ -1,11 +1,17 @@
 import type { CatalogImage } from './types';
 
 /**
- * Generated image widths, in ascending order. Every `ProductImage.key` must
- * have a file for each width in both WebP and JPEG; `npm run check:catalog`
- * asserts this, so a missing asset fails the check rather than the browser.
+ * Generated image widths, in ascending order (owner direction, 2026-11-05).
+ *
+ * Every key carries all three as **WebP only**; `npm run check:catalog` asserts the set. 320 is the
+ * thumbnail the circular rails and small admin previews ask for, 600 is the product card and the
+ * smallest full frame, and 1050 is the detail photograph. Nothing wider is stored or served: a card
+ * never downloads the detail master, and a 116px circle never downloads a 600px card image.
  */
-export const IMAGE_WIDTHS = [600, 1050] as const;
+export const IMAGE_WIDTHS = [320, 600, 1050] as const;
+
+/** The width a card or an un-srcset browser receives. */
+export const IMAGE_FALLBACK_WIDTH = 600;
 
 /**
  * Intrinsic aspect ratio of every catalog image (3:4 portrait). Declared as
@@ -93,7 +99,7 @@ export const DETAIL_SIZES = '(max-width: 879px) 92vw, (max-width: 1199px) 40vw, 
  *
  * A hero banner is a 16:9 composition rather than a product photograph, so it cannot share
  * `IMAGE_WIDTHS`: 600px is too soft for a full-width banner and the two sizes below are the two the
- * generated files actually carry. `npm run assets:hero` writes both in both formats.
+ * generated files actually carry. `npm run assets:hero` writes both as WebP.
  */
 export const HERO_IMAGE_WIDTHS = [800, 1600] as const;
 
@@ -102,12 +108,11 @@ export const HERO_FRAME = '16 / 9';
 
 /** One generated hero variant's public path, derived from its key and never stored in the database. */
 export function heroImagePath(key: string, width: (typeof HERO_IMAGE_WIDTHS)[number] = 1600): string {
-  return `/hero/${key}-${width}.jpg`;
+  return `/hero/${key}-${width}.webp`;
 }
 
 export type HeroImageSources = {
   readonly webpSrcSet: string;
-  readonly jpgSrcSet: string;
   readonly fallbackSrc: string;
   readonly width: number;
   readonly height: number;
@@ -124,7 +129,7 @@ export type HeroImageSources = {
  * entry cannot be recalled, so the URL itself has to change once. Bump this when the storage origin
  * moves again; the query never reaches the bucket, and local files ignore it.
  */
-export const CATALOG_ASSET_VERSION = '2';
+export const CATALOG_ASSET_VERSION = '3';
 
 /** One catalog asset path, versioned. The key names bytes that never change; the version names where. */
 function catalogPath(file: string): string {
@@ -139,11 +144,10 @@ function catalogPath(file: string): string {
  * identity.
  */
 export function heroImageSources(key: string): HeroImageSources {
-  const build = (extension: 'webp' | 'jpg'): string =>
-    HERO_IMAGE_WIDTHS.map((width) => `/hero/${key}-${width}.${extension} ${width}w`).join(', ');
+  const build = (): string =>
+    HERO_IMAGE_WIDTHS.map((width) => `/hero/${key}-${width}.webp ${width}w`).join(', ');
   return {
-    webpSrcSet: build('webp'),
-    jpgSrcSet: build('jpg'),
+    webpSrcSet: build(),
     fallbackSrc: heroImagePath(key),
     width: 1600,
     height: 900,
@@ -152,7 +156,6 @@ export function heroImageSources(key: string): HeroImageSources {
 
 export type ImageSources = {
   webpSrcSet: string;
-  jpgSrcSet: string;
   fallbackSrc: string;
   width: number;
   height: number;
@@ -167,15 +170,13 @@ export type ImageSources = {
  */
 export function imageVariantPath(
   key: string,
-  width: (typeof IMAGE_WIDTHS)[number] = IMAGE_WIDTHS[0],
+  width: (typeof IMAGE_WIDTHS)[number] = IMAGE_FALLBACK_WIDTH,
 ): string {
-  return catalogPath(`${key}-${width}.jpg`);
+  return catalogPath(`${key}-${width}.webp`);
 }
 
-function buildSrcSet(key: string, extension: 'webp' | 'jpg'): string {
-  return IMAGE_WIDTHS.map((width) => `${catalogPath(`${key}-${width}.${extension}`)} ${width}w`).join(
-    ', ',
-  );
+function buildSrcSet(key: string): string {
+  return IMAGE_WIDTHS.map((width) => `${catalogPath(`${key}-${width}.webp`)} ${width}w`).join(', ');
 }
 
 /**
@@ -184,9 +185,8 @@ function buildSrcSet(key: string, extension: 'webp' | 'jpg'): string {
  */
 export function imageSources(image: CatalogImage): ImageSources {
   return {
-    webpSrcSet: buildSrcSet(image.key, 'webp'),
-    jpgSrcSet: buildSrcSet(image.key, 'jpg'),
-    fallbackSrc: catalogPath(`${image.key}-${IMAGE_WIDTHS[0]}.jpg`),
+    webpSrcSet: buildSrcSet(image.key),
+    fallbackSrc: catalogPath(`${image.key}-${IMAGE_FALLBACK_WIDTH}.webp`),
     width: IMAGE_ASPECT.width,
     height: IMAGE_ASPECT.height,
   };

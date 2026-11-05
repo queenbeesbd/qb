@@ -502,8 +502,8 @@ describe('catalog management', { skip: toolingAvailable ? false : SKIP_REASON },
         .where(sql`${productImage.id} = ${attached.imageId}`),
     );
     assert.equal(image[0]?.baseKey, key);
-    assert.equal(image[0]?.contentType, 'image/jpeg');
-    assert.equal(image[0]?.width, 600, 'width came from the JPEG header');
+    assert.equal(image[0]?.contentType, 'image/webp');
+    assert.equal(image[0]?.width, 600, 'width came from the WebP header');
     assert.equal(image[0]?.height, 800);
     assert.ok((image[0]?.byteSize ?? 0) > 0, 'the byte size came from the file');
     assert.equal(image[0]?.isPrimary, true, 'the first image becomes primary');
@@ -521,9 +521,9 @@ describe('catalog management', { skip: toolingAvailable ? false : SKIP_REASON },
         .from(productImageDerivative)
         .where(sql`${productImageDerivative.productImageId} = ${attached.imageId}`),
     );
-    assert.equal(derivatives.length, 4, 'one row per generated variant');
+    assert.equal(derivatives.length, 3, 'one row per generated WebP width');
     assert.ok(derivatives.every((row) => row.byteSize > 0));
-    assert.ok(derivatives.every((row) => row.format === 'jpeg' || row.format === 'webp'));
+    assert.ok(derivatives.every((row) => row.format === 'webp'));
     assert.ok(derivatives.every((row) => row.storageKey.startsWith('/catalog/')));
   });
 

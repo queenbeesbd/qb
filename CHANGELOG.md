@@ -14,6 +14,39 @@ An entry may describe a deployment only once it has actually happened and been o
 
 ## [Unreleased]
 
+### Changed - 2026-11-05: every catalog image is WebP, and a card gets a thumbnail
+The owner asked for one pipeline: whatever image is uploaded is compressed once and stored as WebP, and
+a card should not download the detail master. `src/server/catalog/uploads.ts` now encodes **WebP only**
+at **320 / 600 / 1050** for product, category and brand images (800 / 1600 for hero banners) and records
+the 600 frame as the primary. Rendering follows: `ProductPhoto`, `DiscoveryPhoto` and `HeroCarousel` emit
+one WebP `srcSet` instead of a `<picture>` with a JPEG fallback, so a 116px circle downloads the 320
+thumbnail, a product card downloads 600 and only the detail view asks for 1050. `CATALOG_ASSET_VERSION`
+is **3**, because the bytes behind the versioned paths changed.
+
+`npm run assets:optimize` re-encoded the entire stored tree: **2016 keys, 180.3 MB → 40.7 MB** of WebP
+(heroes 438 KB → 311 KB). The 5,757 product WebP files and 222 discovery WebP files were uploaded to the
+production bucket, and 1,919 `product_image` rows now record `image/webp` with their new byte size. The
+old JPEGs and superseded files remain in the bucket as dead bytes; nothing references them.
+
+**Operational finding.** Uploads had been failing with **403** because the configured storage credential
+was read-only. A scoped `storage:read,storage:write` credential was created for the production branch and
+installed in Vercel (production and preview), so both the deploy-time uploader and the admin upload route
+can write.
+
+**Verification.** `check:catalog`, typecheck, unit **207/207**, lint (0 errors), `check:i18n`, `build`;
+after deploy the production page was loaded in Chromium and its images resolved as `.webp` at the chosen
+widths.
+
+### Fixed - 2026-11-05: the requested owner account exists on the deployment
+Production had two placeholder accounts (`admin@`/`demo@queenbees.test`) and no account for
+`sdfrnsweety@gmail.com`, which is why the given credentials could not work. The active owner account was
+renamed to that address, its password hash was replaced, its live sessions were revoked and the change
+was audited as `staff.credential_set`. The credentials were supplied by the owner; no password or hash is
+recorded here.
+
+**Verification.** Signed in through `https://queenbees.vercel.app/admin/login` in headless Chromium and
+reached the dashboard ("Welcome back, Sweety").
+
 ### Fixed - 2026-11-05: catalog images were blocked in browsers that had cached the old storage redirect
 The deployed storefront rendered empty category circles, brand logos and product frames while every
 image URL answered **200** to an uncached request - the database was fine. `/catalog/<key>-<width>.<ext>`

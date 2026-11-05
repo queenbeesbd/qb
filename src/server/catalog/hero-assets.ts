@@ -54,8 +54,8 @@ async function directorySignature(): Promise<number | null> {
 }
 
 /**
- * Keys with a complete generated variant set: every declared width, in both formats, with the banner's
- * 16:9 dimensions. A half-generated key is not selectable, which is what keeps a broken `srcset` out
+ * Keys with a complete generated variant set: every declared width as WebP (2026-11-05), with the
+ * banner's 16:9 dimensions. A half-generated key is not selectable, which is what keeps a broken `srcset` out
  * of the database.
  */
 export async function listHeroAssetKeys(): Promise<string[]> {
@@ -106,9 +106,7 @@ async function listLocalHeroKeys(): Promise<string[]> {
     const key = match[1] ?? '';
     if (!KEY_PATTERN.test(key)) continue;
 
-    const complete = HERO_IMAGE_WIDTHS.every((width) =>
-      (['jpg', 'webp'] as const).every((extension) => present.has(`${key}-${width}.${extension}`)),
-    );
+    const complete = HERO_IMAGE_WIDTHS.every((width) => present.has(`${key}-${width}.webp`));
     if (complete) keys.add(key);
   }
 
@@ -137,26 +135,25 @@ export async function readHeroAsset(key: string): Promise<HeroAssetDescriptor | 
 
   for (const width of HERO_IMAGE_WIDTHS) {
     const expectedHeight = Math.round((width * 9) / 16);
-    for (const format of ['jpeg', 'webp'] as const) {
-      let bytes: Buffer;
-      try {
-        bytes = await readFile(join(HERO_ASSET_DIR, `${key}-${width}.${EXTENSIONS[format]}`));
-      } catch {
-        return null;
-      }
+    const format = 'webp' as const;
+    let bytes: Buffer;
+    try {
+      bytes = await readFile(join(HERO_ASSET_DIR, `${key}-${width}.${EXTENSIONS[format]}`));
+    } catch {
+      return null;
+    }
 
-      const metadata = readImageMetadata(bytes);
-      if (metadata === null || metadata.format !== format) return null;
-      if (metadata.width !== width || metadata.height !== expectedHeight) return null;
+    const metadata = readImageMetadata(bytes);
+    if (metadata === null || metadata.format !== format) return null;
+    if (metadata.width !== width || metadata.height !== expectedHeight) return null;
 
-      if (format === 'jpeg' && width === HERO_IMAGE_WIDTHS[HERO_IMAGE_WIDTHS.length - 1]) {
-        primary = {
-          contentType: metadata.contentType,
-          width: metadata.width,
-          height: metadata.height,
-          byteSize: metadata.byteSize,
-        };
-      }
+    if (width === HERO_IMAGE_WIDTHS[HERO_IMAGE_WIDTHS.length - 1]) {
+      primary = {
+        contentType: metadata.contentType,
+        width: metadata.width,
+        height: metadata.height,
+        byteSize: metadata.byteSize,
+      };
     }
   }
 

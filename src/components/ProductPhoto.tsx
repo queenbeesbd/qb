@@ -23,9 +23,9 @@ type Props = {
 };
 
 /**
- * Single source of truth for catalog imagery. Emits a `<picture>` with a WebP
- * source set, a JPEG fallback, and explicit width/height so the browser reserves
- * space and the grid never shifts while loading.
+ * Single source of truth for catalog imagery. Every variant is WebP (owner direction, 2026-11-05), so
+ * one `srcSet` carries 320/600/1050 and there is no second format to negotiate. Explicit width/height
+ * reserve the space, so the grid never shifts while loading.
  *
  * Files are served locally rather than hotlinked, so the demo cannot break if
  * the merchant's asset CDN changes or goes offline.
@@ -55,23 +55,18 @@ export function ProductPhoto({
   const placeholder = isPlaceholder(image);
 
   return (
-    <picture className={`${styles.picture} ${className ?? ''} `.trim()}>
-      {!placeholder && (
-        <source type="image/webp" srcSet={sources.webpSrcSet} sizes={sizes} />
-      )}
-      <img
-        className={styles.img}
-        style={frame ? { aspectRatio: frame } : undefined}
-        src={placeholder ? sources.fallbackSrc.replace('.jpg', '.svg') : sources.fallbackSrc}
-        srcSet={placeholder ? undefined : sources.jpgSrcSet}
-        sizes={placeholder ? undefined : sizes}
-        alt={alt}
-        width={sources.width}
-        height={sources.height}
-        loading={priority ? 'eager' : loading}
-        decoding="async"
-        {...(priority ? { fetchPriority: 'high' as const } : {})}
-      />
-    </picture>
+    <img
+      className={`${styles.img} ${className ?? ''} `.trim()}
+      style={frame ? { aspectRatio: frame } : undefined}
+      src={placeholder ? sources.fallbackSrc.replace('.webp', '.svg') : sources.fallbackSrc}
+      srcSet={placeholder ? undefined : sources.webpSrcSet}
+      sizes={placeholder ? undefined : sizes}
+      alt={alt}
+      width={sources.width}
+      height={sources.height}
+      loading={priority ? 'eager' : loading}
+      decoding="async"
+      {...(priority ? { fetchPriority: 'high' as const } : {})}
+    />
   );
 }

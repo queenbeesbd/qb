@@ -36,7 +36,7 @@ import { join } from 'node:path';
 
 import sharp from 'sharp';
 
-import { HERO_IMAGE_WIDTHS, IMAGE_WIDTHS } from '@/lib/images';
+import { HERO_IMAGE_WIDTHS, IMAGE_FALLBACK_WIDTH, IMAGE_WIDTHS } from '@/lib/images';
 import { CATALOG_ASSET_DIR, type AssetDescriptor } from './assets';
 import { HERO_ASSET_DIR } from './hero-assets';
 import { putObject, storageConfig } from './object-storage';
@@ -57,7 +57,11 @@ export type UploadedAsset = AssetDescriptor;
 /** The three image contracts the shop renders. */
 export type UploadKind = 'product' | 'square' | 'hero';
 
-const FORMATS = ['jpeg', 'webp'] as const;
+/**
+ * Every stored variant is WebP (owner direction, 2026-11-05): one encode, smaller bytes, and every
+ * browser the shop supports decodes it. There is no second format to generate or negotiate.
+ */
+const FORMAT = 'webp' as const;
 
 /** `product-upload-lq3k2a-9f1c2e`. Lowercase, hyphen-separated, so every key rule accepts it. */
 function newKey(kind: UploadKind): string {
@@ -72,19 +76,12 @@ function newKey(kind: UploadKind): string {
  * fills the frame instead of leaving a letterbox inside it. `rotate()` applies the EXIF orientation
  * before anything else, so a phone photo taken sideways is stored upright.
  */
-async function renderVariant(
-  input: Buffer,
-  width: number,
-  height: number,
-  format: (typeof FORMATS)[number],
-): Promise<Buffer> {
-  const pipeline = sharp(input, { failOn: 'error', limitInputPixels: 40_000_000 })
+async function renderVariant(input: Buffer, width: number, height: number): Promise<Buffer> {
+  return sharp(input, { failOn: 'error', limitInputPixels: 40_000_000 })
     .rotate()
-    .resize(width, height, { fit: 'cover', position: 'centre' });
-
-  return format === 'jpeg'
-    ? pipeline.jpeg({ quality: 84, mozjpeg: true }).toBuffer()
-    : pipeline.webp({ quality: 82 }).toBuffer();
+    .resize(width, height, { fit: 'cover', position: 'centre' })
+    .webp({ quality: 78, effort: 5 })
+    .toBuffer();
 }
 
 /** Writes the local copies, or reports that this filesystem cannot hold them. */
@@ -129,14 +126,12 @@ export async function saveUpload(file: unknown, kind: UploadKind): Promise<Uploa
 
   const variants: Variant[] = [];
   for (const size of sizes) {
-    for (const format of FORMATS) {
-      const bytes = await renderVariant(input, size.width, size.height, format);
-      variants.push({
-        file: `${key}-${size.width}.${format === 'jpeg' ? 'jpg' : 'webp'}`,
-        bytes,
-        contentType: format === 'jpeg' ? 'image/jpeg' : 'image/webp',
-      });
-    }
+    const bytes = await renderVariant(input, size.width, size.height);
+    variants.push({
+      file: `${key}-${size.width}.${FORMAT}`,
+      bytes,
+      contentType: 'image/webp',
+    });
   }
 
   const dir = kind === 'hero' ? HERO_ASSET_DIR : CATALOG_ASSET_DIR;
@@ -157,12 +152,11 @@ export async function saveUpload(file: unknown, kind: UploadKind): Promise<Uploa
     );
   }
 
-  // The primary variant is the smallest JPEG, matching `readAsset`'s choice for products and squares;
-  // a hero's primary is its widest JPEG, matching `readHeroAsset`.
-  const primaryWidth = kind === 'hero' ? HERO_IMAGE_WIDTHS[HERO_IMAGE_WIDTHS.length - 1] : IMAGE_WIDTHS[0];
-  const primary = variants.find(
-    (variant) => variant.file === `${key}-${primaryWidth}.jpg`,
-  );
+  // The primary variant is the 600px frame for products and squares (the card's own size), and a
+  // hero's primary is its widest frame. Both are WebP.
+  const primaryWidth =
+    kind === 'hero' ? HERO_IMAGE_WIDTHS[HERO_IMAGE_WIDTHS.length - 1] : IMAGE_FALLBACK_WIDTH;
+  const primary = variants.find((variant) => variant.file === `${key}-${primaryWidth}.${FORMAT}`);
   if (primary === undefined) throw new Error('the image could not be encoded');
 
   const primarySize = sizes.find((size) => size.width === primaryWidth);
@@ -175,8 +169,8 @@ export async function saveUpload(file: unknown, kind: UploadKind): Promise<Uploa
     height: primarySize.height,
     byteSize: primary.bytes.byteLength,
     variants: variants.map((variant) => ({
-      width: Number(/(\d+)\.(jpg|webp)$/.exec(variant.file)?.[1] ?? '0'),
-      format: variant.contentType === 'image/jpeg' ? 'jpeg' : 'webp',
+      width: Number(/(\d+)\.webp$/.exec(variant.file)?.[1] ?? '0'),
+      format: 'webp' as const,
       storageKey: `/catalog/${variant.file}`,
       byteSize: variant.bytes.byteLength,
     })),

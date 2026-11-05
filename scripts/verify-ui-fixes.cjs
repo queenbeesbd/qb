@@ -347,7 +347,7 @@ async function main() {
       if (cards.length < 2) return { missing: true };
       const sizes = cards.map((card) => {
         const r = card.getBoundingClientRect();
-        const photo = card.querySelector('picture');
+        const photo = card.querySelector('img');
         const pr = photo ? photo.getBoundingClientRect() : null;
         return { width: Math.round(r.width), height: Math.round(r.height), photoWidth: pr ? Math.round(pr.width) : null };
       });

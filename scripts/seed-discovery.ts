@@ -132,7 +132,7 @@ async function syncBrandLogos(tx: Transaction): Promise<{ written: number; clear
   let cleared = 0;
   for (const row of rows) {
     const key = brandLogoKey(row.slug);
-    // The same completeness the asset inventory checks: every declared width, both formats.
+    // The same completeness the asset inventory checks: every declared width as WebP.
     const present = existsSync(join(process.cwd(), 'public', 'catalog', `${key}-600.webp`));
 
     if (present && row.logoKey !== key) {

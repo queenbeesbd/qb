@@ -186,8 +186,7 @@
  * shows the shape of the bottle, jar or box, and puts the price on the first screen. It widens to 4:5
  * from 480px, where there is room to show the whole product, and the desktop column caps its height.
  */
-.figure img,
-.figure picture {
+.figure img {
   display: block;
   width: 100%;
   height: auto;
@@ -500,8 +499,7 @@
 }
 
 @media (min-width: 480px) {
-  .figure img,
-  .figure picture {
+  .figure img {
     aspect-ratio: 4 / 5;
   }
 }
@@ -537,8 +535,7 @@
     top: var(--space-5);
   }
 
-  .figure img,
-  .figure picture {
+  .figure img {
     aspect-ratio: 1 / 1;
   }
 

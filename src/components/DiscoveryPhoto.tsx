@@ -3,8 +3,8 @@ import styles from './DiscoveryPhoto.module.css';
 
 /**
  * A category photograph or a brand logo, rendered through the same asset contract as product
- * photography: a `<picture>` with a WebP source set, a JPEG fallback and an explicit square frame, so
- * the grid reserves its space and nothing shifts while the images arrive.
+ * photography: one WebP source set (320/600/1050) and an explicit square frame, so a 116px circle
+ * downloads the 320px thumbnail and nothing shifts while the images arrive.
  *
  * The fallback is the point of this component. A category with no photograph drawn shows its icon over
  * the category's tinted surface; a brand with no logo shows the brand's initials. Both are honest -
@@ -44,22 +44,19 @@ export function DiscoveryPhoto({
    */
   const sources = imageSources({ key: imageKey, alt: { bn: null, en: null }, rights: 'unknown' });
   return (
-    <picture className={`${styles.picture} ${className ?? ''}`.trim()}>
-      <source type="image/webp" srcSet={sources.webpSrcSet} sizes={sizes} />
-      <img
-        className={styles.img}
-        src={sources.fallbackSrc}
-        srcSet={sources.jpgSrcSet}
-        sizes={sizes}
-        alt={alt}
-        /* The intrinsic ratio only; CSS decides the rendered size, so a 72px tile is 72px tall. */
-        width={480}
-        height={480}
-        loading={priority ? 'eager' : 'lazy'}
-        decoding="async"
-        {...(priority ? { fetchPriority: 'high' as const } : {})}
-      />
-    </picture>
+    <img
+      className={`${styles.img} ${className ?? ''}`.trim()}
+      src={sources.fallbackSrc}
+      srcSet={sources.webpSrcSet}
+      sizes={sizes}
+      alt={alt}
+      /* The intrinsic ratio only; CSS decides the rendered size, so a 72px tile is 72px tall. */
+      width={480}
+      height={480}
+      loading={priority ? 'eager' : 'lazy'}
+      decoding="async"
+      {...(priority ? { fetchPriority: 'high' as const } : {})}
+    />
   );
 }
 

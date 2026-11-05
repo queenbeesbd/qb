@@ -39,9 +39,12 @@ async function main(): Promise<void> {
   }
 
   const force = process.argv.includes('--force');
+  const onlyWebp = process.argv.includes('--only-webp');
   const files = readdirSync(DIR).filter(
     (name) =>
-      PREFIXES.some((prefix) => name.startsWith(prefix)) && /\.(jpg|webp)$/.test(name),
+      PREFIXES.some((prefix) => name.startsWith(prefix)) &&
+      /\.(jpg|webp)$/.test(name) &&
+      (!onlyWebp || name.endsWith('.webp')),
   );
   if (files.length === 0) throw new Error('no discovery images found - run npm run assets:discovery first');
 

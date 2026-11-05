@@ -76,7 +76,7 @@ Bangla product names are transliterations written for this demo. They are not me
 
 ## Photography
 
-All 22 products now use authentic photography retrieved from the retailer's own public product pages. Files are served locally as WebP with a JPEG fallback at two widths (600 and 1050px), normalised to a 3:4 crop.
+All 22 products now use authentic photography retrieved from the retailer's own public product pages. Files are served as **WebP only at three widths (320, 600 and 1050px)**, normalised to a 3:4 crop; the 320 file is the thumbnail a circle downloads and the 600 file is the product card.
 
 ### Rights status - unresolved
 
@@ -110,7 +110,7 @@ Unknown ids are dropped rather than thrown on, so a stale configuration shortens
 
 ## Verification
 
-`npm run check:catalog` asserts, across all 22 records: unique ids and slugs, positive integer poisha prices, comparison prices that are greater integers or `null`, known categories, at least one localized name, trimmed English names, an image entry with alt text, provenance page and asset URL for photography, a valid retrieval date, every declared image variant present on disk for both widths and both formats, a plausible whole-percent discount, a positive saving, and the `isDemo` marker.
+`npm run check:catalog` asserts, across all 22 records: unique ids and slugs, positive integer poisha prices, comparison prices that are greater integers or `null`, known categories, at least one localized name, trimmed English names, an image entry with alt text, provenance page and asset URL for photography, a valid retrieval date, every declared image variant present on disk as WebP at all three widths, a plausible whole-percent discount, a positive saving, and the `isDemo` marker.
 
 It also asserts the curation constraints above, and it guards the **absence** of a demo notice (ADR 0020): no configured announcement may be `locked`, and none may carry text matching `demo`, `preview` or `demonstration`. The owner's own announcement is not part of this fixture at all: it lives in `store_setting` and is edited at Settings -> Announcement bar.
 
@@ -175,11 +175,9 @@ Settings -> Homepage hero. It follows the same asset rule as everything else in 
 | The bounds | At least 1 and at most 10 images, enforced by the service under a transaction advisory lock |
 
 The masters live in `hero/` at the repository root and are never served directly: the build command
-writes the generated variants under `public/hero`, and the admin screen **associates** one of those
-keys - it does not accept a file, a path or a URL. A key is accepted only when both widths exist in
-both formats with the expected dimensions, read from the bytes. There is no upload here for the same
-reason there is none for a product photograph: no object storage is provisioned, and a browser upload
-would have to validate, re-encode twice and write to storage inside a form handler.
+writes the generated variants under `public/hero`, and the admin screen can **associate** one of those
+keys or **upload** a new file (see Browser uploads below). An associated key is accepted only when both
+widths exist as WebP with the expected dimensions, read from the bytes.
 
 The storefront reads the rows in `sort_order` and renders nothing at all when the table is empty -
 never a placeholder banner. Changing the order or removing an image on the admin page changes the next
@@ -206,20 +204,28 @@ category photographs, brand logos and homepage hero banners. This replaces the a
 *new* images; the asset inventory is still authoritative for images already on the server.
 
 **Where it runs.** `src/server/catalog/uploads.ts` is the only module that touches an uploaded file. It
-decodes with `sharp` (40 MP ceiling), applies EXIF orientation, re-encodes to the surface's declared frames,
-and strips metadata. The key, dimensions, content type and byte size are produced from the decoded bytes -
-the browser supplies no path, URL, key or metadata.
+decodes with `sharp` (40 MP ceiling), applies EXIF orientation, re-encodes to the surface's declared frames
+as **WebP only** (owner direction, 2026-11-05), and strips metadata. The key, dimensions, content type and
+byte size are produced from the decoded bytes - the browser supplies no path, URL, key or metadata.
 
-| Surface | Output | Route |
+| Surface | Output (WebP only) | Route |
 | --- | --- | --- |
-| Product | 600x800 and 1050x1400, JPEG + WebP | `POST /api/admin/catalog/image` (`operation=upload`) |
-| Category | 600 and 1050 squares, JPEG + WebP | `POST /api/admin/catalog/category-image` (`operation=upload`) |
-| Brand | 600 and 1050 squares, JPEG + WebP | `POST /api/admin/catalog/brand-image` (`operation=upload`) |
-| Hero | 800x450 and 1600x900, JPEG + WebP | `POST /api/admin/hero` (`operation=upload`) |
+| Product | 320x427, 600x800 and 1050x1400 | `POST /api/admin/catalog/image` (`operation=upload`) |
+| Category | 320, 600 and 1050 squares | `POST /api/admin/catalog/category-image` (`operation=upload`) |
+| Brand | 320, 600 and 1050 squares | `POST /api/admin/catalog/brand-image` (`operation=upload`) |
+| Hero | 800x450 and 1600x900 | `POST /api/admin/hero` (`operation=upload`) |
+
+**Why three widths.** The storefront picks by rendered size: a 116px circle downloads 320, a product card
+downloads 600, and only the detail photograph asks for 1050. `npm run assets:optimize` re-encodes the whole
+stored tree to the same rule, so an image uploaded before this change is not left as a 1050 master behind a
+card. The JPEGs generated earlier remain in the bucket as dead bytes; nothing references them, and deleting
+objects that were once served is a separate decision.
 
 **Where the bytes go.** Every upload is written to `public/catalog` (or `public/hero`) when the filesystem
 is writable, and to the configured object-storage bucket when `CATALOG_STORAGE_*` is set. At least one must
-succeed; a read-only deployment with no storage refuses the upload rather than reporting a success. The path
+succeed; a read-only deployment with no storage refuses the upload rather than reporting a success. The
+bucket credential must carry **`storage:write`** - a read-only scoped credential answers `403` and the
+upload fails. The path
 `/hero/[...path]` was added beside `/catalog/[...path]` so an uploaded banner in the bucket resolves without
 being part of the build.
 
@@ -229,4 +235,5 @@ gated on the same permissions as the association it replaces (`catalog.write`, `
 with CSRF and origin checks from `guardMutation`.
 
 **Not built.** No drag-and-drop, no client-side cropping, no image library/bulk upload and no deletion of the
-bytes themselves (removing an association still leaves the file, as before).
+bytes themselves (removing an association still leaves the file, as before). There is no automatic purge of
+the superseded JPEG variants.

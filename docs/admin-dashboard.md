@@ -129,8 +129,9 @@ top of the right column, and a sticky action bar. Below 1100px the columns stack
 from move up/down buttons, with the primary image kept a separate fact: "first in the gallery" and "the
 image on the card" are different, and a reorder must not silently repoint the card.
 
-**Imagery stays association-only.** No upload path exists and none was added; the picker reads the
-server's own inventory and the metadata still comes from the file bytes.
+**Imagery accepts an upload.** The owner can send a file from the editor; `src/server/catalog/uploads.ts`
+re-encodes it to WebP at 320/600/1050, and the picker still reads the server's own inventory for images
+that were already there. Metadata comes from the file bytes, never from the request.
 
 ### The list surfaces (Phase 30)
 

@@ -56,8 +56,8 @@ async function main(): Promise<void> {
       const base = sharp(master)
         .resize(width, height, { fit: 'cover', position: 'attention' })
         .flatten({ background: '#f4f1f8' });
+      // WebP only (owner direction, 2026-11-05): the carousel renders one format.
       await base.clone().webp({ quality: 82 }).toFile(join(OUT_DIR, `${key}-${width}.webp`));
-      await base.clone().jpeg({ quality: 84, mozjpeg: true }).toFile(join(OUT_DIR, `${key}-${width}.jpg`));
     }
     console.log(`✓ ${fileName} -> ${key} (${HERO_IMAGE_WIDTHS.join(', ')} px)`);
   }

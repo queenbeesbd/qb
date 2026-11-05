@@ -12,8 +12,12 @@
  * the bucket is skipped unless `--force` is passed. That makes a re-run cheap after an interruption.
  *
  * Usage:
- *   npm run assets:upload:catalog              # upload what is missing
- *   npm run assets:upload:catalog -- --force   # re-upload every product variant
+ *   npm run assets:upload:catalog                 # upload what is missing
+ *   npm run assets:upload:catalog -- --force      # re-upload every product variant
+ *   npm run assets:upload:catalog -- --only-webp  # only the WebP variants
+ *
+ * `--only-webp` exists because every rendered image is WebP now (2026-11-05): after re-encoding the
+ * tree, the JPEGs are dead bytes and re-uploading them would move hundreds of megabytes for nothing.
  *
  * Requires `CATALOG_STORAGE_ENDPOINT`, `CATALOG_STORAGE_BUCKET`, `CATALOG_STORAGE_ACCESS_KEY` and
  * `CATALOG_STORAGE_SECRET_KEY`. No credential is printed.
@@ -50,8 +54,10 @@ async function main(): Promise<void> {
   }
 
   const force = process.argv.includes('--force');
+  const onlyWebp = process.argv.includes('--only-webp');
   const files = (await readdir(DIR))
     .filter((name) => /^zq-.+\.(jpg|webp)$/.test(name))
+    .filter((name) => !onlyWebp || name.endsWith('.webp'))
     .sort();
   if (files.length === 0) throw new Error('no imported product images found under public/catalog');
 

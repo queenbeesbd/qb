@@ -28,7 +28,7 @@ import { sql } from 'drizzle-orm';
 
 import { withTransaction } from '@/db/client';
 import { brand, category, productImage } from '@/db/schema';
-import { IMAGE_WIDTHS } from '@/lib/images';
+import { IMAGE_FALLBACK_WIDTH, IMAGE_WIDTHS } from '@/lib/images';
 
 import { readImageMetadata, type ImageFormat } from './image-metadata';
 
@@ -38,7 +38,7 @@ export const CATALOG_ASSET_DIR = join(process.cwd(), 'public', 'catalog');
 /** Public path prefix, matching `src/lib/images.ts`. */
 const PUBLIC_PREFIX = '/catalog';
 
-/** Extension per format. The schema's `IMAGE_FORMAT` uses `jpeg`; the files use `jpg`. */
+/** Extension per format. Every generated variant is WebP (2026-11-05); JPEG stays readable for legacy rows. */
 const EXTENSIONS: Record<ImageFormat, string> = { jpeg: 'jpg', webp: 'webp' };
 
 /** One generated variant of an asset. */
@@ -88,10 +88,9 @@ async function directorySignature(): Promise<number | null> {
 /**
  * Keys with a complete generated variant set.
  *
- * "Complete" means every declared width exists in both formats - the same invariant
- * `npm run check:catalog` asserts for the demo catalog, applied here to the directory itself. A
- * half-generated key is therefore not selectable, which is what keeps a broken `srcset` out of the
- * database.
+ * "Complete" means every declared width exists as WebP - the same invariant `npm run check:catalog`
+ * asserts for the demo catalog, applied here to the directory itself. A half-generated key is
+ * therefore not selectable, which is what keeps a broken `srcset` out of the database.
  *
  * Placeholder SVGs are deliberately **not** selectable: they are a single `.svg` with no generated
  * variants, and this module does not parse SVG dimensions. That is a documented gap, not an oversight -
@@ -175,9 +174,7 @@ async function listLocalAssetKeys(): Promise<string[]> {
     const key = match[1] ?? '';
     if (!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(key)) continue;
 
-    const complete = IMAGE_WIDTHS.every((width) =>
-      (['jpg', 'webp'] as const).every((extension) => present.has(`${key}-${width}.${extension}`)),
-    );
+    const complete = IMAGE_WIDTHS.every((width) => present.has(`${key}-${width}.webp`));
     if (complete) keys.add(key);
   }
 
@@ -215,38 +212,37 @@ async function readAssetFromDisk(key: string): Promise<AssetDescriptor | null> {
   let primary: { contentType: string; width: number; height: number; byteSize: number } | null = null;
 
   for (const width of IMAGE_WIDTHS) {
-    for (const format of ['jpeg', 'webp'] as const) {
-      const file = join(CATALOG_ASSET_DIR, `${key}-${width}.${EXTENSIONS[format]}`);
-      let bytes: Buffer;
-      try {
-        bytes = await readFile(file);
-      } catch {
-        return null;
-      }
+    const format = 'webp' as const;
+    const file = join(CATALOG_ASSET_DIR, `${key}-${width}.${EXTENSIONS[format]}`);
+    let bytes: Buffer;
+    try {
+      bytes = await readFile(file);
+    } catch {
+      return null;
+    }
 
-      const metadata = readImageMetadata(bytes);
-      // The bytes must agree with the name. A `-600.webp` file containing JPEG data is a corrupted
-      // asset, and recording it as WebP would put a wrong content type in the database.
-      if (metadata === null || metadata.format !== format) return null;
-      if (metadata.width !== width) return null;
+    const metadata = readImageMetadata(bytes);
+    // The bytes must agree with the name. A `-600.webp` file containing JPEG data is a corrupted
+    // asset, and recording it as WebP would put a wrong content type in the database.
+    if (metadata === null || metadata.format !== format) return null;
+    if (metadata.width !== width) return null;
 
-      variants.push({
-        width,
-        format,
-        storageKey: `${PUBLIC_PREFIX}/${key}-${width}.${EXTENSIONS[format]}`,
+    variants.push({
+      width,
+      format,
+      storageKey: `${PUBLIC_PREFIX}/${key}-${width}.${EXTENSIONS[format]}`,
+      byteSize: metadata.byteSize,
+    });
+
+    // The 600px frame is the base image: it is what a card shows and what `imageSources` derives as
+    // the un-srcset fallback.
+    if (width === IMAGE_FALLBACK_WIDTH) {
+      primary = {
+        contentType: metadata.contentType,
+        width: metadata.width,
+        height: metadata.height,
         byteSize: metadata.byteSize,
-      });
-
-      // The widest JPEG is the base image: it is the fallback every browser can decode, and
-      // `imageSources` derives the same path from the key.
-      if (format === 'jpeg' && width === IMAGE_WIDTHS[0]) {
-        primary = {
-          contentType: metadata.contentType,
-          width: metadata.width,
-          height: metadata.height,
-          byteSize: metadata.byteSize,
-        };
-      }
+      };
     }
   }
 

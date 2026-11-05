@@ -19,15 +19,15 @@
  * redirect or a way to address another object in the bucket.
  */
 
-import { IMAGE_WIDTHS } from '@/lib/images';
+import { IMAGE_FALLBACK_WIDTH, IMAGE_WIDTHS } from '@/lib/images';
 import { catalogAssetBase } from '@/server/catalog/storage';
 
 export const dynamic = 'force-dynamic';
 
 /** `<key>-<width>.<ext>`, where every width is one `src/lib/images.ts` actually emits. */
-const WIDTHS: Record<string, true> = { 600: true, 1050: true };
+const WIDTHS: Record<string, true> = { 320: true, 600: true, 1050: true };
 const KEY_PATTERN = /^[a-z0-9]+(-[a-z0-9]+)*$/;
-const EXTENSIONS: Record<string, true> = { jpg: true, webp: true, svg: true };
+const EXTENSIONS: Record<string, true> = { webp: true, svg: true };
 
 // The declared widths and this table must not drift: a width the renderer emits but this route
 // refuses would 404 a real image, so the mismatch fails the build instead.
@@ -47,7 +47,7 @@ function parseAssetPath(path: readonly string[]): { key: string; file: string } 
   if (WIDTHS[width] !== true) return null;
   if (EXTENSIONS[extension] !== true) return null;
   // A placeholder is a single `.svg`; a photographed asset is a generated raster variant.
-  if (extension === 'svg' && width !== String(IMAGE_WIDTHS[0])) return null;
+  if (extension === 'svg' && width !== String(IMAGE_FALLBACK_WIDTH)) return null;
 
   return { key, file };
 }
