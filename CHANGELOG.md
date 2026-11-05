@@ -20,7 +20,8 @@ Every filled storefront control - primary actions, add to cart, checkout, campai
 the floating cart box and the account/auth primary button - now uses the owner's `#dccfff` field with
 ink (`--color-button` / `--color-button-ink`) instead of the deep plum. Hover is `#cdbcff`. Badges,
 checkbox marks, range fills and current-page indicators keep `--color-action` because they are not
-buttons and need a saturated mark. Admin controls keep their own action palette.
+buttons and need a saturated mark. Admin primary buttons take the same field; admin danger buttons
+and navigation states keep their own colours.
 
 The account hub rebuild was reverted at the same time; the docs' primary hex and contrast notes were
 corrected to the measured values (ink 11.61:1, white 1.46:1 on `#dccfff`).

@@ -15,7 +15,7 @@ Product-led, calm, precise. The shopper compares brand, pack size, price and ava
 | `--color-button` | `#DCCFFF` | Storefront filled controls. Ink on it, never white. |
 | `--color-button-hover` | `#CDBCFF` | The same field one step deeper. |
 | `--color-button-ink` | `#201A29` | Label and glyph on a filled storefront control (11.6:1). |
-| `--color-action` | `#56358C` | Admin filled actions, saturated marks and link ink. |
+| `--color-action` | `#56358C` | Navigation states, saturated marks and link ink. |
 | `--color-action-hover` | `#462A75` | Action hover. |
 | `--color-action-soft` | `#F3EDFF` | Tinted panels, active chips, icon wells. |
 | `--color-accent-soft` | `#FDEEF3` | Pink tint for decorative surfaces. |

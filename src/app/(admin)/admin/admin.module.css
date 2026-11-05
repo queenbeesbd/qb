@@ -1084,22 +1084,23 @@ html[lang='bn'] .sectionHead h2 {
   padding: 0 var(--space-4);
   border: 1px solid transparent;
   border-radius: var(--radius-md);
-  background: var(--color-action);
-  color: #fff;
+  /* The same field as the storefront's filled controls (owner direction, 2026-11-05). */
+  background: var(--color-button);
+  color: var(--color-button-ink);
   font: inherit;
   font-size: var(--text-sm);
   font-weight: 600;
   line-height: 1;
   text-decoration: none;
   cursor: pointer;
-  box-shadow: var(--shadow-sm), inset 0 1px 0 rgb(255 255 255 / 0.12);
+  box-shadow: var(--shadow-sm);
   transition: background-color 140ms ease, border-color 140ms ease, box-shadow 140ms ease,
     transform 120ms ease-out;
 }
 
 .button:hover {
-  background: var(--color-action-hover);
-  color: #fff;
+  background: var(--color-button-hover);
+  color: var(--color-button-ink);
 }
 
 .button:active {
