@@ -1073,7 +1073,7 @@ function OrderActionBand({
                 confirmLabel={t('admin.order.failedConfirm')}
                 cancelLabel={t('admin.common.cancel')}
                 pendingLabel={t('admin.common.working')}
-                className={styles.approveForm}
+                className={styles.approveForm + ' ' + styles.actionConfirmEnd}
                 reason={{
                   label: t('admin.order.failedReason'),
                   placeholder: t('admin.order.failedReasonPlaceholder'),
@@ -1095,7 +1095,12 @@ function OrderActionBand({
                 confirmLabel={t('admin.order.cancelConfirm')}
                 cancelLabel={t('admin.common.cancel')}
                 pendingLabel={t('admin.common.working')}
-                className={styles.approveForm}
+                /*
+                 * The destructive partner ends on the same line as the primary action beside it.
+                 * Without this it sat at the top of the grid row, level with the note field, while
+                 * "Mark dispatched" sat below the field - the buttons read as two unrelated rows.
+                 */
+                className={styles.approveForm + ' ' + styles.actionConfirmEnd}
                 reason={{
                   label: t('admin.order.cancelReason'),
                   placeholder: t('admin.order.cancelReasonPlaceholder'),
