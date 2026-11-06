@@ -23,13 +23,30 @@ export function selectDepartments(
   products: readonly CatalogItem[],
   limit: number = DEPARTMENTS_SHOWN,
 ): CatalogCategory[] {
+  /*
+   * Navigation names **departments**, not subcategories: a child is reached through its parent. The
+   * parent's count includes its children's products, because that is what its page now shows. A child
+   * whose parent is missing from the visible set is kept, so a hidden parent cannot orphan it.
+   */
+  const byId = new Map(categories.map((category) => [category.id, category]));
+  const presentIds = new Set(categories.map((category) => category.id));
+  const roots = categories.filter(
+    (category) => category.parentId === null || !presentIds.has(category.parentId),
+  );
+
   const counts = new Map<string, number>();
   for (const product of products) {
     const slug = product.categorySlug;
     if (slug) counts.set(slug, (counts.get(slug) ?? 0) + 1);
+
+    const category = byId.get(product.categoryId);
+    const parent = category?.parentId == null ? null : byId.get(category.parentId);
+    if (parent !== null && parent !== undefined) {
+      counts.set(parent.slug, (counts.get(parent.slug) ?? 0) + 1);
+    }
   }
 
-  return [...categories]
+  return [...roots]
     .map((category) => ({ category, count: counts.get(category.slug) ?? 0 }))
     .sort(
       (a, b) =>

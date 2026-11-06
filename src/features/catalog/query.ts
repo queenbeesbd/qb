@@ -18,6 +18,12 @@ export type CatalogQuery = {
   q: string;
   /** A category page is selected by route; the slug is kept here so both routes share one query shape. */
   category: string;
+  /**
+   * Every slug a route's listing includes. A parent page includes itself and its live child
+   * categories, so browsing a department does not hide the products the owner filed under a
+   * subcategory. Absent means "just `category`", which is what every non-category route uses.
+   */
+  categorySlugs?: readonly string[];
   /** Multi-select: the listing shows a product when it matches any selected brand. */
   brands: string[];
   /** Price bounds in poisha, parsed from whole-taka URL values. Null means the bound is unset. */
@@ -144,8 +150,11 @@ export function filterProducts(
   query: CatalogQuery,
 ): CatalogItem[] {
   const needle = normaliseForSearch(query.q);
+  const categoryScope = query.category
+    ? (query.categorySlugs ?? [query.category])
+    : null;
   return products.filter((item) => {
-    if (query.category && item.categorySlug !== query.category) return false;
+    if (categoryScope !== null && !categoryScope.includes(item.categorySlug)) return false;
     if (
       query.brands.length > 0 &&
       (item.brand === null || !query.brands.includes(item.brand))
@@ -254,9 +263,10 @@ export function buildCatalogFacets(
   products: readonly CatalogItem[],
   categories: readonly CatalogCategory[],
   categorySlug: string,
+  categorySlugs: readonly string[] = categorySlug ? [categorySlug] : [],
 ): CatalogFacets {
   const scope = categorySlug
-    ? products.filter((item) => item.categorySlug === categorySlug)
+    ? products.filter((item) => categorySlugs.includes(item.categorySlug))
     : products;
 
   const availability: Record<AvailabilityFilter, number> = { in_stock: 0, out_of_stock: 0 };
@@ -270,9 +280,23 @@ export function buildCatalogFacets(
     if (item.priceMinor > max) max = item.priceMinor;
   }
 
+  /*
+   * A department's count is what choosing it yields, and choosing it now includes its subcategories.
+   * Incrementing both the product's own category and its parent keeps the rail's parent row equal to
+   * the parent page's result count; the child row still states its own direct count.
+   */
   const categoryCounts = new Map<string, number>();
+  const byId = new Map(categories.map((category) => [category.id, category]));
   for (const item of products) {
     categoryCounts.set(item.categorySlug, (categoryCounts.get(item.categorySlug) ?? 0) + 1);
+
+    const parentId = byId.get(item.categoryId)?.parentId;
+    if (parentId !== null && parentId !== undefined) {
+      const parentSlug = byId.get(parentId)?.slug;
+      if (parentSlug !== undefined) {
+        categoryCounts.set(parentSlug, (categoryCounts.get(parentSlug) ?? 0) + 1);
+      }
+    }
   }
 
   return {

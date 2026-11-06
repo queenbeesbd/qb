@@ -261,9 +261,11 @@ header summaries are 10.5-11.5px tabular numerals in muted ink. Radii are 8px fo
   counts; the current one is marked `aria-current="page"` with a 2px action border and the action-soft
   wash. A link always resolves to `/categories/{slug}`, so a filter change never leaves the address
   bar on a query-string imitation of the page. "All categories" is the only way back to `/products`.
-  The database has a `parent_id`, but the storefront accessor does not expose it and the owner has no
-  parent picker, so the rail renders the flat taxonomy as flat - it does not invent a hierarchy. After
-  eight rows it offers `Show N more categories`, always keeping the active row visible.
+  Since Phase 31 the accessor exposes `parentId` and the owner has a parent picker, so the rail lists
+  **departments only** - subcategories are reached through their parent's page and are not offered as
+  peers. The active category is always kept visible, including when it is a child. After eight rows it
+  offers `Show N more categories`, always keeping the active row visible. A parent page shows its
+  children as a link strip above the grid.
 - **Brands** are multi-select checkboxes over a searchable list. The section starts collapsed because
   it is the long one; it opens automatically when a brand is applied. Inside, the first six are
   visible; selected brands are pinned in a "Selected brands" group with its own Clear control above

@@ -40,9 +40,21 @@ export default async function CategoryPage({
   const category = catalog.categories.find((entry) => entry.slug === slug);
   if (!category) notFound();
 
+  /*
+   * **A department page includes its subcategories** (Phase 31). A product filed under "Face masks"
+   * still belongs to "Skincare" as far as a shopper is concerned, so the parent listing selects both -
+   * otherwise the child's products would disappear from the department that owns them.
+   */
+  const children = catalog.categories.filter((entry) => entry.parentId === category.id);
+  const scope = [category.slug, ...children.map((child) => child.slug)];
+  const parent =
+    category.parentId === null
+      ? null
+      : (catalog.categories.find((entry) => entry.id === category.parentId) ?? null);
+
   const parsed = parseCatalogQuery(await searchParams, catalog.categories);
-  const query = { ...parsed, category: category.slug };
-  const facets = buildCatalogFacets(catalog.products, catalog.categories, query.category);
+  const query = { ...parsed, category: category.slug, categorySlugs: scope };
+  const facets = buildCatalogFacets(catalog.products, catalog.categories, query.category, scope);
 
   const matched = selectCatalog(catalog.products, query);
   const page = slicePage(matched, query.page);
@@ -57,6 +69,8 @@ export default async function CategoryPage({
       matchCount={matched.length}
       page={page.page}
       pageCount={page.pageCount}
+      parent={parent}
+      subcategories={children}
     />
   );
 }

@@ -91,6 +91,8 @@ export async function POST(request: Request): Promise<Response> {
     descriptionBn: form.get('descriptionBn') ?? undefined,
     descriptionEn: form.get('descriptionEn') ?? undefined,
     sortOrder: form.get('sortOrder') ?? undefined,
+    // Always submitted by the editor: an empty value is the explicit "top level" choice.
+    parentId: form.get('parentId') ?? undefined,
     isVisible: readVisibility(form),
     /*
      * The one-line label. The editor always submits the field, so an emptied box clears it and a

@@ -85,6 +85,8 @@ export type CatalogCategory = {
   readonly name: { bn: string | null; en: string };
   readonly blurb: { bn: string | null; en: string | null };
   readonly sortOrder: number;
+  /** Owning department id, or null for a top-level category. One level only. */
+  readonly parentId: string | null;
   /** The owner's square photograph for this category, as an asset key. Null means none chosen. */
   readonly imageKey: string | null;
   /** One short English line for the category tile. Null omits the line. */
@@ -280,6 +282,7 @@ export async function listVisibleCategories(tx: Transaction): Promise<CatalogCat
       descriptionBn: category.descriptionBn,
       descriptionEn: category.descriptionEn,
       sortOrder: category.sortOrder,
+      parentId: category.parentId,
       imageKey: category.imageKey,
       tagline: category.tagline,
     })
@@ -293,6 +296,7 @@ export async function listVisibleCategories(tx: Transaction): Promise<CatalogCat
     name: { bn: row.nameBn, en: row.nameEn },
     blurb: { bn: row.descriptionBn, en: row.descriptionEn },
     sortOrder: row.sortOrder,
+    parentId: row.parentId === null ? null : String(row.parentId),
     imageKey: row.imageKey,
     tagline: row.tagline,
   }));

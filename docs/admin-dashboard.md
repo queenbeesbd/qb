@@ -41,7 +41,7 @@ These are required for the store to trade. Without them, orders cannot be fulfil
 | Module | Launch-critical content |
 | --- | --- |
 | **Products** | Create, edit, unpublish; brand, category, bilingual name and description; images; price and comparison price; SKU; and the **availability state - In Stock / Out of Stock (D19, approved in ADR 0009)**, which is what the owner operates and what the storefront shows. An out-of-stock product cannot be ordered. The availability control is presented as a state, never as a quantity countdown, a restock date or an arrival promise. **Implemented in Phase 13.** Imagery is associated from **existing local assets only** - the image is chosen from a server-controlled inventory and its dimensions and content type are read from the file - because upload and object storage are deferred. **Not yet built:** variant editing (one default variant per product), curation, and bulk operations |
-| **Categories** | Create and edit; bilingual names; display order; visibility; optional image or SVG mark. **Implemented in Phase 13** (names, descriptions, order, visibility). Archiving is **refused while products or subcategories still reference the category**, rather than cascading. The optional image mark is **not built** |
+| **Categories** | Create and edit; bilingual names; display order; visibility; optional image; and **one level of subcategory** (Phase 31, owner-authorized 2026-11-06). **Implemented in Phase 13** (names, descriptions, order, visibility), Phase 36 (images, editor) and Phase 31 (parent picker, list grouping, storefront hierarchy). Archiving is **refused while products or subcategories still reference the category**, rather than cascading |
 | **Orders** | List with filters; itemized detail with frozen line prices; status transitions with history; payment status; shipping details; cancellation |
 | **Payments** | **Cash on Delivery only (ADR 0015).** The COD confirmation queue with approve/cancel, guarded transitions and an audit trail. The manual prepaid queue, its recipient configuration and its `payment.*` permissions were **removed in Phase 17** |
 | **Customers** | Profile with order history; minimal personal data; **ban after a confirmed fake order (D20, approved in ADR 0009)**, which revokes the account's sessions and refuses new orders and checkout. The review flag is a separate, non-blocking finding and is never presented as a ban |
@@ -152,6 +152,31 @@ image on the card" are different, and a reorder must not silently repoint the ca
 
 **The picker still reads the server's own inventory** for images that were already there, and every
 stored image's metadata comes from its file bytes, never from the request.
+
+### Subcategories (Phase 31)
+
+The category editor offers a **Parent category** picker. The rule is **one level**: the picker lists
+live top-level categories only, a category cannot be its own parent, a child cannot become a parent,
+and a category that already has live children is **locked to the top level** with the reason stated in
+the form. The service enforces all four conditions; the picker is a convenience, not the control.
+
+- The admin list groups a child beside its parent (`parent_id NULLS FIRST` inside a parent-keyed sort)
+  and labels the row **In &lt;parent&gt;**.
+- The edit screen's usage card continues to show the derived **subcategory count**; archiving is still
+  refused while a live child exists, and the supported order is archive the child first.
+- `parentId` is audited on create and on update (before and after).
+- `returnTo` still only accepts the two editor shapes; a refused parent move returns to the editor.
+
+**Storefront.** The category index, homepage department rail, header drawer and filter rail show
+**roots only**. A parent page lists its live children as real links before the grid, and its listing
+includes products filed under those children, so a department does not lose stock to its own
+subcategory. A child page keeps the normal listing and its breadcrumb reads
+**Categories / Parent / Child**. Department counts include child products; a child's own tile count
+stays its direct products. A child whose parent is hidden is shown as a root rather than becoming
+unreachable.
+
+**No schema change** - `category.parent_id` and `category_not_own_parent` already existed. Nothing is
+deployed.
 
 ### The list surfaces (Phase 30)
 

@@ -1,6 +1,8 @@
+import { withTransaction } from '@/db/client';
 import { translate } from '@/i18n/config';
 import { requireAdminPage } from '@/server/auth/guard';
 import { PERMISSIONS } from '@/server/authz/permissions';
+import { listCategoriesForAdmin } from '@/server/catalog/service';
 import { Notice } from '../../../_ui/Notice';
 import { PageHeader } from '../../../_ui/PageHeader';
 import { CategoryForm } from '../CategoryForm';
@@ -30,6 +32,18 @@ export default async function NewCategoryPage({
   const query = await searchParams;
   const notice = readCategoryNotice(query.notice);
 
+  /*
+   * Only live **roots** are offered as parents. The catalog is read here rather than in the client so
+   * the form cannot offer a category that has since been archived, and so the one-level rule is not a
+   * fact the browser decides.
+   */
+  const parentOptions = await withTransaction(async (tx) => {
+    const { rows } = await listCategoriesForAdmin(tx, { limit: 100 });
+    return rows
+      .filter((row) => row.parentId === null)
+      .map((row) => ({ id: row.id, nameEn: row.nameEn }));
+  });
+
   return (
     <>
       <PageHeader
@@ -47,6 +61,7 @@ export default async function NewCategoryPage({
         values={{}}
         csrfToken={principal.csrfToken}
         cancelHref="/admin/categories"
+        parentOptions={parentOptions}
       />
     </>
   );

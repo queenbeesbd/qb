@@ -812,7 +812,7 @@ async function main() {
     const imagery = await evaluate(client, `(() => {
       const imgs = [...document.querySelectorAll('main article img')];
       const loaded = imgs.filter((i) => i.complete && i.naturalWidth > 0);
-      const webp = imgs.filter((i) => /\.webp(?:\?|$)/.test(i.currentSrc || i.src));
+      const webp = imgs.filter((i) => /\\.webp(?:\\?|$)/.test(i.currentSrc || i.src));
       const ratios = [...new Set(imgs.map((i) => (i.getAttribute('width') + 'x' + i.getAttribute('height'))))];
       const altTexts = imgs.map((i) => i.getAttribute('alt'));
       return {

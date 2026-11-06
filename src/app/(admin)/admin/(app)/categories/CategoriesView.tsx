@@ -24,6 +24,8 @@ export type CategoryRow = {
   descriptionEn: string | null;
   sortOrder: number;
   isVisible: boolean;
+  parentId: number | null;
+  parentNameEn: string | null;
   productCount: number;
   subcategoryCount: number;
 };
@@ -148,13 +150,20 @@ export function CategoriesView({
           <ul className={styles.recordList} data-admin-list="">
             {categories.map((category) => (
               <li className={styles.record} key={category.id}>
-                <span className={styles.recordThumb} aria-hidden="true">
+                <span
+                  className={styles.recordThumb}
+                  data-subcategory={category.parentId === null ? undefined : 'true'}
+                  aria-hidden="true"
+                >
                   {category.nameEn.slice(0, 1).toUpperCase()}
                 </span>
                 <div className={styles.recordMain}>
                   <span className={styles.recordTitle}>{category.nameEn}</span>
                   <span className={styles.recordMeta}>
                     <span className={styles.mono}>{category.slug}</span>
+                    {category.parentNameEn !== null && (
+                      <span>{t('admin.categories.inParent', { name: category.parentNameEn })}</span>
+                    )}
                     <span>{t('admin.categories.productCountValue', { count: category.productCount })}</span>
                     <span>
                       {t('admin.categories.subcategoryCountValue', { count: category.subcategoryCount })}

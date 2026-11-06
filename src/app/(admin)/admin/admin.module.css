@@ -2414,6 +2414,16 @@ html[dir='rtl'] .switchOn .switchKnob::after {
   flex: none;
 }
 
+/* A subcategory is visibly under its parent in the list, not just worded as one. */
+.recordThumb[data-subcategory='true'] {
+  width: 32px;
+  height: 32px;
+  margin-inline-start: var(--space-5);
+  background: var(--color-surface-sunken);
+  color: var(--color-ink-muted);
+  font-size: var(--text-xs);
+}
+
 /* A brand logo in a list row: contained, on the surface the storefront draws it on. */
 .recordThumbLogo {
   width: 100%;

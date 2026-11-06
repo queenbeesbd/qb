@@ -11,9 +11,22 @@ export const dynamic = 'force-dynamic';
  */
 export default async function CategoriesPage() {
   const catalog = await getStorefrontCatalog();
+  const byId = new Map(catalog.categories.map((category) => [category.id, category]));
   const counts: Record<string, number> = {};
   for (const product of catalog.products) {
     counts[product.categorySlug] = (counts[product.categorySlug] ?? 0) + 1;
+    /*
+     * A department's tile states what browsing it shows, and a department page now includes its
+     * subcategories. The parent's tile therefore counts its children's products too; the child's own
+     * page keeps its direct listing.
+     */
+    const category = byId.get(product.categoryId);
+    const parent = category?.parentId === null || category?.parentId === undefined
+      ? null
+      : byId.get(category.parentId);
+    if (parent !== null && parent !== undefined) {
+      counts[parent.slug] = (counts[parent.slug] ?? 0) + 1;
+    }
   }
 
   /*

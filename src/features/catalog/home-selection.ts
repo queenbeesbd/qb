@@ -104,12 +104,22 @@ export function selectHomepage({
   const purchasable = products.filter((product) => product.availability === 'in_stock');
   const productById = new Map(purchasable.map((product) => [product.id, product]));
 
+  /*
+   * The homepage rail is a list of **departments**, so a subcategory is reached through its parent
+   * rather than promoted beside it. A child whose parent is not in the visible set stays, so a hidden
+   * parent cannot make the child unreachable.
+   */
+  const presentIds = new Set(categories.map((category) => category.id));
+  const roots = categories.filter(
+    (category) => category.parentId === null || !presentIds.has(category.parentId),
+  );
+
   /** The busiest departments first, then everything else in the catalog's own order. */
-  const primary = selectDepartments(categories, products, 4);
+  const primary = selectDepartments(roots, products, 4);
   const primarySlugs = new Set(primary.map((category) => category.slug));
   const departments = [
     ...primary,
-    ...categories.filter((category) => !primarySlugs.has(category.slug)),
+    ...roots.filter((category) => !primarySlugs.has(category.slug)),
   ].slice(0, CATEGORY_LIMIT);
 
   const byCuratedId = (ids: readonly string[]): CatalogItem[] =>

@@ -99,6 +99,9 @@ export function fixtureToCatalogCategory(category: Category): CatalogCategory {
     blurb: category.blurb,
     icon: categoryIcon(category.slug),
     sortOrder: 0,
+    // The fixture predates subcategories and carries no parent field, so every fixture department is
+    // top level - the same shape a database root category projects.
+    parentId: null,
     // The fixture has no image or tagline column: the category tile then draws its icon glyph, which
     // is the same fallback a database category with no image gets.
     imageKey: null,

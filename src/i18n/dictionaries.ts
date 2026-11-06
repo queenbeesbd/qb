@@ -273,6 +273,8 @@ export const dictionary = {
   'search.chip': '“{query}”',
 
   'categories.title': 'Categories',
+  'categories.subcategories': 'Shop within {name}',
+  'categories.subcategoryCount': '{count} products',
   'categories.count': '{count} products',
   'categories.countOne': '1 product',
   'categories.viewProducts': 'Shop {name}',
@@ -1173,6 +1175,13 @@ export const dictionary = {
   'admin.categories.editTitle': 'Edit category',
   'admin.categories.field.nameBn': 'Name (Bangla)',
   'admin.categories.field.nameEn': 'Name (English)',
+  'admin.categories.field.parent': 'Parent category',
+  'admin.categories.field.parentNone': 'Top level (no parent)',
+  'admin.categories.field.parentHelp':
+    'Optional. A subcategory appears under its parent on the storefront. Only a top-level category can be a parent, so the shop keeps one level of subcategory.',
+  'admin.categories.field.parentLocked':
+    'This category has subcategories, so it must stay at the top level. Move or archive its children first.',
+  'admin.categories.inParent': 'In {name}',
   'admin.categories.field.slug': 'Slug',
   'admin.categories.field.slugHelp': 'Leave blank to derive it from the English name.',
   'admin.categories.field.descriptionBn': 'Description (Bangla)',

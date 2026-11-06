@@ -90,6 +90,8 @@ export default async function AdminCategoriesPage({
         descriptionEn: category.descriptionEn,
         sortOrder: category.sortOrder,
         isVisible: category.isVisible,
+        parentId: category.parentId,
+        parentNameEn: category.parentNameEn,
         productCount: category.productCount,
         subcategoryCount: category.subcategoryCount,
       }))}

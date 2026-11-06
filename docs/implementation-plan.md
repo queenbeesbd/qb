@@ -985,6 +985,40 @@ catalog/categories/audit, footer alignment, and 320/360/390/768/1024/1280/1440/1
 two defects were found that way and fixed - the eight status tabs and the date row were clipped at 390px,
 and the money cell's right alignment read as clipped once a row wrapped.
 
+## Phase 31 - one level of subcategory management (delivered 2026-11-06)
+
+**The owner authorized Phase 31.** The category editor offers a **Parent category** picker and the
+service enforces a single level of depth. `category.parent_id` already existed, so this phase is
+**application and presentation only - no schema change and no migration**.
+
+**Rules, enforced in the service as well as offered by the form:**
+
+| Rule | Behaviour |
+| --- | --- |
+| Parent must be a live root | a child cannot be a parent; no grandchildren |
+| Not its own parent | refused before the schema's `category_not_own_parent` check |
+| A category with live children stays top level | the editor states why and offers no picker; the service refuses too |
+| A child may move back to the top level | explicit empty `parentId` |
+| Archive | still refused while a live child exists; archive child, then parent |
+
+**What changed:** `CategoryInput.parentId` and normalisation; create/update writes and audit; the admin
+list's parent-aware order and **In &lt;parent&gt;** label; the editor's parent picker and locked state;
+`CatalogCategory.parentId` and the storefront projection. The category index, homepage department rail,
+header drawer and filter rail show **roots only**; a parent page shows its live children and includes
+their products; a child breadcrumb names its parent; department counts include child products.
+
+**Deliberately not built:** drag-reorder of categories, bulk move, deeper nesting, and category images
+(already tracked separately in Phase 36).
+
+**Verified 2026-11-06:** `typecheck`, `lint` (0 errors), `check:i18n`, `check:catalog`, unit
+**212/212**, `tests/db/catalog.test.ts` **36/36**, `build`; a dev-server walk-through created a child
+under Skincare, checked the parent's count/lock, moved it to top level and back, and verified the
+storefront index/parent/child surfaces; `verify:admin` **202/205** with the three pre-existing failures
+(category-visibility hydration race, Telegram removal-dialog flake, absent CSP); `verify:storefront`
+**91/97** after a stale escaped regex that aborted the suite at check 26 was corrected, with the six
+failures on untouched surfaces (8/32 product-page image and price, 20 gallery dots, 27d section link,
+36d the seed's five departments, 40b favicon ink). Nothing is deployed.
+
 ## Phase 35 - Product editor (delivered 2026-10-21)
 
 **The owner asked for the new-product screen to be rebuilt to match the reference, and it is.** The form

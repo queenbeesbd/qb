@@ -187,6 +187,14 @@ export type CatalogCategory = {
   icon: CategoryIcon;
   sortOrder: number;
   /**
+   * The parent category's id, or `null` for a top-level department.
+   *
+   * The shop holds **one level** of subcategory (owner decision, Phase 31): a parent is always a root,
+   * so this field can never point at another child. It is an id rather than a slug because the
+   * category index and a parent page both need to match it without re-deriving a slug.
+   */
+  parentId: string | null;
+  /**
    * The category's own square photograph as an asset key, or `null` when the owner has not chosen
    * one. `src/lib/images.ts` derives every rendered path from the key, so this is never a URL.
    */

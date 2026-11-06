@@ -2868,6 +2868,119 @@ async function main(): Promise<void> {
               `started ${editorVisible}; hid it: ${hidden}; showed it again: ${shown}`,
             );
 
+            /*
+             * ---- Phase 31: one level of subcategory ----
+             *
+             * The parent is the seeded Verify Category. A child is created through the real editor,
+             * then the parent states the count, the list names the parent, and the parent cannot be
+             * archived while the child is live.
+             */
+            console.log('\nsubcategories (Phase 31)');
+            /*
+             * A dedicated parent with no products: the seeded Verify Category still holds the product
+             * the archive-refusal test created, so it could not demonstrate that the *child* is what
+             * blocks the archive.
+             */
+            await call(base, '/api/admin/catalog/category', {
+              method: 'POST',
+              jar: ownerJar,
+              form: {
+                csrf,
+                operation: 'create',
+                nameBn: 'যাচাই অভিভাবক',
+                nameEn: 'Verify Parent Category',
+                slug: 'verify-parent-category',
+                sortOrder: '2',
+              },
+            });
+            const parentRows = await withTransaction((tx) =>
+              tx
+                .select({ id: category.id })
+                .from(category)
+                .where(sql`${category.slug} = 'verify-parent-category'`),
+            );
+            const subParentId = parentRows[0]?.id ?? 0;
+
+            await browser.navigate('/admin/categories/new');
+            await browser.type('#nameEn', 'Verify Child Category');
+            await browser.type('#nameBn', 'যাচাই উপবিভাগ');
+            const parentSelected = await browser.evaluate<boolean>(`(() => {
+              const select = document.querySelector('select[name="parentId"]');
+              if (!(select instanceof HTMLSelectElement)) return false;
+              select.value = '${subParentId}';
+              select.dispatchEvent(new Event('change', { bubbles: true }));
+              return select.value === '${subParentId}';
+            })()`);
+            await browser.evaluate(
+              `document.querySelector('form[action="/api/admin/catalog/category"]')?.requestSubmit()`,
+            );
+            const childCreated = await browser.waitFor(
+              "location.pathname.startsWith('/admin/categories/') && location.pathname !== '/admin/categories/new'",
+            );
+            const childRow = await withTransaction((tx) =>
+              tx
+                .select({ id: category.id, parentId: category.parentId })
+                .from(category)
+                .where(sql`${category.nameEn} = 'Verify Child Category'`),
+            );
+            record(
+              'a subcategory can be created under a top-level category through the editor',
+              parentSelected &&
+                childCreated &&
+                childRow[0]?.parentId === subParentId,
+              JSON.stringify({ parentSelected, childCreated, parentId: childRow[0]?.parentId ?? null }),
+            );
+
+            await browser.navigate(`/admin/categories/${subParentId}`);
+            const parentState = await browser.evaluate<{ usage: string; locked: boolean }>(`(() => ({
+              usage: document.querySelector('[class*="categoryUsage"]')?.textContent ?? '',
+              locked: document.querySelector('select[name="parentId"]') === null,
+            }))()`);
+            record(
+              'the parent states its subcategory count and is locked to the top level',
+              /Subcategories\s*1/.test(parentState.usage) && parentState.locked === true,
+              JSON.stringify(parentState),
+            );
+
+            await browser.navigate('/admin/categories?q=' + encodeURIComponent('Verify Child'));
+            const childList = await browser.evaluate<string>(
+              `document.querySelector('[data-admin-list]')?.textContent ?? ''`,
+            );
+            record(
+              'the list names the parent a subcategory belongs to',
+              childList.includes('Verify Child Category') &&
+                childList.includes('In Verify Parent Category'),
+              childList.slice(0, 160),
+            );
+
+            const archiveParentWhileChildLives = await call(base, '/api/admin/catalog/category', {
+              method: 'POST',
+              jar: ownerJar,
+              form: { csrf, operation: 'archive', categoryId: String(subParentId) },
+            });
+            record(
+              'a parent with a live subcategory refuses to be archived',
+              (archiveParentWhileChildLives.location ?? '').includes('notice=conflict'),
+              `${archiveParentWhileChildLives.status} → ${archiveParentWhileChildLives.location ?? ''}`,
+            );
+
+            const childId = childRow[0]?.id ?? 0;
+            await call(base, '/api/admin/catalog/category', {
+              method: 'POST',
+              jar: ownerJar,
+              form: { csrf, operation: 'archive', categoryId: String(childId) },
+            });
+            const archiveParentAfterChild = await call(base, '/api/admin/catalog/category', {
+              method: 'POST',
+              jar: ownerJar,
+              form: { csrf, operation: 'archive', categoryId: String(subParentId) },
+            });
+            record(
+              'archiving the child lets the parent be archived',
+              (archiveParentAfterChild.location ?? '').includes('notice=archived'),
+              `${archiveParentAfterChild.status} → ${archiveParentAfterChild.location ?? ''}`,
+            );
+
             await browser.navigate('/admin/audit?size=10');
             const auditPage = await browser.evaluate<{ rows: number; total: boolean; size: boolean }>(`(() => ({
               rows: document.querySelectorAll('[data-admin-table] tbody tr').length,

@@ -122,6 +122,7 @@ function toCatalogCategory(record: CatalogCategoryRecord): CatalogCategory {
     blurb: record.blurb,
     icon: categoryIcon(record.slug),
     sortOrder: record.sortOrder,
+    parentId: record.parentId,
     imageKey: record.imageKey,
     tagline: record.tagline,
   };

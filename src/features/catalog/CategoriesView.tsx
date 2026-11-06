@@ -35,6 +35,16 @@ export function CategoriesView({
   counts: Readonly<Record<string, number>>;
 }) {
   const { t, pick } = useTranslation();
+  /*
+   * The index is a list of **departments**, not of every category. A subcategory is reached through
+   * its parent's page, so drawing it here too would present the same shelf twice and make a child
+   * look like a second top-level department. A child whose parent is no longer visible (for example a
+   * hidden parent) is kept here rather than becoming unreachable.
+   */
+  const presentIds = new Set(categories.map((category) => category.id));
+  const roots = categories.filter(
+    (category) => category.parentId === null || !presentIds.has(category.parentId),
+  );
 
   return (
     <div className={styles.page}>
@@ -44,7 +54,7 @@ export function CategoriesView({
 
       <section aria-label={t('categories.title')} className={styles.section}>
         <ul className={styles.tileGrid}>
-          {categories.map((category) => {
+          {roots.map((category) => {
             const count = counts[category.slug] ?? 0;
             const name = pick(category.name) ?? category.slug;
             return (

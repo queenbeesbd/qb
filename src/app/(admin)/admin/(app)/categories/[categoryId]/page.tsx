@@ -5,7 +5,7 @@ import { translate } from '@/i18n/config';
 import { requireAdminPage } from '@/server/auth/guard';
 import { PERMISSIONS } from '@/server/authz/permissions';
 import { listAssetKeys } from '@/server/catalog/assets';
-import { getCategoryForAdmin } from '@/server/catalog/service';
+import { getCategoryForAdmin, listCategoriesForAdmin } from '@/server/catalog/service';
 import { Notice } from '../../../_ui/Notice';
 import { PageHeader } from '../../../_ui/PageHeader';
 import { CategoryForm } from '../CategoryForm';
@@ -34,11 +34,28 @@ export default async function EditCategoryPage({
   const principal = await requireAdminPage(PERMISSIONS.catalogWrite);
   const { categoryId } = await params;
 
-  const [category, assetKeys] = await Promise.all([
-    withTransaction((tx) => getCategoryForAdmin(tx, categoryId)),
+  const [data, assetKeys] = await Promise.all([
+    withTransaction(async (tx) => {
+      const category = await getCategoryForAdmin(tx, categoryId);
+      if (category === null) return null;
+      const { rows } = await listCategoriesForAdmin(tx, { limit: 100 });
+      return { category, rows };
+    }),
     listAssetKeys(),
   ]);
-  if (category === null) notFound();
+  if (data === null) notFound();
+  const { category, rows } = data;
+
+  /*
+   * A parent must be a live root and cannot be this category. When this category already has live
+   * children it must stay a root, so no picker is offered at all - the form states why instead.
+   */
+  const parentLocked = category.subcategoryCount > 0;
+  const parentOptions = parentLocked
+    ? []
+    : rows
+        .filter((row) => row.parentId === null && row.id !== category.id)
+        .map((row) => ({ id: row.id, nameEn: row.nameEn }));
 
   const query = await searchParams;
   const notice = readCategoryNotice(query.notice);
@@ -66,6 +83,7 @@ export default async function EditCategoryPage({
           isVisible: category.isVisible,
           tagline: category.tagline,
           imageKey: category.imageKey,
+          parentId: category.parentId,
         }}
         /*
          * The whole asset inventory, offered as the category's photograph. The list is the server's own
@@ -79,6 +97,8 @@ export default async function EditCategoryPage({
         }}
         csrfToken={principal.csrfToken}
         cancelHref="/admin/categories"
+        parentOptions={parentOptions}
+        parentLocked={parentLocked}
       />
     </>
   );

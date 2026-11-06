@@ -95,6 +95,8 @@ export function CatalogView({
   page,
   pageCount,
   brand,
+  parent = null,
+  subcategories = [],
 }: {
   results: readonly CatalogItem[];
   facets: CatalogFacets;
@@ -105,6 +107,13 @@ export function CatalogView({
   matchCount: number;
   page: number;
   pageCount: number;
+  /**
+   * Set on a subcategory page: the department it sits under, so the breadcrumb reads
+   * Categories / Skincare / Face masks instead of dropping the parent.
+   */
+  parent?: CatalogCategory | null;
+  /** Set on a parent page: the live child categories to offer above the listing. */
+  subcategories?: readonly CatalogCategory[];
   /**
    * Set only on `/brands/<slug>`: the brand the *route* names.
    *
@@ -289,6 +298,14 @@ export function CatalogView({
           <Link href={brand != null ? '/brands' : '/categories'}>
             {brand != null ? t('nav.brands') : t('categories.title')}
           </Link>
+          {parent !== null && (
+            <>
+              <span className={styles.breadcrumbSep} aria-hidden="true">
+                /
+              </span>
+              <Link href={`/categories/${parent.slug}`}>{pick(parent.name) ?? parent.slug}</Link>
+            </>
+          )}
           <span className={styles.breadcrumbSep} aria-hidden="true">
             /
           </span>
@@ -319,6 +336,31 @@ export function CatalogView({
           </p>
         </header>
       </div>
+
+      {/*
+        A parent department offers its live children before the grid. The count is the facet count from
+        the same snapshot the grid uses, so a child can never advertise a number its page does not show.
+      */}
+      {subcategories.length > 0 && (
+        <nav
+          className={styles.subcategories}
+          aria-label={t('categories.subcategories', {
+            name: category !== null ? (pick(category.name) ?? category.slug) : t('categories.title'),
+          })}
+        >
+          {subcategories.map((child) => {
+            const count = facets.categories.find((entry) => entry.slug === child.slug)?.count ?? 0;
+            return (
+              <Link className={styles.subcategoryLink} href={`/categories/${child.slug}`} key={child.id}>
+                <span className={styles.subcategoryName}>{pick(child.name) ?? child.slug}</span>
+                <span className={styles.subcategoryCount}>
+                  {count === 1 ? t('categories.countOne') : t('categories.subcategoryCount', { count })}
+                </span>
+              </Link>
+            );
+          })}
+        </nav>
+      )}
 
       <div className={styles.layout}>
         <aside id="catalog-filters" className={styles.sidebar} aria-label={t('catalog.filters')}>

@@ -264,3 +264,24 @@ failures are a pre-existing Telegram removal-dialog flake and the documented abs
 screen readers and the imported catalogue were not used. Nothing is deployed and no
 cloud resource exists.
 
+## Phase 31 - one level of subcategory management (2026-11-06)
+
+Owner-authorized and implemented locally, not deployed. `category.parent_id` already existed, so there
+is **no schema change and no migration**. A category editor now offers a parent picker over live roots,
+the service refuses self-parenting, grandchildren and moving a category with live children under
+another, and a parent is locked to the top level in the UI as well. The admin list groups a child beside
+its parent and labels it **In &lt;parent&gt;**; archive remains refused while a live child exists (archive
+the child first). The storefront index, homepage rail, header drawer and filter rail show roots only; a
+parent page lists its children and includes their products; a child breadcrumb names the parent; and
+department counts include child products.
+
+Verified with typecheck, lint (0 errors), `check:i18n` (1,462 keys), `check:catalog`, unit **212/212**,
+`tests/db/catalog.test.ts` **36/36**, `build`, and `verify:admin` **202/205** (the three failures are the
+pre-existing category-visibility hydration race, Telegram removal-dialog flake and the documented absent
+CSP). A dev-server walk-through created a child under Skincare, checked the count/lock, moved it to top
+level and back, and observed the storefront index, parent strip/listing and child breadcrumb.
+`verify:storefront` completed **91/97** once a stale escaped regex in `scripts/verify-browser.cjs` was
+corrected (it previously aborted at check 26). The six failures are on untouched surfaces: checks 8 and
+32 (product-page image/price), 20 (24px gallery dots), 27d (section link), 36d (the seed's five
+departments) and 40b (favicon ink). Real devices and screen readers were not used. Nothing is deployed.
+

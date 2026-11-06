@@ -13,6 +13,7 @@ import { describe, it } from 'node:test';
 
 import {
   buildCatalogFacets,
+  filterProducts,
   parseCatalogQuery,
   selectCatalog,
   type CatalogQuery,
@@ -30,6 +31,7 @@ const categories: CatalogCategory[] = [
     blurb: { bn: null, en: null },
     icon: 'serum',
     sortOrder: 0,
+    parentId: null,
     imageKey: null,
     tagline: null,
   },
@@ -40,6 +42,7 @@ const categories: CatalogCategory[] = [
     blurb: { bn: null, en: null },
     icon: 'other',
     sortOrder: 1,
+    parentId: null,
     imageKey: null,
     tagline: null,
   },
@@ -129,6 +132,7 @@ describe('parseCatalogQuery category', () => {
         blurb: { bn: null, en: null },
         icon: 'other',
         sortOrder: 0,
+    parentId: null,
     imageKey: null,
     tagline: null,
       },
@@ -151,6 +155,7 @@ describe('catalog filter facets', () => {
       blurb: { bn: null, en: null },
       icon: 'serum',
       sortOrder: 0,
+    parentId: null,
     imageKey: null,
     tagline: null,
     },
@@ -161,6 +166,7 @@ describe('catalog filter facets', () => {
       blurb: { bn: null, en: null },
       icon: 'hair',
       sortOrder: 1,
+    parentId: null,
     imageKey: null,
     tagline: null,
     },
@@ -321,5 +327,90 @@ describe('catalog filter facets', () => {
       listingHref({ ...query, q: '', category: '', brands: [], minPrice: null, availability: [], sort: 'relevance', page: 1 }),
       '/products',
     );
+  });
+});
+
+describe('subcategory listing scope', () => {
+  const parent: CatalogCategory = {
+    id: '10',
+    slug: 'skincare',
+    name: { bn: null, en: 'Skincare' },
+    blurb: { bn: null, en: null },
+    icon: 'serum',
+    sortOrder: 0,
+    parentId: null,
+    imageKey: null,
+    tagline: null,
+  };
+  const child: CatalogCategory = {
+    id: '11',
+    slug: 'face-masks',
+    name: { bn: null, en: 'Face masks' },
+    blurb: { bn: null, en: null },
+    icon: 'other',
+    sortOrder: 1,
+    parentId: parent.id,
+    imageKey: null,
+    tagline: null,
+  };
+
+  const item = (id: string, categoryId: string, categorySlug: string): CatalogItem => ({
+    id,
+    slug: id,
+    name: { bn: null, en: id },
+    description: { bn: null, en: null },
+    shortDescription: null,
+    brand: null,
+    brandSlug: null,
+    categoryId,
+    categorySlug,
+    pack: null,
+    priceMinor: 10_000,
+    compareAtPriceMinor: null,
+    availability: 'in_stock',
+    images: [],
+    source: 'database',
+    createdAt: null,
+  });
+
+  const products = [item('toner', parent.id, parent.slug), item('mask', child.id, child.slug)];
+
+  it('includes a subcategory\u2019s products on its parent page, and only its own elsewhere', () => {
+    const query = {
+      q: '',
+      category: parent.slug,
+      categorySlugs: [parent.slug, child.slug],
+      brands: [],
+      minPrice: null,
+      maxPrice: null,
+      availability: [],
+      sort: 'relevance' as const,
+      page: 1,
+    };
+    assert.equal(filterProducts(products, query).length, 2);
+    assert.equal(filterProducts(products, { ...query, categorySlugs: undefined }).length, 1);
+    assert.equal(
+      filterProducts(products, { ...query, category: child.slug, categorySlugs: [child.slug] }).length,
+      1,
+    );
+  });
+
+  it('scopes the facet counts to the same parent-and-children set', () => {
+    const scoped = buildCatalogFacets(products, [parent, child], parent.slug, [
+      parent.slug,
+      child.slug,
+    ]);
+    assert.deepEqual(scoped.availability, { in_stock: 2, out_of_stock: 0 });
+    assert.deepEqual(
+      scoped.categories,
+      [
+        // Choosing the parent yields both products; the child states its own direct count.
+        { slug: 'skincare', count: 2 },
+        { slug: 'face-masks', count: 1 },
+      ],
+    );
+
+    const direct = buildCatalogFacets(products, [parent, child], parent.slug);
+    assert.deepEqual(direct.availability, { in_stock: 1, out_of_stock: 0 });
   });
 });

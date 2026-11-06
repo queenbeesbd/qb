@@ -186,7 +186,14 @@ Each phase is independently verifiable and ends with a checkpoint. **No phase be
 - **Owner decisions:** none.
 - **Risks:** scope creep into new fields; keep it presentation-only.
 
-### Phase 31 - Subcategories
+### Phase 31 - Subcategories - **delivered 2026-11-06**
+
+> **Delivered.** One level of subcategory, owner-authorized 2026-11-06: a parent picker over live roots,
+> the depth rule enforced in the service, parent-aware list order and label, archive refusal while a
+> child lives, and a storefront that shows roots on the index/navigation, children on the parent page,
+> and the parent in a child's breadcrumb. See `docs/implementation-plan.md` (Phase 31) and
+> `docs/admin-dashboard.md` (Subcategories). No schema change. The plan below is retained as the
+> specification it was built to; **not built:** drag-reorder, bulk move, deeper nesting.
 
 - **Scope:** create / edit / archive a subcategory under an existing category; "Total Subcategory"
   count; specific empty state; breadcrumb.

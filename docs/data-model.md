@@ -507,6 +507,15 @@ currently unvalidated free text (discrepancy B4). Referential integrity is the f
 | `brand` | `id`, `slug` (unique), `name_bn`, `name_en`, `is_active`, `created_at`, `updated_at`, `deleted_at` | `UNIQUE (slug)`; `CHECK (char_length(name_bn) BETWEEN 1 AND 80)` and the same for `name_en` |
 | `category` | `id`, `slug` (unique), `parent_id` FK `category(id)` `ON DELETE RESTRICT`, `name_bn`, `name_en`, `description_bn`, `description_en`, `sort_order` (integer), `is_visible` (boolean), `created_at`, `updated_at`, `deleted_at` | `UNIQUE (slug)`; `CHECK (parent_id IS NULL OR parent_id <> id)`; `CHECK (sort_order >= 0)` |
 
+**One level of subcategory (Phase 31, owner-authorized 2026-11-06).** `category.parent_id` exists and
+may point only at a **live top-level category**. The service refuses a category as its own parent, a
+parent that is itself a child (no grandchildren), and giving a category with live children a parent.
+The schema's `CHECK (parent_id IS NULL OR parent_id <> id)` remains the last line; the depth rule is
+enforced in the service because it needs a read of the parent and child rows. Archiving a category is
+still refused while a live child references it, and a child is archived before its parent. The
+storefront projects `parentId` and uses it to show roots on the index and navigation, a parent's
+children on the parent page, and a parent in a child's breadcrumb.
+
 **Bilingual columns, not a translation table - deliberate.** The locale set is a product constant of
 exactly two values, and `NOT NULL` on `name_bn` and `name_en` makes completeness a schema guarantee
 instead of a convention. A `translation` table would permit a missing locale row and would add a join

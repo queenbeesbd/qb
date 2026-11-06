@@ -296,6 +296,14 @@ export type CategoryInput = {
   readonly sortOrder?: unknown;
   readonly isVisible?: unknown;
   /**
+   * The owning department's id, or empty/null for a top-level category.
+   *
+   * `undefined` leaves the current parent alone (the update path), while `null` or `''` explicitly
+   * makes the category top level. The shop keeps **one level** of subcategory: a parent must itself be
+   * a root, and a category with live children cannot be given a parent (Phase 31).
+   */
+  readonly parentId?: unknown;
+  /**
    * The one-line label under the category's name on the storefront index.
    *
    * Optional: an omitted value keeps whatever the row already has, and an empty string clears it. That
@@ -341,6 +349,8 @@ export async function listCategoriesForAdmin(
     descriptionEn: string | null;
     sortOrder: number;
     isVisible: boolean;
+    parentId: number | null;
+    parentNameEn: string | null;
     productCount: number;
     subcategoryCount: number;
   }[];
@@ -372,6 +382,10 @@ export async function listCategoriesForAdmin(
       descriptionEn: category.descriptionEn,
       sortOrder: category.sortOrder,
       isVisible: category.isVisible,
+      parentId: category.parentId,
+      parentNameEn: sql<string | null>`(
+        select parent."name_en" from "category" parent where parent."id" = "category"."parent_id"
+      )`,
       tagline: category.tagline,
       imageKey: category.imageKey,
       productCount: sql<number>`(
@@ -387,7 +401,19 @@ export async function listCategoriesForAdmin(
     })
     .from(category)
     .where(where)
-    .orderBy(category.sortOrder, category.nameEn, category.id)
+    /*
+     * A child sits beside its parent, not wherever its own sort number happens to land. The key is the
+     * parent's order and name when there is a parent, the category's own when it is a root; the root
+     * itself comes first within the group (`parent_id nulls first`), then its children in order.
+     */
+    .orderBy(
+      sql`coalesce((select parent."sort_order" from "category" parent where parent."id" = ${category.parentId}), ${category.sortOrder})`,
+      sql`coalesce((select parent."name_en" from "category" parent where parent."id" = ${category.parentId}), ${category.nameEn})`,
+      sql`${category.parentId} nulls first`,
+      category.sortOrder,
+      category.nameEn,
+      category.id,
+    )
     .limit(limit)
     .offset(offset);
 
@@ -422,6 +448,8 @@ export async function getCategoryForAdmin(
   descriptionEn: string | null;
   sortOrder: number;
   isVisible: boolean;
+  parentId: number | null;
+  parentNameEn: string | null;
   tagline: string | null;
   imageKey: string | null;
   productCount: number;
@@ -440,6 +468,10 @@ export async function getCategoryForAdmin(
       descriptionEn: category.descriptionEn,
       sortOrder: category.sortOrder,
       isVisible: category.isVisible,
+      parentId: category.parentId,
+      parentNameEn: sql<string | null>`(
+        select parent."name_en" from "category" parent where parent."id" = "category"."parent_id"
+      )`,
       tagline: category.tagline,
       imageKey: category.imageKey,
       productCount: sql<number>`(
@@ -476,6 +508,7 @@ export async function createCategory(
       descriptionEn: fields.descriptionEn,
       sortOrder: fields.sortOrder,
       isVisible: fields.isVisible,
+      parentId: fields.parentId ?? null,
       tagline: fields.tagline ?? null,
     })
     .returning({ id: category.id });
@@ -489,7 +522,12 @@ export async function createCategory(
     action: 'catalog.category_created',
     entityType: 'category',
     entityId: categoryId,
-    after: { slug: fields.slug, nameEn: fields.nameEn, isVisible: fields.isVisible },
+    after: {
+      slug: fields.slug,
+      nameEn: fields.nameEn,
+      isVisible: fields.isVisible,
+      parentId: fields.parentId ?? null,
+    },
   });
 
   return { categoryId };
@@ -512,6 +550,7 @@ export async function updateCategory(
       nameEn: category.nameEn,
       sortOrder: category.sortOrder,
       isVisible: category.isVisible,
+      parentId: category.parentId,
       deletedAt: category.deletedAt,
     })
     .from(category)
@@ -531,6 +570,8 @@ export async function updateCategory(
       descriptionEn: fields.descriptionEn,
       sortOrder: fields.sortOrder,
       isVisible: fields.isVisible,
+      // Absent means "leave it"; null is the explicit top-level choice.
+      ...(fields.parentId === undefined ? {} : { parentId: fields.parentId }),
       // Only when the form supplied it: an absent field must not silently erase a line the owner wrote.
       ...(fields.tagline === undefined ? {} : { tagline: fields.tagline }),
       updatedAt: new Date(),
@@ -544,12 +585,19 @@ export async function updateCategory(
     action: 'catalog.category_updated',
     entityType: 'category',
     entityId: id,
-    before: { slug: row.slug, nameEn: row.nameEn, sortOrder: row.sortOrder, isVisible: row.isVisible },
+    before: {
+      slug: row.slug,
+      nameEn: row.nameEn,
+      sortOrder: row.sortOrder,
+      isVisible: row.isVisible,
+      parentId: row.parentId,
+    },
     after: {
       slug: fields.slug,
       nameEn: fields.nameEn,
       sortOrder: fields.sortOrder,
       isVisible: fields.isVisible,
+      parentId: fields.parentId === undefined ? row.parentId : fields.parentId,
     },
   });
 }
@@ -620,6 +668,7 @@ async function normalizeCategoryInput(
   descriptionEn: string | null;
   sortOrder: number;
   isVisible: boolean;
+  parentId: number | null | undefined;
   tagline: string | null | undefined;
 }> {
   const nameBn = parseRequiredText(input.nameBn, TEXT_BOUNDS.categoryName);
@@ -654,6 +703,50 @@ async function normalizeCategoryInput(
   const tagline = input.tagline === undefined ? undefined : taglineResult.value;
 
   /*
+   * **One level of subcategory** (Phase 31, owner-authorized). A parent must itself be a live root,
+   * so a child can never become a parent (no grandchildren), and a category that already has live
+   * children cannot be moved under another one. That is also why cycles are impossible here rather
+   * than merely detected: a category can only ever point at a root, and a root points at nothing.
+   *
+   * `undefined` means "leave the current parent alone" so an update that omits the field cannot
+   * silently flatten a child; `null`/`''` is the explicit top-level choice.
+   */
+  let parentId: number | null | undefined;
+  if (input.parentId === undefined) {
+    parentId = undefined;
+  } else if (input.parentId === null || input.parentId === '') {
+    parentId = null;
+  } else {
+    parentId = parseId(input.parentId);
+    if (parentId === null) throw new ValidationError('the parent category is not valid');
+    if (excludeId !== null && parentId === excludeId) {
+      throw new ValidationError('a category cannot be its own parent');
+    }
+
+    const parentRows = await tx
+      .select({ id: category.id, parentId: category.parentId, deletedAt: category.deletedAt })
+      .from(category)
+      .where(sql`${category.id} = ${parentId}`);
+    const parent = parentRows[0];
+    if (parent === undefined || parent.deletedAt !== null) {
+      throw new ValidationError('that parent category does not exist');
+    }
+    if (parent.parentId !== null) {
+      throw new ValidationError('a subcategory cannot itself have subcategories');
+    }
+
+    if (excludeId !== null) {
+      const children = await tx
+        .select({ total: sql<number>`count(*)::int` })
+        .from(category)
+        .where(sql`${category.parentId} = ${excludeId} and ${category.deletedAt} is null`);
+      if ((children[0]?.total ?? 0) > 0) {
+        throw new ValidationError('a category with subcategories cannot become a subcategory');
+      }
+    }
+  }
+
+  /*
    * The slug is checked against **every** row, archived ones included. Archiving a category does not
    * free its slug - the unique index still holds it - so checking only live rows let a clash through to
    * the database and surfaced as a 500 instead of a refusal the owner can read. Re-using an archived
@@ -677,6 +770,7 @@ async function normalizeCategoryInput(
     descriptionEn: descriptionEn.value,
     sortOrder,
     isVisible: input.isVisible === undefined ? true : parseVisibility(input.isVisible),
+    parentId,
     tagline,
   };
 }

@@ -24,6 +24,8 @@ export type CategoryFormValues = {
   tagline?: string | null;
   /** The category's square photograph, as an asset key. */
   imageKey?: string | null;
+  /** Owning department, or null for a top-level category. */
+  parentId?: number | null;
 };
 
 /** The two derived counts an archive is refused on. Absent until the category exists. */
@@ -36,9 +38,9 @@ export type CategoryUsage = { productCount: number; subcategoryCount: number };
  * that names the missing fields, explicit validation instead of native bubbles) because the owner
  * should not have to learn a second form. What it deliberately does **not** do:
  *
- * 1. **No parent picker.** Creating a child category is a decision about depth that the owner has not
- *    taken, and the schema's `parent_id` is read here only to count what an archive would hit.
- *    Offering the picker would publish a taxonomy policy the shop has not agreed to.
+ * 1. **One level of parent** (Phase 31, owner-authorized). The picker offers live root departments
+ *    only, so a child can never become a parent; a category that already has live children is locked
+ *    to the top level. The rule is enforced again in the service, not just by what the picker lists.
  * 2. **No invented counts.** The usage card shows what the database returns; in create mode it says the
  *    counts appear after saving rather than showing a tidy zero.
  * 3. **No delete.** Archiving stays on the list, where the refusal it can produce is explained next to
@@ -55,6 +57,8 @@ export function CategoryForm({
   csrfToken,
   cancelHref,
   assetKeys,
+  parentOptions,
+  parentLocked = false,
 }: {
   mode: 'create' | 'edit';
   values: CategoryFormValues;
@@ -62,6 +66,19 @@ export function CategoryForm({
   usage?: CategoryUsage;
   csrfToken: string;
   cancelHref: string;
+  /**
+   * The departments this category may be placed under.
+   *
+   * Only live roots are offered: the shop holds one level of subcategory, so a child can never be a
+   * parent. The set is resolved on the server (the form never reads the catalog itself) and excludes
+   * the category being edited.
+   */
+  parentOptions: readonly { id: number; nameEn: string }[];
+  /**
+   * True when this category already has live children. It must stay at the top level, because moving
+   * it under another department would create a third level.
+   */
+  parentLocked?: boolean;
   /**
    * Every image the shop owns, as asset keys.
    *
@@ -78,6 +95,9 @@ export function CategoryForm({
   const [nameBn, setNameBn] = useState(values.nameBn ?? '');
   const [slug, setSlug] = useState(values.slug ?? '');
   const [isVisible, setIsVisible] = useState(values.isVisible ?? true);
+  const [parentId, setParentId] = useState(
+    values.parentId === null || values.parentId === undefined ? '' : String(values.parentId),
+  );
 
   const formRef = useRef<HTMLFormElement>(null);
 
@@ -359,6 +379,37 @@ export function CategoryForm({
             <div className={styles.formCardHead}>
               <h2 id="cf-placement">{t('admin.categories.sectionPlacement')}</h2>
               <p>{t('admin.categories.sectionPlacementBody')}</p>
+            </div>
+
+            <div className={styles.field}>
+              <label htmlFor="parentId">{t('admin.categories.field.parent')}</label>
+              {parentLocked ? (
+                <>
+                  {/*
+                    A category with live children must stay a root: moving it under another department
+                    would make its children grandchildren. The current parent is posted unchanged so the
+                    save cannot flatten or reparent it by omission.
+                  */}
+                  <input type="hidden" name="parentId" value={parentId} />
+                  <p className={styles.note}>{t('admin.categories.field.parentLocked')}</p>
+                </>
+              ) : (
+                <select
+                  className={styles.select}
+                  id="parentId"
+                  name="parentId"
+                  value={parentId}
+                  onChange={(event) => setParentId(event.target.value)}
+                >
+                  <option value="">{t('admin.categories.field.parentNone')}</option>
+                  {parentOptions.map((parent) => (
+                    <option key={parent.id} value={parent.id}>
+                      {parent.nameEn}
+                    </option>
+                  ))}
+                </select>
+              )}
+              <p className={styles.hint}>{t('admin.categories.field.parentHelp')}</p>
             </div>
 
             <div className={styles.field}>

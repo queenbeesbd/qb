@@ -45,6 +45,44 @@
   color: var(--color-ink-subtle);
 }
 
+/*
+ * A parent department's children, above the grid. These are real routes, so they are links rather
+ * than filter chips: choosing one leaves the parent page and selects the child's own listing.
+ * The row wraps instead of scrolling; a department with many children grows downward.
+ */
+.subcategories {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.subcategoryLink {
+  display: grid;
+  gap: 2px;
+  min-width: 9rem;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: inherit;
+  text-decoration: none;
+}
+
+.subcategoryLink:hover {
+  border-color: var(--color-action);
+}
+
+.subcategoryName {
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+
+.subcategoryCount {
+  font-size: var(--text-xs);
+  color: var(--color-ink-muted);
+  font-variant-numeric: tabular-nums;
+}
+
 .pageHeader {
   display: flex;
   justify-content: space-between;

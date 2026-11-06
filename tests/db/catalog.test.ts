@@ -47,6 +47,7 @@ import {
   listProductsForAdmin,
   reorderImages,
   setAvailability,
+  updateCategory,
   updateProduct,
   type ProductInput,
 } from '../../src/server/catalog/service';
@@ -446,6 +447,152 @@ describe('catalog management', { skip: toolingAvailable ? false : SKIP_REASON },
         .where(sql`${categoryTable.id} = ${category.categoryId}`),
     );
     assert.notEqual(rows[0]?.deletedAt, null);
+  });
+
+  it('creates one level of subcategory and reads it under its parent', async () => {
+    const parent = await withTransaction((tx) =>
+      createCategory(tx, owner, { nameBn: 'মূল বিভাগ', nameEn: 'Parent Department', sortOrder: '7' }),
+    );
+    const child = await withTransaction((tx) =>
+      createCategory(tx, owner, {
+        nameBn: 'উপ বিভাগ',
+        nameEn: 'Child Department',
+        sortOrder: '1',
+        parentId: String(parent.categoryId),
+      }),
+    );
+
+    const stored = await withTransaction((tx) =>
+      tx
+        .select({ parentId: categoryTable.parentId })
+        .from(categoryTable)
+        .where(sql`${categoryTable.id} = ${child.categoryId}`),
+    );
+    assert.equal(stored[0]?.parentId, parent.categoryId);
+
+    const listed = await withTransaction((tx) =>
+      listCategoriesForAdmin(tx, { search: 'Department', limit: 100 }),
+    );
+    const parentRow = listed.rows.find((row) => row.id === parent.categoryId);
+    const childRow = listed.rows.find((row) => row.id === child.categoryId);
+    assert.equal(parentRow?.subcategoryCount, 1);
+    assert.equal(childRow?.parentId, parent.categoryId);
+    assert.equal(childRow?.parentNameEn, 'Parent Department');
+
+    // The child sits beside its parent in the list, not wherever its own order number lands.
+    const parentIndex = listed.rows.findIndex((row) => row.id === parent.categoryId);
+    const childIndex = listed.rows.findIndex((row) => row.id === child.categoryId);
+    assert.equal(childIndex, parentIndex + 1);
+  });
+
+  it('refuses a grandchild, itself as a parent, and a parent becoming a child', async () => {
+    const root = await withTransaction((tx) =>
+      createCategory(tx, owner, { nameBn: 'জড়ো', nameEn: 'Depth Root' }),
+    );
+    const child = await withTransaction((tx) =>
+      createCategory(tx, owner, {
+        nameBn: 'সন্তান',
+        nameEn: 'Depth Child',
+        parentId: String(root.categoryId),
+      }),
+    );
+
+    // A child can never be a parent: that would be a third level.
+    await assert.rejects(
+      withTransaction((tx) =>
+        createCategory(tx, owner, {
+          nameBn: 'নাতি',
+          nameEn: 'Depth Grandchild',
+          parentId: String(child.categoryId),
+        }),
+      ),
+      ValidationError,
+    );
+
+    // A category cannot be its own parent.
+    await assert.rejects(
+      withTransaction((tx) =>
+        updateCategory(tx, owner, String(root.categoryId), {
+          nameBn: 'জড়ো',
+          nameEn: 'Depth Root',
+          parentId: String(root.categoryId),
+        }),
+      ),
+      ValidationError,
+    );
+
+    const otherRoot = await withTransaction((tx) =>
+      createCategory(tx, owner, { nameBn: 'অন্য মূল', nameEn: 'Depth Other Root' }),
+    );
+    // Moving a parent that has a live child under another root would also create a third level.
+    await assert.rejects(
+      withTransaction((tx) =>
+        updateCategory(tx, owner, String(root.categoryId), {
+          nameBn: 'জড়ো',
+          nameEn: 'Depth Root',
+          parentId: String(otherRoot.categoryId),
+        }),
+      ),
+      ValidationError,
+    );
+  });
+
+  it('refuses to archive a parent with a live child, then allows both once the child is archived', async () => {
+    const parent = await withTransaction((tx) =>
+      createCategory(tx, owner, { nameBn: 'পিতামাতা', nameEn: 'Archive Parent' }),
+    );
+    const child = await withTransaction((tx) =>
+      createCategory(tx, owner, {
+        nameBn: 'শিশু',
+        nameEn: 'Archive Child',
+        parentId: String(parent.categoryId),
+      }),
+    );
+
+    await assert.rejects(
+      withTransaction((tx) => archiveCategory(tx, owner, String(parent.categoryId))),
+      ConflictError,
+    );
+
+    await withTransaction((tx) => archiveCategory(tx, owner, String(child.categoryId)));
+    await withTransaction((tx) => archiveCategory(tx, owner, String(parent.categoryId)));
+
+    const rows = await withTransaction((tx) =>
+      tx
+        .select({ deletedAt: categoryTable.deletedAt })
+        .from(categoryTable)
+        .where(sql`${categoryTable.id} in (${parent.categoryId}, ${child.categoryId})`),
+    );
+    assert.equal(rows.every((row) => row.deletedAt !== null), true);
+  });
+
+  it('moves a subcategory back to the top level', async () => {
+    const root = await withTransaction((tx) =>
+      createCategory(tx, owner, { nameBn: 'শীর্ষ', nameEn: 'Top Level Parent' }),
+    );
+    const child = await withTransaction((tx) =>
+      createCategory(tx, owner, {
+        nameBn: 'সন্তান',
+        nameEn: 'Top Level Child',
+        parentId: String(root.categoryId),
+      }),
+    );
+
+    await withTransaction((tx) =>
+      updateCategory(tx, owner, String(child.categoryId), {
+        nameBn: 'সন্তান',
+        nameEn: 'Top Level Child',
+        parentId: '',
+      }),
+    );
+
+    const rows = await withTransaction((tx) =>
+      tx
+        .select({ parentId: categoryTable.parentId })
+        .from(categoryTable)
+        .where(sql`${categoryTable.id} = ${child.categoryId}`),
+    );
+    assert.equal(rows[0]?.parentId, null);
   });
 
   it('archives a product, unpublishes it, and preserves the owner availability statement', async () => {

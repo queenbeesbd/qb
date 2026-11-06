@@ -72,14 +72,25 @@ export function FilterControls({
   const [brandsExpanded, setBrandsExpanded] = useState(false);
   const [categoriesExpanded, setCategoriesExpanded] = useState(false);
 
+  /*
+   * The rail lists **departments**, not every category: a subcategory is reached through its parent,
+   * so it is not offered here as a peer. The active category is always kept, so opening a child's
+   * page still shows which department is selected.
+   */
+  const presentIds = new Set(categories.map((category) => category.id));
+  const filterCategories = categories.filter(
+    (category) =>
+      category.parentId === null || !presentIds.has(category.parentId) || category.slug === value.category,
+  );
+
   const categoryCounts = new Map(facets.categories.map((entry) => [entry.slug, entry.count]));
-  const activeCategoryIndex = categories.findIndex((category) => category.slug === value.category);
+  const activeCategoryIndex = filterCategories.findIndex((category) => category.slug === value.category);
   const visibleCategories = categoriesExpanded
-    ? categories
-    : categories.filter(
+    ? filterCategories
+    : filterCategories.filter(
         (_category, index) => index < INITIAL_CATEGORIES || index === activeCategoryIndex,
       );
-  const hiddenCategoryCount = categories.length - visibleCategories.length;
+  const hiddenCategoryCount = filterCategories.length - visibleCategories.length;
   const hasPriceBounds = facets.price.max > 0 && facets.price.max > facets.price.min;
   const activeCategory = categories.find((entry) => entry.slug === value.category) ?? null;
 

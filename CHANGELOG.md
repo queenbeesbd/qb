@@ -14,6 +14,40 @@ An entry may describe a deployment only once it has actually happened and been o
 
 ## [Unreleased]
 
+### Added - 2026-11-06: Phase 31 - one level of subcategory management
+The category editor now offers a **Parent category** picker over live top-level categories. The rule
+is **one level**: a parent must itself be a root, a category cannot be its own parent, a child cannot
+become a parent (no grandchildren), and a category with live children is locked to the top level.
+The service enforces every condition; the picker only lists eligible roots. `parentId` is audited on
+create and update, and a refusal returns to the editor that produced it.
+
+The admin list groups a child beside its parent and labels it **In &lt;parent&gt;**; the edit usage
+card continues to show the derived subcategory count, and archiving a parent is still refused while a
+live child exists (archive the child first - both directions are tested).
+
+The storefront now distinguishes roots from children: the category index, homepage department rail,
+header drawer and filter rail show roots only; a parent page lists its live children and includes
+their products, a child page's breadcrumb reads **Categories / Parent / Child**, and department
+counts include child products. A child whose parent is hidden is shown at the root rather than
+becoming unreachable.
+
+**No schema change and no migration** - `category.parent_id` already existed.
+
+**Verification.** typecheck, lint (0 errors), `check:i18n`, `check:catalog`, unit **212/212**,
+`tests/db/catalog.test.ts` **36/36** (create child, refuse grandchild/self/parent-with-children,
+archive refusal and recovery, move back to top level) and `build`. Through the dev server: created
+"Face Masks" under "Skincare", saw the parent's count and lock, moved the child to top level and back,
+and verified the storefront index excludes the child, the parent page links it and lists its product,
+and the child breadcrumb names the parent. `verify:admin` **202/205** - the three failures are the
+pre-existing category-visibility hydration race, the Telegram removal-dialog flake and the documented
+absent-CSP assertion; the new subcategory checks pass. `scripts/verify-browser.cjs` had an
+over-escaped WebP test (`\\.webp(?:?|$)`) that aborted the storefront suite with an invalid regular
+expression; the escape is corrected, so the suite now reaches its later checks instead of exiting early.
+`verify:storefront` completed **91/97**; the six failures are on surfaces this phase does not touch -
+checks 8 and 32 (product-page image/price), 20 (24px gallery dots), 27d (section link), 36d (the seed's
+five departments) and 40b (favicon ink) - and were previously unreachable because the suite aborted at
+check 26.
+
 ### Changed - 2026-11-06: the add-product page is a real editor with a media picker
 The create screen was structurally complete but its Media section only said "images come after the
 product exists", so adding a product meant save, navigate back, then upload - the dead end the owner
