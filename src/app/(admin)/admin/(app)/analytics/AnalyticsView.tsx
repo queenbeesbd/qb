@@ -211,7 +211,6 @@ export function AnalyticsView({ data }: { data: AnalyticsViewData }) {
               }))}
             />
           )}
-          <p className={styles.note}>{t('admin.analytics.statusNote')}</p>
         </section>
       </div>
 
@@ -329,7 +328,6 @@ export function AnalyticsView({ data }: { data: AnalyticsViewData }) {
                 </dd>
               </div>
             </dl>
-            <p className={styles.note}>{t('admin.analytics.moneyNote')}</p>
           </section>
         </div>
 

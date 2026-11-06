@@ -543,7 +543,6 @@ export const dictionary = {
   'admin.overview.queueSummaryOne': 'One order is waiting for a call. It has waited {age}.',
   'admin.overview.queueSummary': '{count} orders are waiting for a call. The oldest has waited {age}.',
   'admin.overview.revenueFromOrders': 'From {count} completed orders whose payment was recorded.',
-  'admin.overview.catalogTotal': '{count} products in the catalog.',
   'admin.overview.factsTitle': 'Current system',
   'admin.overview.codQueue': 'Awaiting COD approval',
   'admin.overview.openExceptions': 'Open investigations',
@@ -675,22 +674,14 @@ export const dictionary = {
   'admin.overview.viewAudit': 'View the audit trail',
   'admin.overview.reviewCustomer': 'Review this customer',
   'admin.overview.revenueTitle': 'Recorded revenue',
-  'admin.overview.revenueBody':
-    'Only orders that were completed and whose payment the owner confirmed received are counted.',
   'admin.overview.revenueCustomerPayment': 'Customer payments',
   'admin.overview.revenueStandardFee': 'Standard delivery fee',
   'admin.overview.revenueAdditionalCosts': 'Additional courier costs ({count})',
   'admin.overview.revenueNetEstimate': 'Estimated net proceeds',
   'admin.overview.revenueUnavailable': 'Unavailable',
   'admin.overview.revenueOrders': 'Orders counted',
-  'admin.overview.revenueNote':
-    'Customer payments is what the customer paid - goods plus the delivery fee - and is not net revenue. The courier keeps the standard delivery fee, so it is subtracted once. Additional courier costs are recorded by the owner and subtracted after that. Estimated net proceeds is a calculation, not the courier\'s actual settlement. Every figure is summed from recorded order and cost rows, so no order is counted twice and an order whose payment was never recorded adds nothing.',
-  'admin.overview.revenueUnsubstantiated':
-    '{count} completed order(s) cannot separate their delivery fee, so they are left out of the estimated net proceeds.',
+  'admin.overview.revenueUnsubstantiated': 'Excludes {count} order(s) without a recorded delivery split.',
   'admin.overview.revenueLink': 'All orders',
-  'admin.overview.catalogTitle': 'Catalog state',
-  'admin.overview.catalogBody': 'Current published and availability counts.',
-  'admin.overview.catalogNote': 'Read at {time}. These figures count rows that exist.',
   'admin.cod.ageJustNow': 'Just now',
   'admin.cod.ageMinutes': '{count} min',
   'admin.cod.ageHours': '{count} h',
@@ -943,17 +934,12 @@ export const dictionary = {
     'Delivery recorded as failed. Record the parcel receipt and the inspection once the goods are back.',
   'admin.order.notice.returned': 'Recorded as returned. Inspect each line now.',
   'admin.order.moneyTitle': 'Money',
-  'admin.order.moneyBody':
-    'The customer payment, the standard delivery fee, additional courier costs and the estimated net proceeds are shown separately.',
   'admin.order.moneyCustomerPayment': 'Customer payment (goods and delivery)',
   'admin.order.moneyStandardFee': 'Standard delivery fee',
   'admin.order.moneyAdditionalCosts': 'Additional courier costs',
   'admin.order.moneyNetEstimate': 'Estimated net proceeds',
   'admin.order.moneyUnavailable': 'Unavailable',
-  'admin.order.moneyNote':
-    'The customer payment is not net revenue. The courier keeps the standard delivery charge, so it is subtracted once; additional costs are subtracted separately. The net figure is a calculation, not the courier\'s actual settlement.',
-  'admin.order.moneyUnsubstantiated':
-    'This order cannot separate its delivery fee, so no estimated net proceeds are shown.',
+  'admin.order.moneyUnsubstantiated': 'Delivery split not recorded; net estimate unavailable.',
   'admin.order.costsTitle': 'Additional courier costs',
   'admin.order.costsBody':
     'Costs the owner bore on this order, beyond the standard delivery charge. They are never added to what the customer paid.',
@@ -1635,7 +1621,6 @@ export const dictionary = {
   'admin.analytics.statusTitle': 'Orders by status',
   'admin.analytics.statusCenter': 'orders',
   'admin.analytics.statusEmpty': 'No orders were placed in this period.',
-  'admin.analytics.statusNote': 'Orders the customer placed in this period, whatever became of them.',
   'admin.analytics.productsTitle': 'What sold',
   'admin.analytics.productsNote': 'Top sellers by units',
   'admin.analytics.productsCaption': 'Top products by units sold',
@@ -1649,16 +1634,13 @@ export const dictionary = {
   'admin.analytics.moneyDelivery': 'Delivery fees',
   'admin.analytics.moneyCosts': 'Extra courier costs',
   'admin.analytics.moneyNet': 'Estimated net',
-  'admin.analytics.moneyNote':
-    'Customer payments include the delivery fee, which the courier keeps — it is subtracted once, here. Net is an estimate from what was recorded, not a settlement.',
   'admin.analytics.promoTitle': 'Promo codes',
   'admin.analytics.promoLink': 'Manage codes',
   'admin.analytics.promoRedemptions': 'Uses',
   'admin.analytics.promoCodes': 'Codes used',
   'admin.analytics.promoGiven': 'Given away',
   'admin.analytics.promoNone': 'No code was used in this period.',
-  'admin.analytics.trafficGap':
-    'Visits and page views are not reported: the storefront collects no browsing data, so this page states orders and money only.',
+  'admin.analytics.trafficGap': 'No traffic or page-view data is collected.',
 
   'admin.promo.title': 'Promo codes',
   'admin.promo.new': 'New promo code',

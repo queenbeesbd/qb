@@ -2012,16 +2012,24 @@ async function main(): Promise<void> {
             );
 
             await browser.navigate('/admin');
-            const revenueUi = await browser.evaluate<{ shown: string | null; note: boolean }>(`(() => {
+            const revenueUi = await browser.evaluate<{
+              shown: string | null;
+              labels: boolean;
+              essay: boolean;
+            }>(`(() => {
               const text = document.body.textContent ?? '';
               return {
                 shown: text.includes('Recorded revenue'),
-                note: text.includes('cannot be counted twice') || text.includes('whose payment was never recorded'),
+                labels:
+                  text.includes('Customer payments') &&
+                  text.includes('Standard delivery fee') &&
+                  text.includes('Estimated net proceeds'),
+                essay: text.includes('cannot be counted twice') || text.includes('whose payment was never recorded'),
               };
             })()`);
             record(
-              'the dashboard shows recorded revenue and states what it counts',
-              revenueUi.shown !== null && revenueUi.note === true,
+              'the dashboard shows recorded revenue with its money labels and no accounting essay',
+              revenueUi.shown !== null && revenueUi.labels === true && revenueUi.essay === false,
               JSON.stringify(revenueUi),
             );
             await browser.screenshot('/tmp/qb-admin-revenue.png');

@@ -572,7 +572,6 @@ export function OverviewView({
                   </dd>
                 </div>
               </dl>
-              <p className={styles.note}>{t('admin.overview.revenueNote')}</p>
               {revenue.unsubstantiatedOrderCount > 0 && (
                 <p className={styles.note}>
                   {t('admin.overview.revenueUnsubstantiated', { count: revenue.unsubstantiatedOrderCount })}

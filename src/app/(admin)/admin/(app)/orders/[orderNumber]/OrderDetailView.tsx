@@ -353,7 +353,6 @@ export function AdminOrderDetailView({
           <div className={styles.sectionHead}>
             <div>
               <h2>{t('admin.order.moneyTitle')}</h2>
-              <p>{t('admin.order.moneyBody')}</p>
             </div>
           </div>
           <dl className={styles.moneyGrid}>
@@ -378,7 +377,6 @@ export function AdminOrderDetailView({
               </dd>
             </div>
           </dl>
-          <p className={styles.note}>{t('admin.order.moneyNote')}</p>
           {order.money.estimatedNetProceedsMinor === null && (
             <p className={styles.note}>{t('admin.order.moneyUnsubstantiated')}</p>
           )}

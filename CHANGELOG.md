@@ -14,6 +14,17 @@ An entry may describe a deployment only once it has actually happened and been o
 
 ## [Unreleased]
 
+### Changed - 2026-11-06: admin figures stop explaining themselves
+The overview's long revenue essay, the analytics screen's status/money essays and the order money
+essay were removed. A panel now states its labels and numbers; where a figure would otherwise mislead,
+a single short line remains ("Excludes 2 order(s) without a recorded delivery split.", "No traffic or
+page-view data is collected.", "Delivery split not recorded; net estimate unavailable."). The old
+"Read at {time}. These figures count rows that exist." catalog note was already retired with the catalog
+state panel. No figure, derivation, permission or state machine changed.
+
+**Verification:** typecheck, lint (0 errors), `check:i18n`, `build`; `verify:admin` and the existing
+dashboard checks still pass.
+
 ### Added - 2026-11-06: the site-open offer popup
 The storefront now shows one owner-uploaded offer image when a visitor opens it, once per browsing
 session. Settings -> Offer popup is a singleton editor: upload the image, write its accessible
