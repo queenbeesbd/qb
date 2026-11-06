@@ -14,6 +14,31 @@ An entry may describe a deployment only once it has actually happened and been o
 
 ## [Unreleased]
 
+### Changed - 2026-11-06: the overview is a shop back office, not a SaaS dashboard
+The owner compared the overview with Zatiq Easy and asked for its better visualisations and quick
+actions, without the SaaS product around it. The page now opens on a greeting, a plain-language
+subtitle, **View storefront** and **Add product**; the COD worklist still comes first.
+
+The KPI band is five icon tiles: **Revenue today**, **Orders today**, **Active products**, **Total
+customers** and **Waiting on a call**. Each states the day's fact and the 30-day context in its note;
+the revenue tile carries the sparkline and only the waiting tile uses the warning surface. The revenue
+panel gained **average per day**, **peak day** and **items sold** above the chart. Recent orders now
+include guest orders (the read used an inner join and hid them) and draw an initials avatar. A new
+closing row holds **Out of stock** (published products marked unavailable - a state, never a stock
+number), **Top selling** (real units on completed, paid orders) and **Quick actions** (Add product,
+COD orders, Categories, Promo codes, Delivery charges, Analytics), each gated by the permission that
+protects its destination.
+
+**Deliberately not copied:** subscription/plan/renewal/upgrade prompts, the marketing hero and the
+"visit website / copy link" card, website visits, low stock, themes/builder/app/vendor tools, and a
+"new order" button. The rule is now recorded in `AGENTS.md`.
+
+**Verification.** typecheck, lint (0 errors), `check:i18n`, unit **212/212**,
+`tests/db/admin-orders.test.ts` **12/12** (new guest recent-order check), `build`, `verify:admin`
+**203/206** with the three pre-existing failures, and Chromium at 1280 and 390: five tiles, three
+closing panels, six quick actions, no horizontal overflow, and the fifth tile spanning the row on the
+phone.
+
 ### Added - 2026-11-06: Phase 31 - one level of subcategory management
 The category editor now offers a **Parent category** picker over live top-level categories. The rule
 is **one level**: a parent must itself be a root, a category cannot be its own parent, a child cannot

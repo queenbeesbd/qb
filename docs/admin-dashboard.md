@@ -382,6 +382,40 @@ configuration, and any route-level loading skeleton (rejected in Phase 18 becaus
 contract - see `docs/design-system.md`). The status, rather than the customer account, is still the only
 place a decided COD order appears; there is no order detail page yet.
 
+### Overview refresh (2026-11-06)
+
+The overview was re-composed around the reference's information architecture **without** adopting the
+SaaS product around it. It now reads as a shop back office:
+
+- **Header:** greeting, one sentence of context, **View storefront** and **Add product**. There is no
+  plan/subscription banner, no marketing hero, no "visit website / copy" promo card and no upgrade
+  prompt - this shop is not a hosted store builder.
+- **Queue first, still.** The COD worklist stays above the figures (Phase 18's rule), with its count,
+  oldest wait, cards and decisions unchanged.
+- **KPI tiles:** **Revenue today**, **Orders today**, **Active products**, **Total customers** and
+  **Waiting on a call**. Each tile states the day's fact and the 30-day context in its note; the
+  revenue tile carries the sparkline and the waiting tile is the only warning surface. The figures are
+  derived on read (`loadToday`, `countCatalog`, `countCustomers`, `codQueue`), never counters.
+- **Charts:** the revenue panel now carries **average per day**, **peak day** and **items sold** above
+  the area chart; the order-status ring is unchanged. Both are the same hand-drawn SVG (ADR 0021 D5).
+- **Recent orders:** guest orders are included (left join; an inner join hid them), with an initials
+  avatar and the guest fallback instead of an invented customer.
+- **Closing panels:** **Out of stock** (published products the owner marked unavailable - a state,
+  never a stock number), **Top selling** (real ordered units on completed, paid orders), and **Quick
+  actions** (Add product, COD orders, Categories, Promo codes, Delivery charges, Analytics). Each
+  action is gated by the permission that already protects its destination.
+
+**Deliberately absent:** website visits/traffic (nothing is tracked), low stock (there is no quantity),
+themes/builder/app/marketplace/vendor links, a "new order" button (orders come from customers), and
+subscription/renewal/upgrade prompts. See the rule in `AGENTS.md`.
+
+**Verification (2026-11-06, local):** typecheck, lint (0 errors), `check:i18n`, unit **212/212**,
+`tests/db/admin-orders.test.ts` **12/12** (including the guest recent-order case), `build`,
+`verify:admin` **203/206** (the three pre-existing failures: category-visibility hydration race,
+Telegram removal-dialog flake, absent CSP; the new overview-composition check passes), and Chromium at 1280 and 390 (five tiles, three closing
+panels, six quick actions, zero horizontal overflow; 2-column KPI grid with the fifth tile full width
+on the phone).
+
 ### What the audit found (the evidence this brief rests on)
 
 | Observation | Where | Why it matters |

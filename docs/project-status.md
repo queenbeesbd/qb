@@ -285,3 +285,17 @@ corrected (it previously aborted at check 26). The six failures are on untouched
 32 (product-page image/price), 20 (24px gallery dots), 27d (section link), 36d (the seed's five
 departments) and 40b (favicon ink). Real devices and screen readers were not used. Nothing is deployed.
 
+## Overview refresh (2026-11-06)
+
+Implemented locally and not deployed. The overview now uses the reference's information architecture
+without the SaaS product: greeting and subtitle, **View storefront** and **Add product**, five icon KPI
+tiles (revenue today, orders today, active products, total customers, waiting on a call), a revenue
+panel with average/peak/items above the chart, the order-status ring, recent orders including guests,
+and a closing row of **Out of stock**, **Top selling** and **Quick actions**. The COD worklist remains
+first. Traffic, low stock, themes/builder/app/vendor links and subscription prompts are absent by rule.
+
+Verified with typecheck, lint (0 errors), `check:i18n`, unit **212/212**, `tests/db/admin-orders.test.ts`
+**12/12** (including a guest recent-order case), `build`, `verify:admin` **203/206** with the three
+pre-existing failures, and Chromium at 1280 and 390 (five tiles, three closing panels, six actions, no
+horizontal overflow). No schema change and no migration. Real devices and screen readers were not used.
+

@@ -21,8 +21,17 @@ type RecentRow = {
   totalMinor: number;
   status: string;
   customerName: string | null;
-  customerEmail: string;
+  /** Null for a guest order. */
+  customerEmail: string | null;
 };
+
+type TodayFigures = {
+  revenueMinor: number;
+  completedOrders: number;
+  ordersPlaced: number;
+};
+
+type OutOfStockRow = { id: number; nameEn: string; slug: string };
 
 /**
  * The dashboard's money figures, derived from completed orders with recorded payment receipt.
@@ -59,6 +68,7 @@ type DashboardAnalytics = {
   };
   series: readonly { date: string; revenueMinor: number }[];
   statuses: readonly { status: string; count: number }[];
+  topProducts: readonly { name: string; units: number; revenueMinor: number }[];
 };
 
 const STATUS_TONES: Record<string, ChartTone> = {
@@ -114,6 +124,9 @@ export function OverviewView({
   catalog,
   revenue,
   analytics,
+  today,
+  customerTotal,
+  outOfStock,
   recent,
   promo,
   csrfToken,
@@ -136,6 +149,9 @@ export function OverviewView({
   catalog: CatalogCounts | null;
   revenue: RevenueTotals | null;
   analytics: DashboardAnalytics | null;
+  today: TodayFigures | null;
+  customerTotal: number | null;
+  outOfStock: readonly OutOfStockRow[] | null;
   recent: readonly RecentRow[];
   promo: { active: number; redemptions: number; givenMinor: number } | null;
   csrfToken: string;
@@ -186,6 +202,27 @@ export function OverviewView({
 
   const orderTotal = (analytics?.statuses ?? []).reduce((total, slice) => total + slice.count, 0);
   const seriesPoints = (analytics?.series ?? []).map((point) => ({ key: point.date, value: point.revenueMinor }));
+  const seriesDays = Math.max(1, analytics?.series.length ?? 30);
+  const averageDailyMinor = analytics === null ? 0 : Math.round(analytics.summary.revenueMinor / seriesDays);
+  /*
+   * The peak is a real stored day. When no day has revenue the chart already says so, and the panel's
+   * headline states the same fact rather than naming a zero-value day as a "peak".
+   */
+  const peakPoint =
+    analytics === null
+      ? null
+      : analytics.series.reduce<(typeof analytics.series)[number] | null>(
+          (best, point) => (best === null || point.revenueMinor > best.revenueMinor ? point : best),
+          null,
+        );
+  const peakIsReal = peakPoint !== null && peakPoint.revenueMinor > 0;
+
+  const initialsOf = (name: string | null, email: string | null): string => {
+    const source = name?.trim() || email?.trim() || '?';
+    const parts = source.split(/\s+/).filter(Boolean);
+    if (parts.length >= 2) return `${parts[0]?.[0] ?? ''}${parts[1]?.[0] ?? ''}`.toUpperCase();
+    return source.slice(0, 2).toUpperCase();
+  };
 
   function dayLabel(iso: string): string {
     const [year = 1970, month = 1, day = 1] = iso.split('-').map((part) => Number.parseInt(part, 10));
@@ -196,12 +233,25 @@ export function OverviewView({
     <>
       <PageHeader
         title={firstName === '' ? t('admin.overview.title') : t('admin.overview.greeting', { name: firstName })}
+        description={t('admin.overview.subtitle')}
         actions={
-          canReadOrders ? (
-            <Link className={`${styles.button} ${styles.buttonSecondary}`} href="/admin/analytics">
-              {t('admin.overview.openAnalytics')}
+          <>
+            <Link
+              className={`${styles.button} ${styles.buttonSecondary}`}
+              href="/"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <AdminIcon name="storefront" width={16} height={16} />
+              {t('admin.overview.viewStorefront')}
             </Link>
-          ) : undefined
+            {canReadCatalog && (
+              <Link className={styles.button} href="/admin/catalog/new">
+                <AdminIcon name="plus" width={16} height={16} />
+                {t('admin.overview.quickAddProduct')}
+              </Link>
+            )}
+          </>
         }
       />
 
@@ -256,36 +306,80 @@ export function OverviewView({
 
       {analytics !== null && (
         <div className={styles.kpiGrid}>
-          <div className={styles.kpi}>
-            <span className={styles.kpiLabel}>{t('admin.overview.kpiRevenue')}</span>
-            <span className={styles.kpiValue}>{price(analytics.summary.revenueMinor)}</span>
-            <span className={styles.kpiNote}>
-              {t('admin.overview.kpiRevenueNote', { count: analytics.summary.completedOrders })}
+          <article className={styles.kpi}>
+            <span className={styles.kpiIcon} data-tone="green" aria-hidden="true">
+              <AdminIcon name="analytics" width={18} height={18} />
             </span>
-            <Sparkline points={analytics.series.map((point) => point.revenueMinor)} />
-          </div>
-          <div className={styles.kpi}>
-            <span className={styles.kpiLabel}>{t('admin.overview.kpiOrders')}</span>
-            <span className={styles.kpiValue}>{analytics.summary.ordersPlaced}</span>
-            <span className={styles.kpiNote}>{t('admin.overview.kpiOrdersNote')}</span>
-          </div>
-          <div className={styles.kpi}>
-            <span className={styles.kpiLabel}>{t('admin.overview.kpiItems')}</span>
-            <span className={styles.kpiValue}>{analytics.summary.itemsSold}</span>
-            <span className={styles.kpiNote}>{t('admin.overview.kpiItemsNote')}</span>
-          </div>
-          <div className={styles.kpi}>
-            <span className={styles.kpiLabel}>{t('admin.overview.kpiCustomers')}</span>
-            <span className={styles.kpiValue}>{analytics.summary.customersServed}</span>
-            <span className={styles.kpiNote}>{t('admin.overview.kpiCustomersNote')}</span>
-          </div>
-          <div className={pendingCount > 0 ? `${styles.kpi} ${styles.kpiHot}` : styles.kpi}>
-            <span className={styles.kpiLabel}>{t('admin.overview.kpiWaiting')}</span>
-            <span className={styles.kpiValue}>{pendingCount}</span>
-            <span className={styles.kpiNote}>
-              {pendingCount === 0 ? t('admin.overview.kpiWaitingClear') : oldestAgePhrase}
+            <div className={styles.kpiBody}>
+              <span className={styles.kpiLabel}>{t('admin.overview.kpiRevenueToday')}</span>
+              <span className={styles.kpiValue}>{price(today?.revenueMinor ?? 0)}</span>
+              <span className={styles.kpiNote}>
+                {t('admin.overview.kpiRevenueTodayNote', { amount: price(analytics.summary.revenueMinor) })}
+              </span>
+            </div>
+            <span className={styles.kpiSpark} aria-hidden="true">
+              <Sparkline points={analytics.series.map((point) => point.revenueMinor)} />
             </span>
-          </div>
+          </article>
+
+          <article className={styles.kpi}>
+            <span className={styles.kpiIcon} data-tone="blue" aria-hidden="true">
+              <AdminIcon name="orders" width={18} height={18} />
+            </span>
+            <div className={styles.kpiBody}>
+              <span className={styles.kpiLabel}>{t('admin.overview.kpiOrdersToday')}</span>
+              <span className={styles.kpiValue}>{today?.ordersPlaced ?? 0}</span>
+              <span className={styles.kpiNote}>
+                {t('admin.overview.kpiOrdersTodayNote', { count: analytics.summary.ordersPlaced })}
+              </span>
+            </div>
+          </article>
+
+          {catalog !== null && (
+            <article className={styles.kpi}>
+              <span className={styles.kpiIcon} data-tone="violet" aria-hidden="true">
+                <AdminIcon name="package" width={18} height={18} />
+              </span>
+              <div className={styles.kpiBody}>
+                <span className={styles.kpiLabel}>{t('admin.overview.kpiActiveProducts')}</span>
+                <span className={styles.kpiValue}>{catalog.productsPublished}</span>
+                <span className={styles.kpiNote}>
+                  {t('admin.overview.kpiActiveProductsNote', {
+                    count: catalog.productsInStock,
+                    out: catalog.productsOutOfStock,
+                  })}
+                </span>
+              </div>
+            </article>
+          )}
+
+          {customerTotal !== null && (
+            <article className={styles.kpi}>
+              <span className={styles.kpiIcon} data-tone="amber" aria-hidden="true">
+                <AdminIcon name="customers" width={18} height={18} />
+              </span>
+              <div className={styles.kpiBody}>
+                <span className={styles.kpiLabel}>{t('admin.overview.kpiTotalCustomers')}</span>
+                <span className={styles.kpiValue}>{customerTotal}</span>
+                <span className={styles.kpiNote}>
+                  {t('admin.overview.kpiTotalCustomersNote', { count: analytics.summary.customersServed })}
+                </span>
+              </div>
+            </article>
+          )}
+
+          <article className={pendingCount > 0 ? `${styles.kpi} ${styles.kpiHot}` : styles.kpi}>
+            <span className={styles.kpiIcon} data-tone="rose" aria-hidden="true">
+              <AdminIcon name="clock" width={18} height={18} />
+            </span>
+            <div className={styles.kpiBody}>
+              <span className={styles.kpiLabel}>{t('admin.overview.kpiWaiting')}</span>
+              <span className={styles.kpiValue}>{pendingCount}</span>
+              <span className={styles.kpiNote}>
+                {pendingCount === 0 ? t('admin.overview.kpiWaitingClear') : oldestAgePhrase}
+              </span>
+            </div>
+          </article>
         </div>
       )}
 
@@ -302,6 +396,24 @@ export function OverviewView({
                 </Link>
               )}
             </div>
+            <dl className={styles.chartStats}>
+              <div>
+                <dt>{t('admin.overview.chartAverage')}</dt>
+                <dd>{price(averageDailyMinor)}</dd>
+              </div>
+              <div>
+                <dt>{t('admin.overview.chartPeak')}</dt>
+                <dd>
+                  {peakIsReal && peakPoint !== null
+                    ? `${dayLabel(peakPoint.date)} · ${price(peakPoint.revenueMinor)}`
+                    : t('admin.overview.chartNoPeak')}
+                </dd>
+              </div>
+              <div>
+                <dt>{t('admin.overview.chartItems')}</dt>
+                <dd>{analytics.summary.itemsSold}</dd>
+              </div>
+            </dl>
             <AreaChart
               points={seriesPoints}
               label={t('admin.analytics.revenueChartLabel')}
@@ -363,89 +475,64 @@ export function OverviewView({
               // A list, not a table: five columns on a 390px phone shrink every cell to a word
               // fragment. Each row states the same five facts in two lines that fit any width.
               <ul className={styles.recentList}>
-                {recent.map((row) => (
-                  <li key={row.orderId}>
-                    <div className={styles.recentWho}>
-                      <span className={styles.recentName}>{row.customerName ?? row.customerEmail}</span>
-                      <Link className={`${styles.mono} ${styles.recentRef}`} href={`/admin/orders/${row.orderNumber}`}>
-                        {row.orderNumber}
-                      </Link>
-                    </div>
-                    <div className={styles.recentMeta}>
-                      <span className={styles.recentTotal}>{price(row.totalMinor)}</span>
-                      <StatusPill tone={PILL_TONES[row.status] ?? 'info'}>
-                        {t(statusLabel(row.status))}
-                      </StatusPill>
-                      <span className={styles.recentWhen}>{timeFormat.format(new Date(row.placedAt))}</span>
-                    </div>
-                  </li>
-                ))}
+                {recent.map((row) => {
+                  const customer = row.customerName ?? row.customerEmail;
+                  return (
+                    <li key={row.orderId} className={styles.recentRow}>
+                      <span className={styles.recentAvatar} aria-hidden="true">
+                        {initialsOf(row.customerName, row.customerEmail)}
+                      </span>
+                      <div className={styles.recentWho}>
+                        <span className={styles.recentName}>
+                          {customer ?? t('admin.overview.guestCustomer')}
+                        </span>
+                        <Link
+                          className={`${styles.mono} ${styles.recentRef}`}
+                          href={`/admin/orders/${row.orderNumber}`}
+                        >
+                          {row.orderNumber}
+                        </Link>
+                      </div>
+                      <div className={styles.recentMeta}>
+                        <span className={styles.recentTotal}>{price(row.totalMinor)}</span>
+                        <StatusPill tone={PILL_TONES[row.status] ?? 'info'}>
+                          {t(statusLabel(row.status))}
+                        </StatusPill>
+                        <span className={styles.recentWhen}>{timeFormat.format(new Date(row.placedAt))}</span>
+                      </div>
+                    </li>
+                  );
+                })}
               </ul>
             )}
           </section>
 
-          {((canReadCatalog && catalog !== null) || (canReadPromo && promo !== null)) && (
-            <div className={styles.duoGrid}>
-              {canReadCatalog && catalog !== null && (
-                <section className={styles.panel} aria-labelledby="catalog-state-heading">
-                  <div className={styles.panelHead}>
-                    <h2 id="catalog-state-heading" className={styles.panelTitle}>
-                      {t('admin.overview.catalogTitle')}
-                    </h2>
-                    <Link className={styles.sectionLink} href="/admin/catalog">
-                      {t('admin.overview.quickCatalog')}
-                    </Link>
-                  </div>
-                  <div className={styles.catalogStats}>
-                    <div className={styles.catalogStat}>
-                      <span className={styles.catalogValue}>{catalog.productsPublished}</span>
-                      <span className={styles.catalogLabel}>{t('admin.overview.catalogPublished')}</span>
-                    </div>
-                    <div className={styles.catalogStat}>
-                      <span className={styles.catalogValue}>{catalog.productsInStock}</span>
-                      <span className={styles.catalogLabel}>{t('admin.catalog.inStock')}</span>
-                    </div>
-                    <div className={styles.catalogStat}>
-                      <span className={styles.catalogValue}>{catalog.productsOutOfStock}</span>
-                      <span className={styles.catalogLabel}>{t('admin.catalog.outOfStock')}</span>
-                    </div>
-                  </div>
-                  <p className={styles.note}>
-                    {t('admin.overview.catalogNote', { time: timeFormat.format(now) })}
-                    {' · '}
-                    {t('admin.overview.catalogTotal', { count: catalog.products })}
-                  </p>
-                </section>
-              )}
-
-              {canReadPromo && promo !== null && (
-                <section className={styles.panel} aria-labelledby="overview-promo">
-                  <div className={styles.panelHead}>
-                    <h2 id="overview-promo" className={styles.panelTitle}>
-                      {t('admin.overview.promoTitle')}
-                    </h2>
-                    <Link className={styles.sectionLink} href="/admin/promo-codes">
-                      {t('admin.overview.promoLink')}
-                    </Link>
-                  </div>
-                  <dl className={styles.moneyList}>
-                    <div>
-                      <dt>{t('admin.overview.promoActive')}</dt>
-                      <dd>{promo.active}</dd>
-                    </div>
-                    <div>
-                      <dt>{t('admin.overview.promoUses')}</dt>
-                      <dd>{promo.redemptions}</dd>
-                    </div>
-                    <div>
-                      <dt>{t('admin.overview.promoGiven')}</dt>
-                      <dd>{price(promo.givenMinor)}</dd>
-                    </div>
-                  </dl>
-                  {promo.active === 0 && <p className={styles.note}>{t('admin.overview.promoNone')}</p>}
-                </section>
-              )}
-            </div>
+          {canReadPromo && promo !== null && (
+            <section className={styles.panel} aria-labelledby="overview-promo">
+              <div className={styles.panelHead}>
+                <h2 id="overview-promo" className={styles.panelTitle}>
+                  {t('admin.overview.promoTitle')}
+                </h2>
+                <Link className={styles.sectionLink} href="/admin/promo-codes">
+                  {t('admin.overview.promoLink')}
+                </Link>
+              </div>
+              <dl className={styles.moneyList}>
+                <div>
+                  <dt>{t('admin.overview.promoActive')}</dt>
+                  <dd>{promo.active}</dd>
+                </div>
+                <div>
+                  <dt>{t('admin.overview.promoUses')}</dt>
+                  <dd>{promo.redemptions}</dd>
+                </div>
+                <div>
+                  <dt>{t('admin.overview.promoGiven')}</dt>
+                  <dd>{price(promo.givenMinor)}</dd>
+                </div>
+              </dl>
+              {promo.active === 0 && <p className={styles.note}>{t('admin.overview.promoNone')}</p>}
+            </section>
           )}
         </div>
 
@@ -544,6 +631,129 @@ export function OverviewView({
             </section>
           )}
         </div>
+      </div>
+
+      <div className={styles.tripleGrid}>
+        {canReadCatalog && outOfStock !== null && (
+          <section className={styles.panel} aria-labelledby="overview-out-of-stock">
+            <div className={styles.panelHead}>
+              <h2 id="overview-out-of-stock" className={styles.panelTitle}>
+                {t('admin.overview.outOfStockTitle')}
+              </h2>
+              <Link className={styles.sectionLink} href="/admin/catalog?stock=out_of_stock">
+                {t('admin.overview.outOfStockLink')}
+              </Link>
+            </div>
+            {outOfStock.length === 0 ? (
+              <p className={styles.hint}>{t('admin.overview.outOfStockEmpty')}</p>
+            ) : (
+              <ol className={styles.rankList}>
+                {outOfStock.map((row, index) => (
+                  <li key={row.id} className={styles.rankRow}>
+                    <span className={styles.rankNumber} aria-hidden="true">
+                      {index + 1}
+                    </span>
+                    <Link className={styles.rankName} href={`/admin/catalog/${row.id}`}>
+                      {row.nameEn}
+                    </Link>
+                    <span className={styles.rankMeta}>{t('admin.catalog.outOfStock')}</span>
+                  </li>
+                ))}
+              </ol>
+            )}
+            <p className={styles.note}>{t('admin.overview.outOfStockBody')}</p>
+          </section>
+        )}
+
+        {canReadOrders && analytics !== null && (
+          <section className={styles.panel} aria-labelledby="overview-top-selling">
+            <div className={styles.panelHead}>
+              <h2 id="overview-top-selling" className={styles.panelTitle}>
+                {t('admin.overview.topSellingTitle')}
+              </h2>
+              <Link className={styles.sectionLink} href="/admin/analytics">
+                {t('admin.overview.topSellingLink')}
+              </Link>
+            </div>
+            {analytics.topProducts.length === 0 ? (
+              <p className={styles.hint}>{t('admin.overview.topSellingEmpty')}</p>
+            ) : (
+              <ol className={styles.rankList}>
+                {analytics.topProducts.slice(0, 5).map((product, index) => (
+                  <li key={product.name} className={styles.rankRow}>
+                    <span className={styles.rankNumber} aria-hidden="true">
+                      {index + 1}
+                    </span>
+                    <span className={styles.rankName}>{product.name}</span>
+                    <span className={styles.rankMeta}>
+                      {t('admin.overview.topSellingUnits', { count: product.units })}
+                    </span>
+                  </li>
+                ))}
+              </ol>
+            )}
+            <p className={styles.note}>{t('admin.overview.topSellingBody')}</p>
+          </section>
+        )}
+
+        <section className={styles.panel} aria-labelledby="overview-quick-actions">
+          <div className={styles.panelHead}>
+            <h2 id="overview-quick-actions" className={styles.panelTitle}>
+              {t('admin.overview.quickActionsTitle')}
+            </h2>
+          </div>
+          <div className={styles.quickGrid}>
+            {canReadCatalog && (
+              <Link className={styles.quickAction} href="/admin/catalog/new">
+                <span className={styles.quickIcon} data-tone="violet" aria-hidden="true">
+                  <AdminIcon name="plus" width={18} height={18} />
+                </span>
+                {t('admin.overview.quickAddProduct')}
+              </Link>
+            )}
+            {canReadOrders && (
+              <Link className={styles.quickAction} href="/admin/orders-cod">
+                <span className={styles.quickIcon} data-tone="blue" aria-hidden="true">
+                  <AdminIcon name="orders" width={18} height={18} />
+                </span>
+                {t('admin.overview.quickCod')}
+              </Link>
+            )}
+            {canReadCatalog && (
+              <Link className={styles.quickAction} href="/admin/categories">
+                <span className={styles.quickIcon} data-tone="amber" aria-hidden="true">
+                  <AdminIcon name="categories" width={18} height={18} />
+                </span>
+                {t('admin.overview.quickCategories')}
+              </Link>
+            )}
+            {canReadPromo && (
+              <Link className={styles.quickAction} href="/admin/promo-codes">
+                <span className={styles.quickIcon} data-tone="rose" aria-hidden="true">
+                  <AdminIcon name="tag" width={18} height={18} />
+                </span>
+                {t('admin.overview.quickPromo')}
+              </Link>
+            )}
+            {canReadPromo && (
+              <Link className={styles.quickAction} href="/admin/settings/delivery">
+                <span className={styles.quickIcon} data-tone="teal" aria-hidden="true">
+                  <AdminIcon name="settings" width={18} height={18} />
+                </span>
+                {t('admin.overview.quickDelivery')}
+              </Link>
+            )}
+            {canReadOrders && (
+              <Link className={styles.quickAction} href="/admin/analytics">
+                <span className={styles.quickIcon} data-tone="green" aria-hidden="true">
+                  <AdminIcon name="analytics" width={18} height={18} />
+                </span>
+                {t('admin.overview.quickAnalytics')}
+              </Link>
+            )}
+          </div>
+          <p className={styles.note}>{t('admin.overview.quickActionsBody')}</p>
+        </section>
       </div>
     </>
   );

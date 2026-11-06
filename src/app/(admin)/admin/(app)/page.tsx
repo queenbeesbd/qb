@@ -3,12 +3,14 @@ import { requestNowIso } from '@/lib/clock';
 import { requireAdminPage } from '@/server/auth/guard';
 import { hasPermission } from '@/server/authz/principal';
 import { PERMISSIONS } from '@/server/authz/permissions';
-import { loadAnalytics } from '@/server/analytics/read';
+import { loadAnalytics, loadToday } from '@/server/analytics/read';
 import { countCatalog } from '@/server/catalog/read';
 import {
   codQueue,
+  countCustomers,
   countRecentDenials,
   flaggedCustomers,
+  outOfStockProducts,
   recentOrders,
   revenueSummary,
   type CodQueueItem,
@@ -59,7 +61,10 @@ export default async function AdminOverviewPage() {
     // Revenue is an order money fact, so it is gated by the permission that reads orders.
     const revenue = canReadOrders ? await revenueSummary(tx) : null;
     const analytics = canReadOrders ? await loadAnalytics(tx, 30) : null;
+    const today = canReadOrders ? await loadToday(tx) : null;
     const recent = canReadOrders ? await recentOrders(tx, RECENT_LIMIT) : [];
+    const customerTotal = canReadCustomers ? await countCustomers(tx) : null;
+    const outOfStock = canReadCatalog ? await outOfStockProducts(tx, 5) : null;
 
     let promo: { active: number; redemptions: number; givenMinor: number } | null = null;
     if (canReadPromo) {
@@ -72,7 +77,20 @@ export default async function AdminOverviewPage() {
       };
     }
 
-    return { pending, pendingCount, flagged, denials, catalog, revenue, analytics, recent, promo };
+    return {
+      pending,
+      pendingCount,
+      flagged,
+      denials,
+      catalog,
+      revenue,
+      analytics,
+      today,
+      recent,
+      customerTotal,
+      outOfStock,
+      promo,
+    };
   });
 
   const pending = data.pending;
@@ -109,7 +127,23 @@ export default async function AdminOverviewPage() {
                 status: slice.status,
                 count: slice.count,
               })),
+              topProducts: data.analytics.topProducts.map((row) => ({
+                name: row.name,
+                units: row.units,
+                revenueMinor: row.revenueMinor,
+              })),
             }
+      }
+      today={data.today}
+      customerTotal={data.customerTotal}
+      outOfStock={
+        data.outOfStock === null
+          ? null
+          : data.outOfStock.map((row) => ({
+              id: row.id,
+              nameEn: row.nameEn,
+              slug: row.slug,
+            }))
       }
       recent={data.recent.map((row) => ({
         orderId: row.orderId,

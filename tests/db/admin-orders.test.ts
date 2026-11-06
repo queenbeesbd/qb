@@ -17,7 +17,7 @@ import {
 } from '../../src/server/orders/admin-order';
 import { decideCod } from '../../src/server/orders/manage';
 import { dateRangeBounds } from '../../src/lib/admin-query';
-import { codDecidedToday, customers, customerDetail } from '../../src/server/orders/admin-read';
+import { codDecidedToday, customers, customerDetail, recentOrders } from '../../src/server/orders/admin-read';
 
 /**
  * The owner's order detail and order history (Phase 20).
@@ -100,6 +100,23 @@ describe('owner order detail and history (Phase 20)', { skip: toolingAvailable ?
     assert.equal(detail.customerId, null);
     assert.equal(detail.customerEmail, null);
     assert.equal(detail.contact.recipientName, 'Recipient');
+  });
+
+  it('lists a guest order in the dashboard recent list, with no customer fields', async () => {
+    const seeded = await seedOrder(fixture.pool, {
+      paymentMethod: 'cod',
+      shippingMinor: 12000,
+      districtCode: 'dhaka',
+      withReservation: false,
+      guest: true,
+    });
+
+    // The overview read must include guest orders: an inner join hid them from the owner's own list.
+    const recent = await withTransaction((tx) => recentOrders(tx, 20));
+    const row = recent.find((entry) => entry.orderNumber === seeded.orderNumber);
+    assert.ok(row, 'a guest order is still a recent order');
+    assert.equal(row.customerName, null);
+    assert.equal(row.customerEmail, null);
   });
 
   it('answers a reference that names no order with null, never with another order', async () => {

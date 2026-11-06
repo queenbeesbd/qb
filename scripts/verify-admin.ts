@@ -1570,6 +1570,38 @@ async function main(): Promise<void> {
             );
 
             /*
+             * The overview's composition (2026-11-06): five figures, the closing worklist/quick-action
+             * row, and no SaaS prompt. The last assertion is the rule as well as the layout: this is the
+             * owner's own back office, not a subscription storefront builder.
+             */
+            const dashboard = await browser.evaluate<{
+              kpis: number;
+              actions: number;
+              panels: string[];
+              saas: string[];
+            }>(`(() => {
+              const text = document.body.textContent ?? '';
+              return {
+                kpis: document.querySelectorAll('[class*="kpiLabel"]').length,
+                actions: document.querySelectorAll('[class*="quickAction"]').length,
+                panels: [...document.querySelectorAll('[class*="tripleGrid"] h2')].map((h) => h.textContent?.trim() ?? ''),
+                saas: ['renew', 'subscription', 'upgrade', 'billing', 'trial', 'website visits'].filter((word) =>
+                  new RegExp('\\\\b' + word + '\\\\b', 'i').test(text),
+                ),
+              };
+            })()`);
+            record(
+              'the overview shows five figures, the closing worklists and quick actions, and no SaaS prompt',
+              dashboard.kpis === 5 &&
+                dashboard.actions >= 6 &&
+                dashboard.panels.includes('Out of stock') &&
+                dashboard.panels.includes('Top selling') &&
+                dashboard.panels.includes('Quick actions') &&
+                dashboard.saas.length === 0,
+              JSON.stringify(dashboard),
+            );
+
+            /*
              * Phase 27 - one admin control scale, and a required field that looks required.
              *
              * The Phase 24 audit measured controls at 32/34/36/40/51px, an approve/reject pair that

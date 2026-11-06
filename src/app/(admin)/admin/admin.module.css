@@ -4455,13 +4455,73 @@ html[dir='rtl'] .switchOn .switchKnob::after {
 
 .kpi {
   display: grid;
-  gap: 2px;
+  grid-template-columns: 40px minmax(0, 1fr);
+  align-items: start;
+  column-gap: var(--space-3);
+  row-gap: var(--space-2);
   padding: var(--space-4);
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
   min-width: 0;
   box-shadow: var(--shadow-sm);
+}
+
+.kpiBody {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+/*
+ * The icon is a small tinted plate. The hue carries no status meaning; it separates one figure from
+ * the next the way the reference's tiles do, and the warning tile is still the only semantic one.
+ */
+.kpiIcon {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-md);
+  background: var(--color-action-soft);
+  color: var(--color-action);
+}
+
+.kpiIcon[data-tone='green'] {
+  background: color-mix(in srgb, var(--chart-7) 13%, var(--color-surface));
+  color: var(--chart-7);
+}
+
+.kpiIcon[data-tone='blue'] {
+  background: color-mix(in srgb, var(--chart-2) 13%, var(--color-surface));
+  color: var(--chart-2);
+}
+
+.kpiIcon[data-tone='violet'] {
+  background: color-mix(in srgb, var(--chart-1) 13%, var(--color-surface));
+  color: var(--chart-1);
+}
+
+.kpiIcon[data-tone='amber'] {
+  background: color-mix(in srgb, var(--chart-4) 13%, var(--color-surface));
+  color: var(--chart-4);
+}
+
+.kpiIcon[data-tone='rose'] {
+  background: color-mix(in srgb, var(--chart-5) 13%, var(--color-surface));
+  color: var(--chart-5);
+}
+
+.kpiIcon[data-tone='teal'] {
+  background: color-mix(in srgb, var(--chart-3) 13%, var(--color-surface));
+  color: var(--chart-3);
+}
+
+.kpiSpark {
+  grid-column: 2;
+  display: block;
+  height: 26px;
+  opacity: 0.9;
 }
 
 /*
@@ -4521,6 +4581,167 @@ html[dir='rtl'] .switchOn .switchKnob::after {
   .splitGrid {
     grid-template-columns: minmax(0, 1.9fr) minmax(0, 1fr);
   }
+}
+
+/* The revenue panel's own headline: average, peak and units, above the plot. */
+.chartStats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0 0 var(--space-3);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.chartStats > div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.chartStats dt {
+  font-size: var(--text-xs);
+  color: var(--color-ink-muted);
+}
+
+.chartStats dd {
+  margin: 0;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+/* Three closing panels: the two honest worklists and the owner's shortcuts. */
+.tripleGrid {
+  display: grid;
+  gap: var(--space-4);
+  align-items: start;
+}
+
+@media (min-width: 1080px) {
+  .tripleGrid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.rankList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+}
+
+.rankRow {
+  display: grid;
+  grid-template-columns: 1.25rem minmax(0, 1fr) auto;
+  gap: var(--space-2);
+  align-items: center;
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--color-border);
+  min-width: 0;
+}
+
+.rankRow:last-child {
+  border-bottom: 0;
+}
+
+.rankNumber {
+  font-size: var(--text-xs);
+  color: var(--color-ink-subtle);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.rankName {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--text-sm);
+  color: inherit;
+  text-decoration: none;
+}
+
+a.rankName:hover {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.rankMeta {
+  font-size: var(--text-xs);
+  color: var(--color-ink-muted);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.quickGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+
+.quickAction {
+  display: grid;
+  justify-items: center;
+  align-content: start;
+  gap: 6px;
+  min-height: 5.5rem;
+  padding: var(--space-3) var(--space-1);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-page);
+  color: var(--color-ink);
+  text-decoration: none;
+  text-align: center;
+  font-size: var(--text-xs);
+  font-weight: 500;
+  line-height: var(--leading-snug);
+}
+
+.quickAction:hover {
+  border-color: var(--color-action);
+  background: var(--color-action-soft);
+}
+
+.quickAction:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+.quickIcon {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-sm);
+  background: var(--color-action-soft);
+  color: var(--color-action);
+}
+
+.quickIcon[data-tone='blue'] {
+  background: color-mix(in srgb, var(--chart-2) 13%, var(--color-surface));
+  color: var(--chart-2);
+}
+
+.quickIcon[data-tone='amber'] {
+  background: color-mix(in srgb, var(--chart-4) 13%, var(--color-surface));
+  color: var(--chart-4);
+}
+
+.quickIcon[data-tone='rose'] {
+  background: color-mix(in srgb, var(--chart-5) 13%, var(--color-surface));
+  color: var(--chart-5);
+}
+
+.quickIcon[data-tone='teal'] {
+  background: color-mix(in srgb, var(--chart-3) 13%, var(--color-surface));
+  color: var(--chart-3);
+}
+
+.quickIcon[data-tone='green'] {
+  background: color-mix(in srgb, var(--chart-7) 13%, var(--color-surface));
+  color: var(--chart-7);
 }
 
 /* A two-column label/value list: money facts, promo totals, catalog counts. */
@@ -4828,13 +5049,42 @@ html[dir='rtl'] .switchOn .switchKnob::after {
   font-size: var(--text-xs);
 }
 
+.recentRow {
+  grid-template-columns: 32px minmax(0, 1fr);
+  column-gap: var(--space-3);
+  align-items: center;
+}
+
+.recentAvatar {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--color-action-soft);
+  color: var(--color-action);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  line-height: 1;
+}
+
+.recentRow .recentWho,
+.recentRow .recentMeta {
+  grid-column: 2;
+}
+
+.recentRow .recentMeta {
+  grid-row: 2;
+}
+
 @media (min-width: 720px) {
-  .recentList li {
-    grid-template-columns: minmax(0, 1fr) auto;
-    align-items: center;
+  .recentRow {
+    grid-template-columns: 32px minmax(0, 1fr) auto;
   }
 
-  .recentMeta {
+  .recentRow .recentMeta {
+    grid-column: 3;
+    grid-row: 1;
     justify-content: flex-end;
   }
 }

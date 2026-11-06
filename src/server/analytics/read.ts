@@ -122,6 +122,49 @@ export async function loadSalesSeries(
   }));
 }
 
+export type TodayFigures = {
+  /** What was recorded received today, on the same revenue basis as the rest of the screen. */
+  readonly revenueMinor: number;
+  readonly completedOrders: number;
+  /** Orders the customer placed today, whatever became of them. Workload, not money. */
+  readonly ordersPlaced: number;
+};
+
+/**
+ * Today on the shop's own calendar.
+ *
+ * The overview opens on the day the owner is actually having, while the charts keep the 30-day
+ * context. Both clocks are the same ones `loadSummary` uses: money by `completed_at`, workload by
+ * `placed_at`, and "today" cut in `Asia/Dhaka` in SQL because that is where the shop is.
+ */
+export async function loadToday(tx: Transaction): Promise<TodayFigures> {
+  const moneyRows = await tx
+    .select({
+      revenue: sql<number>`coalesce(sum(${order.totalMinor}), 0)::bigint`,
+      completed: sql<number>`count(*)::int`,
+    })
+    .from(order)
+    .where(
+      sql`${REVENUE_BASIS}
+        and (${order.completedAt} at time zone ${STORE_TIME_ZONE})::date
+            = (now() at time zone ${STORE_TIME_ZONE})::date`,
+    );
+
+  const placedRows = await tx
+    .select({ total: sql<number>`count(*)::int` })
+    .from(order)
+    .where(
+      sql`(${order.placedAt} at time zone ${STORE_TIME_ZONE})::date
+          = (now() at time zone ${STORE_TIME_ZONE})::date`,
+    );
+
+  return {
+    revenueMinor: Number(moneyRows[0]?.revenue ?? 0),
+    completedOrders: Number(moneyRows[0]?.completed ?? 0),
+    ordersPlaced: Number(placedRows[0]?.total ?? 0),
+  };
+}
+
 /** The period's totals, from the same two clocks the series uses. */
 export async function loadSummary(tx: Transaction, days: AnalyticsPeriod): Promise<AnalyticsSummary> {
   const moneyRows = await tx

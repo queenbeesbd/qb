@@ -17,6 +17,7 @@ import {
   orderAdditionalCost,
   orderContact,
   orderItem,
+  product,
 } from '@/db/schema';
 import { likeTerm } from '@/lib/search';
 import {
@@ -330,6 +331,44 @@ export async function flaggedCustomers(tx: Transaction, limit = 5): Promise<Flag
     .limit(limit);
 }
 
+/** Customers on file, excluding deleted rows. A count of accounts, not a claim about activity. */
+export async function countCustomers(tx: Transaction): Promise<number> {
+  const rows = await tx
+    .select({ total: sql<number>`count(*)::int` })
+    .from(customer)
+    .where(sql`${customer.deletedAt} is null`);
+  return rows[0]?.total ?? 0;
+}
+
+export type OutOfStockProduct = {
+  readonly id: number;
+  readonly nameEn: string;
+  readonly slug: string;
+};
+
+/**
+ * Published products the owner has marked out of stock, most recently changed first.
+ *
+ * Availability is a state, not a quantity, so this list never invents a stock number. It is the
+ * worklist that replaces a "low stock" panel: the shop cannot know a count, but it can know exactly
+ * which published products a customer cannot order right now.
+ */
+export async function outOfStockProducts(
+  tx: Transaction,
+  limit = 5,
+): Promise<OutOfStockProduct[]> {
+  const rows = await tx
+    .select({ id: product.id, nameEn: product.nameEn, slug: product.slug })
+    .from(product)
+    .where(
+      sql`${product.deletedAt} is null and ${product.isPublished} and ${product.availability} = 'out_of_stock'`,
+    )
+    .orderBy(sql`${product.updatedAt} desc, ${product.id} desc`)
+    .limit(Math.min(Math.max(limit, 1), 20));
+
+  return rows;
+}
+
 export type DenialSummary = { readonly total: number };
 
 /**
@@ -443,7 +482,8 @@ export type RecentOrderRow = {
   readonly totalMinor: number;
   readonly status: string;
   readonly customerName: string | null;
-  readonly customerEmail: string;
+  /** Null for a guest order, which has no customer row. */
+  readonly customerEmail: string | null;
 };
 
 export async function recentOrders(tx: Transaction, limit: number): Promise<RecentOrderRow[]> {
@@ -458,7 +498,8 @@ export async function recentOrders(tx: Transaction, limit: number): Promise<Rece
       customerEmail: customer.email,
     })
     .from(order)
-    .innerJoin(customer, sql`${customer.id} = ${order.customerId}`)
+    // A left join: a guest order is still a recent order, and an inner join hid it entirely.
+    .leftJoin(customer, sql`${customer.id} = ${order.customerId}`)
     .orderBy(sql`${order.placedAt} desc, ${order.id} desc`)
     .limit(limit);
 

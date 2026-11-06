@@ -427,8 +427,10 @@ export async function countCatalog(tx: Transaction): Promise<{
     .select({
       products: sql<number>`count(*)::int`,
       productsPublished: sql<number>`count(*) filter (where ${product.isPublished})::int`,
-      productsInStock: sql<number>`count(*) filter (where ${product.availability} = 'in_stock')::int`,
-      productsOutOfStock: sql<number>`count(*) filter (where ${product.availability} = 'out_of_stock')::int`,
+      // The two states are counted among **published** products: an unpublished draft is not a
+      // storefront availability fact, and pairing it with the published headline would misstate it.
+      productsInStock: sql<number>`count(*) filter (where ${product.isPublished} and ${product.availability} = 'in_stock')::int`,
+      productsOutOfStock: sql<number>`count(*) filter (where ${product.isPublished} and ${product.availability} = 'out_of_stock')::int`,
     })
     .from(product)
     .where(sql`${product.deletedAt} is null`);
