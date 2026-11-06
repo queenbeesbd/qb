@@ -1019,7 +1019,15 @@ export const dictionary = {
   'admin.catalog.sectionGeneral': 'General information',
   'admin.catalog.sectionGeneralBody': 'What the customer reads on the product page.',
   'admin.catalog.sectionMedia': 'Media',
-  'admin.catalog.sectionMediaBody': 'Photographs are associated from this store’s own image library.',
+  'admin.catalog.sectionMediaBody':
+    'Drag photographs here, or add them from your computer. The first one is the card image; the rest appear in the gallery in this order.',
+  'admin.catalog.sectionInventory': 'Inventory',
+  'admin.catalog.sectionInventoryBody': 'How the product is identified, and whether it can be ordered.',
+  'admin.catalog.sectionShipping': 'Shipping',
+  'admin.catalog.sectionShippingBody': 'Delivery is charged by area for the whole store, not per product.',
+  'admin.catalog.shippingNote':
+    'Every order is charged the delivery rate for the customer’s area. A product does not carry its own delivery charge.',
+  'admin.catalog.shippingLink': 'Open delivery charges',
   'admin.catalog.sectionOrganisation': 'Organisation',
   'admin.catalog.sectionOrganisationBody': 'Where the product sits, and how it is identified.',
   'admin.catalog.sectionPublication': 'Publication',
@@ -1054,22 +1062,27 @@ export const dictionary = {
   'admin.catalog.previewNoPrice': 'No price yet',
   'admin.catalog.previewCaveat':
     'The card shows no stock quantity, because availability is a state rather than a count.',
-  'admin.catalog.mediaAfterCreateTitle': 'Images come after the product exists',
-  'admin.catalog.mediaAfterCreateBody':
-    'An image belongs to a product row, so this product must be created first. Save it, then attach photographs from the product’s edit screen.',
+  'admin.catalog.mediaDropTitle': 'Drag and drop photographs here',
+  'admin.catalog.mediaDropHelp': 'JPG, PNG or WebP, up to 4 MB each and {max} at a time.',
+  'admin.catalog.mediaChoose': 'Add images',
+  'admin.catalog.mediaEmpty': 'No photographs chosen yet.',
+  'admin.catalog.mediaCover': 'Cover',
+  'admin.catalog.mediaRemove': 'Remove {name}',
+  'admin.catalog.mediaMoveEarlier': 'Move {name} earlier',
+  'admin.catalog.mediaMoveLater': 'Move {name} later',
+  'admin.catalog.mediaTooMany': 'Choose up to {max} photographs at a time.',
+  'admin.catalog.mediaNotImage': '{name} is not an image file. Use JPG, PNG or WebP.',
+  'admin.catalog.mediaUnreadable': 'That image could not be read. Use a JPG, PNG or WebP file.',
+  'admin.catalog.mediaAltNote':
+    'The product name is used as alt text for the photographs you add now. You can change it after saving.',
   'admin.catalog.mediaEditHint':
-    'Upload a photograph from your computer, or attach one already on the server, then order them below.',
+    'Photographs already saved are managed below, where you can change their alt text, order and cover.',
   'admin.catalog.attachExisting': 'Attach an existing photograph',
-  'admin.upload.file': 'Image from your computer',
   'admin.upload.help':
     'JPG, PNG or WebP. A large photo is compressed in your browser before it is sent, then the shop crops and resizes it for every place the image appears.',
   'admin.upload.choose': 'Choose image',
   'admin.upload.noFile': 'No file selected',
   'admin.upload.preparing': 'Preparing the image for upload…',
-  'admin.upload.submit': 'Upload image',
-  'admin.catalog.uploadHelp':
-    'The file is compressed in your browser if it is large, then cropped and resized on the server. The original stays on your computer.',
-  'admin.catalog.uploadImage': 'Upload a photograph',
   'admin.catalog.attachedLibrary': 'Or attach one already on the server',
   'admin.catalog.imageKeyHelp':
     'Images already stored on the server appear here. Dimensions and file size are read from the file itself.',
@@ -1124,7 +1137,7 @@ export const dictionary = {
   'admin.catalog.brandSubmit': 'Create brand',
   'admin.catalog.imagesTitle': 'Images',
   'admin.catalog.imagesBody':
-    'Upload a photograph from your computer. The server crops and resizes it, and reads its width, height and size from the bytes.',
+    'The photographs saved on this product. Change their alt text, choose the one the card uses, and set the gallery order.',
   'admin.catalog.noImages': 'This product has no images.',
   'admin.catalog.imageKey': 'Image',
   'admin.catalog.altBn': 'Alt text (Bangla)',
@@ -1147,6 +1160,9 @@ export const dictionary = {
   'admin.catalog.notice.imageAttached': 'Image attached.',
   'admin.catalog.notice.imageUpdated': 'Image updated.',
   'admin.catalog.notice.imageRemoved': 'Image removed.',
+  'admin.catalog.notice.imageInvalid':
+    'Nothing was saved because one of the photographs could not be read. Use a JPG, PNG or WebP file under 4 MB.',
+  'admin.catalog.notice.imageLimit': 'Nothing was saved because too many photographs were chosen. Add up to 8 at a time.',
   'admin.catalog.notice.denied': 'Your account does not have permission for that action.',
   'admin.catalog.notice.conflict': 'That change conflicts with existing data.',
   'admin.catalog.notice.invalid':

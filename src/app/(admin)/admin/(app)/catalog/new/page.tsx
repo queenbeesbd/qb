@@ -12,6 +12,20 @@ import { ProductForm } from '../../../_ui/ProductForm';
 export const dynamic = 'force-dynamic';
 
 /**
+ * A creation refusal returns here rather than to the list: the product was not made, so the list is
+ * not where the owner's unfinished work is. The codes are fixed; nothing submitted is echoed.
+ */
+const NOTICE_KEYS = {
+  invalid: 'admin.catalog.notice.invalid',
+  imageInvalid: 'admin.catalog.notice.imageInvalid',
+  imageLimit: 'admin.catalog.notice.imageLimit',
+  conflict: 'admin.catalog.notice.conflict',
+  denied: 'admin.catalog.notice.denied',
+} as const;
+
+const NOTICE_ERRORS: readonly string[] = ['invalid', 'imageInvalid', 'conflict', 'denied'];
+
+/**
  * New product.
  *
  * A route of its own, not `?new=1` on the list. The reference opens a full page for this form, and it
@@ -23,8 +37,18 @@ export const dynamic = 'force-dynamic';
  * rendered at all: showing a form whose required selects have no options is a dead end dressed up as
  * an affordance.
  */
-export default async function NewProductPage() {
+export default async function NewProductPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const principal = await requireAdminPage(PERMISSIONS.catalogWrite);
+  const query = await searchParams;
+  const rawNotice = Array.isArray(query.notice) ? query.notice[0] : query.notice;
+  const notice =
+    rawNotice !== undefined && rawNotice in NOTICE_KEYS
+      ? (rawNotice as keyof typeof NOTICE_KEYS)
+      : null;
 
   const data = await withTransaction(async (tx) => {
     const [categories, brands] = await Promise.all([
@@ -44,6 +68,12 @@ export default async function NewProductPage() {
         title={translate('admin.catalog.createTitle')}
         description={translate('admin.catalog.createBody')}
       />
+
+      {notice !== null && (
+        <Notice tone={NOTICE_ERRORS.includes(notice) ? 'error' : 'success'}>
+          {translate(NOTICE_KEYS[notice])}
+        </Notice>
+      )}
 
       {!ready ? (
         <Notice tone="warning">

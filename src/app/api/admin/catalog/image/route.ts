@@ -13,12 +13,11 @@ import { roleCodes } from '@/server/authz/principal';
 import { PERMISSIONS } from '@/server/authz/permissions';
 import { AuthorizationError, ConflictError, ValidationError } from '@/server/authz/authorize';
 import { attachImage, removeImage, reorderImages, updateImage } from '@/server/catalog/service';
-import { saveUpload } from '@/server/catalog/uploads';
 import { deny, redirectTo } from '../../responses';
 
 export const dynamic = 'force-dynamic';
 
-const OPERATIONS = ['attach', 'upload', 'update', 'remove', 'reorder'] as const;
+const OPERATIONS = ['attach', 'update', 'remove', 'reorder'] as const;
 
 /**
  * Redirects back to the product being edited, so the owner stays where they were.
@@ -56,26 +55,6 @@ export async function POST(request: Request): Promise<Response> {
   const productId = typeof rawProductId === 'string' && rawProductId !== '' ? rawProductId : null;
 
   try {
-    if (operation === 'upload') {
-      if (productId === null) return backToProduct(null, 'invalid');
-      let asset: Awaited<ReturnType<typeof saveUpload>> | undefined;
-      try {
-        asset = await saveUpload(form.get('file'), 'product');
-      } catch {
-        return backToProduct(productId, 'imageInvalid');
-      }
-      await withTransaction((tx) =>
-        attachImage(tx, actor, {
-          productId,
-          key: asset.key,
-          altBn: form.get('altBn') ?? undefined,
-          altEn: form.get('altEn') ?? undefined,
-          asset,
-        }),
-      );
-      return backToProduct(productId, 'imageAttached');
-    }
-
     if (operation === 'attach') {
       await withTransaction((tx) =>
         attachImage(tx, actor, {

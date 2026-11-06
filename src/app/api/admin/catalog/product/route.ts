@@ -12,17 +12,43 @@
  */
 
 import { withTransaction } from '@/db/client';
+import { MAX_PRODUCT_IMAGES } from '@/lib/upload-limits';
 import { CATALOG_PATH } from '@/server/auth/constants';
 import { guardMutation } from '@/server/auth/guard';
 import { roleCodes } from '@/server/authz/principal';
 import { PERMISSIONS } from '@/server/authz/permissions';
 import { AuthorizationError, ConflictError, ValidationError } from '@/server/authz/authorize';
-import { archiveProduct, createProduct, updateProduct } from '@/server/catalog/service';
+import { archiveProduct, attachImage, createProduct, updateProduct } from '@/server/catalog/service';
+import { saveUpload, type UploadedAsset } from '@/server/catalog/uploads';
 import { deny, redirectTo } from '../../responses';
 
 export const dynamic = 'force-dynamic';
 
 const OPERATIONS = ['create', 'update', 'archive'] as const;
+
+/**
+ * The photographs chosen in the editor.
+ *
+ * One repeated `images` field carries all of them, in the order the owner arranged. A file input
+ * that submitted nothing posts no entry at all, so an empty list is the ordinary "no photographs"
+ * case rather than an error.
+ */
+function imageFiles(form: FormData): File[] {
+  return form.getAll('images').filter((value): value is File => value instanceof File && value.size > 0);
+}
+
+/**
+ * Stores the chosen photographs before the database transaction, so a file that cannot be decoded
+ * refuses the save instead of creating a product whose photographs silently went missing.
+ *
+ * The key, dimensions, type and byte size come from the decoded bytes (`saveUpload`), never from the
+ * request.
+ */
+async function storeImages(files: readonly File[]): Promise<UploadedAsset[]> {
+  const assets: UploadedAsset[] = [];
+  for (const file of files) assets.push(await saveUpload(file, 'product'));
+  return assets;
+}
 
 /**
  * A fixed notice plus, for an edit, the product being edited - never a value from the form.
@@ -75,25 +101,66 @@ export async function POST(request: Request): Promise<Response> {
     isPublished: form.get('isPublished') ?? undefined,
   };
 
+  const images = imageFiles(form);
+  const rawName = form.get('nameEn');
+  const altEn = typeof rawName === 'string' ? rawName.trim() : '';
+
+  /*
+   * A refusal during creation returns to the create form, not the list: the product was not made, and
+   * the list is not where the owner's unfinished work is. An edit returns to the product being edited.
+   */
+  const back = (notice: string): Response =>
+    operation === 'create'
+      ? redirectTo(`${CATALOG_PATH}/new?notice=${notice}`)
+      : backToProduct(productId, notice);
+
+  if (images.length > MAX_PRODUCT_IMAGES) return back('imageLimit');
+
+  let assets: UploadedAsset[];
+  try {
+    assets = await storeImages(images);
+  } catch {
+    // `saveUpload` throws a plain Error for bytes that are not a readable image, or a file over the cap.
+    return back('imageInvalid');
+  }
+
   try {
     if (operation === 'create') {
-      // Straight to the new product's edit screen: the product exists but has no images yet, and that
-      // is the next thing to do. The list would show a row with a "No image" badge and no way forward.
-      const created = await withTransaction((tx) => createProduct(tx, actor, fields));
+      const created = await withTransaction(async (tx) => {
+        const row = await createProduct(tx, actor, fields);
+        for (const [index, asset] of assets.entries()) {
+          // The first photograph becomes the card image automatically (`attachImage`), and alt text
+          // starts as the product name the owner just typed; both can be changed after saving.
+          await attachImage(tx, actor, {
+            productId: row.productId,
+            key: asset.key,
+            altEn,
+            sortOrder: index,
+            asset,
+          });
+        }
+        return row;
+      });
+      // Straight to the product's edit screen, where its gallery is now visible.
       return redirectTo(`${CATALOG_PATH}/${created.productId}?notice=created`);
     }
 
     if (operation === 'update') {
-      await withTransaction((tx) => updateProduct(tx, actor, form.get('productId'), fields));
+      await withTransaction(async (tx) => {
+        await updateProduct(tx, actor, form.get('productId'), fields);
+        for (const asset of assets) {
+          await attachImage(tx, actor, { productId, key: asset.key, altEn, asset });
+        }
+      });
       return backToProduct(productId, 'updated');
     }
 
     await withTransaction((tx) => archiveProduct(tx, actor, form.get('productId')));
     return redirectTo(`${CATALOG_PATH}?notice=archived`);
   } catch (error) {
-    if (error instanceof ValidationError) return backToProduct(productId, 'invalid');
-    if (error instanceof ConflictError) return backToProduct(productId, 'conflict');
-    if (error instanceof AuthorizationError) return backToProduct(productId, 'denied');
+    if (error instanceof ValidationError) return back('invalid');
+    if (error instanceof ConflictError) return back('conflict');
+    if (error instanceof AuthorizationError) return back('denied');
     throw error;
   }
 }

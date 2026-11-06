@@ -1414,8 +1414,20 @@ export async function attachImage(
     throw new ValidationError('give the image alt text in at least one language');
   }
 
+  /*
+   * An explicit position is honoured; otherwise the image goes after the gallery. It used to default
+   * to 0, which put every new upload in front of the owner's existing order. Appending is what a
+   * reader expects from "add a photograph".
+   */
   const sortOrder =
-    input.sortOrder === undefined || input.sortOrder === '' ? 0 : parseSortOrder(input.sortOrder);
+    input.sortOrder === undefined || input.sortOrder === ''
+      ? (
+          await tx
+            .select({ next: sql<number>`coalesce(max(${productImage.sortOrder}), -1) + 1` })
+            .from(productImage)
+            .where(sql`${productImage.productId} = ${productId} and ${productImage.deletedAt} is null`)
+        )[0]?.next ?? 0
+      : parseSortOrder(input.sortOrder);
   if (sortOrder === null) throw new ValidationError('the image order must be a whole number');
 
   const existing = await tx
@@ -1456,11 +1468,15 @@ export async function attachImage(
         altEn: altEn.value,
         sortOrder,
         isPrimary: false,
-        // The photography in `public/catalog` is the Phase 1 demo set, whose rights are recorded as
-        // `merchant_source_pending_confirmation`. Recording it as anything else would be a claim we
-        // cannot support, and `cleared` additionally requires a note.
+        // Rights are recorded, never assumed. The Phase 1 demo photography came from the vendor and
+        // its reuse permission is still unconfirmed; a photograph uploaded through the admin screen
+        // came from the owner, but the store has no recorded permission statement either, and
+        // `cleared` would require a recorded basis. Both stay `pending_confirmation`, with a note that
+        // says which case this is instead of mislabelling an owner's upload as demo photography.
         rightsStatus: 'pending_confirmation',
-        rightsNote: 'Phase 1 demo photography; written reuse permission not yet confirmed',
+        rightsNote: asset.key.startsWith('product-upload-')
+          ? 'Uploaded by the store owner; written reuse permission not yet recorded'
+          : 'Phase 1 demo photography; written reuse permission not yet confirmed',
         uploadedBy: actor.staffUserId,
       })
       .returning({ id: productImage.id });

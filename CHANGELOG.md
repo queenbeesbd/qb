@@ -14,6 +14,38 @@ An entry may describe a deployment only once it has actually happened and been o
 
 ## [Unreleased]
 
+### Changed - 2026-11-06: the add-product page is a real editor with a media picker
+The create screen was structurally complete but its Media section only said "images come after the
+product exists", so adding a product meant save, navigate back, then upload - the dead end the owner
+reported. The product editor now follows the reference's information architecture: the wide column
+carries **General information, Media, Pricing, Inventory and Shipping**, and the narrow column carries
+the **live preview, Category/Brand, pack size, slug and Publication**.
+
+The Media section is a dashed **drop zone plus Add images** picker. Chosen files preview immediately,
+the first is marked **Cover**, and each can be moved or removed. The form posts them under one
+`images` field (`multipart/form-data`); the server decodes and re-encodes each file to WebP
+(320/600/1050), creates the product, and attaches the photographs in the chosen order in one
+transaction. An unreadable file refuses the whole save and returns to the create page with an
+explanation; a product is never created without the photographs the owner selected. The same control
+on the edit screen appends to the gallery, and new images now append after the existing order instead
+of defaulting to position 0.
+
+**Not copied from the reference, deliberately:** stock quantity (availability is a state, ADR 0013),
+digital products, rich text, SEO description, buying price, per-product delivery charge, serial /
+warranty fields, variant matrix and custom detail fields. The form states the store-wide delivery rule
+and links to Settings instead of showing an inert per-product toggle.
+
+**Verification.** Local dev cluster and dev server: created a product with two photographs in one
+request - page landed on `/admin/catalog/23?notice=created` with two gallery rows, `sort_order` 0 and 1,
+the first `is_primary`, both files written at 320/600/1050; added a third photograph through the edit
+form and it appended at `sort_order` 2; posted a non-image file and the save was refused with
+`?notice=imageInvalid` and no product row created. typecheck, lint (0 errors), `check:i18n` (1,455
+keys) and unit **210/210**. `verify:admin` **197/200**; its three failures are pre-existing and
+unrelated to this change - a category-visibility timing race, the Telegram removal-dialog flake, and
+the documented "no CSP" assertion. The suite now also asserts the media picker and multipart form on
+the create screen. At 390px the picker has no horizontal overflow and its move/remove buttons resolve
+to the 40px phone control height.
+
 ### Changed - 2026-11-05: a designed file picker, and hero cards stack on a phone
 The upload forms rendered the browser's own "Choose File / No file chosen" widget, which read as a
 different application beside every 40px admin control. `AdminImageInput` now draws the control: a

@@ -37,12 +37,10 @@ import { join } from 'node:path';
 import sharp from 'sharp';
 
 import { HERO_IMAGE_WIDTHS, IMAGE_FALLBACK_WIDTH, IMAGE_WIDTHS } from '@/lib/images';
+import { UPLOAD_MAX_BYTES } from '@/lib/upload-limits';
 import { CATALOG_ASSET_DIR, type AssetDescriptor } from './assets';
 import { HERO_ASSET_DIR } from './hero-assets';
 import { putObject, storageConfig } from './object-storage';
-
-/** The largest accepted upload. Vercel's own request body ceiling is 4.5 MB. */
-export const UPLOAD_MAX_BYTES = 4 * 1024 * 1024;
 
 /** One variant that was produced: the file name the renderer will ask for, and its bytes. */
 type Variant = {

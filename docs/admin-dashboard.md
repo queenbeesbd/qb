@@ -111,8 +111,19 @@ should suggest one.
 form, so a filtered, paginated list and a full-height editor stop sharing a URL - and a refresh cannot
 lose whichever one the owner was in. `?new=1` and `?edit=<id>` are gone rather than kept as aliases.
 
-**Layout:** copy and media on the left, commercial facts on the right, the live storefront preview at the
-top of the right column, and a sticky action bar. Below 1100px the columns stack with the preview first.
+**Layout (revised 2026-11-06 to the reference's information architecture):** the writing and the
+commercial facts share the wide column - General information, Media, Pricing, Inventory and Shipping -
+while the narrow column holds the live storefront preview, Category/Brand, pack size and slug, and
+Publication. A sticky action bar keeps Save reachable. Below 1100px the columns stack in source order:
+fields first, preview and status after.
+
+**But not every reference field.** The form keeps this store's approved model: there is no stock
+quantity (availability is a state, ADR 0013), no digital product, no rich-text description, no SEO
+description, no buying/margin price, no per-product delivery charge, no product-serial/warranty
+fields, no variant matrix and no custom detail fields. Those are recorded as incompatible or
+owner-decision items in `docs/reference/zatiq-easy-admin-parity.md`; copying their inputs without the
+data behind them would be a promise the product cannot keep. The Shipping card states the real rule -
+store-wide area charges, set once in Settings - rather than an inert per-product toggle.
 
 **What the form states that the reference does not:**
 
@@ -123,15 +134,24 @@ top of the right column, and a sticky action bar. Below 1100px the columns stack
 | The slug | The storefront path it will produce, derived live from the English name |
 | The two states | One sentence for the combined outcome: live and orderable, live but not orderable, or hidden |
 | A blocked submit | The missing set in text, `aria-invalid` on the fields, focus on the first offender |
-| Images on create | Stated as impossible until the product exists, rather than a drop zone that discards files |
+| Photographs on create | Chosen with the product and saved in the same request - no "create first, return later" dead end |
+
+**Photographs are chosen with the product.** The Media section is a dashed drop zone plus an **Add
+images** button; dragging or choosing files shows their thumbnails before anything is sent, with the
+first marked **Cover**, per-image remove and move controls, and a stated limit of eight. The form is
+`multipart/form-data`; the server stores every file (`saveUpload`, bytes decoded and re-encoded to
+WebP at 320/600/1050), creates the product, and attaches the photographs in the same order, in one
+transaction. An unreadable file refuses the whole save and returns to the create page with
+`imageInvalid`; a product is never created with its chosen photographs silently missing. On the edit
+screen the same control adds to the gallery, appending after the existing order; alt text starts as the
+product name and stays editable in the gallery below.
 
 **Image ordering is real.** `product_image.sort_order` is written as a dense 0..n-1 sequence in one post
 from move up/down buttons, with the primary image kept a separate fact: "first in the gallery" and "the
 image on the card" are different, and a reorder must not silently repoint the card.
 
-**Imagery accepts an upload.** The owner can send a file from the editor; `src/server/catalog/uploads.ts`
-re-encodes it to WebP at 320/600/1050, and the picker still reads the server's own inventory for images
-that were already there. Metadata comes from the file bytes, never from the request.
+**The picker still reads the server's own inventory** for images that were already there, and every
+stored image's metadata comes from its file bytes, never from the request.
 
 ### The list surfaces (Phase 30)
 

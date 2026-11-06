@@ -3805,32 +3805,143 @@ html[dir='rtl'] .switchOn .switchKnob::after {
 
 /* ---- Media ---- */
 
-.mediaPending {
-  display: flex;
-  align-items: flex-start;
+.previewPhoto {
+  display: block;
+  aspect-ratio: 4 / 5;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: var(--color-surface-sunken);
+  min-width: 0;
+}
+
+.previewPhoto img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.fieldError {
+  margin: 0;
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--color-danger);
+  line-height: var(--leading-snug);
+}
+
+.mediaPicker {
+  display: grid;
   gap: var(--space-3);
-  padding: var(--space-4);
+  min-width: 0;
+}
+
+/*
+ * The drop zone is the reference's affordance, drawn with this surface's own vocabulary: a dashed
+ * field that states what it accepts, not a bare file input. It is a drop target and a button at the
+ * same time, so the whole box reacts to a drag and the button inside stays the keyboard target.
+ */
+.mediaDrop {
+  display: grid;
+  place-items: center;
+  gap: var(--space-2);
+  padding: var(--space-5) var(--space-4);
   border: 1px dashed var(--color-border-strong);
   border-radius: var(--radius-md);
   background: var(--color-surface-sunken);
+  text-align: center;
+  transition:
+    border-color 120ms ease,
+    background-color 120ms ease;
 }
 
-.mediaPendingIcon {
+.mediaDrop[data-dragging='true'] {
+  border-color: var(--color-action);
+  background: var(--color-action-soft);
+}
+
+.mediaDropIcon {
   display: grid;
   place-items: center;
-  width: 36px;
-  height: 36px;
-  flex: none;
+  width: 48px;
+  height: 48px;
   border-radius: var(--radius-md);
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   color: var(--color-ink-muted);
 }
 
-.mediaPendingTitle {
-  margin: 0 0 2px;
+.mediaDropTitle {
+  margin: 0;
   font-weight: 600;
   font-size: var(--text-sm);
+}
+
+.mediaDrop .hint {
+  margin: 0;
+}
+
+.mediaSelection {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr));
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mediaTile {
+  display: grid;
+  gap: var(--space-1);
+  min-width: 0;
+  padding: var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.mediaTileFrame {
+  display: block;
+  aspect-ratio: 4 / 5;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: var(--color-surface-sunken);
+}
+
+.mediaTileFrame img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.mediaTileCover {
+  justify-self: start;
+  padding: 2px var(--space-2);
+  border-radius: 999px;
+  background: var(--color-action-soft);
+  color: var(--color-action);
+  font-size: var(--text-xs);
+  font-weight: 600;
+}
+
+.mediaTileName {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--text-xs);
+  color: var(--color-ink-muted);
+}
+
+.mediaTileActions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 2px;
+}
+
+.mediaTileActions .button {
+  width: 100%;
+  padding: 0;
+  min-width: 0;
 }
 
 /* ---- Gallery ---- */

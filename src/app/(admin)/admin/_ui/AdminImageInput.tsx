@@ -7,6 +7,7 @@ import { UploadIcon } from '@/components/icons';
 import { useTranslation } from '@/i18n/useTranslation';
 
 import styles from '../admin.module.css';
+import { prepareImageFile } from './image-prep';
 
 /**
  * The file input every admin upload form uses (owner direction, 2026-11-05).
@@ -49,15 +50,13 @@ export function AdminImageInput({
 
     setPreparing(true);
     try {
-      const prepared = await shrink(file);
-      if (prepared !== null && prepared.size < file.size) {
+      const prepared = await prepareImageFile(file);
+      if (prepared !== file) {
         const transfer = new DataTransfer();
         transfer.items.add(prepared);
         input.files = transfer.files;
         setChosen({ name: originalName, bytes: prepared.size });
       }
-    } catch {
-      // Keep the original; the server states the size refusal if it cannot be accepted.
     } finally {
       setPreparing(false);
     }
@@ -99,34 +98,4 @@ function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-/** The longest edge kept before the server builds its 320/600/1050 set. */
-const MAX_EDGE = 1600;
-
-/**
- * Decodes, downscales and re-encodes one file as WebP.
- *
- * WebP rather than JPEG because a brand logo is often a transparent PNG: JPEG would flatten its
- * transparent pixels to black. Returns `null` when the browser cannot decode the bytes.
- */
-async function shrink(file: File): Promise<File | null> {
-  const bitmap = await createImageBitmap(file);
-  const scale = Math.min(1, MAX_EDGE / Math.max(bitmap.width, bitmap.height));
-  const width = Math.max(1, Math.round(bitmap.width * scale));
-  const height = Math.max(1, Math.round(bitmap.height * scale));
-
-  const canvas = document.createElement('canvas');
-  canvas.width = width;
-  canvas.height = height;
-  const context = canvas.getContext('2d');
-  if (context === null) return null;
-  context.drawImage(bitmap, 0, 0, width, height);
-  bitmap.close();
-
-  const { promise, resolve } = Promise.withResolvers<Blob | null>();
-  canvas.toBlob(resolve, 'image/webp', 0.85);
-  const blob = await promise;
-  if (blob === null) return null;
-  return new File([blob], 'upload.webp', { type: 'image/webp' });
 }

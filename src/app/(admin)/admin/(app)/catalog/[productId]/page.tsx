@@ -26,6 +26,8 @@ const NOTICE_KEYS = {
   imageUpdated: 'admin.catalog.notice.imageUpdated',
   imageRemoved: 'admin.catalog.notice.imageRemoved',
   imageReordered: 'admin.catalog.notice.imageReordered',
+  imageInvalid: 'admin.catalog.notice.imageInvalid',
+  imageLimit: 'admin.catalog.notice.imageLimit',
   denied: 'admin.catalog.notice.denied',
   conflict: 'admin.catalog.notice.conflict',
   invalid: 'admin.catalog.notice.invalid',
@@ -104,6 +106,8 @@ export default async function EditProductPage({
           sku: data.product.sku,
           availability: data.product.availability,
           isPublished: data.product.isPublished,
+          primaryImageKey:
+            data.product.images.find((image) => image.isPrimary)?.key ?? data.product.images[0]?.key ?? null,
         }}
         categories={data.categories.map((category) => ({
           id: category.id,

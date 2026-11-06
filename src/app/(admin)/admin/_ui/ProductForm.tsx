@@ -1,13 +1,16 @@
 'use client';
 
 import Link from 'next/link';
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { useTranslation } from '@/i18n/useTranslation';
+import { imageVariantPath } from '@/lib/images';
 import { slugPreview } from '@/lib/slug-preview';
 import { parseBdtInput } from '@/lib/money';
 import { discountAmount, discountPercent, formatMoney } from '@/lib/money';
+import { MAX_PRODUCT_IMAGES } from '@/lib/upload-limits';
 import { AdminIcon } from './icons';
+import { ProductMediaUploader, type PreparedProductImage, type ProductUploadImage } from './ProductMediaUploader';
 import { RequiredMark } from './RequiredMark';
 import { SubmitButton } from './SubmitButton';
 import styles from '../admin.module.css';
@@ -28,6 +31,8 @@ export type ProductFormValues = {
   sku?: string | null;
   availability?: string;
   isPublished?: boolean;
+  /** The photograph a saved product already puts on its card, if it has one. */
+  primaryImageKey?: string | null;
 };
 
 export type ProductFormCategory = { id: number; nameEn: string; productCount: number };
@@ -106,6 +111,60 @@ export function ProductForm({
   const [blocked, setBlocked] = useState<string[]>([]);
 
   /*
+   * Photographs chosen with the product, before it exists.
+   *
+   * The files post as part of this form; the server creates the product and attaches them in one
+   * request. The object URLs are the browser's preview of the chosen bytes - nothing has been
+   * uploaded yet, which is why they are revoked when a photograph is removed.
+   */
+  const [uploads, setUploads] = useState<ProductUploadImage[]>([]);
+  const uploadsRef = useRef<ProductUploadImage[]>([]);
+  useEffect(() => {
+    uploadsRef.current = uploads;
+  }, [uploads]);
+  useEffect(
+    () => () => {
+      for (const image of uploadsRef.current) URL.revokeObjectURL(image.url);
+    },
+    [],
+  );
+
+  const addUploads = (files: readonly PreparedProductImage[]): void => {
+    setUploads((current) => [
+      ...current,
+      ...files.map(({ file, name }) => ({
+        id: crypto.randomUUID(),
+        file,
+        name,
+        url: URL.createObjectURL(file),
+      })),
+    ]);
+  };
+
+  const removeUpload = (id: string): void => {
+    setUploads((current) =>
+      current.flatMap((image) => {
+        if (image.id !== id) return [image];
+        URL.revokeObjectURL(image.url);
+        return [];
+      }),
+    );
+  };
+
+  const moveUpload = (id: string, direction: -1 | 1): void => {
+    setUploads((current) => {
+      const index = current.findIndex((image) => image.id === id);
+      const target = index + direction;
+      if (index === -1 || target < 0 || target >= current.length) return current;
+      const next = [...current];
+      const [moved] = next.splice(index, 1);
+      if (moved === undefined) return current;
+      next.splice(target, 0, moved);
+      return next;
+    });
+  };
+
+  /*
    * The preview is derived, never stored. `parseBdtInput` is the same strictness as the server's
    * `parsePoisha`, so a number the preview accepts is one the save accepts too.
    */
@@ -114,6 +173,12 @@ export function ProductForm({
   const saving = priceMinor !== null ? discountAmount(priceMinor, compareAtMinor) : null;
   const percent = priceMinor !== null ? discountPercent(priceMinor, compareAtMinor) : null;
   const effectiveSlug = slug.trim() === '' ? slugPreview(nameEn) : slug.trim();
+  // A chosen photograph previews before it is saved; otherwise the saved card image does.
+  const previewSrc =
+    uploads[0]?.url ??
+    (values.primaryImageKey === null || values.primaryImageKey === undefined
+      ? null
+      : imageVariantPath(values.primaryImageKey));
 
   const shortRemaining = 500 - shortDescription.length;
 
@@ -138,6 +203,7 @@ export function ProductForm({
       className={styles.productForm}
       action="/api/admin/catalog/product"
       method="post"
+      encType="multipart/form-data"
       /*
        * Validation is taken over deliberately. With native validation on, the browser refuses the
        * submit *before* `onSubmit` runs, so a blocked submission is silent: nothing is announced and
@@ -316,24 +382,126 @@ export function ProductForm({
               <p>{t('admin.catalog.sectionMediaBody')}</p>
             </div>
 
-            {mode === 'create' ? (
-              /*
-               * An image can only be attached to a product that exists, because `product_image` is a
-               * foreign key. Saying so here is the honest alternative to a drop zone that silently
-               * discards what the owner drops into it.
-               */
-              <div className={styles.mediaPending}>
-                <span className={styles.mediaPendingIcon} aria-hidden="true">
-                  <AdminIcon name="package" width={20} height={20} />
-                </span>
-                <div>
-                  <p className={styles.mediaPendingTitle}>{t('admin.catalog.mediaAfterCreateTitle')}</p>
-                  <p className={styles.note}>{t('admin.catalog.mediaAfterCreateBody')}</p>
-                </div>
-              </div>
+            <ProductMediaUploader
+              id="productImages"
+              images={uploads}
+              onAdd={addUploads}
+              onRemove={removeUpload}
+              onMove={moveUpload}
+              maxImages={MAX_PRODUCT_IMAGES}
+            />
+
+            {mode === 'edit' ? (
+              <p className={styles.hint}>{t('admin.catalog.mediaEditHint')}</p>
             ) : (
-              <p className={styles.note}>{t('admin.catalog.mediaEditHint')}</p>
+              <p className={styles.hint}>{t('admin.catalog.mediaAltNote')}</p>
             )}
+          </section>
+
+          {/* ---- Pricing ---- */}
+          <section className={styles.formCard} aria-labelledby="pf-pricing">
+            <div className={styles.formCardHead}>
+              <h2 id="pf-pricing">{t('admin.catalog.sectionPricing')}</h2>
+              <p>{t('admin.catalog.sectionPricingBody')}</p>
+            </div>
+
+            <div className={styles.formGrid}>
+              <div className={styles.field}>
+                <label htmlFor="price">
+                  {t('admin.catalog.field.price')} <RequiredMark />
+                </label>
+                <div className={styles.moneyInput}>
+                  <span className={styles.moneyPrefix} aria-hidden="true">
+                    {t('admin.catalog.currencyMark')}
+                  </span>
+                  <input
+                    className={styles.input}
+                    id="price"
+                    name="price"
+                    required
+                    inputMode="decimal"
+                    value={price}
+                    onChange={(event) => setPrice(event.target.value)}
+                  />
+                </div>
+                <p className={styles.hint}>{t('admin.catalog.field.priceHelp')}</p>
+              </div>
+
+              <div className={styles.field}>
+                <label htmlFor="compareAtPrice">{t('admin.catalog.field.compareAtPrice')}</label>
+                <div className={styles.moneyInput}>
+                  <span className={styles.moneyPrefix} aria-hidden="true">
+                    {t('admin.catalog.currencyMark')}
+                  </span>
+                  <input
+                    className={styles.input}
+                    id="compareAtPrice"
+                    name="compareAtPrice"
+                    inputMode="decimal"
+                    value={compareAt}
+                    onChange={(event) => setCompareAt(event.target.value)}
+                  />
+                </div>
+                <p className={styles.hint}>{t('admin.catalog.field.compareAtPriceHelp')}</p>
+                {/*
+                  A comparison price that is not higher is refused by the server and would render no
+                  saving, so it is called out here rather than discovered on save.
+                */}
+                {compareAtMinor !== null && priceMinor !== null && saving === null && (
+                  <p className={styles.hintWarn}>{t('admin.catalog.field.compareAtPriceWarn')}</p>
+                )}
+              </div>
+            </div>
+          </section>
+
+          {/* ---- Inventory ---- */}
+          <section className={styles.formCard} aria-labelledby="pf-inventory">
+            <div className={styles.formCardHead}>
+              <h2 id="pf-inventory">{t('admin.catalog.sectionInventory')}</h2>
+              <p>{t('admin.catalog.sectionInventoryBody')}</p>
+            </div>
+
+            <div className={styles.field}>
+              <label htmlFor="sku">{t('admin.catalog.field.sku')}</label>
+              <input
+                className={styles.input}
+                id="sku"
+                name="sku"
+                maxLength={64}
+                defaultValue={values.sku ?? ''}
+                placeholder={t('admin.catalog.field.skuPlaceholder')}
+              />
+              <p className={styles.hint}>{t('admin.catalog.field.skuHelp')}</p>
+            </div>
+
+            <div className={styles.field}>
+              <label htmlFor="availability">{t('admin.catalog.field.availability')}</label>
+              <select
+                className={styles.select}
+                id="availability"
+                name="availability"
+                value={availability}
+                onChange={(event) => setAvailability(event.target.value)}
+              >
+                <option value="in_stock">{t('admin.catalog.inStock')}</option>
+                <option value="out_of_stock">{t('admin.catalog.outOfStock')}</option>
+              </select>
+              <p className={styles.hint}>{t('admin.catalog.field.availabilityHelp')}</p>
+            </div>
+          </section>
+
+          {/* ---- Shipping ---- */}
+          <section className={styles.formCard} aria-labelledby="pf-shipping">
+            <div className={styles.formCardHead}>
+              <h2 id="pf-shipping">{t('admin.catalog.sectionShipping')}</h2>
+              <p>{t('admin.catalog.sectionShippingBody')}</p>
+            </div>
+            <p className={styles.note}>{t('admin.catalog.shippingNote')}</p>
+            <p className={styles.hint}>
+              <Link className={styles.recordLink} href="/admin/settings/delivery">
+                {t('admin.catalog.shippingLink')}
+              </Link>
+            </p>
           </section>
         </div>
 
@@ -347,9 +515,15 @@ export function ProductForm({
             </div>
 
             <div className={styles.previewCard}>
-              <div className={styles.previewFrame} aria-hidden="true">
-                <span className={styles.previewFrameLabel}>{t('admin.catalog.previewNoImage')}</span>
-              </div>
+              {previewSrc === null ? (
+                <div className={styles.previewFrame} aria-hidden="true">
+                  <span className={styles.previewFrameLabel}>{t('admin.catalog.previewNoImage')}</span>
+                </div>
+              ) : (
+                <div className={styles.previewPhoto} aria-hidden="true">
+                  <img src={previewSrc} alt="" />
+                </div>
+              )}
               <div className={styles.previewBody}>
                 {nameEn.trim() === '' ? (
                   <p className={styles.previewPlaceholder}>{t('admin.catalog.previewNoName')}</p>
@@ -380,60 +554,6 @@ export function ProductForm({
               </div>
             </div>
             <p className={styles.hint}>{t('admin.catalog.previewCaveat')}</p>
-          </section>
-
-          {/* ---- Pricing ---- */}
-          <section className={styles.formCard} aria-labelledby="pf-pricing">
-            <div className={styles.formCardHead}>
-              <h2 id="pf-pricing">{t('admin.catalog.sectionPricing')}</h2>
-              <p>{t('admin.catalog.sectionPricingBody')}</p>
-            </div>
-
-            <div className={styles.field}>
-              <label htmlFor="price">
-                {t('admin.catalog.field.price')} <RequiredMark />
-              </label>
-              <div className={styles.moneyInput}>
-                <span className={styles.moneyPrefix} aria-hidden="true">
-                  {t('admin.catalog.currencyMark')}
-                </span>
-                <input
-                  className={styles.input}
-                  id="price"
-                  name="price"
-                  required
-                  inputMode="decimal"
-                  value={price}
-                  onChange={(event) => setPrice(event.target.value)}
-                />
-              </div>
-              <p className={styles.hint}>{t('admin.catalog.field.priceHelp')}</p>
-            </div>
-
-            <div className={styles.field}>
-              <label htmlFor="compareAtPrice">{t('admin.catalog.field.compareAtPrice')}</label>
-              <div className={styles.moneyInput}>
-                <span className={styles.moneyPrefix} aria-hidden="true">
-                  {t('admin.catalog.currencyMark')}
-                </span>
-                <input
-                  className={styles.input}
-                  id="compareAtPrice"
-                  name="compareAtPrice"
-                  inputMode="decimal"
-                  value={compareAt}
-                  onChange={(event) => setCompareAt(event.target.value)}
-                />
-              </div>
-              <p className={styles.hint}>{t('admin.catalog.field.compareAtPriceHelp')}</p>
-              {/*
-                A comparison price that is not higher is refused by the server and would render no
-                saving, so it is called out here rather than discovered on save.
-              */}
-              {compareAtMinor !== null && priceMinor !== null && saving === null && (
-                <p className={styles.hintWarn}>{t('admin.catalog.field.compareAtPriceWarn')}</p>
-              )}
-            </div>
           </section>
 
           {/* ---- Organisation ---- */}
@@ -503,19 +623,6 @@ export function ProductForm({
             </div>
 
             <div className={styles.field}>
-              <label htmlFor="sku">{t('admin.catalog.field.sku')}</label>
-              <input
-                className={styles.input}
-                id="sku"
-                name="sku"
-                maxLength={64}
-                defaultValue={values.sku ?? ''}
-                placeholder={t('admin.catalog.field.skuPlaceholder')}
-              />
-              <p className={styles.hint}>{t('admin.catalog.field.skuHelp')}</p>
-            </div>
-
-            <div className={styles.field}>
               <label htmlFor="slug">{t('admin.catalog.field.slug')}</label>
               <input
                 className={styles.input}
@@ -536,21 +643,6 @@ export function ProductForm({
             <div className={styles.formCardHead}>
               <h2 id="pf-publication">{t('admin.catalog.sectionPublication')}</h2>
               <p>{t('admin.catalog.sectionPublicationBody')}</p>
-            </div>
-
-            <div className={styles.field}>
-              <label htmlFor="availability">{t('admin.catalog.field.availability')}</label>
-              <select
-                className={styles.select}
-                id="availability"
-                name="availability"
-                value={availability}
-                onChange={(event) => setAvailability(event.target.value)}
-              >
-                <option value="in_stock">{t('admin.catalog.inStock')}</option>
-                <option value="out_of_stock">{t('admin.catalog.outOfStock')}</option>
-              </select>
-              <p className={styles.hint}>{t('admin.catalog.field.availabilityHelp')}</p>
             </div>
 
             <label className={styles.switchRow} htmlFor="isPublished">

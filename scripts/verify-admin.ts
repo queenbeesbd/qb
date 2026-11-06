@@ -1422,7 +1422,7 @@ async function main(): Promise<void> {
       );
       record(
         'the attached image metadata was read from the file, not submitted',
-        imageRows.width === 600 && imageRows.contentType === 'image/jpeg',
+        imageRows.width === 600 && imageRows.contentType === 'image/webp',
         `${imageRows.width}px ${imageRows.contentType ?? ''}`,
       );
 
@@ -1589,7 +1589,7 @@ async function main(): Promise<void> {
             ]) {
               await browser.navigate(route);
               const heights = await browser.evaluate<number[]>(`(() => [...document.querySelectorAll(
-                'main button, main input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]), main select',
+                'main button, main input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]):not([type="file"]), main select',
               )].map((el) => Math.round(el.getBoundingClientRect().height)).filter((h) => h > 0))()`);
               heightSweep.push({ route, heights });
             }
@@ -2152,10 +2152,14 @@ async function main(): Promise<void> {
               columns: number;
               overflow: number;
               h1Count: number;
+              imagesInput: boolean;
+              dropZone: boolean;
+              enctype: string;
             }>(`(() => {
               const sections = [...document.querySelectorAll('main section h2')].map((h) => h.textContent?.trim() ?? '');
               const header = document.querySelector('main form > header');
               const cols = document.querySelector('main form > div');
+              const form = document.querySelector('main form');
               return {
                 heading: document.querySelector('main h1')?.textContent?.trim() ?? '',
                 h1Count: document.querySelectorAll('main h1').length,
@@ -2165,21 +2169,29 @@ async function main(): Promise<void> {
                 preview: document.body.textContent?.includes('Storefront preview') ?? false,
                 columns: cols ? getComputedStyle(cols).gridTemplateColumns.split(' ').length : 0,
                 overflow: document.documentElement.scrollWidth - window.innerWidth,
+                imagesInput: document.querySelector('main input[type="file"][name="images"]') !== null,
+                dropZone: document.querySelector('main [data-dragging]') !== null,
+                enctype: form?.getAttribute('enctype') ?? '',
               };
             })()`);
             record(
-              'the product editor is its own route with the reference section set, a sticky action bar and a preview',
+              'the product editor is its own route with the reference section set, a media picker, a sticky action bar and a preview',
               editorShell.heading === 'New product' &&
                 editorShell.h1Count === 1 &&
                 editorShell.sections.includes('General information') &&
                 editorShell.sections.includes('Media') &&
                 editorShell.sections.includes('Pricing') &&
+                editorShell.sections.includes('Inventory') &&
+                editorShell.sections.includes('Shipping') &&
                 editorShell.sections.includes('Organisation') &&
                 editorShell.sections.includes('Publication') &&
                 editorShell.sections.includes('Storefront preview') &&
                 editorShell.sticky === 'sticky' &&
                 editorShell.preview === true &&
                 editorShell.columns === 2 &&
+                editorShell.imagesInput === true &&
+                editorShell.dropZone === true &&
+                editorShell.enctype === 'multipart/form-data' &&
                 editorShell.overflow <= 1,
               JSON.stringify(editorShell),
             );
@@ -2527,7 +2539,7 @@ async function main(): Promise<void> {
               const measured = await browser.evaluate<{ toolbars: number; heights: number[] }>(`(() => ({
                 toolbars: document.querySelectorAll('[data-admin-toolbar]').length,
                 heights: [...document.querySelectorAll(
-                  'main button, main input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]), main select',
+                  'main button, main input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]):not([type="file"]), main select',
                 )].map((el) => Math.round(el.getBoundingClientRect().height)).filter((h) => h > 0),
               }))()`);
               toolbarSweep.push({ route, ...measured });
