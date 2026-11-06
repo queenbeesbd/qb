@@ -135,7 +135,11 @@ export function AreaChart({
     return (
       <figure className={styles.figure}>
         <div className={styles.emptyPlot}>
-          <span className={styles.emptyRule} aria-hidden="true" />
+          <svg className={styles.emptyGlyph} viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path d="M4 19V5" />
+            <path d="M4 19h16" />
+            <path d="m7 15 4-4 3 3 5-6" />
+          </svg>
           <span className={styles.emptyText}>{summary}</span>
         </div>
       </figure>

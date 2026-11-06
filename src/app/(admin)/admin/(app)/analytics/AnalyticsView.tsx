@@ -8,6 +8,7 @@ import { useTranslation } from '@/i18n/useTranslation';
 import { statusLabel } from '@/features/account/order-labels';
 import { AreaChart, DonutChart, Sparkline, type ChartTone } from '../../_ui/charts';
 import { EmptyState } from '../../_ui/EmptyState';
+import { MetricCard } from '../../_ui/MetricCard';
 import { PageHeader } from '../../_ui/PageHeader';
 import styles from '../../admin.module.css';
 
@@ -79,6 +80,7 @@ export function AnalyticsView({ data }: { data: AnalyticsViewData }) {
   const { t, price } = useTranslation();
   const { summary, series, statuses, topProducts, promos, period } = data;
   const dayFormat = new Intl.DateTimeFormat(INTL_LOCALE, { day: 'numeric', month: 'short' });
+  const countFormat = new Intl.NumberFormat(INTL_LOCALE);
   const orderTotal = statuses.reduce((total, slice) => total + slice.count, 0);
   const peak =
     series.length === 0
@@ -113,49 +115,55 @@ export function AnalyticsView({ data }: { data: AnalyticsViewData }) {
         }
       />
 
-      <div className={styles.kpiGrid}>
-        <div className={styles.kpi}>
-          <span className={styles.kpiLabel}>{t('admin.analytics.kpiRevenue')}</span>
-          <span className={styles.kpiValue}>{price(summary.revenueMinor)}</span>
-          <span className={styles.kpiNote}>
-            {t('admin.analytics.kpiRevenueNote', { count: summary.completedOrders })}
-          </span>
-          <Sparkline points={series.map((point) => point.revenueMinor)} />
-        </div>
-        <div className={styles.kpi}>
-          <span className={styles.kpiLabel}>{t('admin.analytics.kpiOrders')}</span>
-          <span className={styles.kpiValue}>{summary.ordersPlaced}</span>
-          <span className={styles.kpiNote}>{t('admin.analytics.kpiOrdersNote')}</span>
-          <Sparkline points={series.map((point) => point.orders)} tone="blue" />
-        </div>
-        <div className={styles.kpi}>
-          <span className={styles.kpiLabel}>{t('admin.analytics.kpiItems')}</span>
-          <span className={styles.kpiValue}>{summary.itemsSold}</span>
-          <span className={styles.kpiNote}>{t('admin.analytics.kpiItemsNote')}</span>
-        </div>
-        <div className={styles.kpi}>
-          <span className={styles.kpiLabel}>{t('admin.analytics.kpiCustomers')}</span>
-          <span className={styles.kpiValue}>{summary.customersServed}</span>
-          <span className={styles.kpiNote}>{t('admin.analytics.kpiCustomersNote')}</span>
-        </div>
-        <div className={styles.kpi}>
-          <span className={styles.kpiLabel}>{t('admin.analytics.kpiAverage')}</span>
-          <span className={styles.kpiValue}>
-            {summary.averageOrderValueMinor === null ? '—' : price(summary.averageOrderValueMinor)}
-          </span>
-          <span className={styles.kpiNote}>
-            {summary.averageOrderValueMinor === null
+      <div className={`${styles.kpiGrid} ${styles.kpiGridSix}`}>
+        <MetricCard
+          tone="green"
+          icon="analytics"
+          label={t('admin.analytics.kpiRevenue')}
+          value={price(summary.revenueMinor)}
+          note={t('admin.analytics.kpiRevenueNote', { count: summary.completedOrders })}
+          spark={<Sparkline points={series.map((point) => point.revenueMinor)} tone="green" />}
+        />
+        <MetricCard
+          tone="blue"
+          icon="orders"
+          label={t('admin.analytics.kpiOrders')}
+          value={countFormat.format(summary.ordersPlaced)}
+          note={t('admin.analytics.kpiOrdersNote')}
+          spark={<Sparkline points={series.map((point) => point.orders)} tone="blue" />}
+        />
+        <MetricCard
+          tone="violet"
+          icon="package"
+          label={t('admin.analytics.kpiItems')}
+          value={countFormat.format(summary.itemsSold)}
+          note={t('admin.analytics.kpiItemsNote')}
+        />
+        <MetricCard
+          tone="amber"
+          icon="customers"
+          label={t('admin.analytics.kpiCustomers')}
+          value={countFormat.format(summary.customersServed)}
+          note={t('admin.analytics.kpiCustomersNote')}
+        />
+        <MetricCard
+          tone="teal"
+          icon="list"
+          label={t('admin.analytics.kpiAverage')}
+          value={summary.averageOrderValueMinor === null ? '—' : price(summary.averageOrderValueMinor)}
+          note={
+            summary.averageOrderValueMinor === null
               ? t('admin.analytics.kpiAverageEmpty')
-              : t('admin.analytics.kpiAverageNote')}
-          </span>
-        </div>
-        <div className={styles.kpi}>
-          <span className={styles.kpiLabel}>{t('admin.analytics.kpiDiscounts')}</span>
-          <span className={styles.kpiValue}>{price(summary.discountMinor)}</span>
-          <span className={styles.kpiNote}>
-            {t('admin.analytics.kpiDiscountsNote', { count: promos.redemptions })}
-          </span>
-        </div>
+              : t('admin.analytics.kpiAverageNote')
+          }
+        />
+        <MetricCard
+          tone="rose"
+          icon="tag"
+          label={t('admin.analytics.kpiDiscounts')}
+          value={price(summary.discountMinor)}
+          note={t('admin.analytics.kpiDiscountsNote', { count: promos.redemptions })}
+        />
       </div>
 
       <div className={styles.chartGrid}>

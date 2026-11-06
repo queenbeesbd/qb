@@ -8,6 +8,7 @@ import { statusLabel } from '@/features/account/order-labels';
 import { AreaChart, DonutChart, Sparkline, type ChartTone } from '../_ui/charts';
 import { AdminIcon } from '../_ui/icons';
 import { CodOrderCard, type CodOrderRow } from '../_ui/CodOrderCard';
+import { MetricCard } from '../_ui/MetricCard';
 import { PageHeader } from '../_ui/PageHeader';
 import { StatusPill } from '../_ui/StatusPill';
 import styles from '../admin.module.css';
@@ -166,6 +167,7 @@ export function OverviewView({
   const { t, price } = useTranslation();
   const now = new Date(nowIso);
   const timeFormat = new Intl.DateTimeFormat(INTL_LOCALE, { dateStyle: 'medium', timeStyle: 'short' });
+  const countFormat = new Intl.NumberFormat(INTL_LOCALE);
   const dayFormat = new Intl.DateTimeFormat(INTL_LOCALE, { day: 'numeric', month: 'short' });
 
   const attentionCount = flagged.length + (denials ?? 0);
@@ -306,80 +308,49 @@ export function OverviewView({
 
       {analytics !== null && (
         <div className={styles.kpiGrid}>
-          <article className={styles.kpi}>
-            <span className={styles.kpiIcon} data-tone="green" aria-hidden="true">
-              <AdminIcon name="analytics" width={18} height={18} />
-            </span>
-            <div className={styles.kpiBody}>
-              <span className={styles.kpiLabel}>{t('admin.overview.kpiRevenueToday')}</span>
-              <span className={styles.kpiValue}>{price(today?.revenueMinor ?? 0)}</span>
-              <span className={styles.kpiNote}>
-                {t('admin.overview.kpiRevenueTodayNote', { amount: price(analytics.summary.revenueMinor) })}
-              </span>
-            </div>
-            <span className={styles.kpiSpark} aria-hidden="true">
-              <Sparkline points={analytics.series.map((point) => point.revenueMinor)} />
-            </span>
-          </article>
-
-          <article className={styles.kpi}>
-            <span className={styles.kpiIcon} data-tone="blue" aria-hidden="true">
-              <AdminIcon name="orders" width={18} height={18} />
-            </span>
-            <div className={styles.kpiBody}>
-              <span className={styles.kpiLabel}>{t('admin.overview.kpiOrdersToday')}</span>
-              <span className={styles.kpiValue}>{today?.ordersPlaced ?? 0}</span>
-              <span className={styles.kpiNote}>
-                {t('admin.overview.kpiOrdersTodayNote', { count: analytics.summary.ordersPlaced })}
-              </span>
-            </div>
-          </article>
-
+          <MetricCard
+            tone="green"
+            icon="analytics"
+            label={t('admin.overview.kpiRevenueToday')}
+            value={price(today?.revenueMinor ?? 0)}
+            note={t('admin.overview.kpiRevenueTodayNote', { amount: price(analytics.summary.revenueMinor) })}
+            spark={<Sparkline points={analytics.series.map((point) => point.revenueMinor)} tone="green" />}
+          />
+          <MetricCard
+            tone="blue"
+            icon="orders"
+            label={t('admin.overview.kpiOrdersToday')}
+            value={countFormat.format(today?.ordersPlaced ?? 0)}
+            note={t('admin.overview.kpiOrdersTodayNote', { count: analytics.summary.ordersPlaced })}
+          />
           {catalog !== null && (
-            <article className={styles.kpi}>
-              <span className={styles.kpiIcon} data-tone="violet" aria-hidden="true">
-                <AdminIcon name="package" width={18} height={18} />
-              </span>
-              <div className={styles.kpiBody}>
-                <span className={styles.kpiLabel}>{t('admin.overview.kpiActiveProducts')}</span>
-                <span className={styles.kpiValue}>{catalog.productsPublished}</span>
-                <span className={styles.kpiNote}>
-                  {t('admin.overview.kpiActiveProductsNote', {
-                    count: catalog.productsInStock,
-                    out: catalog.productsOutOfStock,
-                  })}
-                </span>
-              </div>
-            </article>
+            <MetricCard
+              tone="violet"
+              icon="package"
+              label={t('admin.overview.kpiActiveProducts')}
+              value={countFormat.format(catalog.productsPublished)}
+              note={t('admin.overview.kpiActiveProductsNote', {
+                count: catalog.productsInStock,
+                out: catalog.productsOutOfStock,
+              })}
+            />
           )}
-
           {customerTotal !== null && (
-            <article className={styles.kpi}>
-              <span className={styles.kpiIcon} data-tone="amber" aria-hidden="true">
-                <AdminIcon name="customers" width={18} height={18} />
-              </span>
-              <div className={styles.kpiBody}>
-                <span className={styles.kpiLabel}>{t('admin.overview.kpiTotalCustomers')}</span>
-                <span className={styles.kpiValue}>{customerTotal}</span>
-                <span className={styles.kpiNote}>
-                  {t('admin.overview.kpiTotalCustomersNote', { count: analytics.summary.customersServed })}
-                </span>
-              </div>
-            </article>
+            <MetricCard
+              tone="amber"
+              icon="customers"
+              label={t('admin.overview.kpiTotalCustomers')}
+              value={countFormat.format(customerTotal)}
+              note={t('admin.overview.kpiTotalCustomersNote', { count: analytics.summary.customersServed })}
+            />
           )}
-
-          <article className={pendingCount > 0 ? `${styles.kpi} ${styles.kpiHot}` : styles.kpi}>
-            <span className={styles.kpiIcon} data-tone="rose" aria-hidden="true">
-              <AdminIcon name="clock" width={18} height={18} />
-            </span>
-            <div className={styles.kpiBody}>
-              <span className={styles.kpiLabel}>{t('admin.overview.kpiWaiting')}</span>
-              <span className={styles.kpiValue}>{pendingCount}</span>
-              <span className={styles.kpiNote}>
-                {pendingCount === 0 ? t('admin.overview.kpiWaitingClear') : oldestAgePhrase}
-              </span>
-            </div>
-          </article>
+          <MetricCard
+            tone={pendingCount > 0 ? 'warning' : 'amber'}
+            icon="clock"
+            label={t('admin.overview.kpiWaiting')}
+            value={countFormat.format(pendingCount)}
+            note={pendingCount === 0 ? t('admin.overview.kpiWaitingClear') : oldestAgePhrase}
+          />
         </div>
       )}
 

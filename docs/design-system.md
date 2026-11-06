@@ -548,9 +548,16 @@ authorisation refusal.
 
 Three pieces, one vocabulary, and **no chart library**:
 
-- **KPI band** - `.kpiGrid` of `.kpi` cards: a small muted label, the number at `--text-2xl`, and one line
-  of context under it that says what the number counts. A figure that cannot be computed reads an em dash
-  and its note says why ("No paid order yet"); it never reads zero.
+- **KPI band** - `.kpiGrid` of `_ui/MetricCard` cards. One vertical reading column owns the label, the
+  number in the display face and the note; a tinted icon plate sits in its own left column. The label is
+  an 11px uppercase micro-label that reserves two lines, so every number in a row starts on the same
+  line even when one label wraps. The number is tinted by the card's tone; the tone also supplies a 3px
+  top rule and a 5% surface wash. Tone groups figures, it does not report status - `warning` is reserved
+  for work waiting on the owner. The dashboard band is five columns at desktop, three from 721-1199px
+  and two on a phone (the odd fifth tile spans the phone row); analytics is six columns from 1440px,
+  three below that and two on a phone. Counts use `Intl.NumberFormat`; money uses `price()`. A figure
+  that cannot be computed reads an em dash and its note says why ("No paid order yet"); it never reads
+  zero.
 - **`.chartGrid`** - the plot at roughly two-thirds width beside a ring at one-third, collapsing to one
   column below 1080px.
 - **`_ui/charts.tsx`** - `AreaChart` and `DonutChart`. Both are stateless, so they render on the server.
@@ -562,7 +569,7 @@ Three pieces, one vocabulary, and **no chart library**:
    draw markers inside a stretched SVG - a circle becomes an ellipse.
 2. **Axis text is HTML beside the plot, never SVG text.** Scaled text is either huge or unreadable.
 3. The SVG is `aria-hidden` and the same values are emitted as a screen-reader table.
-4. **A window with no data draws a sentence, not a line at zero.** Four axis labels that all read "0"
+4. **A window with no data draws a compact empty state, not a line at zero.** A dashed sunken panel, a small chart glyph and one sentence replace the plot; four axis labels that all read "0"
    look like a broken chart.
 5. Axis money is compact but proportional: `1.7k` / `3.3k` / `5k`, one decimal between 1k and 10k.
 6. Tones come from the palette tokens (action, success, warning, danger, neutral), never raw hex, and a

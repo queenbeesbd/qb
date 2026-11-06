@@ -14,6 +14,14 @@ An entry may describe a deployment only once it has actually happened and been o
 
 ## [Unreleased]
 
+### Fixed - 2026-11-07: admin KPI cards no longer overlap and carry their tone
+The analytics tiles put the label, value and note directly into the card's two-column grid, so at
+narrow widths they printed over one another. Both dashboards now use one `MetricCard` with a single
+reading column beside a tinted icon, a tone rule and tone-coloured value, and a two-line label reserve
+that keeps values aligned. The dashboard uses five/three/two columns and analytics six/three/two,
+replacing `auto-fit` widths that stranded a lone fifth tile or crushed six figures. Counts are
+formatted with the active locale.
+
 ### Changed - 2026-11-07: catalog reads cached and images served through the edge
 The storefront catalog snapshot is cached across production requests under the `storefront-catalog`
 tag and invalidated by every catalog write after commit. Catalog images are proxied with immutable

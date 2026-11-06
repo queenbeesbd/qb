@@ -4435,92 +4435,110 @@ html[dir='rtl'] .switchOn .switchKnob::after {
  */
 .kpiGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(10.5rem, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: var(--space-3);
 }
 
 /*
- * Five figures, two columns: the fifth was left as a half-width tile and read as a broken row.
- * auto-fit cannot know the count, so the lone last tile takes the row at phone widths.
+ * Analytics has six figures. Six equal tiles need more width than five, so its sixth column appears
+ * only on a wide desktop; below that the set becomes two rows of three. The dashboard uses the same
+ * grid but its five tiles fit from 1200px.
  */
-@media (max-width: 720px) {
+.kpiGridSix {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
+@media (max-width: 1439px) {
+  .kpiGridSix {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 1199px) {
   .kpiGrid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .kpiGrid,
+  .kpiGridSix {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  /* Five dashboard figures leave one tile on the last row; it takes the row rather than a half gap. */
   .kpiGrid > :last-child:nth-child(odd) {
     grid-column: 1 / -1;
   }
 }
 
 .kpi {
+  --kpi-tone: var(--color-action);
   display: grid;
   grid-template-columns: 40px minmax(0, 1fr);
   align-items: start;
   column-gap: var(--space-3);
-  row-gap: var(--space-2);
   padding: var(--space-4);
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
+  background: color-mix(in srgb, var(--kpi-tone) 5%, var(--color-surface));
+  border: 1px solid color-mix(in srgb, var(--kpi-tone) 18%, var(--color-border));
+  border-top: 3px solid var(--kpi-tone);
   border-radius: var(--radius-lg);
   min-width: 0;
   box-shadow: var(--shadow-sm);
 }
 
+/*
+ * Tones group figures; they are not statuses. The single semantic tone is `warning`, used by the
+ * waiting-on-a-call figure.
+ */
+.kpi[data-tone='green'] {
+  --kpi-tone: var(--chart-7);
+}
+
+.kpi[data-tone='blue'] {
+  --kpi-tone: var(--chart-2);
+}
+
+.kpi[data-tone='violet'] {
+  --kpi-tone: var(--chart-1);
+}
+
+.kpi[data-tone='amber'] {
+  --kpi-tone: var(--chart-4);
+}
+
+.kpi[data-tone='rose'] {
+  --kpi-tone: var(--chart-5);
+}
+
+.kpi[data-tone='teal'] {
+  --kpi-tone: var(--chart-3);
+}
+
+.kpi[data-tone='warning'] {
+  --kpi-tone: var(--color-warning);
+}
+
 .kpiBody {
   display: grid;
-  gap: 2px;
+  gap: 4px;
   min-width: 0;
 }
 
-/*
- * The icon is a small tinted plate. The hue carries no status meaning; it separates one figure from
- * the next the way the reference's tiles do, and the warning tile is still the only semantic one.
- */
 .kpiIcon {
   display: grid;
   place-items: center;
   width: 40px;
   height: 40px;
   border-radius: var(--radius-md);
-  background: var(--color-action-soft);
-  color: var(--color-action);
-}
-
-.kpiIcon[data-tone='green'] {
-  background: color-mix(in srgb, var(--chart-7) 13%, var(--color-surface));
-  color: var(--chart-7);
-}
-
-.kpiIcon[data-tone='blue'] {
-  background: color-mix(in srgb, var(--chart-2) 13%, var(--color-surface));
-  color: var(--chart-2);
-}
-
-.kpiIcon[data-tone='violet'] {
-  background: color-mix(in srgb, var(--chart-1) 13%, var(--color-surface));
-  color: var(--chart-1);
-}
-
-.kpiIcon[data-tone='amber'] {
-  background: color-mix(in srgb, var(--chart-4) 13%, var(--color-surface));
-  color: var(--chart-4);
-}
-
-.kpiIcon[data-tone='rose'] {
-  background: color-mix(in srgb, var(--chart-5) 13%, var(--color-surface));
-  color: var(--chart-5);
-}
-
-.kpiIcon[data-tone='teal'] {
-  background: color-mix(in srgb, var(--chart-3) 13%, var(--color-surface));
-  color: var(--chart-3);
+  background: color-mix(in srgb, var(--kpi-tone) 13%, var(--color-surface));
+  color: var(--kpi-tone);
 }
 
 .kpiSpark {
-  grid-column: 2;
   display: block;
   height: 26px;
+  margin-top: 2px;
   opacity: 0.9;
 }
 
@@ -4538,25 +4556,48 @@ html[dir='rtl'] .switchOn .switchKnob::after {
 }
 
 .kpiLabel {
-  font-size: var(--text-sm);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.35;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
   color: var(--color-ink-muted);
-  line-height: var(--leading-snug);
+  /* Reserve the two lines most labels need so the value starts on the same line in every tile. */
+  min-height: 2.7em;
 }
 
 .kpiValue {
   font-family: var(--font-display);
-  font-size: var(--text-2xl);
+  font-size: clamp(1.5rem, 1.1vw + 1rem, 1.875rem);
   font-weight: 600;
-  line-height: 1.1;
+  line-height: 1.05;
   letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;
   overflow-wrap: anywhere;
+  color: color-mix(in srgb, var(--kpi-tone) 76%, var(--color-ink));
 }
 
 .kpiNote {
   font-size: var(--text-xs);
-  color: var(--color-ink-subtle);
+  color: var(--color-ink-muted);
   line-height: var(--leading-snug);
+}
+
+@media (max-width: 720px) {
+  .kpi {
+    grid-template-columns: 34px minmax(0, 1fr);
+    column-gap: 10px;
+    padding: 14px;
+  }
+
+  .kpiIcon {
+    width: 34px;
+    height: 34px;
+  }
+
+  .kpiValue {
+    font-size: 1.55rem;
+  }
 }
 
 .chartGrid,
