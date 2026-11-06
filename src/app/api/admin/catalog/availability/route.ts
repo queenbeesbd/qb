@@ -7,6 +7,7 @@
  * state or smuggle a quantity in where a state belongs. The change is audited in the same transaction.
  */
 
+import { invalidateStorefrontCatalog } from '@/server/catalog/cache';
 import { withTransaction } from '@/db/client';
 import { CATALOG_PATH } from '@/server/auth/constants';
 import { guardMutation } from '@/server/auth/guard';
@@ -39,6 +40,7 @@ export async function POST(request: Request): Promise<Response> {
         { productId: form.get('productId'), availability: form.get('availability') },
       ),
     );
+    invalidateStorefrontCatalog();
     return redirectTo(`${CATALOG_PATH}?notice=availability`);
   } catch (error) {
     if (error instanceof ValidationError) return redirectTo(`${CATALOG_PATH}?notice=invalid`);

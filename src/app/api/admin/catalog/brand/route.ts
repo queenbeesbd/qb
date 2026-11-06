@@ -11,6 +11,7 @@
  * brand row and its logo save together. A refusal carries only a fixed notice code.
  */
 
+import { invalidateStorefrontCatalog } from '@/server/catalog/cache';
 import { withTransaction, type Transaction } from '@/db/client';
 import { BRANDS_PATH } from '@/server/auth/constants';
 import { guardMutation } from '@/server/auth/guard';
@@ -90,6 +91,7 @@ export async function POST(request: Request): Promise<Response> {
         await saveImage(tx, brand.brandId);
         return brand;
       });
+      invalidateStorefrontCatalog();
       return backTo(`${BRANDS_PATH}/${created.brandId}`, 'created');
     }
 
@@ -98,6 +100,7 @@ export async function POST(request: Request): Promise<Response> {
       const id = Number.parseInt(String(form.get('brandId') ?? ''), 10);
       if (Number.isFinite(id)) await saveImage(tx, id);
     });
+    invalidateStorefrontCatalog();
     return backTo(target, 'updated');
   } catch (error) {
     if (error instanceof ValidationError) return backTo(target, 'invalid');

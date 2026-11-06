@@ -14,6 +14,7 @@
  * not archived, and the owner is told what is in the way.
  */
 
+import { invalidateStorefrontCatalog } from '@/server/catalog/cache';
 import { withTransaction, type Transaction } from '@/db/client';
 import { CATEGORIES_PATH } from '@/server/auth/constants';
 import { guardMutation } from '@/server/auth/guard';
@@ -141,6 +142,7 @@ export async function POST(request: Request): Promise<Response> {
         await saveImage(tx, category.categoryId);
         return category;
       });
+      invalidateStorefrontCatalog();
       // Straight to the new record: a category with no products has nothing else to show, and the
       // owner's next act is usually assigning one or adding the description they skipped.
       return backTo(`${CATEGORIES_PATH}/${created.categoryId}`, 'created');
@@ -152,10 +154,12 @@ export async function POST(request: Request): Promise<Response> {
         const id = Number.parseInt(String(form.get('categoryId') ?? ''), 10);
         if (Number.isFinite(id)) await saveImage(tx, id);
       });
+      invalidateStorefrontCatalog();
       return backTo(target, 'updated');
     }
 
     await withTransaction((tx) => archiveCategory(tx, actor, form.get('categoryId')));
+    invalidateStorefrontCatalog();
     // Archive ends the record: the list is the only place left to be.
     return backTo(CATEGORIES_PATH, 'archived');
   } catch (error) {

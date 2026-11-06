@@ -6,6 +6,7 @@
  * bytes, so nothing about the image comes from the request except the key and the alt text.
  */
 
+import { invalidateStorefrontCatalog } from '@/server/catalog/cache';
 import { withTransaction } from '@/db/client';
 import { CATALOG_PATH } from '@/server/auth/constants';
 import { guardMutation } from '@/server/auth/guard';
@@ -66,6 +67,7 @@ export async function POST(request: Request): Promise<Response> {
           sortOrder: form.get('sortOrder') ?? undefined,
         }),
       );
+      invalidateStorefrontCatalog();
       return backToProduct(productId, 'imageAttached');
     }
 
@@ -79,6 +81,7 @@ export async function POST(request: Request): Promise<Response> {
           sortOrder: form.get('sortOrder') ?? undefined,
         }),
       );
+      invalidateStorefrontCatalog();
       return backToProduct(productId, 'imageUpdated');
     }
 
@@ -87,10 +90,12 @@ export async function POST(request: Request): Promise<Response> {
       await withTransaction((tx) =>
         reorderImages(tx, actor, { productId: form.get('productId'), imageIds: form.getAll('imageId') }),
       );
+      invalidateStorefrontCatalog();
       return backToProduct(productId, 'imageReordered');
     }
 
     await withTransaction((tx) => removeImage(tx, actor, form.get('imageId')));
+    invalidateStorefrontCatalog();
     return backToProduct(productId, 'imageRemoved');
   } catch (error) {
     if (error instanceof ValidationError) return backToProduct(productId, 'invalid');

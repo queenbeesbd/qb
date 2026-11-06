@@ -13,14 +13,17 @@
  *    a broken database cannot silently become a stale fixture catalog. It is refused outright outside
  *    development.
  *
- * The read is wrapped in React `cache()`, so a single request performs one snapshot read no matter how
- * many server components (layout, page, cart) ask for the catalog.
+ * The read is cached across requests by `unstable_cache` and deduplicated within a request by React
+ * `cache()`. The snapshot is the largest catalog query in the application, and every storefront page
+ * needs it, so re-reading it per view was the dominant source of database egress. Catalog writes
+ * invalidate its tag; the TTL is only a backstop.
  *
  * Server-only: this module transitively imports the database client, which throws if it reaches a
  * browser bundle.
  */
 
 import { cache } from 'react';
+import { unstable_cache } from 'next/cache';
 
 import { products as fixtureProducts } from '@/data/catalog';
 import { categories as fixtureCategories } from '@/data/categories';
@@ -32,6 +35,7 @@ import {
   fixtureToCatalogItem,
 } from '@/features/catalog/model';
 import type { CatalogBrand, CatalogCategory, CatalogItem } from '@/lib/types';
+import { STOREFRONT_CATALOG_REVALIDATE_SECONDS, STOREFRONT_CATALOG_TAG } from './cache';
 import { EnvironmentError } from '@/server/env';
 
 import type {
@@ -188,12 +192,12 @@ function readFixtureCatalog(): StorefrontCatalog {
 }
 
 /**
- * The catalog for the current request.
+ * Reads and projects one catalog snapshot.
  *
- * One snapshot per request. An empty result is a real, reportable state - it is returned as an empty
- * list and the view states the gap; it is never replaced by the fixture or by placeholder rows.
+ * An empty result is a real, reportable state - it is returned as an empty list and the view states
+ * the gap; it is never replaced by the fixture or by placeholder rows.
  */
-export const getStorefrontCatalog = cache(async (): Promise<StorefrontCatalog> => {
+async function readStorefrontCatalog(): Promise<StorefrontCatalog> {
   if (fixtureFallbackEnabled()) return readFixtureCatalog();
 
   const snapshot = await withTransaction(async (tx) => {
@@ -214,4 +218,32 @@ export const getStorefrontCatalog = cache(async (): Promise<StorefrontCatalog> =
     featuredIds: snapshot.selections.get(FEATURED_COLLECTION_CODE) ?? [],
     collectionIds: snapshot.selections.get(SECONDARY_COLLECTION_CODE) ?? [],
   };
-});
+}
+
+/**
+ * The same snapshot, reused across requests in a production server.
+ *
+ * The read is roughly 1.5 MB of rows and every storefront page needs it, so re-reading it per view
+ * was the largest source of database transfer. Route handlers that write catalog rows invalidate
+ * `STOREFRONT_CATALOG_TAG` after their transaction commits, so an owner's change is visible on the
+ * next request rather than after the five-minute backstop. Development and the test runner read
+ * directly: `unstable_cache` needs Next's incremental cache, which only exists inside a running
+ * Next server, and a dev edit should never wait for a tag.
+ */
+const readStorefrontCatalogCached = unstable_cache(
+  readStorefrontCatalog,
+  ['storefront-catalog'],
+  { tags: [STOREFRONT_CATALOG_TAG], revalidate: STOREFRONT_CATALOG_REVALIDATE_SECONDS },
+);
+
+/**
+ * The catalog for the current request.
+ *
+ * `cache()` deduplicates the call within one render; the production branch also shares one snapshot
+ * across requests.
+ */
+export const getStorefrontCatalog = cache(async (): Promise<StorefrontCatalog> =>
+  process.env.NODE_ENV === 'production'
+    ? readStorefrontCatalogCached()
+    : readStorefrontCatalog(),
+);

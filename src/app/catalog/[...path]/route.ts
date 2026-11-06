@@ -10,9 +10,11 @@
  * 1. **A local file wins.** In development and in the verification suites the assets sit in
  *    `public/catalog`, and Next serves `public/` before it reaches a route handler, so this module is
  *    never consulted there. Development therefore works with no storage credential at all.
- * 2. **Otherwise the request is redirected to the configured object-storage bucket**
- *    (`CATALOG_ASSET_BASE_URL`). The redirect is permanent and immutable: an asset key names bytes that
- *    never change, because a new image is a new key.
+ * 2. **Otherwise the bytes are proxied from the configured object-storage bucket**
+ *    (`CATALOG_ASSET_BASE_URL`) and cached at Vercel's edge. The response is immutable: an asset key
+ *    names bytes that never change, because a new image is a new key. Proxying keeps the first fetch
+ *    of each image on Neon and every repeat view on Vercel's CDN, instead of sending every visitor
+ *    straight to the bucket.
  *
  * The path is validated before it is used. Only a shape `src/lib/images.ts` can produce is accepted -
  * a lowercase key, a declared width and a known extension - so this route cannot be turned into an open
@@ -67,18 +69,42 @@ export async function GET(
     return new Response('Not found', { status: 404 });
   }
 
-  return new Response(null, {
-    status: 308,
-    headers: {
-      Location: `${base}/${asset.key}-${asset.file.slice(asset.key.length + 1)}`,
-      /*
-       * The bytes are immutable; this redirect is not. Its target is deployment configuration
-       * (`CATALOG_ASSET_BASE_URL`), and a year-long `immutable` entry survived a move to a different
-       * Neon branch and kept pointing browsers at a bucket the CSP no longer allows - empty image
-       * frames with nothing wrong in the database. Five minutes keeps the route cheap while letting a
-       * configuration change heal on its own, and `stale-while-revalidate` hides the recheck.
-       */
-      'Cache-Control': 'public, max-age=300, stale-while-revalidate=86400',
-    },
-  });
+  const upstreamUrl = `${base}/${asset.key}-${asset.file.slice(asset.key.length + 1)}`;
+
+  let upstream: Response;
+  try {
+    // `no-store` hides the upstream fetch from Next's data cache; the immutable response below is
+    // cached by Vercel's CDN under the public asset URL instead.
+    upstream = await fetch(upstreamUrl, { cache: 'no-store' });
+  } catch {
+    return new Response('Not found', { status: 404, headers: { 'Cache-Control': 'no-store' } });
+  }
+
+  if (!upstream.ok || upstream.body === null) {
+    // Never cache a storage failure: a transient 5xx must not become a year-long missing image.
+    return new Response('Not found', {
+      status: upstream.status === 404 ? 404 : 502,
+      headers: { 'Cache-Control': 'no-store' },
+    });
+  }
+
+  const headers = new Headers();
+  const contentType =
+    upstream.headers.get('content-type') ?? (asset.file.endsWith('.svg') ? 'image/svg+xml' : 'image/webp');
+  headers.set('Content-Type', contentType);
+  const contentLength = upstream.headers.get('content-length');
+  if (contentLength !== null) headers.set('Content-Length', contentLength);
+  const etag = upstream.headers.get('etag');
+  if (etag !== null) headers.set('ETag', etag);
+
+  /*
+   * The bytes behind a key never change, so every cache layer may keep them for a year. `Cache-Control`
+   * covers the browser, `CDN-Cache-Control` covers other CDNs, and `Vercel-CDN-Cache-Control` is the
+   * header Vercel's own edge reads for a function response.
+   */
+  for (const name of ['Cache-Control', 'CDN-Cache-Control', 'Vercel-CDN-Cache-Control']) {
+    headers.set(name, 'public, max-age=31536000, immutable');
+  }
+
+  return new Response(upstream.body, { status: 200, headers });
 }

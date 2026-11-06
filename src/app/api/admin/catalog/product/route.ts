@@ -11,6 +11,7 @@
  * echo attacker-controlled text back into the page.
  */
 
+import { invalidateStorefrontCatalog } from '@/server/catalog/cache';
 import { withTransaction } from '@/db/client';
 import { MAX_PRODUCT_IMAGES } from '@/lib/upload-limits';
 import { CATALOG_PATH } from '@/server/auth/constants';
@@ -141,6 +142,7 @@ export async function POST(request: Request): Promise<Response> {
         }
         return row;
       });
+      invalidateStorefrontCatalog();
       // Straight to the product's edit screen, where its gallery is now visible.
       return redirectTo(`${CATALOG_PATH}/${created.productId}?notice=created`);
     }
@@ -152,10 +154,12 @@ export async function POST(request: Request): Promise<Response> {
           await attachImage(tx, actor, { productId, key: asset.key, altEn, asset });
         }
       });
+      invalidateStorefrontCatalog();
       return backToProduct(productId, 'updated');
     }
 
     await withTransaction((tx) => archiveProduct(tx, actor, form.get('productId')));
+    invalidateStorefrontCatalog();
     return redirectTo(`${CATALOG_PATH}?notice=archived`);
   } catch (error) {
     if (error instanceof ValidationError) return back('invalid');

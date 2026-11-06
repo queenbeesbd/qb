@@ -14,6 +14,12 @@ An entry may describe a deployment only once it has actually happened and been o
 
 ## [Unreleased]
 
+### Changed - 2026-11-07: catalog reads cached and images served through the edge
+The storefront catalog snapshot is cached across production requests under the `storefront-catalog`
+tag and invalidated by every catalog write after commit. Catalog images are proxied with immutable
+browser/CDN cache headers instead of redirecting every visitor to Neon object storage. This removes
+the two largest sources of Neon public-transfer usage.
+
 ### Fixed - 2026-11-06: production storage origin moved and its asset URLs versioned
 The production site was restored on a new Neon project and object-storage bucket. `CATALOG_ASSET_VERSION`
 is bumped from 3 to 4 so browsers that cached the old `/catalog/...` redirect do not keep following it to

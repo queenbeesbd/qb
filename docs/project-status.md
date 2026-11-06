@@ -314,6 +314,29 @@ an uploaded logo, renamed the brand, removed both images and checked the stored 
 `verify:admin` **204/207** (two pre-existing Telegram removal-dialog checks and the absent-CSP
 assertion). No schema change.
 
+## Storefront egress reduction (2026-11-07)
+
+The production recovery exposed the real cost driver: the 5 GB Neon Free allowance is **network
+transfer**, not disk. The database was 13 MB and the catalog bucket 630 MB; the spend came from
+re-reading the full catalog on every dynamic storefront request and serving every image from Neon.
+
+Two changes address it:
+
+- **Catalog snapshot cache.** `getStorefrontCatalog` now reads through `unstable_cache` tagged
+  `storefront-catalog` (five-minute TTL backstop). Every catalog write route invalidates the tag after
+  commit, so availability, product, category, brand and image changes appear on the next request.
+  Verified locally against the production database: six page requests produced **one** catalog read,
+  and toggling a product between `in_stock` and `out_of_stock` produced exactly one fresh read per
+  change.
+- **Image edge cache.** `/catalog/[...path]` now proxies the bucket object and returns it with
+  `Cache-Control`, `CDN-Cache-Control` and `Vercel-CDN-Cache-Control` set to one year, `immutable`.
+  The first request per object still reaches Neon; repeat requests are served by Vercel's edge.
+  Verified directly against the production bucket: `200`, `image/webp`, immutable headers, 31,864
+  bytes.
+
+Development and the unit/database tests bypass the cache; they import the loader outside a Next
+server, where `unstable_cache` has no incremental cache.
+
 ## Production recovery (2026-11-06)
 
 The live Vercel deployment failed because the original Neon Free project exhausted its **5 GB/month
