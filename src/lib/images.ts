@@ -129,7 +129,7 @@ export type HeroImageSources = {
  * entry cannot be recalled, so the URL itself has to change once. Bump this when the storage origin
  * moves again; the query never reaches the bucket, and local files ignore it.
  */
-export const CATALOG_ASSET_VERSION = '3';
+export const CATALOG_ASSET_VERSION = '4';
 
 /** One catalog asset path, versioned. The key names bytes that never change; the version names where. */
 function catalogPath(file: string): string {

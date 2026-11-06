@@ -14,6 +14,11 @@ An entry may describe a deployment only once it has actually happened and been o
 
 ## [Unreleased]
 
+### Fixed - 2026-11-06: production storage origin moved and its asset URLs versioned
+The production site was restored on a new Neon project and object-storage bucket. `CATALOG_ASSET_VERSION`
+is bumped from 3 to 4 so browsers that cached the old `/catalog/...` redirect do not keep following it to
+the exhausted bucket. No data or API shape changed.
+
 ### Changed - 2026-11-06: admin figures stop explaining themselves
 The overview's long revenue essay, the analytics screen's status/money essays and the order money
 essay were removed. A panel now states its labels and numbers; where a figure would otherwise mislead,

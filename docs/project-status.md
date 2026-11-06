@@ -314,6 +314,21 @@ an uploaded logo, renamed the brand, removed both images and checked the stored 
 `verify:admin` **204/207** (two pre-existing Telegram removal-dialog checks and the absent-CSP
 assertion). No schema change.
 
+## Production recovery (2026-11-06)
+
+The live Vercel deployment failed because the original Neon Free project exhausted its **5 GB/month
+public network transfer** allowance; every database request returned HTTP 402. Under the owner's
+direction the site was moved to a fresh Free project (`autumn-wave-01272789`, branch `production`) and
+restored from the 29 Oct dump. The owner confirmed only catalog data was needed: **1,605 products,
+15 categories, 245 brands and 1,919 images** were restored; later order/customer history was not carried
+over. Migrations 0013 and 0014 were applied and `db:validate` passes with 48 tables.
+
+Catalog bytes were re-uploaded from `public/catalog` and `public/hero` into the new
+`queenbees-catalog` bucket (**10,104 objects**). Vercel's `DATABASE_URL`, `CATALOG_STORAGE_*` and
+`CATALOG_ASSET_BASE_URL` now point at the new project, and `CATALOG_ASSET_VERSION` was bumped to 4 so
+browsers do not follow a cached redirect to the exhausted bucket. Live checks: storefront 200, admin
+login 200, authenticated dashboard 200, all sampled catalog images 200 after the bump.
+
 ## Overview refresh (2026-11-06)
 
 Implemented locally and not deployed. The overview now uses the reference's information architecture
