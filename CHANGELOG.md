@@ -14,6 +14,33 @@ An entry may describe a deployment only once it has actually happened and been o
 
 ## [Unreleased]
 
+### Changed - 2026-11-06: category and brand editors, with the photo uploaded in the form
+The category create screen now follows the reference's form hierarchy as a page, not a popup: the
+**Category photo** card comes first with a real drop zone, a large preview and an optional inventory
+choice, then the name/short description/address/placement cards. The photo is chosen **with** the
+category: the form is multipart, the server encodes the file to the square set and writes the category
+and its image in one transaction. The old edit-only image section and its image-only route were
+removed.
+
+Brands got the same treatment: `/admin/catalog/brands/new` and `/admin/catalog/brands/[brandId]` are a
+full **BrandForm** (name En/Bn, slug, mark) with the same shared `CatalogImageField`, a circular mark
+preview and a product count. `updateBrand` and audit action `catalog.brand_updated` were added; the
+inline "New brand" disclosure on the product list became a link to the new route. The brand list has a
+**New brand** action. The old `/api/admin/catalog/category-image` and
+`/api/admin/catalog/brand-image` routes were removed rather than kept as a second write path.
+
+**No schema change and no migration.** The image contract is unchanged: `saveUpload` decodes with
+`sharp`, strips metadata and re-encodes to WebP at 320/600/1050 squares; the key and metadata come from
+the bytes.
+
+**Verification.** typecheck, lint (0 errors), `check:i18n`, unit **212/212**,
+`tests/db/catalog.test.ts` **37/37** (new brand rename/slug-conflict audit test), `build`. A
+dev-server walk-through created a category with an uploaded photo and a brand with an uploaded logo,
+renamed the brand and removed both images, observing the stored keys and the audit rows.
+`verify:admin` **204/207** - the three failures are the two pre-existing Telegram removal-dialog checks
+and the documented absent-CSP assertion. The suite now asserts both create editors expose the local
+upload and existing-image choice.
+
 ### Changed - 2026-11-06: the overview is a shop back office, not a SaaS dashboard
 The owner compared the overview with Zatiq Easy and asked for its better visualisations and quick
 actions, without the SaaS product around it. The page now opens on a greeting, a plain-language

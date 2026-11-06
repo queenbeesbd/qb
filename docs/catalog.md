@@ -147,20 +147,18 @@ mark to two more. 59 of 244 brands pass; the rest keep `logo_key = NULL` and the
 initials, which the brand index states in words. The build command prints the brands it could not
 verify rather than filling the gap.
 
-**Both families are associated from the admin, and neither is uploaded.** The category editor picks a
-photograph for a category (`/api/admin/catalog/category-image`), and since 2026-11-05 the brand logo is
-managed the same way: `/admin/catalog/brands` lists every brand with the mark it shows and
-`/admin/catalog/brands/[brandId]` associates one of the shop's own images (`brand-logo-*` first in the
-picker) or removes it (`/api/admin/catalog/brand-image`, audited as `catalog.brand_image_updated`).
-A brand with no logo falls back to its initials, which is why a wrong mark can be removed without the
-storefront losing the tile.
+**Both families are editable from the admin, with a local upload or the shop's own inventory.** The
+category editor (`/admin/categories/new`, `/admin/categories/[categoryId]`) and the brand editor
+(`/admin/catalog/brands/new`, `/admin/catalog/brands/[brandId]`) each carry the same `CatalogImageField`
+as the product editor: a drop zone, a browser-prepared upload, a preview, and an optional choice from
+`public/catalog` (`brand-logo-*` first for a brand). The file is posted with the record's own form; the
+server re-encodes it to a square (`saveUpload(..., 'square')`), then writes the row and its image in one
+transaction. A brand with no logo falls back to its initials; a category with no photograph draws its
+icon. The old image-only routes (`/api/admin/catalog/category-image`,
+`/api/admin/catalog/brand-image`) were removed in the cutover rather than left as a second path.
 
-**What is not implemented.** There is no upload from the browser, for either family. A new image is added
-by the asset pipeline (`npm run assets:discovery`, then `npm run assets:upload`), and the admin
-associates one of the images the shop owns. A form that accepted a file would have to validate,
-re-encode twice and write to object storage inside a request handler - a file-processing service, not a
-form handler - and it would be the only write path in the project that bypasses the asset inventory.
-The brand editor states that gap on the page rather than implying an upload.
+**The asset pipeline is still the bulk path.** `npm run assets:discovery` and `npm run assets:upload`
+remain how the imported photography arrives; the editor's upload is for the owner's own new file.
 
 ## Hero banners: the homepage carousel (Phase 51)
 
@@ -210,9 +208,9 @@ byte size are produced from the decoded bytes - the browser supplies no path, UR
 
 | Surface | Output (WebP only) | Route |
 | --- | --- | --- |
-| Product | 320x427, 600x800 and 1050x1400 | `POST /api/admin/catalog/image` (`operation=upload`) |
-| Category | 320, 600 and 1050 squares | `POST /api/admin/catalog/category-image` (`operation=upload`) |
-| Brand | 320, 600 and 1050 squares | `POST /api/admin/catalog/brand-image` (`operation=upload`) |
+| Product | 320x427, 600x800 and 1050x1400 | `POST /api/admin/catalog/product` (`images` field) |
+| Category | 320, 600 and 1050 squares | `POST /api/admin/catalog/category` (`image` field) |
+| Brand | 320, 600 and 1050 squares | `POST /api/admin/catalog/brand` (`image` field) |
 | Hero | 800x450 and 1600x900 | `POST /api/admin/hero` (`operation=upload`) |
 
 **Why three widths.** The storefront picks by rendered size: a 116px circle downloads 320, a product card

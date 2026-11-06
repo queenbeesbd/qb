@@ -47,6 +47,7 @@ import {
   listProductsForAdmin,
   reorderImages,
   setAvailability,
+  updateBrand,
   updateCategory,
   updateProduct,
   type ProductInput,
@@ -593,6 +594,52 @@ describe('catalog management', { skip: toolingAvailable ? false : SKIP_REASON },
         .where(sql`${categoryTable.id} = ${child.categoryId}`),
     );
     assert.equal(rows[0]?.parentId, null);
+  });
+
+  it('edits a brand name and slug, and refuses a slug another brand already holds', async () => {
+    const first = await withTransaction((tx) =>
+      createBrand(tx, owner, { nameBn: 'সম্পাদনাযোগ্য', nameEn: 'Editable Brand', slug: 'editable-brand' }),
+    );
+    const second = await withTransaction((tx) =>
+      createBrand(tx, owner, { nameBn: 'দ্বিতীয়', nameEn: 'Second Brand', slug: 'second-brand' }),
+    );
+
+    await withTransaction((tx) =>
+      updateBrand(tx, owner, String(first.brandId), {
+        nameBn: 'সম্পাদিত',
+        nameEn: 'Edited Brand',
+        slug: 'edited-brand',
+      }),
+    );
+
+    const rows = await withTransaction((tx) =>
+      tx
+        .select({ nameEn: brandTable.nameEn, slug: brandTable.slug })
+        .from(brandTable)
+        .where(sql`${brandTable.id} = ${first.brandId}`),
+    );
+    assert.equal(rows[0]?.nameEn, 'Edited Brand');
+    assert.equal(rows[0]?.slug, 'edited-brand');
+
+    const audit = await withTransaction((tx) =>
+      tx
+        .select({ action: auditEvent.action })
+        .from(auditEvent)
+        .where(sql`${auditEvent.entityType} = 'brand' and ${auditEvent.entityId} = ${first.brandId}`)
+        .orderBy(auditEvent.id),
+    );
+    assert.equal(audit.some((entry) => entry.action === 'catalog.brand_updated'), true);
+
+    await assert.rejects(
+      withTransaction((tx) =>
+        updateBrand(tx, owner, String(second.brandId), {
+          nameBn: 'দ্বিতীয়',
+          nameEn: 'Second Brand',
+          slug: 'edited-brand',
+        }),
+      ),
+      ConflictError,
+    );
   });
 
   it('archives a product, unpublishes it, and preserves the owner availability statement', async () => {

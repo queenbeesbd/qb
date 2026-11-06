@@ -285,6 +285,21 @@ corrected (it previously aborted at check 26). The six failures are on untouched
 32 (product-page image/price), 20 (24px gallery dots), 27d (section link), 36d (the seed's five
 departments) and 40b (favicon ink). Real devices and screen readers were not used. Nothing is deployed.
 
+## Category and brand editors (2026-11-06)
+
+Implemented locally, not deployed. Category create/edit and brand create/edit are full pages with the
+same sticky action bar and the shared `CatalogImageField`. The category photo or brand mark is uploaded
+from the browser (or chosen from `public/catalog`) and saved **with** the record in one multipart
+transaction; the old image-only routes and the edit-only image section were removed. Brand creation is
+now `/admin/catalog/brands/new` rather than a disclosure on the product list, and the brand editor
+edits names, slug and mark with `catalog.brand_updated` audit.
+
+Verified: typecheck, lint (0 errors), `check:i18n`, unit **212/212**, `tests/db/catalog.test.ts`
+**37/37**, `build`; a dev-server walk-through created a category with an uploaded photo and a brand with
+an uploaded logo, renamed the brand, removed both images and checked the stored keys and audit rows;
+`verify:admin` **204/207** (two pre-existing Telegram removal-dialog checks and the absent-CSP
+assertion). No schema change.
+
 ## Overview refresh (2026-11-06)
 
 Implemented locally and not deployed. The overview now uses the reference's information architecture

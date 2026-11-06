@@ -4,6 +4,7 @@ import Link from 'next/link';
 
 import { useTranslation } from '@/i18n/useTranslation';
 import { imageVariantPath } from '@/lib/images';
+import { AdminIcon } from '../../../_ui/icons';
 import { EmptyState } from '../../../_ui/EmptyState';
 import { ListSearch, ListToolbar } from '../../../_ui/ListToolbar';
 import { Notice } from '../../../_ui/Notice';
@@ -56,7 +57,17 @@ export function BrandsView({
 
   return (
     <>
-      <PageHeader title={t('admin.brands.title')} />
+      <PageHeader
+        title={t('admin.brands.title')}
+        actions={
+          canManage ? (
+            <Link className={styles.button} href="/admin/catalog/brands/new">
+              <AdminIcon name="plus" width={15} height={15} />
+              {t('admin.brands.createTitle')}
+            </Link>
+          ) : undefined
+        }
+      />
 
       {notice !== null && (
         <Notice tone={BRAND_NOTICE_ERRORS.includes(notice) ? 'error' : 'success'}>
@@ -87,6 +98,10 @@ export function BrandsView({
               filtering ? (
                 <Link className={`${styles.button} ${styles.buttonSecondary} ${styles.buttonSmall}`} href={clearHref}>
                   {t('admin.common.clear')}
+                </Link>
+              ) : canManage ? (
+                <Link className={styles.button} href="/admin/catalog/brands/new">
+                  {t('admin.brands.createTitle')}
                 </Link>
               ) : undefined
             }

@@ -5146,64 +5146,115 @@ a.rankName:hover {
  * owner sees what they are choosing rather than a filename.
  * ------------------------------------------------------------------------- */
 
-.categoryImageRow {
+/*
+ * One photograph for a category or a brand: a large preview beside the drop zone.
+ *
+ * The preview is the shape the storefront draws - a square for a category photograph, a circle for a
+ * brand mark - so the owner sees the crop they are choosing rather than a filename. The drop zone is
+ * the same `.mediaDrop` the product picker uses, so the two surfaces behave identically.
+ */
+.catalogImageField {
   display: grid;
   gap: var(--space-4);
   align-items: start;
 }
 
-@media (min-width: 560px) {
-  .categoryImageRow {
-    grid-template-columns: 96px minmax(0, 1fr);
+@media (min-width: 720px) {
+  .catalogImageField {
+    grid-template-columns: 168px minmax(0, 1fr);
   }
 }
 
-.categoryImagePreview {
+.catalogImagePreview {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-sunken);
+}
+
+.catalogImagePreview[data-shape='circle'] {
+  border-radius: 50%;
+}
+
+.catalogImagePreview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.catalogImagePreview[data-empty='true'] {
+  border-style: dashed;
+}
+
+.catalogImageEmpty {
+  padding: var(--space-2);
+  text-align: center;
+  font-size: var(--text-xs);
+  line-height: var(--leading-snug);
+  color: var(--color-ink-subtle);
+}
+
+.catalogImageControl {
+  display: grid;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.catalogImageRemove {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--color-ink-muted);
+  cursor: pointer;
+}
+
+.catalogImageRemove input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--color-danger);
+  flex: none;
+}
+
+.brandPreview {
+  display: grid;
+  gap: var(--space-2);
+  justify-items: center;
+  text-align: center;
+}
+
+.brandPreviewCircle {
   display: grid;
   place-items: center;
   width: 96px;
   height: 96px;
-  /* The storefront's circle, so the preview is the shape the owner will see. */
   border-radius: 50%;
   overflow: hidden;
   border: 1px solid var(--color-border);
   background: var(--color-surface-sunken);
 }
 
-.categoryImagePreview img {
+.brandPreviewCircle img {
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
 
-.categoryImagePreview[data-empty='true'] {
-  border-style: dashed;
+.brandPreviewName {
+  font-weight: 600;
+  font-size: var(--text-sm);
 }
 
-.categoryImageEmpty {
-  padding: 6px;
-  text-align: center;
-  font-size: 10px;
-  line-height: 1.3;
-  color: var(--color-ink-subtle);
-}
-
-.categoryImageControls {
-  display: grid;
-  gap: var(--space-2);
-  min-width: 0;
-}
-
-.categoryImageForm {
-  display: grid;
-  gap: var(--space-2);
-  align-items: end;
-}
-
-@media (min-width: 720px) {
-  .categoryImageForm {
-    grid-template-columns: minmax(0, 1fr) auto;
-  }
+.brandCta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
 }
 
 /* The two derived counts, side by side: they answer one question together. */

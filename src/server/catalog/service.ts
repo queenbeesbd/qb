@@ -83,13 +83,13 @@ export async function listBrands(tx: Transaction): Promise<
     .orderBy(brand.nameEn);
 }
 
-export async function createBrand(
-  tx: Transaction,
-  actor: ActorContext,
-  input: { nameBn: unknown; nameEn: unknown; slug?: unknown },
-): Promise<{ brandId: number }> {
-  await requirePermission(actor, CATALOG, 'brand', 0);
+type BrandInput = { nameBn: unknown; nameEn: unknown; slug?: unknown };
 
+async function normalizeBrandInput(
+  tx: Transaction,
+  input: BrandInput,
+  excludeId: number | null,
+): Promise<{ nameBn: string; nameEn: string; slug: string }> {
   const nameBn = parseRequiredText(input.nameBn, TEXT_BOUNDS.categoryName);
   const nameEn = parseRequiredText(input.nameEn, TEXT_BOUNDS.categoryName);
   if (nameBn === null || nameEn === null) throw new ValidationError('a brand needs both names');
@@ -99,12 +99,36 @@ export async function createBrand(
     throw new ValidationError('a brand needs a slug in lowercase letters, digits and dashes');
   }
 
-  const existing = await tx.select({ id: brand.id }).from(brand).where(sql`${brand.slug} = ${slug}`);
+  /*
+   * The clash check covers every row, archived ones included: the unique index still holds an
+   * archived brand's slug, so filtering to live rows would let the clash reach the database as a 500
+   * instead of the conflict notice the owner can act on.
+   */
+  const existing = await tx
+    .select({ id: brand.id })
+    .from(brand)
+    .where(
+      excludeId === null
+        ? sql`${brand.slug} = ${slug}`
+        : sql`${brand.slug} = ${slug} and ${brand.id} <> ${excludeId}`,
+    );
   if (existing.length > 0) throw new ConflictError('a brand with that slug already exists');
+
+  return { nameBn, nameEn, slug };
+}
+
+export async function createBrand(
+  tx: Transaction,
+  actor: ActorContext,
+  input: BrandInput,
+): Promise<{ brandId: number }> {
+  await requirePermission(actor, CATALOG, 'brand', 0);
+
+  const fields = await normalizeBrandInput(tx, input, null);
 
   const inserted = await tx
     .insert(brand)
-    .values({ slug, nameBn, nameEn })
+    .values({ slug: fields.slug, nameBn: fields.nameBn, nameEn: fields.nameEn })
     .returning({ id: brand.id });
   const brandId = inserted[0]?.id;
   if (brandId === undefined) throw new Error('brand insert returned no id');
@@ -116,10 +140,57 @@ export async function createBrand(
     action: 'catalog.brand_created',
     entityType: 'brand',
     entityId: brandId,
-    after: { slug, nameEn },
+    after: { slug: fields.slug, nameEn: fields.nameEn, nameBn: fields.nameBn },
   });
 
   return { brandId };
+}
+
+export async function updateBrand(
+  tx: Transaction,
+  actor: ActorContext,
+  brandId: unknown,
+  input: BrandInput,
+): Promise<void> {
+  const id = parseId(brandId);
+  if (id === null) throw new ValidationError('a brand id is required');
+  await requirePermission(actor, CATALOG, 'brand', id);
+
+  const before = await tx
+    .select({
+      id: brand.id,
+      slug: brand.slug,
+      nameEn: brand.nameEn,
+      nameBn: brand.nameBn,
+      deletedAt: brand.deletedAt,
+    })
+    .from(brand)
+    .where(sql`${brand.id} = ${id}`);
+  const row = before[0];
+  if (row === undefined || row.deletedAt !== null) throw new ConflictError('no such brand');
+
+  const fields = await normalizeBrandInput(tx, input, id);
+
+  await tx
+    .update(brand)
+    .set({
+      slug: fields.slug,
+      nameBn: fields.nameBn,
+      nameEn: fields.nameEn,
+      updatedAt: new Date(),
+    })
+    .where(sql`${brand.id} = ${id}`);
+
+  await recordAudit(tx, {
+    actorType: 'staff',
+    actorStaffId: actor.staffUserId,
+    actorRoleCodes: actor.roleCodes,
+    action: 'catalog.brand_updated',
+    entityType: 'brand',
+    entityId: id,
+    before: { slug: row.slug, nameEn: row.nameEn, nameBn: row.nameBn },
+    after: { slug: fields.slug, nameEn: fields.nameEn, nameBn: fields.nameBn },
+  });
 }
 
 /** Rows per page for the admin brand list. */
@@ -266,6 +337,9 @@ export async function setBrandImage(
       throw new ValidationError('that image is not a complete, supported asset in the catalog directory');
     }
   }
+
+  // A form that re-submits the logo it already shows is not a change and should not write an audit row.
+  if (row.logoKey === logoKey) return { logoKey };
 
   await tx.update(brand).set({ logoKey, updatedAt: new Date() }).where(sql`${brand.id} = ${id}`);
 
@@ -1267,6 +1341,9 @@ export async function setCategoryImage(
       throw new ValidationError('that image is not a complete, supported asset in the catalog directory');
     }
   }
+
+  // Re-submitting the current photo is not a change; keep the audit trail to real decisions.
+  if (row.imageKey === imageKey) return { imageKey };
 
   await tx
     .update(category)

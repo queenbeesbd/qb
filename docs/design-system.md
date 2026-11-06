@@ -997,11 +997,12 @@ names it in `<title>` and the icon is at least 96px; a brand that cannot prove i
 `logo_key = null` and the tile draws its first letter as a monogram. A wrong mark on a right name is worse than no mark.
 
 **The owner can replace a brand mark.** `/admin/catalog/brands` lists the brands with the logo each one
-shows, and `/admin/catalog/brands/[brandId]` associates a different image from the shop's own asset
-inventory or removes it - the same contract as the category photograph, with a `returnTo` allowlisted
-to the editor's own shape and the refusal returned to the editor that produced it. The write route is
-`/api/admin/catalog/brand-image` (`choose` | `clear`), gated on `catalog.write` and audited as
-`catalog.brand_image_updated`.
+shows, and `/admin/catalog/brands/new` / `/admin/catalog/brands/[brandId]` are the brand editor: name,
+slug and mark in one form (`BrandForm`, the same shell as the category editor). The mark is uploaded
+from the browser or chosen from the shop's own inventory through the shared `CatalogImageField`; the
+write route is `POST /api/admin/catalog/brand`, gated on `catalog.write`, with a `returnTo` allowlisted
+to the editor's own shape and the refusal returned to the editor that produced it. Name changes are
+audited as `catalog.brand_updated`, a mark as `catalog.brand_image_updated`.
 
 
 ## Visual refinement — 2026-11-05

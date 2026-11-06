@@ -7,6 +7,8 @@
 import type { TranslationKey } from '@/i18n/dictionaries';
 
 export type BrandNotice =
+  | 'created'
+  | 'updated'
   | 'imageUpdated'
   | 'imageRemoved'
   | 'imageInvalid'
@@ -15,6 +17,8 @@ export type BrandNotice =
   | 'invalid';
 
 export const BRAND_NOTICE_KEYS: Record<BrandNotice, TranslationKey> = {
+  created: 'admin.brands.notice.created',
+  updated: 'admin.brands.notice.updated',
   imageUpdated: 'admin.brands.notice.imageUpdated',
   imageRemoved: 'admin.brands.notice.imageRemoved',
   imageInvalid: 'admin.brands.notice.imageInvalid',

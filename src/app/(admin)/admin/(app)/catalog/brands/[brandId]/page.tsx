@@ -9,24 +9,19 @@ import { listAssetKeys } from '@/server/catalog/assets';
 import { getBrandForAdmin } from '@/server/catalog/service';
 import { Notice } from '../../../../_ui/Notice';
 import { PageHeader } from '../../../../_ui/PageHeader';
-import { BrandLogoForm } from './BrandLogoForm';
+import { BrandForm } from '../BrandForm';
 import { BRAND_NOTICE_ERRORS, BRAND_NOTICE_KEYS, readBrandNotice } from '../notices';
 import styles from '../../../../admin.module.css';
 
 export const dynamic = 'force-dynamic';
 
 /**
- * Edit one brand's logo.
+ * Edit one brand: its name, address and mark, in one form.
  *
- * A route of its own rather than a picker on the list, for the reason every other catalog module
- * settled on: a filtered list and a full-height editor are different tasks. The id is resolved by the
- * service, which returns `null` for anything that is not a live brand, so a stale link is a **404**
- * rather than an editor that would save over nothing.
- *
- * The asset list is the server's own inventory, with the brand-logo family first: the owner is here to
- * pick a mark, and the 240 logos the shop already owns should not be buried under product photography.
- * Any catalog image may still be chosen - a category photograph used as a brand mark is the owner's
- * call, not the service's.
+ * The id is resolved by the service, which returns `null` for anything that is not a live brand, so a
+ * stale link is a **404** rather than an editor that would save over nothing. The mark can be
+ * uploaded locally or chosen from the shop's inventory; the route writes the row and the image in one
+ * transaction.
  */
 export default async function EditBrandPage({
   params,
@@ -56,6 +51,7 @@ export default async function EditBrandPage({
     <>
       <PageHeader
         title={brand.nameEn}
+        description={translate('admin.brands.editorBody')}
         actions={
           <Link className={`${styles.button} ${styles.buttonSecondary} ${styles.buttonSmall}`} href="/admin/catalog/brands">
             {translate('admin.brandLogo.back')}
@@ -69,12 +65,19 @@ export default async function EditBrandPage({
         </Notice>
       )}
 
-      <BrandLogoForm
+      <BrandForm
+        mode="edit"
         brandId={brand.id}
-        brandName={brand.nameEn}
-        logoKey={brand.logoKey}
-        csrfToken={principal.csrfToken}
+        values={{
+          nameEn: brand.nameEn,
+          nameBn: brand.nameBn,
+          slug: brand.slug,
+          logoKey: brand.logoKey,
+        }}
+        productCount={brand.productCount}
         assetKeys={ordered}
+        csrfToken={principal.csrfToken}
+        cancelHref="/admin/catalog/brands"
       />
     </>
   );

@@ -4,11 +4,10 @@ import Link from 'next/link';
 import { useMemo, useRef, useState } from 'react';
 
 import { useTranslation } from '@/i18n/useTranslation';
-import { imageVariantPath } from '@/lib/images';
 import { slugPreview } from '@/lib/slug-preview';
 import { AdminIcon } from '../../_ui/icons';
+import { CatalogImageField } from '../../_ui/CatalogImageField';
 import { RequiredMark } from '../../_ui/RequiredMark';
-import { AdminImageInput } from '../../_ui/AdminImageInput';
 import { SubmitButton } from '../../_ui/SubmitButton';
 import styles from '../../admin.module.css';
 
@@ -130,6 +129,7 @@ export function CategoryForm({
       className={styles.categoryEditor}
       action="/api/admin/catalog/category"
       method="post"
+      encType="multipart/form-data"
       /* The rules are the DOM constraints below; this only changes who reports them. */
       noValidate
       onSubmit={(event) => {
@@ -209,6 +209,23 @@ export function CategoryForm({
       <div className={styles.categoryEditorColumns}>
         {/* ================= Left: what the customer reads ================= */}
         <div className={styles.categoryEditorMain}>
+          {/*
+            The photograph sits first, as it does in the reference: it is the thing a shopper
+            recognises, and it now saves with the category instead of in a second form after creation.
+          */}
+          <section className={styles.formCard} aria-labelledby="cf-image">
+            <div className={styles.formCardHead}>
+              <h2 id="cf-image">{t('admin.categories.sectionImage')}</h2>
+              <p>{t('admin.categories.sectionImageBody')}</p>
+            </div>
+            <CatalogImageField
+              id="categoryImage"
+              currentKey={values.imageKey ?? null}
+              assetKeys={assets}
+              shape="square"
+            />
+          </section>
+
           <section className={styles.formCard} aria-labelledby="cf-names">
             <div className={styles.formCardHead}>
               <h2 id="cf-names">{t('admin.categories.sectionNames')}</h2>
@@ -283,97 +300,6 @@ export function CategoryForm({
               />
             </div>
           </section>
-
-          {/*
-            The storefront storefront tile: the square photograph and the one line under its name.
-            Edit-only, because an image association needs a saved category to point at - and this is
-            the *only* place the owner decides what the category looks like in the index.
-          */}
-          {mode === 'edit' && categoryId !== undefined && (
-            <section className={styles.formCard} aria-labelledby="cf-image">
-              <div className={styles.formCardHead}>
-                <h2 id="cf-image">{t('admin.categories.sectionImage')}</h2>
-                <p>{t('admin.categories.sectionImageBody')}</p>
-              </div>
-
-              <div className={styles.categoryImageRow}>
-                <span className={styles.categoryImagePreview} data-empty={values.imageKey ? undefined : 'true'}>
-                  {values.imageKey ? (
-                    // Association-only imagery: the key was validated against the server's inventory,
-                    // so it cannot name a path outside `public/catalog`.
-                    <img src={imageVariantPath(values.imageKey)} alt="" width={96} height={96} />
-                  ) : (
-                    <span className={styles.categoryImageEmpty}>{t('admin.categories.imageNone')}</span>
-                  )}
-                </span>
-
-                <div className={styles.categoryImageControls}>
-                  <form
-                    className={styles.categoryImageForm}
-                    action="/api/admin/catalog/category-image"
-                    method="post"
-                    encType="multipart/form-data"
-                  >
-                    <input type="hidden" name="csrf" value={csrfToken} />
-                    <input type="hidden" name="operation" value="upload" />
-                    <input type="hidden" name="categoryId" value={categoryId} />
-                    <input type="hidden" name="returnTo" value={selfHref} />
-                    <div className={styles.field}>
-                      <label htmlFor="categoryImageUpload">{t('admin.categories.imageUploadTitle')}</label>
-                      <AdminImageInput
-                        id="categoryImageUpload"
-                        accept="image/jpeg,image/png,image/webp"
-                        required
-                      />
-                      <p className={styles.hint}>{t('admin.upload.help')}</p>
-                    </div>
-                    <SubmitButton
-                      label={t('admin.categories.imageUploadSubmit')}
-                      pendingLabel={t('admin.common.working')}
-                    />
-                  </form>
-
-                  <form className={styles.categoryImageForm} action="/api/admin/catalog/category-image" method="post">
-                    <input type="hidden" name="csrf" value={csrfToken} />
-                    <input type="hidden" name="operation" value="choose" />
-                    <input type="hidden" name="categoryId" value={categoryId} />
-                    <input type="hidden" name="returnTo" value={selfHref} />
-                    <div className={styles.field}>
-                      <label htmlFor="categoryImageKey">{t('admin.categories.imagePick')}</label>
-                      <select
-                        className={styles.select}
-                        id="categoryImageKey"
-                        name="imageKey"
-                        defaultValue={values.imageKey ?? ''}
-                      >
-                        <option value="">{t('admin.categories.imageNone')}</option>
-                        {assets.map((key) => (
-                          <option value={key} key={key}>
-                            {key}
-                          </option>
-                        ))}
-                      </select>
-                      <p className={styles.hint}>{t('admin.categories.field.imageHelp')}</p>
-                    </div>
-                    <SubmitButton label={t('admin.categories.imageChoose')} pendingLabel={t('admin.common.working')} />
-                  </form>
-
-                  {values.imageKey !== null && values.imageKey !== undefined && (
-                    <form action="/api/admin/catalog/category-image" method="post">
-                      <input type="hidden" name="csrf" value={csrfToken} />
-                      <input type="hidden" name="operation" value="clear" />
-                      <input type="hidden" name="categoryId" value={categoryId} />
-                      <input type="hidden" name="returnTo" value={selfHref} />
-                      <button className={`${styles.button} ${styles.buttonSecondary} ${styles.buttonSmall}`} type="submit">
-                        {t('admin.categories.imageRemove')}
-                      </button>
-                    </form>
-                  )}
-                  <p className={styles.hint}>{t('admin.categories.imageRemoveHint')}</p>
-                </div>
-              </div>
-            </section>
-          )}
 
           <section className={styles.formCard} aria-labelledby="cf-placement">
             <div className={styles.formCardHead}>

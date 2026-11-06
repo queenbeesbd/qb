@@ -59,6 +59,7 @@ export type AuditAction =
   | 'return.received'
   | 'return.inspected'
   | 'catalog.brand_created'
+  | 'catalog.brand_updated'
   | 'catalog.brand_image_updated'
   | 'catalog.category_created'
   | 'catalog.category_updated'

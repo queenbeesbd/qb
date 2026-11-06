@@ -14,13 +14,19 @@
  * not archived, and the owner is told what is in the way.
  */
 
-import { withTransaction } from '@/db/client';
+import { withTransaction, type Transaction } from '@/db/client';
 import { CATEGORIES_PATH } from '@/server/auth/constants';
 import { guardMutation } from '@/server/auth/guard';
 import { roleCodes } from '@/server/authz/principal';
 import { PERMISSIONS } from '@/server/authz/permissions';
 import { AuthorizationError, ConflictError, ValidationError } from '@/server/authz/authorize';
-import { archiveCategory, createCategory, updateCategory } from '@/server/catalog/service';
+import {
+  archiveCategory,
+  createCategory,
+  setCategoryImage,
+  updateCategory,
+} from '@/server/catalog/service';
+import { saveUpload, type UploadedAsset } from '@/server/catalog/uploads';
 import { deny, redirectTo } from '../../responses';
 
 export const dynamic = 'force-dynamic';
@@ -101,16 +107,51 @@ export async function POST(request: Request): Promise<Response> {
     tagline: form.get('tagline') ?? undefined,
   };
 
+  /*
+   * A photograph is chosen with the category, exactly as product photographs are chosen with the
+   * product. The upload is decoded and written before the transaction; the row and its image then
+   * save together, so a category is never created with the picture the owner picked silently missing.
+   */
+  const imageFile = form.get('image');
+  let asset: UploadedAsset | undefined;
+  if (imageFile instanceof File && imageFile.size > 0) {
+    try {
+      asset = await saveUpload(imageFile, 'square');
+    } catch {
+      return backTo(target, 'imageInvalid');
+    }
+  }
+  const selectedImageKey = form.get('imageKey');
+  const removeImage = form.get('removeImage') === 'true';
+
+  const saveImage = async (tx: Transaction, categoryId: number): Promise<void> => {
+    if (asset !== undefined) {
+      await setCategoryImage(tx, actor, { categoryId, imageKey: asset.key, asset });
+    } else if (typeof selectedImageKey === 'string' && selectedImageKey !== '') {
+      await setCategoryImage(tx, actor, { categoryId, imageKey: selectedImageKey });
+    } else if (removeImage) {
+      await setCategoryImage(tx, actor, { categoryId, imageKey: '' });
+    }
+  };
+
   try {
     if (operation === 'create') {
-      const created = await withTransaction((tx) => createCategory(tx, actor, input));
+      const created = await withTransaction(async (tx) => {
+        const category = await createCategory(tx, actor, input);
+        await saveImage(tx, category.categoryId);
+        return category;
+      });
       // Straight to the new record: a category with no products has nothing else to show, and the
       // owner's next act is usually assigning one or adding the description they skipped.
       return backTo(`${CATEGORIES_PATH}/${created.categoryId}`, 'created');
     }
 
     if (operation === 'update') {
-      await withTransaction((tx) => updateCategory(tx, actor, form.get('categoryId'), input));
+      await withTransaction(async (tx) => {
+        await updateCategory(tx, actor, form.get('categoryId'), input);
+        const id = Number.parseInt(String(form.get('categoryId') ?? ''), 10);
+        if (Number.isFinite(id)) await saveImage(tx, id);
+      });
       return backTo(target, 'updated');
     }
 

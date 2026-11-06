@@ -1309,7 +1309,14 @@ async function main(): Promise<void> {
       const brandCreated = await call(base, '/api/admin/catalog/brand', {
         method: 'POST',
         jar: ownerJar,
-        form: { csrf, nameBn: 'যাচাই ব্র্যান্ড', nameEn: 'Verify Brand', slug: VERIFY_BRAND_SLUG },
+        form: {
+          csrf,
+          operation: 'create',
+          returnTo: '/admin/catalog/brands/new',
+          nameBn: 'যাচাই ব্র্যান্ড',
+          nameEn: 'Verify Brand',
+          slug: VERIFY_BRAND_SLUG,
+        },
       });
       const brandId = await brandIdBySlug(VERIFY_BRAND_SLUG);
       record(
@@ -2398,6 +2405,45 @@ async function main(): Promise<void> {
               JSON.stringify(afterCreate),
             );
             await browser.screenshot('/tmp/qb-admin-product-edit-desktop.png');
+
+            /*
+             * The category and brand editors take photographs with the record, not in a second form.
+             * These assert the shared upload affordance is present on both create routes; the actual
+             * multipart save is exercised by the database tests and the dev-server walk-through.
+             */
+            await browser.navigate('/admin/categories/new');
+            const categoryEditorMedia = await browser.evaluate<{
+              file: boolean;
+              existing: boolean;
+              preview: boolean;
+            }>(`(() => ({
+              file: document.querySelector('input[type="file"][name="image"]') !== null,
+              existing: document.querySelector('select[name="imageKey"]') !== null,
+              preview: document.querySelector('[class*="catalogImagePreview"]') !== null,
+            }))()`);
+            await browser.navigate('/admin/catalog/brands/new');
+            const brandEditorMedia = await browser.evaluate<{
+              file: boolean;
+              existing: boolean;
+              name: boolean;
+              slug: boolean;
+            }>(`(() => ({
+              file: document.querySelector('input[type="file"][name="image"]') !== null,
+              existing: document.querySelector('select[name="imageKey"]') !== null,
+              name: document.querySelector('#brandNameEn') !== null,
+              slug: document.querySelector('#brandSlug') !== null,
+            }))()`);
+            record(
+              'the category and brand create editors expose a local photo upload and an existing-image choice',
+              categoryEditorMedia.file &&
+                categoryEditorMedia.existing &&
+                categoryEditorMedia.preview &&
+                brandEditorMedia.file &&
+                brandEditorMedia.existing &&
+                brandEditorMedia.name &&
+                brandEditorMedia.slug,
+              JSON.stringify({ categoryEditorMedia, brandEditorMedia }),
+            );
 
             // The short description reached the database and is rendered on the storefront page.
             const createdShort = await withTransaction(async (tx) => {

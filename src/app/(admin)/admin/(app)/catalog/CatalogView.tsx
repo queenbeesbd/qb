@@ -15,8 +15,6 @@ import { FilterTabs, ListSearch, ListToolbar } from '../../_ui/ListToolbar';
 import { Notice } from '../../_ui/Notice';
 import { PageHeader } from '../../_ui/PageHeader';
 import { Pagination } from '../../_ui/Pagination';
-import { RequiredMark } from '../../_ui/RequiredMark';
-import { SubmitButton } from '../../_ui/SubmitButton';
 import styles from '../../admin.module.css';
 
 export type CatalogProductRow = {
@@ -272,36 +270,16 @@ export function CatalogView({
 
       {canManage && (
         <section className={styles.section} aria-label={t('admin.catalog.brandTitle')}>
-          <details className={`${styles.panel} ${styles.detailsPanel}`}>
-            <summary>{t('admin.catalog.brandTitle')}</summary>
-            <p className={styles.note} style={{ marginBottom: 'var(--space-4)' }}>
-              {t('admin.catalog.brandBody')}
-            </p>
-            <form className={`${styles.form} ${styles.formNarrow}`} action="/api/admin/catalog/brand" method="post">
-              <input type="hidden" name="csrf" value={csrfToken} />
-              <div className={styles.formGrid}>
-                <div className={styles.field}>
-                  <label htmlFor="brandNameEn">
-                    {t('admin.catalog.field.nameEn')} <RequiredMark />
-                  </label>
-                  <input className={styles.input} id="brandNameEn" name="nameEn" required maxLength={80} />
-                </div>
-                <div className={styles.field}>
-                  <label htmlFor="brandNameBn">
-                    {t('admin.catalog.field.nameBn')} <RequiredMark />
-                  </label>
-                  <input className={styles.input} id="brandNameBn" name="nameBn" required maxLength={80} lang="bn" />
-                </div>
-              </div>
-              <div className={styles.formActions}>
-                <SubmitButton
-                  label={t('admin.catalog.brandSubmit')}
-                  pendingLabel={t('admin.common.working')}
-                  variant="secondary"
-                />
-              </div>
-            </form>
-          </details>
+          <div className={`${styles.panel} ${styles.brandCta}`}>
+            <div className={styles.formCardHead}>
+              <h2 className={styles.panelTitle}>{t('admin.catalog.brandTitle')}</h2>
+              <p>{t('admin.catalog.brandBody')}</p>
+            </div>
+            <Link className={`${styles.button} ${styles.buttonSecondary}`} href="/admin/catalog/brands/new">
+              <AdminIcon name="plus" width={15} height={15} />
+              {t('admin.catalog.brandSubmit')}
+            </Link>
+          </div>
         </section>
       )}
     </>
