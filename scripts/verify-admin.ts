@@ -2445,6 +2445,27 @@ async function main(): Promise<void> {
               JSON.stringify({ categoryEditorMedia, brandEditorMedia }),
             );
 
+            await browser.navigate('/admin/settings/offer-popup');
+            const popupEditor = await browser.evaluate<{
+              heading: string;
+              file: boolean;
+              alt: boolean;
+              active: boolean;
+            }>(`(() => ({
+              heading: document.querySelector('h1')?.textContent?.trim() ?? '',
+              file: document.querySelector('input[type="file"][name="image"]') !== null,
+              alt: document.querySelector('#offerPopupAlt') !== null,
+              active: document.querySelector('#offerPopupActive') !== null,
+            }))()`);
+            record(
+              'the offer popup editor exposes the image upload, description and switch',
+              popupEditor.heading === 'Offer popup' &&
+                popupEditor.file &&
+                popupEditor.alt &&
+                popupEditor.active,
+              JSON.stringify(popupEditor),
+            );
+
             // The short description reached the database and is rendered on the storefront page.
             const createdShort = await withTransaction(async (tx) => {
               const rows = await tx

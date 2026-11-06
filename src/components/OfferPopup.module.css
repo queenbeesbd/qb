@@ -1,0 +1,111 @@
+/*
+ * The site-open offer popup.
+ *
+ * One image, one close control, nothing else. The overlay dims the page but does not tint the offer:
+ * the image is the owner's own artwork and should read in its own colours. The close button sits below
+ * the card, as in the reference, so it never covers the offer.
+ */
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgba(17, 12, 26, 0.62);
+  animation: popupFade 160ms ease-out;
+}
+
+.dialog {
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+  width: min(92vw, 520px);
+  max-height: calc(100dvh - 32px);
+  animation: popupRise 180ms ease-out;
+}
+
+.dialog[data-aspect='wide'] {
+  width: min(94vw, 760px);
+}
+
+.card {
+  width: 100%;
+  overflow: hidden;
+  border-radius: 14px;
+  background: var(--color-surface);
+  box-shadow: 0 24px 64px rgba(10, 6, 20, 0.35);
+}
+
+.image {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.close {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  flex: none;
+  border: 0;
+  border-radius: 50%;
+  background: var(--color-surface);
+  color: var(--color-ink);
+  cursor: pointer;
+  box-shadow: 0 8px 24px rgba(10, 6, 20, 0.25);
+}
+
+.close:hover {
+  background: var(--color-surface-sunken);
+}
+
+.close:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 3px;
+}
+
+@keyframes popupFade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes popupRise {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.99);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (max-width: 560px) {
+  .overlay {
+    padding: 12px;
+  }
+
+  .dialog {
+    width: calc(100vw - 24px);
+    max-height: calc(100dvh - 24px);
+  }
+
+  .close {
+    width: 44px;
+    height: 44px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .overlay,
+  .dialog {
+    animation: none;
+  }
+}

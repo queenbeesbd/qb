@@ -99,6 +99,13 @@
       "when": 1793801743944,
       "tag": "0013_homepage_hero_images",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1793979001337,
+      "tag": "0014_offer_popup",
+      "breakpoints": true
     }
   ]
 }

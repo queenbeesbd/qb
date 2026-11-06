@@ -52,6 +52,11 @@ import {
   updateProduct,
   type ProductInput,
 } from '../../src/server/catalog/service';
+import {
+  loadActiveOfferPopup,
+  loadOfferPopup,
+  saveOfferPopup,
+} from '../../src/server/settings/offer-popup';
 import { SKIP_REASON, startMigratedDatabase, toolingAvailable, type DbFixture } from './helpers';
 
 type Actor = { staffUserId: number; permissions: ReadonlySet<string>; roleCodes: string[] };
@@ -639,6 +644,65 @@ describe('catalog management', { skip: toolingAvailable ? false : SKIP_REASON },
         }),
       ),
       ConflictError,
+    );
+  });
+
+  it('saves the singleton offer popup, switches it off, and reads only an active one', async () => {
+    const assets = await listAssetKeys();
+    const key = assets[0] ?? '';
+    assert.notEqual(key, '', 'the catalog needs one asset for this test');
+
+    const empty = await withTransaction((tx) => loadOfferPopup(tx));
+    assert.equal(empty, null);
+
+    // A row cannot exist without an image: an active offer with no picture is not an offer.
+    await assert.rejects(
+      withTransaction((tx) =>
+        saveOfferPopup(tx, owner, { asset: null, altText: 'Offer', isActive: true }),
+      ),
+      ValidationError,
+    );
+
+    await withTransaction((tx) =>
+      saveOfferPopup(tx, owner, {
+        asset: { key, aspect: 'square' },
+        altText: 'A square offer for the storefront',
+        isActive: true,
+      }),
+    );
+
+    const saved = await withTransaction((tx) => loadOfferPopup(tx));
+    assert.equal(saved?.imageKey, key);
+    assert.equal(saved?.aspect, 'square');
+    assert.equal(saved?.isActive, true);
+    assert.equal((await withTransaction((tx) => loadActiveOfferPopup(tx)))?.imageKey, key);
+
+    const audit = await withTransaction((tx) =>
+      tx
+        .select({ action: auditEvent.action })
+        .from(auditEvent)
+        .where(sql`${auditEvent.entityType} = 'offer_popup' and ${auditEvent.entityId} = 1`),
+    );
+    assert.equal(audit.some((entry) => entry.action === 'settings.offer_popup_saved'), true);
+
+    await withTransaction((tx) =>
+      saveOfferPopup(tx, owner, {
+        asset: null,
+        altText: 'A square offer, now hidden',
+        isActive: false,
+      }),
+    );
+
+    const hidden = await withTransaction((tx) => loadOfferPopup(tx));
+    assert.equal(hidden?.imageKey, key, 'the image is kept when the offer is switched off');
+    assert.equal(hidden?.isActive, false);
+    assert.equal(await withTransaction((tx) => loadActiveOfferPopup(tx)), null);
+
+    await assert.rejects(
+      withTransaction((tx) =>
+        saveOfferPopup(tx, owner, { asset: null, altText: '', isActive: false }),
+      ),
+      ValidationError,
     );
   });
 

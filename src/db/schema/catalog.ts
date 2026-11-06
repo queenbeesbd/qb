@@ -22,6 +22,7 @@ import {
   IMAGE_FORMAT,
   IMAGE_RIGHTS_STATUS,
   IMPORT_ENTITY_TYPE,
+  OFFER_POPUP_ASPECTS,
   PRODUCT_AVAILABILITY,
 } from './values';
 
@@ -312,6 +313,39 @@ export const heroImage = pgTable(
     check('hero_image_key_format', sql`${t.imageKey} ~ '^[a-z0-9]+(-[a-z0-9]+)*$'`),
     check('hero_image_alt_len', sql`char_length(${t.altText}) between 1 and 200`),
     check('hero_image_sort_order_range', sql`${t.sortOrder} >= 0 and ${t.sortOrder} < 10`),
+  ],
+);
+
+/**
+ * The site-open offer popup (2026-11-06).
+ *
+ * One row, id 1: the owner changes *the* popup rather than managing a campaign list, which is what
+ * "the latest offer" means for a single shop. Historical versions are in `audit_event`, not rows.
+ *
+ * `image_key` is an asset key produced by `saveUpload` (square or hero frame); `aspect` records which
+ * frame it was encoded in, so the storefront derives the right shadowless path without a second
+ * lookup. `is_active` is the owner's switch; an inactive popup is never rendered.
+ */
+export const offerPopup = pgTable(
+  'offer_popup',
+  {
+    id: integer('id').primaryKey().default(1),
+    imageKey: text('image_key').notNull(),
+    aspect: text('aspect').notNull(),
+    /** The image's accessible description; the popup is an image with no visible copy of its own. */
+    altText: text('alt_text').notNull(),
+    isActive: boolean('is_active').notNull().default(false),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+  },
+  (t) => [
+    check('offer_popup_singleton', sql`${t.id} = 1`),
+    check(
+      'offer_popup_image_key_format',
+      sql`${t.imageKey} ~ '^[a-z0-9]+(-[a-z0-9]+)*$' and char_length(${t.imageKey}) <= 120`,
+    ),
+    check('offer_popup_alt_len', sql`char_length(${t.altText}) between 1 and 200`),
+    check('offer_popup_aspect_valid', colIn('aspect', OFFER_POPUP_ASPECTS)),
   ],
 );
 

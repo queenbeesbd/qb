@@ -174,3 +174,33 @@ export async function saveUpload(file: unknown, kind: UploadKind): Promise<Uploa
     })),
   };
 }
+
+/** The two frames an offer popup accepts. */
+export type OfferPopupAspect = 'square' | 'wide';
+
+/**
+ * Stores an offer-popup image in the frame its own dimensions ask for.
+ *
+ * The owner does not choose square vs 16:9 in a control that can disagree with the file. The source
+ * ratio is compared to the two approved frames and the closer one wins; `saveUpload` then crops and
+ * encodes to that frame's generated set. A portrait file that is nearer 1:1 than 16:9 becomes a square;
+ * a wide banner becomes the hero-sized set. The result records which set was written, so the storefront
+ * derives the right path without guessing.
+ */
+export async function saveOfferPopupUpload(
+  file: unknown,
+): Promise<{ asset: UploadedAsset; aspect: OfferPopupAspect }> {
+  if (!(file instanceof File) || file.size === 0) throw new Error('choose an image file');
+
+  const input = Buffer.from(await file.arrayBuffer());
+  const metadata = await sharp(input, { failOn: 'error', limitInputPixels: 40_000_000 }).metadata();
+  if (metadata.width === undefined || metadata.height === undefined || metadata.height === 0) {
+    throw new Error('the image could not be read');
+  }
+
+  const ratio = metadata.width / metadata.height;
+  const aspect: OfferPopupAspect =
+    Math.abs(ratio - 1) <= Math.abs(ratio - 16 / 9) ? 'square' : 'wide';
+  const asset = await saveUpload(file, aspect === 'square' ? 'square' : 'hero');
+  return { asset, aspect };
+}

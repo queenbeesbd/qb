@@ -14,6 +14,32 @@ An entry may describe a deployment only once it has actually happened and been o
 
 ## [Unreleased]
 
+### Added - 2026-11-06: the site-open offer popup
+The storefront now shows one owner-uploaded offer image when a visitor opens it, once per browsing
+session. Settings -> Offer popup is a singleton editor: upload the image, write its accessible
+description, and switch it on. A `square` or `16:9` frame is chosen from the uploaded file's own ratio
+by `saveOfferPopupUpload`, so there is no shape selector that can disagree with the bytes; the preview
+shows the frame that will be stored. An inactive popup keeps its image and is not rendered.
+
+The modal is accessible and deliberate: `role="dialog" aria-modal`, labelled close button, Escape,
+backdrop click, locked page, focus moved to Close and restored on close. It opens on the first
+storefront page of a session and stays dismissed for that session; a new save changes the campaign
+token and appears again. There is no scheduler, exit-intent, countdown, discount claim or invented
+link - the image is the whole offer.
+
+**Schema:** `offer_popup` (singleton, `id = 1`, image key, aspect, alt text, active) in migration
+`0014_offer_popup`; schema **47 -> 48 tables**, purely additive. Uploaded through the existing
+`saveUpload` pipeline (square or hero frames) with `settings.write` and audit action
+`settings.offer_popup_saved`.
+
+**Verified.** typecheck, lint (0 errors), `check:i18n`, `check:catalog`, unit **212/212**,
+`tests/db/catalog.test.ts` **38/38** (save, read active, switch off, alt refusal, audit), `build`,
+`db:validate` (48 tables), `verify:admin` **206/208** with the two pre-existing failures (the Telegram
+removal-dialog check and the documented absent-CSP assertion). A dev-server walk-through saved a square popup and a wide popup, saw each
+open on a fresh storefront session with the right frame and path, closed one with Escape, confirmed it
+stayed dismissed across navigation, and switched the popup off to confirm no modal rendered. Test
+uploads were removed from `public/`.
+
 ### Changed - 2026-11-06: category and brand editors, with the photo uploaded in the form
 The category create screen now follows the reference's form hierarchy as a page, not a popup: the
 **Category photo** card comes first with a real drop zone, a large preview and an optional inventory

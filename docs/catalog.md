@@ -212,6 +212,7 @@ byte size are produced from the decoded bytes - the browser supplies no path, UR
 | Category | 320, 600 and 1050 squares | `POST /api/admin/catalog/category` (`image` field) |
 | Brand | 320, 600 and 1050 squares | `POST /api/admin/catalog/brand` (`image` field) |
 | Hero | 800x450 and 1600x900 | `POST /api/admin/hero` (`operation=upload`) |
+| Offer popup | square (320/600/1050) or wide (800/1600) | `POST /api/admin/settings/offer-popup` (`image` field) |
 
 **Why three widths.** The storefront picks by rendered size: a 116px circle downloads 320, a product card
 downloads 600, and only the detail photograph asks for 1050. `npm run assets:optimize` re-encodes the whole

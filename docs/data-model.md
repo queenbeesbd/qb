@@ -1,7 +1,7 @@
 # Data model and schema architecture
 
 > **Status: Phase 10 design proposal, 2026-10-11; implementation status updated 2026-10-17.**
-> The schema **is implemented locally** (Phases 11-51, 47 tables, migrations `drizzle/0000`-`0013`) and
+> The schema **is implemented locally** (Phases 11-51, 48 tables, migrations `drizzle/0000`-`0014`) and
 > verified against disposable local PostgreSQL clusters. **Nothing is deployed:** no cloud resource,
 > credential, bucket or DNS record exists, and provisioning requires its own owner authorization.
 >
@@ -692,6 +692,32 @@ cannot name an image the shop cannot serve.
 `settings.hero_image_added`, `settings.hero_image_updated`, `settings.hero_image_removed` and
 `settings.hero_images_reordered`. There is no upload: `npm run assets:hero` generates the two widths in
 both formats, and this table associates them.
+
+### 5.8 `offer_popup` (site-open promotion, 2026-11-06)
+
+**Why it exists.** The owner shows one promotional image when a visitor opens the storefront. A single
+shop has **one** offer at a time, so this is a singleton row (`id = 1`) rather than a campaign list:
+changing the offer replaces the image and the audit trail keeps the history. It is not `store_setting`
+because an image needs a validated asset key, a frame and a description, and the storefront needs a
+typed row to read.
+
+| Column | Type | Null | Notes |
+| --- | --- | --- | --- |
+| `id` | integer | PK | `CHECK (id = 1)` - the singleton |
+| `image_key` | text | NOT NULL | An asset key under `public/catalog` (square) or `public/hero` (16:9), never a URL |
+| `aspect` | text | NOT NULL | `square` or `wide`; records which frame the bytes were encoded in |
+| `alt_text` | text | NOT NULL | The accessible description (1-200 chars); the image has no visible copy |
+| `is_active` | boolean | NOT NULL | Default false; an inactive row is never rendered |
+| `created_at` / `updated_at` | timestamptz | NOT NULL | |
+
+**Constraints.** `CHECK (id = 1)`; key format `^[a-z0-9]+(-[a-z0-9]+)*$` up to 120 characters; alt
+length 1..200; aspect in (`square`, `wide`). The frame is **chosen from the uploaded file's own ratio**
+(closer to 1:1 or 16:9) by `saveOfferPopupUpload`; the service stores the result and the key it wrote.
+The upload is decoded, EXIF-rotated and re-encoded to WebP through `saveUpload` before the row exists.
+
+**Authorization.** Public read of the active row (the storefront popup). Write: `settings.write`,
+audited as `settings.offer_popup_saved` with before and after. The storefront opens it **once per
+browsing session**, keyed by the image and update time.
 
 ---
 
@@ -2629,7 +2655,7 @@ forbid.
 | Group | Tables |
 | --- | --- |
 | Identity and access | `customer`, `customer_credential`, `customer_session`, `account_recovery_token`, `auth_throttle`, `staff_user`, `staff_credential`, `staff_session`, `staff_recovery_token`, `role`, `permission`, `role_permission`, `staff_role` |
-| Catalog | `brand`, `category`, `product`, `product_variant`, `product_image`, `product_image_derivative`, `hero_image`, `collection`, `collection_item`, `import_record` |
+| Catalog | `brand`, `category`, `product`, `product_variant`, `product_image`, `product_image_derivative`, `hero_image`, `offer_popup`, `collection`, `collection_item`, `import_record` |
 | Inventory | `inventory_balance`, `inventory_movement`, `stock_reservation` |
 | Orders | `order`, `order_contact`, `order_item`, `order_event`, `cancellation_request`, `customer_return` |
 | Money | `payment_recipient`, `payment_claim`, `refund` |
@@ -2660,6 +2686,10 @@ identity design, not a change of model: no state machine, invariant or business 
 `0013_homepage_hero_images`. It is purely additive: it adds the homepage carousel's ordered banners,
 changes no existing row, state machine, total or authorization rule, and writes nothing in the order
 transaction.
+
+**Addition (2026-11-06).** `offer_popup` (5.8) is the **48th** table, migration `0014_offer_popup`.
+Purely additive: no existing row, state machine, total or authorization rule changes, and the order
+transaction writes nothing here.
 
 ---
 

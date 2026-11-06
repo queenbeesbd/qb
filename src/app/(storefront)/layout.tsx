@@ -1,9 +1,11 @@
 import { activeAnnouncements } from '@/data/announcements';
 import type { AnnouncementItem } from '@/components/AnnouncementBar';
+import { OfferPopup } from '@/components/OfferPopup';
 import { withTransaction } from '@/db/client';
 import { CartProvider } from '@/features/cart/CartProvider';
 import { selectDepartments } from '@/features/catalog/departments';
 import { loadAnnouncement } from '@/server/settings/announcement';
+import { loadActiveOfferPopup } from '@/server/settings/offer-popup';
 import { getStorefrontCatalog } from '@/server/catalog/storefront';
 import { currentCustomerPrincipal } from '@/server/customer-auth/guard';
 import { Shell } from '../Shell';
@@ -49,7 +51,10 @@ export default async function StorefrontLayout({ children }: { children: React.R
     catalog.categories.length,
   );
 
-  const saved = await withTransaction((tx) => loadAnnouncement(tx));
+  const { saved, popup } = await withTransaction(async (tx) => ({
+    saved: await loadAnnouncement(tx),
+    popup: await loadActiveOfferPopup(tx),
+  }));
   const announcements: AnnouncementItem[] = activeAnnouncements().map((item) => ({
     id: item.id,
     variant: item.variant,
@@ -76,6 +81,14 @@ export default async function StorefrontLayout({ children }: { children: React.R
       >
         {children}
       </Shell>
+      {popup !== null && (
+        <OfferPopup
+          imageKey={popup.imageKey}
+          aspect={popup.aspect}
+          altText={popup.altText}
+          campaign={`${popup.imageKey}:${popup.updatedAt.toISOString()}`}
+        />
+      )}
     </CartProvider>
   );
 }

@@ -4,7 +4,7 @@
  * This barrel is the single entrypoint `drizzle-kit` reads, so every table must be re-exported
  * here or it will silently not be migrated.
  *
- * 47 tables across nine groups:
+ * 48 tables across nine groups:
  * - identity (13)   principals, credentials, sessions, recovery, throttle, roles and permissions
  * - catalog (10)    brands, categories, products, variants, imagery, hero banner, curation,
  *                   import provenance

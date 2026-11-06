@@ -74,6 +74,7 @@ export type AuditAction =
   | 'catalog.image_removed'
   | 'catalog.image_reordered'
   | 'settings.announcement_updated'
+  | 'settings.offer_popup_saved'
   | 'settings.guest_orders_updated'
   | 'settings.support_links_updated'
   | 'settings.hero_image_added'

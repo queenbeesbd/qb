@@ -10,6 +10,9 @@ import { sql, type SQL } from 'drizzle-orm';
  * Changing a list here changes a CHECK constraint, which is a migration - not a code change.
  */
 
+/** The two frames an offer popup accepts: a square or a 16:9 banner. */
+export const OFFER_POPUP_ASPECTS = ['square', 'wide'] as const;
+
 /** `order.status` - fulfilment position only (data-model 7.1). */
 export const ORDER_STATUS = [
   'pending',

@@ -285,6 +285,20 @@ corrected (it previously aborted at check 26). The six failures are on untouched
 32 (product-page image/price), 20 (24px gallery dots), 27d (section link), 36d (the seed's five
 departments) and 40b (favicon ink). Real devices and screen readers were not used. Nothing is deployed.
 
+## Site-open offer popup (2026-11-06)
+
+Implemented locally, not deployed. Settings -> Offer popup edits the `offer_popup` singleton (migration
+`0014_offer_popup`, schema 47 -> 48 tables): one image, one description, one active switch. The image is
+uploaded through `saveUpload`; `saveOfferPopupUpload` chooses the square or 16:9 frame from the file's own
+ratio. The storefront layout reads the active row and `OfferPopup` opens once per browsing session as an
+accessible modal (Escape, backdrop, body lock, focus return). No scheduling, exit-intent, countdown,
+claim or link.
+
+Verified with typecheck, lint (0 errors), `check:i18n`, `check:catalog`, unit **212/212**,
+`tests/db/catalog.test.ts` **38/38**, `db:validate` (48 tables), `build`, `verify:admin` **206/208** (the
+two pre-existing Telegram-dialog and absent-CSP failures) and a dev-server walk-through of a square popup,
+a wide popup, dismissal and session memory, and the inactive state. Test uploads were removed.
+
 ## Category and brand editors (2026-11-06)
 
 Implemented locally, not deployed. Category create/edit and brand create/edit are full pages with the

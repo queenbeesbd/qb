@@ -357,6 +357,7 @@ export const dictionary = {
 
   'admin.nav.announcement': 'Announcement bar',
   'admin.nav.hero': 'Homepage hero',
+  'admin.nav.offerPopup': 'Offer popup',
   'admin.nav.integrations': 'Integrations',
   'admin.nav.otherSettings': 'Other settings',
 
@@ -425,6 +426,46 @@ export const dictionary = {
     'That change was refused. A hero image needs a description from the library, the carousel must keep at least one image, and it holds at most ten.',
   'admin.hero.notice.conflict':
     'The carousel changed while this page was open, or that image is already in it. Reload and try again.',
+
+  'admin.offerPopup.title': 'Offer popup',
+  'admin.offerPopup.body':
+    'The image a visitor meets when the storefront opens. It appears once per browsing session and can be turned off without deleting the image.',
+  'admin.offerPopup.sectionImage': 'Popup image',
+  'admin.offerPopup.sectionImageBody':
+    'Upload the artwork you want to show. A square image is cropped to 1:1; a wide image is cropped to 16:9. The shape is chosen from the file you upload.',
+  'admin.offerPopup.dropTitle': 'Drag the offer image here, or choose it from your computer',
+  'admin.offerPopup.dropHelp':
+    'JPG, PNG or WebP, up to 4 MB. A square or 16:9 image works best; anything else is cropped to the nearer frame.',
+  'admin.offerPopup.choose': 'Upload image',
+  'admin.offerPopup.noImage': 'No offer image yet',
+  'admin.offerPopup.frameSquare': 'This image will be shown as a square (1:1).',
+  'admin.offerPopup.frameWide': 'This image will be shown as a wide banner (16:9).',
+  'admin.offerPopup.altLabel': 'Description',
+  'admin.offerPopup.altHelp':
+    'Read aloud by screen readers and shown if the image cannot load. State what the offer shows; it is not a slogan.',
+  'admin.offerPopup.sectionDisplay': 'Display',
+  'admin.offerPopup.sectionDisplayBody': 'Whether the offer opens on the storefront.',
+  'admin.offerPopup.activeLabel': 'Show this offer when the storefront opens',
+  'admin.offerPopup.activeHelp':
+    'The popup appears once per browsing session. Turning it off keeps the saved image for later.',
+  'admin.offerPopup.outcomeOn': 'The popup is shown once when a visitor opens the storefront.',
+  'admin.offerPopup.outcomeOff': 'The popup is saved but not shown.',
+  'admin.offerPopup.statusOn': 'Shown once per browsing session.',
+  'admin.offerPopup.statusOff': 'Not shown on the storefront.',
+  'admin.offerPopup.behaviourTitle': 'How it behaves',
+  'admin.offerPopup.behaviourBody':
+    'The popup opens on the first storefront page of a session and closes for that session once dismissed. A new image or a new save makes the new offer appear again.',
+  'admin.offerPopup.styleNote':
+    'The image is the whole offer: there is no invented headline, button or discount claim. Its description is for screen readers and a failed load.',
+  'admin.offerPopup.save': 'Save offer popup',
+  'admin.offerPopup.notice.saved': 'The offer popup is saved.',
+  'admin.offerPopup.notice.imageInvalid':
+    'That file is not a supported image or is too large. Nothing was saved.',
+  'admin.offerPopup.notice.invalid':
+    'The popup needs a description and a saved image. Nothing was changed.',
+  'admin.offerPopup.notice.conflict': 'That change conflicts with the saved popup. Reload and try again.',
+  'admin.offerPopup.notice.denied': 'Your account does not have permission to change the store settings.',
+  'popup.close': 'Close offer',
 
   'admin.session.signedInAs': 'Signed in as',
   'admin.session.signOut': 'Sign out',

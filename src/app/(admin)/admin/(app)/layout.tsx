@@ -14,6 +14,7 @@ import {
   HERO_SETTINGS_PATH,
   INTEGRATIONS_PATH,
   LOGIN_PATH,
+  OFFER_POPUP_SETTINGS_PATH,
   OTHER_SETTINGS_PATH,
   ORDERS_PATH,
   OWNERS_PATH,
@@ -122,6 +123,13 @@ export default async function AdminShellLayout({ children }: { children: React.R
       labelKey: 'admin.nav.hero',
       group: 'settings',
       icon: 'image',
+    });
+    // The image a visitor meets when the storefront opens: one image and one switch.
+    items.push({
+      href: OFFER_POPUP_SETTINGS_PATH,
+      labelKey: 'admin.nav.offerPopup',
+      group: 'settings',
+      icon: 'bell',
     });
     // Integrations is a hub, so the sidebar gains one entry however many providers exist later.
     items.push({

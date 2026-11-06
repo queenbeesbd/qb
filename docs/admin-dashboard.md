@@ -200,6 +200,20 @@ stores the file, and the row and its image are written in one transaction.
 
 **No schema change.** Image metadata still comes from the decoded bytes, never from the request.
 
+### Offer popup (2026-11-06)
+
+Settings -> Offer popup is a singleton editor (`offer_popup`, id 1): one image, one description, one
+switch. The image is uploaded from the browser through the same `saveUpload` pipeline; the square/16:9
+frame is chosen from the uploaded file's own ratio by `saveOfferPopupUpload`, so there is no selector
+that can disagree with the bytes. The preview shows the frame that will be stored. Turning the switch
+off keeps the image and hides the popup.
+
+The storefront reads the **active** row in the storefront layout and renders a real modal: `role="dialog"
+aria-modal`, labelled close button, Escape, backdrop click, locked page, focus moved to Close and
+returned to the previous element. It opens **once per browsing session**, keyed by the image and update
+time; a new save makes the new offer appear again. There is no scheduling, exit-intent, countdown,
+discount claim or link - the image is the whole offer, and its description is the accessible name.
+
 ### The list surfaces (Phase 30)
 
 All six admin lists - orders, the COD queue, products, categories, customers and the audit trail - share

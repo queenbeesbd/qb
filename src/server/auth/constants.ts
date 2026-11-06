@@ -80,6 +80,7 @@ export const ANNOUNCEMENT_SETTINGS_PATH = '/admin/settings/announcement';
 export const SUPPORT_SETTINGS_PATH = '/admin/settings/support';
 /** The homepage hero carousel's images and their order (Phase 51). */
 export const HERO_SETTINGS_PATH = '/admin/settings/hero';
+export const OFFER_POPUP_SETTINGS_PATH = '/admin/settings/offer-popup';
 /**
  * Integrations (Phase 39): outbound notification destinations.
  *
