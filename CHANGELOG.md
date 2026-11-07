@@ -14,6 +14,43 @@ An entry may describe a deployment only once it has actually happened and been o
 
 ## [Unreleased]
 
+### Added - 2026-11-08: customer email account security through Resend (ADR 0030)
+Customers can now recover a forgotten password by email, change their password from the account page,
+and change their registered address - without any email-verification step.
+
+- **Recovery**: `/account/forgot-password` mails a single-use link through Resend (256-bit token, stored
+  only as a SHA-256 digest, one hour); `/account/reset` sets the new password and signs the customer out
+  everywhere. The request answers **identically** for a registered address, an unknown one, a suspended
+  account, a malformed one, a throttled caller and a provider failure, and is throttled by address and
+  source (five an hour). The owner-issued one-time code remains for a customer who cannot reach the inbox.
+- **Password change**: the account page asks for the current password, then the new one; the change
+  revokes every customer session and mints one replacement for the current browser, and a
+  password-changed notice is mailed.
+- **Email change**: a two-step flow. The account page asks for the new address **and the current
+  password**; a confirmation is mailed to the new address and nothing changes until that link is used
+  (a button on a page, so a link prefetch cannot consume it). On confirmation the address moves, every
+  session is revoked (`email_changed`), and the previous address receives a notice.
+- **No verification, ever**: registration and sign-in are unchanged and no verification screen, banner,
+  mail or gate exists. Administration is untouched: the owner still signs in with email and password.
+
+Migration `0018_customer_email_change` adds `customer_email_change` (one pending change per customer,
+partial unique) and one `customer_session.revoked_reason` value (`email_change`). Schema **52 tables**;
+purely additive. Four branded HTML templates (primary `#A680FF`, pink `#F6B3CC`, deep purple `#56358C`,
+600px, inline styles, plain-text alternative, every request value escaped) live in
+`src/server/integrations/email-templates.ts`; the client is `src/server/integrations/email.ts` and reads
+`RESEND_API_KEY`, `EMAIL_FROM` and `APP_BASE_URL` from the environment only.
+
+Verified locally: typecheck, lint (0 errors, 2 pre-existing warnings), `check:i18n` (1,759 keys),
+`build`, unit **264/264** (13 new email cases), `db:migrate`/`db:validate` (52 tables, 194 checks), a
+stub-Resend HTTP walk-through of 59 checks (registration with no mail and no verification, recovery
+delivery and token contents, reset plus reuse and expiry, unknown-address parity, password change with
+wrong/mismatched/weak refusals and CSRF refusal, session revocation and replacement, address change
+refused for a taken and for the same address, confirmation not applied on open, previous-address
+notice, used and expired links refused, rate limiting, owner sign-in unaffected, and a customer cookie
+refused by `/admin`), and Chromium at 390px checking the three new pages and the two account forms with
+no horizontal overflow. `verify:admin`, `verify:browser`, `verify:storefront`, the db suite, real
+inboxes, real devices and screen readers were not exercised. Nothing is deployed.
+
 ### Added - 2026-11-08: conditional delivery, repeat-customer pricing and checkout payment instructions (ADR 0029)
 Settings -> Delivery charges now owns three optional pricing rules beside the existing default and
 per-district charges, and checkout publishes the owner's advance-payment instructions.

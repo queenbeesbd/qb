@@ -78,6 +78,58 @@ export const CUSTOMER_RECOVERY_REDEEM_THROTTLE: ThrottlePolicy = {
 /** Where a customer enters a one-time credential, and where they land afterwards. */
 export const CUSTOMER_RECOVERY_PATH = '/account/recover';
 
+// ------------------------------------------------------------------
+// Emailed account security (ADR 0030)
+// ------------------------------------------------------------------
+
+/** Ask for a recovery link. */
+export const CUSTOMER_FORGOT_PATH = '/account/forgot-password';
+/** Choose a new password from a recovery link. */
+export const CUSTOMER_RESET_PATH = '/account/reset';
+/** Confirm a requested change of email address. */
+export const CUSTOMER_CONFIRM_EMAIL_PATH = '/account/confirm-email';
+
+/**
+ * Lifetime of a **mailed** recovery link.
+ *
+ * One hour: long enough that a customer can find the message after finishing what they were doing, short
+ * enough that a forwarded or archived message is not a standing key to the account. The owner-issued
+ * code keeps its 30-minute lifetime (`RECOVERY_TOKEN_MS`), because it is read out during a phone call.
+ */
+export const CUSTOMER_RESET_TOKEN_MS = 60 * 60 * 1000;
+
+/** Lifetime of a mailed change-of-address confirmation. A day: the address may be checked later. */
+export const CUSTOMER_EMAIL_CHANGE_TOKEN_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Recovery **requests**: by account and by source, five an hour.
+ *
+ * Every request counts, whether or not the address has an account, so the endpoint cannot be used to
+ * probe addresses quickly and a person cannot flood one inbox. The response is identical in every case.
+ */
+export const CUSTOMER_RESET_REQUEST_THROTTLE: ThrottlePolicy = {
+  scope: 'recovery',
+  windowMs: 60 * 60 * 1000,
+  maxAttempts: 5,
+  blockMs: 60 * 60 * 1000,
+};
+
+/** Password changes from the account page: the current password is required, so ten an hour is ample. */
+export const CUSTOMER_PASSWORD_CHANGE_THROTTLE: ThrottlePolicy = {
+  scope: 'recovery',
+  windowMs: 60 * 60 * 1000,
+  maxAttempts: 10,
+  blockMs: 60 * 60 * 1000,
+};
+
+/** Change-of-address requests: five an hour, keyed on the account. */
+export const CUSTOMER_EMAIL_CHANGE_THROTTLE: ThrottlePolicy = {
+  scope: 'recovery',
+  windowMs: 60 * 60 * 1000,
+  maxAttempts: 5,
+  blockMs: 60 * 60 * 1000,
+};
+
 /**
  * Paths a post-authentication redirect may resolve to.
  *

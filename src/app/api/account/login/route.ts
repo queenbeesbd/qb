@@ -5,8 +5,8 @@
  * and by source, and a generic failure that never reveals whether an address has an account. A session
  * is minted only on success, so an existing anonymous cookie is never promoted.
  *
- * There is **no self-service password recovery** (ADR 0012): this route is the only customer credential
- * entry point, and no reset link, token or mail flow exists anywhere.
+ * Recovery is a separate, self-service flow (ADR 0030) that only ends by sending the customer back here
+ * with a new password: this route remains the only place a customer session is minted from a password.
  */
 
 import { withTransaction } from '@/db/client';

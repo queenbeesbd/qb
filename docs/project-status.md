@@ -515,3 +515,33 @@ the brief, and Chromium at 1440px and 390px (owner copy and copy control, defaul
 repeat rates, the 5% row, the advance line below 500 BDT, the rules-off fallback in checkout and cart,
 no horizontal overflow). `verify:admin`, `verify:browser`, `verify:storefront`, the db suite, the
 clipboard write, real devices and screen readers were not exercised. Nothing is deployed.
+
+## Customer email account security (2026-11-08)
+
+Implemented locally, not deployed. Customers can recover a password by email, change their password
+and change their registered address; **registration and sign-in are unchanged and never require email
+verification**, and no verification mail exists.
+
+Recovery: `/account/forgot-password` mails a single-use link through **Resend** (256-bit token, stored
+only as a SHA-256 digest, one hour, throttled by address and source), `/account/reset` sets the new
+password and revokes every session. The request answers **identically** for a registered address, an
+unknown one, a suspended account, a malformed one, a throttled caller and a provider failure. The
+owner-issued one-time code (ADR 0019) remains for a customer who cannot reach the inbox. The account
+page adds a password change (current password required, all sessions revoked, one replacement minted
+for the current browser) and a two-step address change (current password required, confirmation mailed
+to the **new** address, nothing changes until that button is pressed, every session revoked and the
+previous address notified). Migration `0018_customer_email_change` adds `customer_email_change` and one
+session-revocation reason; schema **52 tables**, additive.
+
+Email is server-only: `RESEND_API_KEY`, `EMAIL_FROM` and `APP_BASE_URL` come from the environment,
+`APP_BASE_URL` is required in production or no link is sent, and `RESEND_API_BASE_URL` is a
+development-only seam. Four branded templates use `#A680FF`, `#F6B3CC` and `#56358C` with escaped
+values and plain-text alternatives. **Administration was not modified**: the owner signs in exactly as
+before, and a customer cookie still cannot reach `/admin`.
+
+Verified with typecheck, lint (0 errors, 2 pre-existing warnings), `check:i18n` (1,759 keys), `build`,
+unit **264/264**, `db:migrate`/`db:validate` (52 tables, 194 checks), a 59-check stub-Resend HTTP flow
+covering every flow plus reuse, expiry, enumeration parity, throttling, CSRF refusal, session
+revocation and admin isolation, and Chromium at 390px for the three new pages and the two account
+forms. `verify:admin`, `verify:browser`, `verify:storefront`, the db suite, real inboxes, real devices
+and screen readers were not exercised. Nothing is deployed.

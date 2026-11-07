@@ -1783,3 +1783,51 @@ no scheduled campaign, per-product rule, coupon stacking engine, gateway or cour
 **Limits.** `verify:admin`, `verify:browser`, `verify:storefront` and the db suite were not re-run for
 this change; the copy button was verified as a rendered control but its clipboard write was not driven;
 real devices and screen readers were not used.
+
+## Phase 55 - customer email account security through Resend (2026-11-08)
+
+**Owner direction.** Send customer account email through Resend, make password recovery self-service,
+and add password and email management to the account page - with no email verification anywhere.
+
+**Implemented (ADR 0030).**
+
+- **No verification, unchanged registration.** An account works at creation, registration still signs
+  in, and no verification screen, banner, mail or gate exists. Nothing was removed because nothing was
+  present; the requirement was already true.
+- **Recovery**: `/account/forgot-password` -> `POST /api/account/recovery` (throttled by address and
+  source, identical answer in every case) -> mailed link -> `/account/reset` ->
+  `POST /api/account/reset`. Token: 256 bits, SHA-256 at rest, single-use, one hour. All sessions are
+  revoked; the customer signs in with the new password. The owner-issued code remains.
+- **Password change**: account-page form -> `POST /api/account/password` with the current password and
+  session CSRF; all sessions revoked and one replacement minted for the current browser; a
+  password-changed notice is mailed.
+- **Email change**: account-page form (new address + current password) -> `POST /api/account/email`
+  stores a pending `customer_email_change` row and mails the confirmation to the **new** address ->
+  `/account/confirm-email` button -> `POST /api/account/confirm-email` moves the address, marks it
+  confirmed, revokes every session (`email_change`) and mails the previous address.
+- **Email client and templates**: `src/server/integrations/email.ts` (Resend HTTP API, 8 s bound, no
+  throw, never logs an address) and four table-HTML templates in the owner's palette with escaped
+  request values and plain-text alternatives. `src/server/customer-auth/email-delivery.ts` builds the
+  links and schedules delivery with `after()`.
+- **Schema**: migration `0018_customer_email_change` adds `customer_email_change` (partial unique for
+  one live change) and one `customer_session.revoked_reason` value. Schema **52 tables**, additive.
+
+**Deliberately not built.** No verification flow, no registration mail, no SMS, no OAuth, no customer
+name-change form, no admin mail surface, no owner notification for these actions.
+
+**Verification (2026-11-08, local only; nothing deployed).**
+
+| Check | Result |
+| --- | --- |
+| `npm run typecheck` | clean |
+| `npm run lint` | 0 errors, 2 pre-existing warnings |
+| `npm run check:i18n` | 1,759 keys, every referenced key present |
+| `npm test` | 264/264, including 13 email client/template cases |
+| `npm run build` | success |
+| `db:migrate` / `db:validate` | `0018_customer_email_change` applied; 52 tables, 194 checks |
+| Stub-Resend HTTP flow | 59 checks: no mail on registration, recovery delivery and token contents, reset + reuse + expiry, unknown-address parity, password change refusals (wrong, mismatch, weak, no CSRF) and session replacement, address change refused for taken/same, confirmation not applied on open, previous-address notice, used and expired links refused, five-per-hour recovery cap, owner sign-in and admin access unaffected, customer cookie refused by `/admin` |
+| Chromium, 390px | forgot-password, reset and confirm pages render; sign-in links the new flow; account page shows both forms with CSRF; no horizontal overflow |
+
+**Limits.** `verify:admin`, `verify:browser`, `verify:storefront` and the db suite were not re-run; no
+real address received a message (the client was pointed at a local stub through the development-only
+override); the mail client's rendering in real inboxes and real devices was not exercised.

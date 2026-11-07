@@ -1715,6 +1715,64 @@ export const dictionary = {
   'account.errors.passwordMismatch': 'The two passwords did not match.',
   'account.errors.emailTaken': 'An account with that email already exists.',
   'account.errors.invalidName': 'The name must be 80 characters or fewer.',
+
+  /* ---- Password recovery and account security by email (ADR 0030) ---- */
+  'account.forgotTitle': 'Forgot your password?',
+  'account.forgotBody':
+    'Enter the email address on your account. If it is registered, a link to choose a new password is sent to it.',
+  'account.authForgotAside': 'A link by email, and you choose a new password.',
+  'account.forgotSent':
+    'If that address belongs to an account, a recovery link is on its way. Check the inbox and the spam folder.',
+  'account.forgotHint': 'The link works once and expires in one hour.',
+  'account.forgotSubmit': 'Send the recovery link',
+  'account.haveCode': 'Have a one-time code from the shop?',
+  'account.resetTitle': 'Choose a new password',
+  'account.resetBody':
+    'Set a new password for your account. Every other device is signed out at the same time.',
+  'account.resetInvalid': 'That link is no longer valid. Ask for a new one.',
+  'account.resetMismatch': 'The two passwords did not match.',
+  'account.resetMissing': 'Open the link from the email to choose a new password.',
+  'account.resetNoToken': 'This page needs the link from the recovery email.',
+  'account.resetSubmit': 'Save the new password',
+  'account.confirmEmailTitle': 'Confirm your new email address',
+  'account.confirmEmailBody':
+    'Confirm the address below. Your account keeps its current address until you do.',
+  'account.confirmEmailHint':
+    'Confirming signs you out everywhere; sign in again with the new address.',
+  'account.confirmEmailSubmit': 'Confirm this address',
+  'account.confirmEmailInvalid':
+    'That link is no longer valid. Request the change again from your account.',
+  'account.confirmEmailTaken':
+    'That address is already used by another account. Request a different one.',
+  'account.changePasswordTitle': 'Change your password',
+  'account.changePasswordBody': 'Enter your current password, then the new one.',
+  'account.currentPassword': 'Current password',
+  'account.changePasswordSubmit': 'Change password',
+  'account.changeEmailTitle': 'Change your email address',
+  'account.changeEmailBody':
+    'A confirmation link is sent to the new address. The address changes only when that link is used, and the current address is told afterwards.',
+  'account.changeEmailSubmit': 'Send the confirmation link',
+  'account.newEmail': 'New email address',
+  'account.emailHelp': 'Nothing changes before you confirm the link.',
+  'account.securityNote':
+    'Changing the password or the address signs you out on every other device.',
+  'account.haveCodeAccount': 'Have a one-time code from the shop?',
+  'account.login.resetDone': 'Password changed. Sign in with the new password.',
+  'account.login.emailChanged': 'Email address changed. Sign in with the new address.',
+  'account.notice.passwordChanged': 'Password changed. Other devices are signed out.',
+  'account.notice.wrongPassword': 'The current password did not match.',
+  'account.notice.weakPassword': 'The new password must be at least {min} characters.',
+  'account.notice.passwordMismatch': 'The two passwords did not match.',
+  'account.notice.passwordUnavailable':
+    'The password could not be changed. Sign in again and try once more.',
+  'account.notice.throttled': 'Too many attempts. Try again later.',
+  'account.notice.emailConfirmSent':
+    'Confirmation sent to the new address. Open the link in that message.',
+  'account.notice.emailWrongPassword': 'The current password did not match.',
+  'account.notice.emailInvalid': 'Enter a valid email address.',
+  'account.notice.emailSame': 'That is already the address on this account.',
+  'account.notice.emailTaken': 'That address is already used by another account.',
+  'account.notice.emailThrottled': 'Too many requests. Try again later.',
   'orders.title': 'My orders',
   'orders.empty': 'There are no orders yet.',
   'orders.orderNumber': 'Order number',

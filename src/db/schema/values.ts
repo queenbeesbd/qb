@@ -95,7 +95,14 @@ export const RECOVERY_PURPOSE = ['password_reset', 'email_verify'] as const;
  * first credential; `password_reset` is a replacement.
  */
 export const STAFF_RECOVERY_PURPOSE = ['initial_credential', 'password_reset'] as const;
-export const SESSION_REVOKED_REASON = ['logout', 'password_change', 'admin_revoke', 'reuse_detected'] as const;
+export const SESSION_REVOKED_REASON = [
+  'logout',
+  'password_change',
+  'admin_revoke',
+  'reuse_detected',
+  /** The account's email address changed, so sessions established against the old address end. */
+  'email_change',
+] as const;
 export const THROTTLE_SCOPE = ['login', 'register', 'recovery', 'claim_submit'] as const;
 
 export const CANCELLATION_STATE = ['open', 'approved', 'rejected', 'withdrawn', 'converted_to_return'] as const;

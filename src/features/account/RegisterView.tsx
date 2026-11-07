@@ -10,9 +10,9 @@ import { AuthShell } from './AuthShell';
  * Customer registration form.
  *
  * Email and password only. A phone number is not collected here: it is optional contact information and
- * capturing it at sign-up would collect personal data the account does not need yet. Email verification
- * is deferred and **no verification mail is sent** (ADR 0012), which the form states rather than implies
- * otherwise.
+ * capturing it at sign-up would collect personal data the account does not need yet. There is **no email
+ * verification step and no verification mail** (ADR 0012, unchanged by ADR 0030): the account works the
+ * moment it is created, and mail is sent only for a deliberate account-security action.
  */
 export function RegisterView({
   next,

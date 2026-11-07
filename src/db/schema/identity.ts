@@ -298,3 +298,43 @@ export const staffRole = pgTable(
   },
   (t) => [primaryKey({ columns: [t.staffUserId, t.roleId] })],
 );
+
+/**
+ * A pending change of a customer's registered email address (ADR 0030).
+ *
+ * **The address on `customer.email` does not move when the customer types a new one.** This row holds
+ * the address *requested*, the digest of the confirmation token mailed to it, and the instant it stops
+ * being accepted; the update happens only when that link is used. So a typo cannot lock somebody out of
+ * their own account, and a stolen session alone cannot move the login identifier to an address the
+ * attacker controls - the confirmation is delivered to the new address, which the requester must own.
+ *
+ * One live row per customer (partial unique on `customer_id` where `used_at is null`), so requesting a
+ * second change supersedes the first rather than leaving two links that both work.
+ */
+export const customerEmailChange = pgTable(
+  'customer_email_change',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    customerId: bigint('customer_id', { mode: 'number' })
+      .notNull()
+      .references(() => customer.id, { onDelete: 'cascade' }),
+    /** The requested address, normalised. It is not the account's address until the link is used. */
+    newEmail: text('new_email').notNull(),
+    /** SHA-256 of the token mailed to `new_email`. The raw token exists only in that message. */
+    tokenHash: text('token_hash').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+    expiresAt: timestamp('expires_at', { withTimezone: true, mode: 'date' }).notNull(),
+    usedAt: timestamp('used_at', { withTimezone: true, mode: 'date' }),
+    /** Digest of the requesting address, for correlation only. The address itself is never stored. */
+    requestedIpHash: text('requested_ip_hash'),
+  },
+  (t) => [
+    uniqueIndex('customer_email_change_token_unique').on(t.tokenHash),
+    uniqueIndex('customer_email_change_live_unique')
+      .on(t.customerId)
+      .where(sql`${t.usedAt} is null`),
+    index('customer_email_change_customer_idx').on(t.customerId, t.createdAt.desc()),
+    check('customer_email_change_email_len', sql`char_length(${t.newEmail}) between 3 and 254`),
+    check('customer_email_change_expiry_after_created', sql`${t.expiresAt} > ${t.createdAt}`),
+  ],
+);

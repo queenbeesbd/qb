@@ -13,9 +13,9 @@
  *
  * Three deliberate boundaries:
  *
- * 1. **No self-service recovery exists.** There is no reset endpoint, no recovery token issued for a
- *    customer, and no mail provider to deliver one. ADR 0012 records the limitation and the
- *    owner-operated process that replaces it, which belongs to a later phase.
+ * 1. **Self-service recovery now exists** (ADR 0030): a mailed single-use link through Resend, plus the
+ *    owner-issued one-time code that remains for a customer who cannot reach the inbox. Neither touches
+ *    registration or sign-in - an account is usable the moment it is created, with no verification step.
  * 2. **A customer action is never written to `audit_event`.** D23 makes a customer a non-actor type in
  *    the audit trail; customer business activity is recorded as `order_event`, and authentication abuse
  *    control is `auth_throttle`. A ban is different: it is an administrative, staff-actor record.

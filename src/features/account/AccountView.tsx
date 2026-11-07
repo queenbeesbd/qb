@@ -1,10 +1,34 @@
 'use client';
 
 import Link from 'next/link';
+
+import { PASSWORD_MIN_LENGTH } from '@/lib/password-policy';
+import type { TranslationKey } from '@/i18n/dictionaries';
 import { useTranslation } from '@/i18n/useTranslation';
 import { CheckIcon } from '@/components/icons';
 import { ContactLink } from '@/components/ContactLink';
 import styles from '@/app/account.module.css';
+
+/**
+ * The result of an account-security action, as the server reports it on the redirect.
+ *
+ * One map, so a code the route can produce is either rendered with the right tone or is not produced at
+ * all: `passwordChanged` and `emailConfirmSent` are confirmations, every other entry is a refusal.
+ */
+const NOTICES: Record<string, { key: TranslationKey; error: boolean }> = {
+  passwordChanged: { key: 'account.notice.passwordChanged', error: false },
+  wrongPassword: { key: 'account.notice.wrongPassword', error: true },
+  weakPassword: { key: 'account.notice.weakPassword', error: true },
+  passwordMismatch: { key: 'account.notice.passwordMismatch', error: true },
+  passwordUnavailable: { key: 'account.notice.passwordUnavailable', error: true },
+  throttled: { key: 'account.notice.throttled', error: true },
+  emailConfirmSent: { key: 'account.notice.emailConfirmSent', error: false },
+  emailWrongPassword: { key: 'account.notice.emailWrongPassword', error: true },
+  emailInvalid: { key: 'account.notice.emailInvalid', error: true },
+  emailSame: { key: 'account.notice.emailSame', error: true },
+  emailTaken: { key: 'account.notice.emailTaken', error: true },
+  emailThrottled: { key: 'account.notice.emailThrottled', error: true },
+};
 
 /**
  * The account landing surface.
@@ -20,12 +44,16 @@ import styles from '@/app/account.module.css';
 export function AccountView({
   customer,
   csrfToken,
+  notice,
 }: {
   customer: { email: string; displayName: string | null } | null;
-  /** Present only when signed in; the sign-out form is the only mutation on this page. */
+  /** Present only when signed in; every mutation on this page carries it. */
   csrfToken: string | null;
+  /** A result code from a redirect, mapped by `NOTICES`; unknown codes are ignored. */
+  notice: string | null;
 }) {
   const { t } = useTranslation();
+  const noticeEntry = notice === null ? undefined : NOTICES[notice];
 
   /*
    * Signed out, the page uses the same two-panel frame as the sign-in form rather than a lone card on an
@@ -78,6 +106,16 @@ export function AccountView({
         {customer.displayName !== null && <p className={styles.muted}>{customer.email}</p>}
       </header>
 
+      {noticeEntry !== undefined && (
+        <p
+          className={styles.notice}
+          role={noticeEntry.error ? 'alert' : 'status'}
+          style={{ marginBottom: '1rem' }}
+        >
+          {t(noticeEntry.key, { min: PASSWORD_MIN_LENGTH })}
+        </p>
+      )}
+
       <div className={styles.accountGrid}>
         {/*
           Orders lead because it is the only thing a returning customer comes here for. The card states
@@ -112,26 +150,114 @@ export function AccountView({
         </section>
 
         {/*
-          The recovery limitation (ADR 0012 / ADR 0019) is stated where a customer would look for a
-          password control, and it names the one route that exists: a one-time code the shop reads out
-          after verifying them by phone. The contact channel itself is still absent by design, because
-          the shop publishes no phone number or address yet - an owner-data gap, not a code gap.
+          Security lives on the account page (ADR 0030). Both forms post natively with the session-bound
+          CSRF token; the password is never held in React state and never sent anywhere but this origin.
+          The one-time code the shop reads out is still offered below, for a customer who cannot reach
+          the inbox the recovery link went to.
         */}
-        <section className={styles.accountCard}>
-          <div className={styles.accountCardHead}>
-            <h2>{t('account.passwordTitle')}</h2>
-          </div>
-          <p className={styles.muted}>{t('account.noRecoveryBody')}</p>
-          <p className={styles.cardNote}>
-            <span className={styles.cardNoteIcon} aria-hidden="true">
-              <CheckIcon width={14} height={14} />
-            </span>
-            {t('account.recoveryContactNote')} <ContactLink />
-          </p>
-          <Link className={styles.cardAction} href="/account/recover">
-            {t('account.recoverTitle')}
-          </Link>
-        </section>
+        {csrfToken !== null && (
+          <>
+            <section className={styles.accountCard}>
+              <div className={styles.accountCardHead}>
+                <h2>{t('account.changePasswordTitle')}</h2>
+              </div>
+              <p className={styles.muted}>{t('account.changePasswordBody')}</p>
+              <form className={styles.form} action="/api/account/password" method="post">
+                <input type="hidden" name="csrf" value={csrfToken} />
+                <label className={styles.field}>
+                  <span>{t('account.currentPassword')}</span>
+                  <input
+                    type="password"
+                    name="currentPassword"
+                    autoComplete="current-password"
+                    required
+                    placeholder="••••••••"
+                  />
+                </label>
+                <div className={styles.fieldPair}>
+                  <label className={styles.field}>
+                    <span>{t('account.newPassword')}</span>
+                    <input
+                      type="password"
+                      name="newPassword"
+                      autoComplete="new-password"
+                      required
+                      minLength={PASSWORD_MIN_LENGTH}
+                      placeholder="••••••••"
+                    />
+                  </label>
+                  <label className={styles.field}>
+                    <span>{t('account.confirmPassword')}</span>
+                    <input
+                      type="password"
+                      name="confirmPassword"
+                      autoComplete="new-password"
+                      required
+                      placeholder="••••••••"
+                    />
+                  </label>
+                </div>
+                <p className={styles.fieldHint}>
+                  {t('account.passwordHelp', { min: PASSWORD_MIN_LENGTH })}
+                </p>
+                <button type="submit" className={styles.secondaryButton}>
+                  {t('account.changePasswordSubmit')}
+                </button>
+              </form>
+            </section>
+
+            <section className={styles.accountCard}>
+              <div className={styles.accountCardHead}>
+                <h2>{t('account.changeEmailTitle')}</h2>
+              </div>
+              <p className={styles.muted}>{t('account.changeEmailBody')}</p>
+              <form className={styles.form} action="/api/account/email" method="post">
+                <input type="hidden" name="csrf" value={csrfToken} />
+                <label className={styles.field}>
+                  <span>{t('account.newEmail')}</span>
+                  <input
+                    type="email"
+                    name="newEmail"
+                    autoComplete="email"
+                    required
+                    maxLength={254}
+                    placeholder={t('account.emailPlaceholder')}
+                  />
+                </label>
+                <label className={styles.field}>
+                  <span>{t('account.currentPassword')}</span>
+                  <input
+                    type="password"
+                    name="currentPassword"
+                    autoComplete="current-password"
+                    required
+                    placeholder="••••••••"
+                  />
+                </label>
+                <p className={styles.fieldHint}>{t('account.emailHelp')}</p>
+                <button type="submit" className={styles.secondaryButton}>
+                  {t('account.changeEmailSubmit')}
+                </button>
+              </form>
+            </section>
+
+            <section className={styles.accountCardQuiet}>
+              <div className={styles.accountCardHead}>
+                <h2>{t('account.passwordTitle')}</h2>
+              </div>
+              <p className={styles.muted}>{t('account.securityNote')}</p>
+              <p className={styles.cardNote}>
+                <span className={styles.cardNoteIcon} aria-hidden="true">
+                  <CheckIcon width={14} height={14} />
+                </span>
+                {t('account.haveCodeAccount')} <ContactLink />
+              </p>
+              <Link className={styles.cardAction} href="/account/recover">
+                {t('account.recoverTitle')}
+              </Link>
+            </section>
+          </>
+        )}
 
         <section className={styles.accountCardQuiet}>
           <div className={styles.accountCardHead}>

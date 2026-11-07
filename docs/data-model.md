@@ -323,6 +323,23 @@ revoke their own sessions; staff with `customer.revoke_session` may revoke any.
 **Retention.** Rows are deleted after expiry plus a short grace window; the deletion is a maintenance
 job, not a state change.
 
+### 4.3a `customer_email_change` (implemented 2026-11-08, ADR 0030)
+
+| Column | Type | Null | Notes |
+| --- | --- | --- | --- |
+| `id` | uuid | PK | `gen_random_uuid()` |
+| `customer_id` | bigint | NOT NULL | FK `customer(id)` `ON DELETE CASCADE` |
+| `new_email` | text | NOT NULL | The **requested** address. The account keeps `customer.email` until the link is used. `CHECK (3 .. 254)` |
+| `token_hash` | text | NOT NULL | `UNIQUE`. SHA-256 of the token mailed to `new_email`; the raw token exists only in that message |
+| `created_at` / `expires_at` | timestamptz | NOT NULL | `CHECK (expires_at > created_at)`; one day by policy |
+| `used_at` | timestamptz | NULL | Consumption is a guarded `UPDATE ... WHERE used_at IS NULL` |
+| `requested_ip_hash` | text | NULL | Digest only, for correlation |
+
+**Partial unique `customer_email_change_live_unique` on `customer_id` where `used_at is null`:** one
+live change per account, so a second request supersedes the first rather than leaving two working
+links. No address, token or digest is written to an audit row; `customer.email` moves only when the
+mailed link is confirmed, and every session is revoked at that moment (`revoked_reason = 'email_change'`).
+
 ### 4.4 `account_recovery_token`
 
 **Why it exists.** Recovery must be single-use, expiring and revocable, and it must not be a
@@ -2676,7 +2693,7 @@ forbid.
 
 | Group | Tables |
 | --- | --- |
-| Identity and access | `customer`, `customer_credential`, `customer_session`, `account_recovery_token`, `auth_throttle`, `staff_user`, `staff_credential`, `staff_session`, `staff_recovery_token`, `role`, `permission`, `role_permission`, `staff_role` |
+| Identity and access | `customer`, `customer_credential`, `customer_session`, `account_recovery_token`, `customer_email_change`, `auth_throttle`, `staff_user`, `staff_credential`, `staff_session`, `staff_recovery_token`, `role`, `permission`, `role_permission`, `staff_role` |
 | Catalog | `brand`, `category`, `product`, `product_variant`, `product_image`, `product_image_derivative`, `hero_image`, `offer_popup`, `collection`, `collection_item`, `import_record` |
 | Inventory | `inventory_balance`, `inventory_movement`, `stock_reservation` |
 | Orders | `order`, `order_contact`, `order_item`, `order_event`, `cancellation_request`, `customer_return` |

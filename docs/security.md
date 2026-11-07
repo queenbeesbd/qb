@@ -160,7 +160,7 @@ Direction approved in `docs/decisions/0004-independent-platform-direction.md`; a
 ### Sessions and credentials
 
 - Staff sessions use httpOnly, `Secure`, `SameSite` cookies with server-side session records and a bounded lifetime.
-- Passwords are hashed with a current adaptive algorithm. **Owner** account recovery uses single-use, expiring tokens; **customer self-service recovery does not exist at launch** (ADR 0012) and is replaced by an owner-operated reset.
+- Passwords are hashed with a current adaptive algorithm. **Owner** account recovery uses single-use, expiring tokens. **Customer recovery has two routes since ADR 0030:** a self-service link mailed through Resend (256-bit token, stored as a SHA-256 digest, single-use, one hour) and the owner-operated one-time code (ADR 0019) for a customer who cannot reach the inbox.
 - Secrets live in server-side environment variables only. They never appear in `NEXT_PUBLIC_*`, the client bundle, logs, documentation or committed files.
 - A documented rotation procedure exists for every provider secret.
 
@@ -172,7 +172,7 @@ Direction approved in `docs/decisions/0004-independent-platform-direction.md`; a
 - **Throttling.** Login and registration are limited **by account and by source**, using a shared datastore counter, because serverless functions have no shared memory.
 - **CSRF.** A per-session token verified server-side plus a same-origin check on every state-changing route; `SameSite=Lax` is a mitigation, not the whole control.
 - **Authorization.** A customer's orders and profile are reached only through the customer's own session; another customer's resource returns **404, not 403**. Customer permissions are **strictly separate** from owner/admin permissions, and the two session stores are separate so no customer-scoped query can reach an owner row.
-- **No self-service recovery, but an owner-operated reset exists (Phase 23).** There is **no password-reset endpoint or email workflow that a customer can trigger**, and no mail/SMS provider is authorized. A customer interface must **state the gap rather than offer a reset that does not exist**. The only recovery path is the **owner-operated reset**, implemented as specified below; administrative reset functionality is never exposed to customers and no insecure shortcut is created.
+- **Self-service recovery exists, and so does the owner-operated reset (ADR 0030).** A customer may request a recovery link at `/account/forgot-password`; the answer is **identical** whether the address is registered, suspended, unknown, malformed, throttled or unmaillable, and requests are throttled by address and by source. The link carries a 256-bit token stored only as a SHA-256 digest, works once and expires in an hour; a dead token answers like any other. The owner-operated one-time code (ADR 0019) remains for a customer who cannot reach the inbox. Both revoke every live session when the password changes. **Email verification is still not part of registration**, and no verification mail exists.
 - **The owner-operated customer reset (Phase 23).** `issueCustomerRecovery` in `src/server/customer-auth/recovery.ts`, reachable only from `POST /api/admin/customers/recovery` on the customer detail screen:
   - **Authorized twice.** The route requires `customer.credential_reset` and the service re-checks it, so a caller that skips the route fails closed. The permission is **privileged**, so the database's own `role_permission_privileged_guard` refuses it on a non-owner-level role.
   - **The credential is 256 bits** from `crypto.randomBytes` (43 base64url characters) and is **stored only as a SHA-256 digest** in `account_recovery_token`. The plaintext exists in exactly one response and is never recoverable afterwards.
@@ -470,6 +470,26 @@ collection, completion, pre-dispatch cancellation) through one endpoint.
   with no evidence behind it. The list bounds above are what stop a page from being a load amplifier.
 
 ---
+
+## Emailed account security (ADR 0030)
+
+- **What leaves the server:** one of four messages to a customer address, through Resend, with the API
+  key read from the environment only. The key is never written to a row, a log, a redirect or a bundle;
+  a missing key means nothing is sent and the account flow still answers exactly as it otherwise would.
+- **What is stored:** SHA-256 digests of 256-bit tokens, in `account_recovery_token` and
+  `customer_email_change`. No raw token, address or password is written to an audit row: the four
+  `system` records carry the customer id and a boolean.
+- **Enumeration:** the recovery request endpoint answers identically in every case and counts every
+  attempt against an address-keyed and a source-keyed throttle (five an hour), so address probing is as
+  bounded as password guessing.
+- **Replay and expiry:** consuming a token is a guarded `UPDATE ... WHERE used_at IS NULL`; recovery
+  links expire in an hour and confirmations in a day, and an expired or used token answers like an
+  unknown one.
+- **Session consequences:** a password change revokes every customer session and the account-page route
+  mints one replacement for the current browser; a confirmed address change revokes every session
+  (`revoked_reason = 'email_change'`) because the login identifier moved.
+- **Administration untouched:** no admin session, credential, permission or route was modified, and a
+  customer cookie still cannot reach `/admin`.
 
 ## Authorization matrix (Phase 10 design)
 
@@ -886,9 +906,9 @@ below is implemented**, and none has been tested. Residual risks are stated rath
 - [ ] **D9 rules implemented:** cancellation after the window as a pre-dispatch support decision or a post-dispatch return; and the COD lifecycle with return-to-store and separate delivery, cash-collection and reconciliation states. **The 24-hour unpaid-order expiry is deferred (ADR 0014) and is not a launch priority**; the binding part is that **a submitted claim never expires and is never released by a timer**.
 - [ ] **D11 approved; superseded in effect for launch by ADR 0013.** The **first submitted payment claim** orders the verification queue, and **at most one active submitted claim exists per order** (the implemented `payment_claim_active_unique`). The per-unit preemption and reservation-expiry clauses have **no launch implementation** because no unit is reserved and overselling is accepted.
 - [ ] **Approved D9 rules implemented:** exceptions queue, `falsely_claimed` with an audited reason and a separate customer flag, separate `refund.state`, the COD approval queue, and no automatic release of anything for an order whose customer submitted a payment claim.
-- [x] Customer authentication implemented and verified against **ADR 0012** (Phase 15): **scrypt** hashing at rest, opaque session tokens stored only as a SHA-256 digest, httpOnly/`SameSite=Lax`/site-scoped cookie flags, a fresh session minted at sign-in, account- and source-keyed throttling, customer-scoped CSRF (no-CSRF order submission refused), object-level authorization (another customer's order returns **404**), and cart preservation across the sign-in step (D12). **No self-service recovery endpoint exists** - asserted by the absence of any route, not by a policy statement.
+- [x] Customer authentication implemented and verified against **ADR 0012** (Phase 15): **scrypt** hashing at rest, opaque session tokens stored only as a SHA-256 digest, httpOnly/`SameSite=Lax`/site-scoped cookie flags, a fresh session minted at sign-in, account- and source-keyed throttling, customer-scoped CSRF (no-CSRF order submission refused), object-level authorization (another customer's order returns **404**), and cart preservation across the sign-in step (D12). **Self-service recovery, account password change and email change were added in ADR 0030**: hashed single-use expiring tokens, identical answers for every recovery outcome, session revocation on both credential changes, and a two-step address change confirmed at the new address.
 - [ ] **Gap, recorded:** there is no owner-facing control that bans a customer. `suspendCustomer` (status `suspended`, every live session revoked, audited staff record) and its enforcement in `createOrder` and `resolveCustomerSession` are implemented and tested, but the administrative screen that would call it is not built.
-- [ ] Customer authentication **decision** settled (2026-10-15): **D17 first-party customer sessions**, recorded in **ADR 0012**, with **no external provider and no self-service recovery**.
+- [ ] Customer authentication **decision** settled (2026-10-15): **D17 first-party customer sessions**, recorded in **ADR 0012**, with no external identity provider. **Updated 2026-11-08 (ADR 0030):** account email now goes through Resend, so **self-service recovery, password change and email change exist**; there is still **no external identity provider and no email verification**.
 - [ ] Manual payment verification controls P1-P18 implemented and verified, including duplicate-reference detection, reconciliation and COD cash reconciliation. **Decision record: ADR 0014.**
 - [ ] Owner-confirmed courier arrangement and delivery charges, including COD cash settlement. **Delivery charges are a confirmed requirement with no area representation yet (ADR 0014 decision 10):** the amounts, areas and matching policy are outstanding owner inputs, and per-area charges need a migration. **SteadFast booking is implemented (ADR 0028)** - a confirmed COD order is sent on approval and its delivery status is read back; there is **no courier statement import, no cash reconciliation and no automatic order transition from a courier event**.
 - [ ] API route inventory and explicit authentication/authorization decisions.

@@ -40,11 +40,18 @@ export function LoginView({
             </Link>
           </p>
           {/*
-            Not a "forgot password" link: nothing is sent automatically, and there is no self-service
-            reset. The route is where a customer enters the one-time code the owner read to them.
+            Self-service recovery (ADR 0030) is the ordinary route: a link is mailed to the address on
+            the account. The one-time code the shop reads out still exists, and is offered beside it for
+            a customer who cannot reach the inbox.
           */}
           <p className={styles.muted}>
             {t('account.forgotPassword')}{' '}
+            <Link href={`/account/forgot-password?next=${encodeURIComponent(next)}`}>
+              {t('account.forgotTitle')}
+            </Link>
+          </p>
+          <p className={styles.muted}>
+            {t('account.haveCode')}{' '}
             <Link href={`/account/recover?next=${encodeURIComponent(next)}`}>
               {t('account.recoverTitle')}
             </Link>
@@ -53,8 +60,17 @@ export function LoginView({
       }
     >
       {notice !== null && (
-        <p className={styles.notice} role="alert">
-          {notice === 'throttled' ? t('account.errors.throttled') : t('account.errors.invalid')}
+        <p
+          className={styles.notice}
+          role={notice === 'resetDone' || notice === 'emailChanged' ? 'status' : 'alert'}
+        >
+          {notice === 'resetDone'
+            ? t('account.login.resetDone')
+            : notice === 'emailChanged'
+              ? t('account.login.emailChanged')
+              : notice === 'throttled'
+                ? t('account.errors.throttled')
+                : t('account.errors.invalid')}
         </p>
       )}
 

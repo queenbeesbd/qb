@@ -160,7 +160,7 @@ export async function resolveCustomerSession(
 export async function revokeCustomerSession(
   tx: Transaction,
   sessionId: string,
-  reason: 'logout' | 'password_change' | 'admin_revoke' | 'reuse_detected',
+  reason: 'logout' | 'password_change' | 'admin_revoke' | 'reuse_detected' | 'email_change',
 ): Promise<boolean> {
   const rows = await tx
     .update(customerSession)
@@ -174,7 +174,7 @@ export async function revokeCustomerSession(
 export async function revokeAllCustomerSessions(
   tx: Transaction,
   customerId: number,
-  reason: 'logout' | 'password_change' | 'admin_revoke' | 'reuse_detected',
+  reason: 'logout' | 'password_change' | 'admin_revoke' | 'reuse_detected' | 'email_change',
 ): Promise<number> {
   const rows = await tx
     .update(customerSession)

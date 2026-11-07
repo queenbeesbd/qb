@@ -1,10 +1,10 @@
 /**
  * Owner-operated customer credential recovery (Phase 23, ADR 0012 §recovery).
  *
- * There is **no mail or SMS provider and no self-service reset** in this product, so a customer who
- * forgets a password has exactly one route back: the owner, during the call they were already going to
- * make, hands over a **one-time credential** that the customer must immediately replace with a password
- * of their own. This module is that route, and its whole job is to make it safe:
+ * **Since ADR 0030 the ordinary route is a mailed link**, but this owner-operated route still exists for a
+ * customer who cannot reach the inbox: the owner, during the call they were already going to make, hands
+ * over a **one-time credential** that the customer must immediately replace with a password of their own.
+ * This module is that route, and its whole job is to make it safe:
  *
  * - **Permission re-checked here, not only in the route.** `customer.credential_reset` is required in
  *   the service, so a caller that forgets the route check fails closed. The refusal is recorded durably

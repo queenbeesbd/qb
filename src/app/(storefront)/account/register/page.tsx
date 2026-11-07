@@ -6,7 +6,7 @@ import { currentCustomerPrincipal, safeCustomerNext } from '@/server/customer-au
 export const metadata: Metadata = { title: 'Create your account', robots: { index: false, follow: false } };
 export const dynamic = 'force-dynamic';
 
-/** Customer registration: email and password only. There is no verification mail and no reset flow. */
+/** Customer registration: email and password only. No verification step and no verification mail. */
 export default async function CustomerRegisterPage({
   searchParams,
 }: {
