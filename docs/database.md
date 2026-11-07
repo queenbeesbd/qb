@@ -160,6 +160,18 @@ Expand, then migrate, then contract - never a destructive change in the same ste
 (`docs/data-model.md` section 16.2). Additive changes are preferred because a rollback then needs no
 data migration.
 
+**A production deploy does not apply migrations.** `npm run build` and Vercel's build step touch no
+database, so a deployment can carry code that reads a table the target database does not have. The
+sequence is: `npm run db:status` against the target (it prints every pending migration by name),
+`npm run db:migrate`, `npm run db:validate` (50 tables), **then** deploy the code. Applied history is
+per database, so a migration that is applied locally is not applied anywhere else.
+
+That sequence was skipped once and cost a live screen: migration `0015_free_thunderbolt` (the
+`visit_session` / `visit_event` tables, ADR 0027) was deployed in code on 2026-11-06 but not applied to
+the production database, so `/admin/analytics` failed with `relation "visit_session" does not exist`
+while every other admin page loaded, and order creation refused at the visit-log update. It was applied
+on 2026-11-07. Recorded in `docs/project-status.md`.
+
 ### Rollback
 
 There is no automatic down-migration. The practical options, in order of preference:

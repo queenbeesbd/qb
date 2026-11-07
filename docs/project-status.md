@@ -366,3 +366,34 @@ Verified with typecheck, lint (0 errors), `check:i18n`, unit **212/212**, `tests
 pre-existing failures, and Chromium at 1280 and 390 (five tiles, three closing panels, six actions, no
 horizontal overflow). No schema change and no migration. Real devices and screen readers were not used.
 
+
+## Production schema lag: the visit log (applied 2026-11-07)
+
+`/admin/analytics` returned the admin error boundary in production with
+`relation "visit_session" does not exist` (`42P01`) while every other admin page loaded. The deployment
+(`dpl_H6srHpHSu1zUNeJfi1XCakEbTi5P`) carried the traffic block from ADR 0027, but migration
+`0015_free_thunderbolt` had never been applied to the production database: it held **48** tables and a
+migration history ending at `0014_offer_popup`.
+
+The same gap had a second, quieter effect: `POST /api/checkout/order` calls `markOrderPlaced` inside the
+order transaction for any visitor carrying the `qb_visit` cookie, so an order placed from a tracked
+browser was refused rather than recorded.
+
+**Fix.** `0015_free_thunderbolt` was applied to `autumn-wave-01272789` / branch `production` / database
+`queenbees` in one transaction as the owning role `queenbees_owner` - the two tables, the foreign key,
+the four indexes - and Drizzle's history row was written with the file's own SHA-256 and the journal's
+`when` (`1794036259343`), so `db:status` reports the same history the migrator would have written. No
+code changed.
+
+**Verified.** Public tables **50**; `visit_session` and `visit_event` present with 6 indexes and 8
+constraints; migration history 16 rows, latest hash `396de18d…`; the exact failing statement now
+returns (`visits`/`views`/`live` all `0`); a real `POST /api/track` from a normal user agent answered
+**204** and created one session, which was then removed so production traffic starts empty. `/admin/analytics`
+still answers **307** to `/admin/login` for an anonymous request, which is the correct refusal.
+
+**Not verified:** an authenticated load of `/admin/analytics` in production - no owner credential is
+available to this session. The data path behind it was exercised directly against the production
+database instead.
+
+The deploy sequence this exposed - code first, migration never - is now written into
+`docs/database.md` (Rollout sequencing).

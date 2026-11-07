@@ -56,7 +56,7 @@ Local PostgreSQL is a disposable cluster outside the repository (`./.dev-pg`), s
 npm install
 npm run dev:db                 # cluster on 127.0.0.1:55432, matching .env.local
 
-npm run db:migrate             # 14 reviewed migrations, 47 tables
+npm run db:migrate             # 16 reviewed migrations, 50 tables
 npm run db:seed                # permission catalogue + owner role
 npm run db:seed:catalog        # optional: the 22-product fixture seed
 
@@ -117,7 +117,7 @@ src/
   db/                    the only database client, Drizzle schema, migrations driver, seeds
   data/                  the deterministic fixture seed and the curation id lists
 scripts/                 migration, seed, import, purge, integrity and verification scripts
-drizzle/                 reviewed SQL migrations (0000-0011)
+drizzle/                 reviewed SQL migrations (0000-0015)
 docs/                    architecture, data model, security, plan, status, ADRs
 public/                  brand assets and the catalog image variants
 ```
@@ -128,7 +128,7 @@ the accessor contract in `src/server/catalog/storefront.ts`, not on SQL.
 
 ## Data
 
-47 tables in 14 reviewed migrations, with append-only `order_event`, `order_item`, `audit_event` and
+50 tables in 16 reviewed migrations, with append-only `order_event`, `order_item`, `audit_event` and
 `inventory_movement` enforced twice (revoked grants and `BEFORE UPDATE OR DELETE` triggers). The state
 machines are designed in [data model](docs/data-model.md) and implemented in `src/db/schema/`.
 
