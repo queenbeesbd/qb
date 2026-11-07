@@ -1597,31 +1597,7 @@ export const dictionary = {
   'admin.customers.suspend': 'Suspend',
   'admin.customers.reasonPlaceholder': 'Reason (10+ characters)',
   'admin.customers.suspendedNote': 'This account is suspended; sessions revoked and new orders refused.',
-  'admin.customers.recovery.title': 'Password recovery',
-  'admin.customers.recovery.body':
-    'After verifying the customer on the phone, issue a one-time code and read it to them during that call. They set their own new password.',
-  'admin.customers.recovery.reasonLabel': 'Reason',
-  'admin.customers.recovery.reasonPlaceholder': 'How the identity was verified',
-  'admin.customers.recovery.submit': 'Issue a code',
-  'admin.customers.recovery.consequence':
-    'Issuing a code revokes every active session for this customer and makes any earlier code invalid. The code works once and expires after 30 minutes.',
-  'admin.customers.recovery.reasonRequired': 'Enter a reason of at least 10 characters.',
-  'admin.customers.recovery.unavailable': 'A code could not be issued for this account.',
-  'admin.customers.recovery.tokenTitle': 'One-time code',
-  'admin.customers.recovery.tokenBody':
-    'Read this code to the customer now. It is never shown again after you leave this page.',
-  'admin.customers.recovery.tokenExpires': 'Expires',
-  'admin.customers.recovery.dismiss': 'Done showing the code',
-  'admin.customers.recovery.tokenGone':
-    'The code was issued but can no longer be shown. Issue a new one if it is still needed.',
-  'account.recoverTitle': 'Sign in with a one-time code',
-  'account.recoverBody':
-    'The store owner verifies you by phone and gives you a one-time code. Enter that code with a new password. The code works once.',
-  'account.recoverCode': 'Code',
-  'account.recoverSubmit': 'Save the new password',
   'account.newPassword': 'New password',
-  'account.errors.recoveryInvalid':
-    'The code did not match, or it expired or was already used.',
   'admin.customers.notice.suspended': 'Account suspended; every live session was revoked.',
   'admin.customers.notice.restored':
     'Access restored. The account can sign in and order again; its order history is unchanged.',
@@ -1667,8 +1643,6 @@ export const dictionary = {
   'account.register': 'Create an account',
   'account.signedInAs': 'Signed in as',
   'account.welcomeBack': 'Welcome, {name}',
-  'account.recoveryContactNote':
-    'If you forget your password, the owner verifies who you are by phone and issues a one-time code you can use to set a new password.',
   'account.email': 'Email',
   'account.displayName': 'Name',
   'account.orders': 'My orders',
@@ -1696,14 +1670,9 @@ export const dictionary = {
   'account.forgotPassword': 'Forgotten your password?',
   'account.emailPlaceholder': 'you@example.com',
   'account.namePlaceholder': 'How we should address you',
-  'account.recoverCodePlaceholder': 'The code the shop read to you',
-  'account.recoverPointCall': 'Call the shop and verify yourself by phone.',
-  'account.recoverPointSingle': 'The code works once and expires in 30 minutes.',
-  'account.recoverPointSessions': 'Setting a new password signs you out everywhere else.',
   'account.ordersBody': 'Placed orders, their items and what each one is waiting on.',
   'account.ordersAction': 'Open my orders',
   'account.detailsTitle': 'Your details',
-  'account.passwordTitle': 'Password',
   'account.sessionTitle': 'Session',
   'account.sessionBody': 'Signing out on this device does not cancel any order.',
   'account.noRecoveryTitle': 'There is no password recovery',
@@ -1727,7 +1696,6 @@ export const dictionary = {
     'If that address belongs to an account, a recovery link is on its way. Check the inbox and the spam folder.',
   'account.forgotHint': 'The link works once and expires in one hour.',
   'account.forgotSubmit': 'Send the recovery link',
-  'account.haveCode': 'Have a one-time code from the shop?',
   'account.resetTitle': 'Choose a new password',
   'account.resetBody':
     'Set a new password for your account. Every other device is signed out at the same time.',
@@ -1756,9 +1724,6 @@ export const dictionary = {
   'account.changeEmailSubmit': 'Send the confirmation link',
   'account.newEmail': 'New email address',
   'account.emailHelp': 'Nothing changes before you confirm the link.',
-  'account.securityNote':
-    'Changing the password or the address signs you out on every other device.',
-  'account.haveCodeAccount': 'Have a one-time code from the shop?',
   'account.login.resetDone': 'Password changed. Sign in with the new password.',
   'account.login.emailChanged': 'Email address changed. Sign in with the new address.',
   'account.notice.passwordChanged': 'Password changed. Other devices are signed out.',

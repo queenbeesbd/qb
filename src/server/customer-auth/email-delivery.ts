@@ -25,6 +25,19 @@ import {
 /** `after()` from `next/server`, narrowed to what this module needs. */
 export type TaskScheduler = (task: () => Promise<void>) => void;
 
+/**
+ * Sends one scheduled message and records a failure **without the recipient**.
+ *
+ * The customer's page must never learn that a provider failed - that would describe the account - but a
+ * deployment where nothing is being sent must not fail silently either: the reason alone (`not_configured`,
+ * `rejected`, `unreachable`) is enough to see a missing key or an unverified sender in the platform log,
+ * and it names no address, no token and no message body.
+ */
+async function deliver(message: Parameters<typeof sendEmail>[0]): Promise<void> {
+  const result = await sendEmail(message);
+  if (!result.ok) console.warn(`[email] delivery failed: ${result.reason}`);
+}
+
 function absolute(path: string): string | null {
   const base = publicBaseUrl();
   return base === null ? null : `${base}${path}`;
@@ -42,7 +55,7 @@ export function schedulePasswordRecovery(
   if (url === null) return;
   const template = passwordRecoveryEmail({ resetUrl: url, expiresMinutes: minutes(CUSTOMER_RESET_TOKEN_MS) });
   schedule(async () => {
-    await sendEmail({ ...template, to: delivery.to });
+    await deliver({ ...template, to: delivery.to });
   });
 }
 
@@ -54,7 +67,7 @@ export function schedulePasswordChanged(
     changedAt: input.changedAt.toLocaleString('en-GB', { timeZone: 'Asia/Dhaka', timeStyle: 'short', dateStyle: 'medium' }),
   });
   schedule(async () => {
-    await sendEmail({ ...template, to: input.to });
+    await deliver({ ...template, to: input.to });
   });
 }
 
@@ -70,7 +83,7 @@ export function scheduleEmailChangeConfirmation(
     expiresHours: Math.round(CUSTOMER_EMAIL_CHANGE_TOKEN_MS / 3_600_000),
   });
   schedule(async () => {
-    await sendEmail({ ...template, to: input.to });
+    await deliver({ ...template, to: input.to });
   });
 }
 
@@ -83,6 +96,6 @@ export function scheduleEmailChanged(
     changedAt: input.changedAt.toLocaleString('en-GB', { timeZone: 'Asia/Dhaka', timeStyle: 'short', dateStyle: 'medium' }),
   });
   schedule(async () => {
-    await sendEmail({ ...template, to: input.previousEmail });
+    await deliver({ ...template, to: input.previousEmail });
   });
 }

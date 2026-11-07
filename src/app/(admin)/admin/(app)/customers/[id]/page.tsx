@@ -1,7 +1,6 @@
 import { notFound } from 'next/navigation';
 
 import { withTransaction } from '@/db/client';
-import { readIssuedTokenFlash } from '@/server/auth/flash';
 import { requireAdminPage } from '@/server/auth/guard';
 import { hasPermission } from '@/server/authz/principal';
 import { PERMISSIONS } from '@/server/authz/permissions';
@@ -18,7 +17,7 @@ export const dynamic = 'force-dynamic';
  * because order history is order data, not customer-profile data. An id that names no live customer is
  * answered with 404 - never 403 - so the page cannot be used to test whether an account exists.
  */
-const NOTICES = ['tokenIssued', 'unavailable', 'invalid', 'denied', 'restored'] as const;
+const NOTICES = ['denied', 'restored'] as const;
 type CustomerNotice = (typeof NOTICES)[number];
 
 function readNotice(value: string | string[] | undefined): CustomerNotice | null {
@@ -45,16 +44,6 @@ export default async function AdminCustomerDetailPage({
 
   const canReadOrders = hasPermission(principal, PERMISSIONS.orderRead);
 
-  // Read only. This page cannot clear the cookie - a page render may not mutate cookies in this
-  // version of Next.js - so it reads the value once and the route clears it before rendering this page
-  // again, which is what makes a reload show nothing. Only the digest is stored and the token is
-  // single-use regardless.
-  const flash = await readIssuedTokenFlash();
-  const issuedToken =
-    flash !== null && flash.subject === String(customerId)
-      ? { token: flash.token, expiresAt: flash.expiresAt }
-      : null;
-
   return (
     <CustomerDetailView
       customer={{
@@ -79,10 +68,8 @@ export default async function AdminCustomerDetailPage({
           : null,
       }}
       canSuspend={hasPermission(principal, PERMISSIONS.customerSuspend)}
-      canResetCredential={hasPermission(principal, PERMISSIONS.customerCredentialReset)}
       canReadOrders={canReadOrders}
       notice={readNotice(query.notice)}
-      issuedToken={issuedToken}
       csrfToken={principal.csrfToken}
     />
   );

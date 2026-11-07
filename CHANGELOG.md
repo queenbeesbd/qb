@@ -14,6 +14,21 @@ An entry may describe a deployment only once it has actually happened and been o
 
 ## [Unreleased]
 
+### Removed - 2026-11-08: the owner-issued one-time code recovery
+The account page's quiet "Password" card (the sign-out note, the code link and the contact line) is
+gone, and the Phase 23 owner-issued one-time code is removed entirely: `/account/recover`, its
+`/api/account/recover` route, the admin **Issue a code** panel and its two routes, the flash-token
+display, `src/server/customer-auth/recovery.ts`, the `customer.credential_reset` permission and its
+catalogue entry, and the code links on sign-in and on the forgot-password page. Recovery is the mailed
+single-use link only (ADR 0030, amended).
+
+`account_recovery_token` remains - the self-service reset stores its digest there - and historical
+`customer.credential_reset_*` audit rows keep their action codes. The customer-flow and admin
+verification scripts no longer drive the removed routes.
+
+A failed send was also silent: the delivery helper now writes one warning line with the **reason only**
+(`not_configured`, `rejected`, `unreachable`), never the address, the token or the body.
+
 ### Changed - 2026-11-08: customer passwords may be 8 characters, with one character rule
 The customer minimum drops from 12 to **8**, and a password must now contain **at least one letter or
 special character** - a digits-only password such as a phone number is refused. The rule lives in

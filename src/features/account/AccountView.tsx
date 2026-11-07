@@ -5,8 +5,6 @@ import Link from 'next/link';
 import { CUSTOMER_PASSWORD_MIN_LENGTH } from '@/lib/password-policy';
 import type { TranslationKey } from '@/i18n/dictionaries';
 import { useTranslation } from '@/i18n/useTranslation';
-import { CheckIcon } from '@/components/icons';
-import { ContactLink } from '@/components/ContactLink';
 import styles from '@/app/account.module.css';
 
 /**
@@ -239,22 +237,6 @@ export function AccountView({
                   {t('account.changeEmailSubmit')}
                 </button>
               </form>
-            </section>
-
-            <section className={styles.accountCardQuiet}>
-              <div className={styles.accountCardHead}>
-                <h2>{t('account.passwordTitle')}</h2>
-              </div>
-              <p className={styles.muted}>{t('account.securityNote')}</p>
-              <p className={styles.cardNote}>
-                <span className={styles.cardNoteIcon} aria-hidden="true">
-                  <CheckIcon width={14} height={14} />
-                </span>
-                {t('account.haveCodeAccount')} <ContactLink />
-              </p>
-              <Link className={styles.cardAction} href="/account/recover">
-                {t('account.recoverTitle')}
-              </Link>
             </section>
           </>
         )}

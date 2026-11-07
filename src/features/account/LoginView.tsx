@@ -40,20 +40,13 @@ export function LoginView({
             </Link>
           </p>
           {/*
-            Self-service recovery (ADR 0030) is the ordinary route: a link is mailed to the address on
-            the account. The one-time code the shop reads out still exists, and is offered beside it for
-            a customer who cannot reach the inbox.
+            One route back: a recovery link mailed to the address on the account. The owner-issued
+            one-time code was removed on 2026-11-08, so nothing here offers a code that no longer exists.
           */}
           <p className={styles.muted}>
             {t('account.forgotPassword')}{' '}
             <Link href={`/account/forgot-password?next=${encodeURIComponent(next)}`}>
               {t('account.forgotTitle')}
-            </Link>
-          </p>
-          <p className={styles.muted}>
-            {t('account.haveCode')}{' '}
-            <Link href={`/account/recover?next=${encodeURIComponent(next)}`}>
-              {t('account.recoverTitle')}
             </Link>
           </p>
         </>

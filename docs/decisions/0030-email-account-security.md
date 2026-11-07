@@ -1,7 +1,7 @@
 # ADR 0030 - Email account security through Resend
 
 **Date:** 2026-11-08
-**Status:** Implemented locally, not deployed
+**Status:** Implemented locally, not deployed. **Amended 2026-11-08:** the owner-issued one-time code was removed at the owner's instruction, so decision 7 below no longer applies - recovery is the mailed link only.
 **Owner decision:** Send customer-facing account email through Resend, and make password recovery
 self-service, without introducing email verification.
 

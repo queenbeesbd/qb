@@ -30,17 +30,9 @@ export function ForgotPasswordView({
       lead={t('account.forgotBody')}
       asideTitle={t('account.authForgotAside')}
       footer={
-        <>
-          <p className={styles.muted}>
-            <Link href={`/account/login?next=${encodeURIComponent(next)}`}>{t('account.loginSubmit')}</Link>
-          </p>
-          <p className={styles.muted}>
-            {t('account.haveCode')}{' '}
-            <Link href={`/account/recover?next=${encodeURIComponent(next)}`}>
-              {t('account.recoverTitle')}
-            </Link>
-          </p>
-        </>
+        <p className={styles.muted}>
+          <Link href={`/account/login?next=${encodeURIComponent(next)}`}>{t('account.loginSubmit')}</Link>
+        </p>
       }
     >
       {sent ? (

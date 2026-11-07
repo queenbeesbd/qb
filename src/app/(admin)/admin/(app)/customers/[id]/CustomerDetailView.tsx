@@ -6,12 +6,11 @@ import { useTranslation } from '@/i18n/useTranslation';
 import { paymentLabel, statusLabel } from '@/features/account/order-labels';
 import { ConfirmSubmit } from '../../../_ui/ConfirmSubmit';
 import { PageHeader } from '../../../_ui/PageHeader';
-import { RequiredMark } from '../../../_ui/RequiredMark';
 import { StatusPill } from '../../../_ui/StatusPill';
 import styles from '../../../admin.module.css';
 import { INTL_LOCALE } from '@/i18n/config';
 
-export type CustomerNotice = 'tokenIssued' | 'unavailable' | 'invalid' | 'denied' | 'restored';
+export type CustomerNotice = 'denied' | 'restored';
 
 type OrderRow = {
   orderId: number;
@@ -46,19 +45,14 @@ type Customer = {
 export function CustomerDetailView({
   customer,
   canSuspend,
-  canResetCredential,
   canReadOrders,
   notice,
-  issuedToken,
   csrfToken,
 }: {
   customer: Customer;
   canSuspend: boolean;
-  canResetCredential: boolean;
   canReadOrders: boolean;
   notice: CustomerNotice | null;
-  /** Displayed once, on the render that follows issuance. Never stored, never linked. */
-  issuedToken: { token: string; expiresAt: string } | null;
   csrfToken: string;
 }) {
   const { t, price } = useTranslation();
@@ -81,47 +75,13 @@ export function CustomerDetailView({
         }
       />
 
-      {notice === 'tokenIssued' && issuedToken !== null && (
-        <div className={styles.notice} role="status">
-          <span>
-            <strong>{t('admin.customers.recovery.tokenTitle')}.</strong>{' '}
-            {t('admin.customers.recovery.tokenBody')}
-          </span>
-          <p className={styles.tokenValue} data-testid="recovery-code">
-            {issuedToken.token}
-          </p>
-          <p className={styles.note}>
-            {t('admin.customers.recovery.tokenExpires')}: {dateTimeFormat.format(new Date(issuedToken.expiresAt))}
-          </p>
-          {/* Discards the flash cookie now that the code has been rendered, so no reload can show it
-              again. A page render may not clear a cookie itself in this version of Next.js. */}
-          <form action="/api/admin/customers/recovery/dismiss" method="post" className={styles.inlineForm}>
-            <input type="hidden" name="csrf" value={csrfToken} />
-            <input type="hidden" name="customerId" value={customer.customerId} />
-            <button className={`${styles.button} ${styles.buttonSecondary}`} type="submit">
-              {t('admin.customers.recovery.dismiss')}
-            </button>
-          </form>
-        </div>
-      )}
-
-      {notice !== null && notice !== 'tokenIssued' && (
+      {notice !== null && (
         <div className={styles.notice} role="alert">
           <span>
             {notice === 'denied'
               ? t('admin.owners.notice.denied')
-              : notice === 'invalid'
-                ? t('admin.customers.recovery.reasonRequired')
-                : notice === 'restored'
-                  ? t('admin.customers.notice.restored')
-                  : t('admin.customers.recovery.unavailable')}
+              : t('admin.customers.notice.restored')}
           </span>
-        </div>
-      )}
-
-      {notice === 'tokenIssued' && issuedToken === null && (
-        <div className={styles.notice}>
-          <span>{t('admin.customers.recovery.tokenGone')}</span>
         </div>
       )}
 
@@ -276,39 +236,6 @@ export function CustomerDetailView({
                   required: true,
                 }}
               />
-            </div>
-          )}
-
-          {active && canResetCredential && (
-            <div className={styles.panel}>
-              <h2 className={styles.panelTitle}>{t('admin.customers.recovery.title')}</h2>
-              <p className={styles.note} style={{ margin: 'var(--space-2) 0 var(--space-4)' }}>
-                {t('admin.customers.recovery.body')}
-              </p>
-              <form className={styles.form} action="/api/admin/customers/recovery" method="post">
-                <input type="hidden" name="csrf" value={csrfToken} />
-                <input type="hidden" name="customerId" value={customer.customerId} />
-                <label className={styles.field}>
-                  <span>
-                    {t('admin.customers.recovery.reasonLabel')} <RequiredMark />
-                  </span>
-                  <textarea
-                    className={styles.textarea}
-                    name="reason"
-                    required
-                    minLength={10}
-                    maxLength={500}
-                    rows={3}
-                    placeholder={t('admin.customers.recovery.reasonPlaceholder')}
-                  />
-                </label>
-                <button className={`${styles.button} ${styles.buttonSecondary}`} type="submit">
-                  {t('admin.customers.recovery.submit')}
-                </button>
-              </form>
-              <p className={styles.note} style={{ marginTop: 'var(--space-3)' }}>
-                {t('admin.customers.recovery.consequence')}
-              </p>
             </div>
           )}
 

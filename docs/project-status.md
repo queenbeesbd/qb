@@ -579,3 +579,20 @@ answer **307 to the sign-in page** rather than the error boundary. The storefron
    driver's client object, including the `queenbees_owner` connection string. The value is not repeated
    here. Rotation of that role's password and a review of what error objects reach the platform log are
    owner actions.
+
+## One-time code recovery removed (2026-11-08)
+
+At the owner's instruction the Phase 23 owner-issued one-time code is gone: the customer
+`/account/recover` page and its route, the admin **Issue a code** panel with `POST
+/api/admin/customers/recovery` and its dismiss route, `src/server/customer-auth/recovery.ts`, the
+`customer.credential_reset` permission and its catalogue/label/implemented entries, and the code links
+on sign-in and the forgot-password page. The account page's quiet "Password" card was removed with it.
+Recovery is the mailed single-use link (ADR 0030, amended); the `account_recovery_token` table stays
+because the self-service reset stores its digest there, and historical audit action codes are
+untouched.
+
+**Email is configured for the URL, not for sending.** `APP_BASE_URL` was added to the Vercel project,
+but **`RESEND_API_KEY` and `EMAIL_FROM` are absent**, so `emailConfigured()` is false and
+`sendEmail` returns `not_configured` without a request - which is why no confirmation mail arrived.
+Both values must come from the owner's Resend account (with a verified sender domain), and a new
+deployment is required before they take effect. A failed send now logs one line with the reason only.

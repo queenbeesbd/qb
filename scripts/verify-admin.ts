@@ -18,19 +18,16 @@
  */
 
 import { spawn, type ChildProcess } from 'node:child_process';
-import { createHash } from 'node:crypto';
 import { createServer } from 'node:net';
 import { existsSync, writeFileSync } from 'node:fs';
 import { and, eq, sql } from 'drizzle-orm';
 
 import { closeDb, withTransaction } from '../src/db/client';
 import {
-  accountRecoveryToken,
   auditEvent,
   brand,
   category,
   customer,
-  customerSession,
   deliveryDistrictCharge,
   deliverySetting,
   order,
@@ -3629,133 +3626,8 @@ async function main(): Promise<void> {
             await browser.screenshot('/tmp/qb-admin-customer.png');
 
 
-            // ---- Phase 23: the owner-operated customer credential reset ----
-            //
-            // The credential must appear on the render that follows issuance and never again: it is
-            // stored only as a digest, it is single-use, and the flash cookie is httpOnly and /admin
-            // scoped. This drives the real route and then reloads to prove the second read is empty.
-            const recoveryFormUi = await browser.evaluate<{ panel: boolean; reason: boolean }>(`(() => {
-              const text = document.body.textContent ?? '';
-              return {
-                panel: text.includes('Password recovery'),
-                reason: document.querySelector('form[action="/api/admin/customers/recovery"] textarea[name="reason"]') !== null,
-              };
-            })()`);
-            record(
-              'the customer detail page offers the recovery action with a required reason',
-              recoveryFormUi.panel === true && recoveryFormUi.reason === true,
-              JSON.stringify(recoveryFormUi),
-            );
-
-            // A live session for that customer, so revocation at issuance is observable.
-            const seededSession = await withTransaction((tx) =>
-              tx
-                .insert(customerSession)
-                .values({
-                  customerId: secondCod.customerId,
-                  tokenHash: createHash('sha256').update('verify-admin-session').digest('hex'),
-                  idleExpiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-                  absoluteExpiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-                })
-                .returning({ id: customerSession.id }),
-            );
-            record(
-              'a live customer session exists before issuance, so its revocation can be observed',
-              seededSession.length === 1,
-              `${seededSession.length} session(s)`,
-            );
-
-            await browser.navigate(`/admin/customers/${secondCod.customerId}`);
-            const recoveryCsrf = csrfFrom(
-              await browser.evaluate<string>('document.documentElement.outerHTML'),
-            );
-            await browser.evaluate(`(() => {
-              const form = document.createElement('form');
-              form.method = 'post';
-              form.action = '/api/admin/customers/recovery';
-              const fields = {
-                csrf: ${JSON.stringify(recoveryCsrf)},
-                customerId: ${JSON.stringify(String(secondCod.customerId))},
-                reason: 'Identity verified on the phone against the order on record',
-              };
-              for (const [name, value] of Object.entries(fields)) {
-                const input = document.createElement('input');
-                input.type = 'hidden';
-                input.name = name;
-                input.value = String(value);
-                form.appendChild(input);
-              }
-              document.body.appendChild(form);
-              form.submit();
-              return true;
-            })()`);
-            await browser.waitFor("location.search.includes('notice=tokenIssued')");
-
-            const issuedUi = await browser.evaluate<{ code: string | null; revokes: boolean }>(`(() => {
-              const text = document.body.textContent ?? '';
-              const node = document.querySelector('[data-testid="recovery-code"]');
-              return {
-                code: node?.textContent?.trim() ?? null,
-                revokes: text.includes('revokes every active session'),
-              };
-            })()`);
-            const issuedToken = issuedUi.code;
-            record(
-              'issuing shows the one-time code once, with the consequences stated',
-              typeof issuedToken === 'string' &&
-                issuedToken.length === 43 &&
-                issuedUi.revokes === true,
-              `code present: ${issuedUi.code !== null}`,
-            );
-            await browser.screenshot('/tmp/qb-admin-recovery-code.png');
-
-            const liveSessionsAfter = await withTransaction((tx) =>
-              tx
-                .select({ total: sql<number>`count(*)::int` })
-                .from(customerSession)
-                .where(
-                  sql`${customerSession.customerId} = ${secondCod.customerId}
-                      and ${customerSession.revokedAt} is null`,
-                ),
-            );
-            record(
-              'issuance revokes every active customer session',
-              liveSessionsAfter[0]?.total === 0,
-              `${liveSessionsAfter[0]?.total} live session(s) remain`,
-            );
-
-            const storedDigests = await withTransaction((tx) =>
-              tx
-                .select({ tokenHash: accountRecoveryToken.tokenHash })
-                .from(accountRecoveryToken)
-                .where(sql`${accountRecoveryToken.customerId} = ${secondCod.customerId}`),
-            );
-            record(
-              'only a digest of the code is stored, never the code itself',
-              storedDigests.length === 1 &&
-                storedDigests[0]?.tokenHash !== issuedToken &&
-                storedDigests[0]?.tokenHash ===
-                  createHash('sha256').update(issuedToken ?? '').digest('hex'),
-              `${storedDigests.length} row(s); stored length ${storedDigests[0]?.tokenHash.length ?? 0}, code length ${issuedToken?.length ?? 0}`,
-            );
-
-            // The page offers the dismissal that makes the single read real: clicking it clears the flash
-            // cookie through the route, so a reload shows nothing.
-            const dismissClicked = await browser.evaluate<boolean>(`(() => {
-              const form = document.querySelector('form[action="/api/admin/customers/recovery/dismiss"]');
-              const button = form?.querySelector('button[type="submit"]');
-              if (!button) return false;
-              button.click();
-              return true;
-            })()`);
-            record('the page offers a control that dismisses the code', dismissClicked === true, String(dismissClicked));
-            await browser.waitFor("!document.body.innerText.includes('One-time code')");
-
-            await browser.navigate(`/admin/customers/${secondCod.customerId}`);
-            const stillVisible = await browser.evaluate<boolean>(
-              `(document.body.textContent ?? '').includes(${JSON.stringify(issuedToken ?? '')})`,
-            );
-            record('the code is not shown again after a reload', stillVisible === false, String(stillVisible));
+            // The owner-issued one-time code was removed on 2026-11-08; recovery is the mailed link
+            // (ADR 0030), so this page no longer offers a credential reset.
 
             // ---- Phase 42: the guest-ordering switch, ticked through the real UI ----
             /*

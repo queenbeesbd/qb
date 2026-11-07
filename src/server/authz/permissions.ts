@@ -29,7 +29,6 @@ export const PERMISSIONS = {
   customerSuspend: 'customer.suspend',
   customerRevokeSession: 'customer.revoke_session',
   customerFlag: 'customer.flag',
-  customerCredentialReset: 'customer.credential_reset',
   catalogWrite: 'catalog.write',
   inventoryAdjust: 'inventory.adjust',
   staffRead: 'staff.read',
@@ -80,11 +79,6 @@ export const PERMISSION_CATALOGUE: readonly PermissionDefinition[] = [
   { code: PERMISSIONS.returnInspect, description: 'Receive and inspect a returned parcel', isPrivileged: false },
   { code: PERMISSIONS.customerRead, description: 'Read a customer profile', isPrivileged: false },
   { code: PERMISSIONS.customerSuspend, description: 'Suspend a customer account', isPrivileged: false },
-  {
-    code: PERMISSIONS.customerCredentialReset,
-    description: 'Issue a one-time recovery credential for a customer',
-    isPrivileged: true,
-  },
   { code: PERMISSIONS.customerRevokeSession, description: 'Revoke a customer session', isPrivileged: false },
   { code: PERMISSIONS.customerFlag, description: 'Raise or clear a customer review flag', isPrivileged: false },
   { code: PERMISSIONS.catalogWrite, description: 'Create or edit catalog content', isPrivileged: false },
@@ -117,7 +111,6 @@ export const PERMISSION_LABELS: Record<string, string> = {
   [PERMISSIONS.customerSuspend]: 'Suspend customers',
   [PERMISSIONS.customerRevokeSession]: 'Revoke customer sessions',
   [PERMISSIONS.customerFlag]: 'Customer review flags',
-  [PERMISSIONS.customerCredentialReset]: 'Issue customer recovery codes',
   [PERMISSIONS.catalogWrite]: 'Edit catalog',
   [PERMISSIONS.inventoryAdjust]: 'Adjust stock',
   [PERMISSIONS.staffRead]: 'Read staff',
@@ -145,10 +138,10 @@ export const PERMISSION_LABELS: Record<string, string> = {
  * **Phase 22 added `order.cost_record`** - recording and voiding the extra courier costs an order
  * incurred, recorded alongside payment receipt. It is privileged because it writes a money fact.
  *
- * **Phase 23 added `customer.credential_reset`** - issuing the one-time recovery credential an owner
- * reads to a customer on the phone, the replacement for the self-service reset this product has none of
- * (ADR 0012). It is privileged because it lets a caller take over a customer account: an owner-level
- * principal is required, and the database's own privileged-grant guard enforces it.
+ * **Phase 23's `customer.credential_reset` was removed on 2026-11-08**, together with the owner-issued
+ * one-time code it guarded: recovery is self-service by email (ADR 0030), so the code, its routes, its
+ * screen and its permission no longer exist. Existing `permission`/`role_permission` rows are history
+ * and are left untouched.
  *
  * Everything else is still catalogued but unreachable: `refund.*` (deferred by owner decision),
  * `finance.reconcile`, `customer.flag` and `customer.revoke_session` have no route yet. `inventory.adjust` deserves a note:
@@ -176,6 +169,4 @@ export const PERMISSIONS_IMPLEMENTED: readonly PermissionCode[] = [
   PERMISSIONS.returnInspect,
   // Phase 22: additional courier costs, recorded with payment receipt.
   PERMISSIONS.orderCostRecord,
-  // Phase 23: the owner-operated customer credential reset.
-  PERMISSIONS.customerCredentialReset,
 ];
