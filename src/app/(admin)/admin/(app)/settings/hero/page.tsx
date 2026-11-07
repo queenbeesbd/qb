@@ -1,7 +1,6 @@
 import { withTransaction } from '@/db/client';
 import { requireAdminPage } from '@/server/auth/guard';
 import { PERMISSIONS } from '@/server/authz/permissions';
-import { listHeroAssetKeys } from '@/server/catalog/hero-assets';
 import {
   HERO_ALT_MAX,
   HERO_MAX_IMAGES,
@@ -32,9 +31,9 @@ function readNotice(value: string | string[] | undefined): HeroNotice | null {
 /**
  * Settings -> Homepage hero.
  *
- * Requires `settings.write`, which is owner-level in the catalogue. The page reads the carousel and
- * the shop's own generated hero library; every write goes through `/api/admin/hero` and its
- * service-level re-check, so hiding a control here is never the control.
+ * Requires `settings.write`, which is owner-level in the catalogue. The page reads the carousel;
+ * every write goes through `/api/admin/hero` and its service-level re-check, so hiding a control
+ * here is never the control.
  */
 export default async function HeroSettingsPage({
   searchParams,
@@ -43,16 +42,11 @@ export default async function HeroSettingsPage({
 }) {
   const principal = await requireAdminPage(PERMISSIONS.settingsWrite);
   const params = await searchParams;
-  const [images, assets] = await withTransaction(async (tx) => {
-    const rows = await listHeroImages(tx);
-    const keys = await listHeroAssetKeys();
-    return [rows, keys] as const;
-  });
+  const images = await withTransaction((tx) => listHeroImages(tx));
 
   return (
     <HeroSettingsView
       images={images}
-      assets={assets}
       notice={readNotice(params.notice)}
       csrfToken={principal.csrfToken}
       minImages={HERO_MIN_IMAGES}

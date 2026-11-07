@@ -14,6 +14,35 @@ An entry may describe a deployment only once it has actually happened and been o
 
 ## [Unreleased]
 
+### Added - 2026-11-07: first-party visit tracking and a Traffic block on analytics
+The owner asked for visits, live readers, carts left behind and a visualisation of the visit path. That
+is an explicit approval for a tracker, which is the condition the old "no traffic figure" rule set, so
+**ADR 0027** records the decision and narrows ADR 0021 D1.
+
+The tracker is the shop's own. `POST /api/track` writes `visit_session` and `visit_event` (migration
+`0015`, schema **48 -> 50 tables**) from a small storefront beacon: a random 128-bit session id in an
+`HttpOnly` `qb_visit` cookie, the path **without its query string**, a coarse device class and the
+step (`page_view`, `cart_add`, `checkout_start`, `order_placed`). There is **no IP address, no
+user-agent string, no fingerprint, no referrer, no cross-site identifier and no third-party script**.
+Crawlers and link previews are answered `204` and write nothing. A session is **never linked to a
+customer or an order**: `placed_order` is a boolean, not a foreign key.
+
+`/admin/analytics` gains a **Traffic** block: visits today, page views today, live now (a request in
+the last five minutes), carts left behind (a cart and no order), a page-view chart on the same
+`Asia/Dhaka` calendar as the money figures, a visit-to-order funnel and the most viewed pages. Every
+figure names what it counts - a visit is a session, not a person - and the block closes with the
+privacy position. **No automatic retention job exists**; that is a recorded gap, not an oversight.
+
+### Changed - 2026-11-07: the hero screen has one way to add a banner
+Settings -> Homepage hero offered two: an upload and a picker over the server's generated asset
+inventory. The picker was the placeholder from before the upload worked, so it was removed along with
+its `assets` prop and the page's asset read. The upload is the only path now.
+
+### Fixed - 2026-11-07: the rail highlights the destination you are actually on
+`/admin/catalog/brands` starts with `/admin/catalog/`, so the shell's first-prefix match lit
+**Products** for every brand route. The current destination is now an exact match first, then the
+longest prefix, so a nested destination beats its parent.
+
 ### Changed - 2026-11-07: the admin panel is redesigned around the phone
 The owner panel was rebuilt on a new visual system, **direction C "soft counter"**, chosen by the owner
 from four rendered directions (counter ledger, dispatch console, soft counter, blueprint) on the

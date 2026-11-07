@@ -441,7 +441,7 @@ SaaS product around it. It now reads as a shop back office:
   actions** (Add product, COD orders, Categories, Promo codes, Delivery charges, Analytics). Each
   action is gated by the permission that already protects its destination.
 
-**Deliberately absent:** website visits/traffic (nothing is tracked), low stock (there is no quantity),
+**Deliberately absent:** low stock (there is no quantity),
 themes/builder/app/marketplace/vendor links, a "new order" button (orders come from customers), and
 subscription/renewal/upgrade prompts. See the rule in `AGENTS.md`.
 
@@ -585,10 +585,19 @@ the real surface rather than from the plan.
 | What sold? | Top products by units, with revenue beside it | Units first because that is what the shelf records; revenue is the second column |
 | What did it cost me? | Money panel: customer payments, the delivery fee inside them, extra courier costs, estimated net | The fee is subtracted exactly once; net is labelled an estimate |
 | Did a code work? | Promo panel: uses, distinct codes, money given away | Redemption rows, never a counter |
-| Who visits? | **Nothing** | No tracker exists. The screen says so in one line |
+| Who visits? | Traffic block: visits today, page views today, live sessions, carts left behind, a page-view chart, a visit-to-order funnel and the most viewed pages | The shop's own first-party visit log (ADR 0027). A visit is a session, not a person; "live" is five minutes; a cart left behind is not a lost sale |
 
 **Periods** are links, not a client control: `?period=7|30|90`, validated against the fixed set, so a
 crafted value cannot ask for an unbounded scan and the back button works.
+
+**Traffic (ADR 0027, 2026-11-07).** The screen carries a Traffic block read from `visit_session` and
+`visit_event`, written by `POST /api/track` from a storefront beacon. It states four figures (visits
+today, page views today, live now, carts left behind), a page-view chart on the same Dhaka calendar as
+the money figures, a visit-to-order funnel, and the most viewed pages. Every figure names what it
+counts, and the block closes with the privacy position: a random session id in an `HttpOnly` cookie,
+the path without its query string, a coarse device class - no IP address, no fingerprint, no
+third-party script. Crawlers and link previews are not recorded. A session is never linked to a
+customer or an order.
 
 **States.** Empty is designed: the revenue figure draws a sentence rather than a line at zero, the ring
 says no orders were placed, and the money panel reads "Not available" for an average with nothing to

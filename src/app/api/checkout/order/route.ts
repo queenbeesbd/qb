@@ -19,9 +19,11 @@
  * that would distinguish a hidden product from an out-of-stock one.
  */
 
+import { cookies } from 'next/headers';
 import { after } from 'next/server';
 
 import { withTransaction } from '@/db/client';
+import { VISIT_COOKIE, isVisitSessionId, markOrderPlaced } from '@/server/analytics/visits';
 import { deny, redirectTo } from '@/app/api/admin/responses';
 import { orderReceiptPath } from '@/lib/order-paths';
 import { readCheckoutSubmission } from '@/server/checkout/submission';
@@ -71,17 +73,27 @@ export async function POST(request: Request): Promise<Response> {
     return redirectTo(`${CHECKOUT_PATH}?notice=invalid`);
   }
 
+  /*
+   * The visit session that placed this order, if the browser carried one. It is a boolean on the
+   * session row, never a link to the order: the analytics surface must not become a second customer
+   * record (ADR 0025).
+   */
+  const visitCookie = (await cookies()).get(VISIT_COOKIE)?.value ?? null;
+  const visitSessionId = isVisitSessionId(visitCookie) ? visitCookie : null;
+
   try {
-    const created = await withTransaction((tx) =>
-      createOrder(tx, {
+    const created = await withTransaction(async (tx) => {
+      const order = await createOrder(tx, {
         customerId,
         idempotencyKey,
         fingerprint: orderFingerprint(lines, contact, promoCode),
         lines,
         contact,
         promoCode,
-      }),
-    );
+      });
+      if (!order.replayed) await markOrderPlaced(tx, visitSessionId);
+      return order;
+    });
 
     if (!created.replayed) {
       after(async () => {

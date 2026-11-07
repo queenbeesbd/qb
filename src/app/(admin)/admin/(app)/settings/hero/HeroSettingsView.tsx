@@ -42,17 +42,15 @@ const ERROR_NOTICES: readonly HeroNotice[] = ['denied', 'invalid', 'conflict'];
  *
  * - **Order** is the sequence, 1..n. Movement is done with buttons rather than drag alone, because a
  *   drag-only control cannot be operated with a keyboard or reliably on the phone the owner uses.
- * - **The image** comes from the shop's generated hero library (`npm run assets:hero`). There is no
- *   upload field here: no object storage is provisioned, and association-only imagery is the approved
- *   rule. Offering a drop zone that silently discarded a file would be worse than saying where images
- *   come from.
+ * - **The image** is uploaded from the owner's computer. The server-inventory picker that preceded the
+ *   upload was removed on 2026-11-07: two ways to add the same banner made the screen ask a question
+ *   the owner should not have to answer.
  *
  * The 1..10 bounds are enforced by the service. This view states them and disables the control that
  * would break one, so the owner sees the limit before submitting; the server still refuses it.
  */
 export function HeroSettingsView({
   images,
-  assets,
   notice,
   csrfToken,
   minImages,
@@ -60,7 +58,6 @@ export function HeroSettingsView({
   altMax,
 }: {
   images: readonly HeroImageRow[];
-  assets: readonly string[];
   notice: HeroNotice | null;
   csrfToken: string;
   minImages: number;
@@ -75,8 +72,6 @@ export function HeroSettingsView({
     .filter((image): image is HeroImageRow => image !== undefined);
   const dirty = order.join(',') !== images.map((image) => String(image.id)).join(',');
 
-  const used = new Set(images.map((image) => image.imageKey));
-  const available = assets.filter((asset) => !used.has(asset));
   const atMaximum = images.length >= maxImages;
   const atMinimum = images.length <= minImages;
 
@@ -269,47 +264,6 @@ export function HeroSettingsView({
               </div>
             </form>
 
-            {assets.length === 0 ? (
-              <p className={styles.note}>{t('admin.hero.assetsEmpty')}</p>
-            ) : available.length === 0 ? (
-              <p className={styles.note}>{t('admin.hero.assetsAllUsed')}</p>
-            ) : (
-              <form className={styles.formCard} action="/api/admin/hero" method="post">
-            <input type="hidden" name="csrf" value={csrfToken} />
-            <input type="hidden" name="operation" value="add" />
-            <div className={styles.field}>
-              <label htmlFor="hero-key">{t('admin.hero.assetLabel')}</label>
-              <select className={styles.select} id="hero-key" name="key" required defaultValue="">
-                <option value="" disabled>
-                  {t('admin.hero.choose')}
-                </option>
-                {available.map((asset) => (
-                  <option key={asset} value={asset}>
-                    {asset}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className={styles.field}>
-              <label htmlFor="hero-alt-new">{t('admin.hero.altLabel')}</label>
-              <input
-                className={styles.input}
-                id="hero-alt-new"
-                name="alt"
-                maxLength={altMax}
-                required
-                placeholder={t('admin.hero.altPlaceholder')}
-                aria-describedby="hero-alt-help"
-              />
-              <p className={styles.hint} id="hero-alt-help">
-                {t('admin.hero.altHelp')}
-              </p>
-            </div>
-                <div className={styles.formActions}>
-                  <SubmitButton label={t('admin.hero.add')} pendingLabel={t('admin.common.working')} />
-                </div>
-              </form>
-            )}
           </>
         )}
       </section>

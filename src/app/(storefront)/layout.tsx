@@ -2,6 +2,7 @@ import { activeAnnouncements } from '@/data/announcements';
 import type { AnnouncementItem } from '@/components/AnnouncementBar';
 import { OfferPopup } from '@/components/OfferPopup';
 import { withTransaction } from '@/db/client';
+import { VisitBeacon } from '@/features/analytics/VisitBeacon';
 import { CartProvider } from '@/features/cart/CartProvider';
 import { selectDepartments } from '@/features/catalog/departments';
 import { loadAnnouncement } from '@/server/settings/announcement';
@@ -81,6 +82,8 @@ export default async function StorefrontLayout({ children }: { children: React.R
       >
         {children}
       </Shell>
+      {/* One first-party step per navigation (ADR 0025). It renders nothing and never blocks. */}
+      <VisitBeacon />
       {popup !== null && (
         <OfferPopup
           imageKey={popup.imageKey}

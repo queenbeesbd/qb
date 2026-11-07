@@ -4965,3 +4965,110 @@ a.rankName:hover {
   font-size: var(--text-xs);
   color: var(--admin-subtle);
 }
+
+/* ---- Traffic (ADR 0025) -------------------------------------------------- */
+
+.kpiGridFour {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+@media (max-width: 1199px) {
+  .kpiGridFour {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .kpiGridFour {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* A live figure is the one thing on the screen that is true only right now. */
+.liveDot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-inline-end: 6px;
+  border-radius: 50%;
+  background: var(--chart-3);
+  box-shadow: 0 0 0 0 color-mix(in srgb, var(--chart-3) 55%, transparent);
+  animation: live-pulse 2.4s ease-out infinite;
+  vertical-align: 1px;
+}
+
+@keyframes live-pulse {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--chart-3) 55%, transparent);
+  }
+  70% {
+    box-shadow: 0 0 0 7px transparent;
+  }
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+
+.funnelList {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.funnelRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: baseline;
+  gap: 2px var(--space-3);
+}
+
+.funnelLabel {
+  min-width: 0;
+  font-size: var(--text-sm);
+  color: var(--admin-ink);
+  overflow-wrap: anywhere;
+}
+
+.funnelValue {
+  font-family: var(--font-display);
+  font-size: var(--text-base);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.funnelShare {
+  min-width: 3.5ch;
+  text-align: end;
+  font-size: var(--text-xs);
+  color: var(--admin-subtle);
+  font-variant-numeric: tabular-nums;
+}
+
+.funnelTrack {
+  grid-column: 1 / -1;
+  display: block;
+  height: 8px;
+  border-radius: var(--radius-pill);
+  background: var(--admin-lavender-soft);
+  overflow: hidden;
+}
+
+.funnelFill {
+  display: block;
+  height: 100%;
+  border-radius: var(--radius-pill);
+  background: var(--admin-lavender-deep);
+}
+
+
+/* A two-column table does not need the wide-table floor, and a path may wrap. */
+.tableCompact {
+  min-width: 0;
+}
+
+.tableCompact td {
+  overflow-wrap: anywhere;
+}
+

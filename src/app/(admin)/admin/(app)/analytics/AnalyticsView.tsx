@@ -15,6 +15,21 @@ import styles from '../../admin.module.css';
 export type AnalyticsStatusSlice = { status: string; count: number };
 export type AnalyticsTopProduct = { name: string; units: number; revenueMinor: number };
 
+export type AnalyticsVisitData = {
+  visitsToday: number;
+  pageViewsToday: number;
+  liveNow: number;
+  cartSessions: number;
+  abandonedCarts: number;
+  ordersFromVisits: number;
+  series: readonly { date: string; visits: number; pageViews: number }[];
+  funnel: readonly {
+    key: 'visits' | 'product' | 'cart' | 'checkout' | 'order';
+    sessions: number;
+  }[];
+  topPaths: readonly { path: string; views: number }[];
+};
+
 export type AnalyticsViewData = {
   period: 7 | 30 | 90;
   summary: {
@@ -73,10 +88,25 @@ const STATUS_TONES: Record<string, ChartTone> = {
  * payment (completed), the pipeline by the day the customer placed the order. They are never summed,
  * because "orders placed" and "orders paid" are different facts about different moments.
  *
- * The traffic gap is stated, not filled. This product runs no analytics tracker, so a visits figure
- * would be invented; the note says so and stops.
+ * Traffic is the shop's own first-party visit log (ADR 0025), read on the same window and the same
+ * Dhaka calendar. It is a separate block because it is a separate fact: a visit is not an order, and
+ * the two are never added together. Every figure names what it counts - a session, not a person.
  */
-export function AnalyticsView({ data }: { data: AnalyticsViewData }) {
+const FUNNEL_KEYS = {
+  visits: 'admin.analytics.funnelVisits',
+  product: 'admin.analytics.funnelProduct',
+  cart: 'admin.analytics.funnelCart',
+  checkout: 'admin.analytics.funnelCheckout',
+  order: 'admin.analytics.funnelOrder',
+} as const satisfies Record<AnalyticsVisitData['funnel'][number]['key'], TranslationKey>;
+
+export function AnalyticsView({
+  data,
+  visits,
+}: {
+  data: AnalyticsViewData;
+  visits: AnalyticsVisitData;
+}) {
   const { t, price } = useTranslation();
   const { summary, series, statuses, topProducts, promos, period } = data;
   const dayFormat = new Intl.DateTimeFormat(INTL_LOCALE, { day: 'numeric', month: 'short' });
@@ -341,7 +371,146 @@ export function AnalyticsView({ data }: { data: AnalyticsViewData }) {
 
       </div>
 
-            <p className={styles.note}>{t('admin.analytics.trafficGap')}</p>
+      <section className={styles.section} aria-labelledby="analytics-traffic">
+        <div className={styles.sectionHead}>
+          <div>
+            <h2 id="analytics-traffic">{t('admin.analytics.trafficTitle')}</h2>
+            <p>{t('admin.analytics.trafficNote')}</p>
+          </div>
+        </div>
+
+        <div className={`${styles.kpiGrid} ${styles.kpiGridFour}`}>
+          <MetricCard
+            tone="violet"
+            icon="analytics"
+            label={t('admin.analytics.trafficVisitsToday')}
+            value={countFormat.format(visits.visitsToday)}
+            note={t('admin.analytics.trafficVisitsTodayNote')}
+            spark={<Sparkline points={visits.series.map((point) => point.visits)} tone="violet" />}
+          />
+          <MetricCard
+            tone="blue"
+            icon="list"
+            label={t('admin.analytics.trafficPageViews')}
+            value={countFormat.format(visits.pageViewsToday)}
+            note={t('admin.analytics.trafficPageViewsNote')}
+            spark={<Sparkline points={visits.series.map((point) => point.pageViews)} tone="blue" />}
+          />
+          <MetricCard
+            tone="teal"
+            icon="clock"
+            label={t('admin.analytics.trafficLive')}
+            value={countFormat.format(visits.liveNow)}
+            note={
+              <>
+                <span className={styles.liveDot} aria-hidden="true" />
+                {t('admin.analytics.trafficLiveNote')}
+              </>
+            }
+          />
+          <MetricCard
+            tone="rose"
+            icon="tag"
+            label={t('admin.analytics.trafficAbandoned')}
+            value={countFormat.format(visits.abandonedCarts)}
+            note={t('admin.analytics.trafficAbandonedNote')}
+          />
+        </div>
+
+        <div className={styles.chartGrid}>
+          <section className={styles.panel} aria-labelledby="analytics-visits">
+            <div className={styles.panelHead}>
+              <h2 id="analytics-visits" className={styles.panelTitle}>
+                {t('admin.analytics.trafficChartTitle')}
+              </h2>
+            </div>
+            <AreaChart
+              points={visits.series.map((point) => ({ key: point.date, value: point.pageViews }))}
+              label={t('admin.analytics.trafficChartLabel')}
+              caption={t('admin.analytics.trafficChartCaption')}
+              summary={
+                visits.series.every((point) => point.pageViews === 0)
+                  ? t('admin.analytics.trafficChartEmpty')
+                  : t('admin.analytics.trafficChartSummary', {
+                      views: visits.series.reduce((total, point) => total + point.pageViews, 0),
+                      visits: visits.series.reduce((total, point) => total + point.visits, 0),
+                    })
+              }
+              formatValue={(value) => countFormat.format(value)}
+              formatAxis={(value) => (value >= 1000 ? String(Math.round(value / 100) / 10) + 'k' : String(value))}
+              formatDay={dayLabel}
+            />
+          </section>
+
+          <section className={styles.panel} aria-labelledby="analytics-funnel">
+            <div className={styles.panelHead}>
+              <h2 id="analytics-funnel" className={styles.panelTitle}>
+                {t('admin.analytics.funnelTitle')}
+              </h2>
+            </div>
+            {visits.funnel[0]?.sessions === 0 ? (
+              <p className={styles.hint}>{t('admin.analytics.funnelEmpty')}</p>
+            ) : (
+              <>
+                <ol className={styles.funnelList}>
+                  {visits.funnel.map((step) => {
+                    const start = visits.funnel[0]?.sessions ?? 0;
+                    const share = start === 0 ? 0 : Math.round((step.sessions / start) * 100);
+                    return (
+                      <li key={step.key} className={styles.funnelRow}>
+                        <span className={styles.funnelLabel}>{t(FUNNEL_KEYS[step.key])}</span>
+                        <span className={styles.funnelTrack} aria-hidden="true">
+                          <span
+                            className={styles.funnelFill}
+                            style={{ width: (step.sessions === 0 ? 0 : Math.max(share, 2)) + '%' }}
+                          />
+                        </span>
+                        <span className={styles.funnelValue}>{countFormat.format(step.sessions)}</span>
+                        <span className={styles.funnelShare}>{share}%</span>
+                      </li>
+                    );
+                  })}
+                </ol>
+                <p className={styles.note}>{t('admin.analytics.funnelNote')}</p>
+              </>
+            )}
+          </section>
+        </div>
+
+        <section className={styles.panel} aria-labelledby="analytics-pages">
+          <div className={styles.panelHead}>
+            <h2 id="analytics-pages" className={styles.panelTitle}>
+              {t('admin.analytics.pagesTitle')}
+            </h2>
+            <span className={styles.statNote}>{t('admin.analytics.pagesNote')}</span>
+          </div>
+          {visits.topPaths.length === 0 ? (
+            <p className={styles.hint}>{t('admin.analytics.pagesEmpty')}</p>
+          ) : (
+            <div className={styles.tableWrap}>
+              <table className={styles.table + ' ' + styles.tableCompact}>
+                <caption className="sr-only">{t('admin.analytics.pagesTitle')}</caption>
+                <thead>
+                  <tr>
+                    <th scope="col">{t('admin.analytics.pagesColumnPath')}</th>
+                    <th scope="col">{t('admin.analytics.pagesColumnViews')}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {visits.topPaths.map((page) => (
+                    <tr key={page.path}>
+                      <td className={styles.mono}>{page.path}</td>
+                      <td className={styles.mono}>{countFormat.format(page.views)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
+
+        <p className={styles.note}>{t('admin.analytics.trafficPrivacy')}</p>
+      </section>
     </>
   );
 }

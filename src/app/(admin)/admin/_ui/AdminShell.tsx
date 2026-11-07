@@ -129,9 +129,18 @@ export function AdminShell({
     return () => document.removeEventListener('focusin', onFocusIn);
   }, []);
 
-  const active = items.find(
-    (item) => pathname === item.href || (item.href !== '/admin' && pathname.startsWith(item.href + '/')),
-  );
+  /*
+   * The current destination is the **most specific** match, not the first one in the list.
+   *
+   * `/admin/catalog/brands` starts with `/admin/catalog/`, so a plain `find` returned Products for
+   * every brand route and lit the wrong rail item. An exact match wins outright; otherwise the longest
+   * prefix wins, which is what makes a nested destination beat its parent.
+   */
+  const active =
+    items.find((item) => pathname === item.href) ??
+    items
+      .filter((item) => item.href !== '/admin' && pathname.startsWith(item.href + '/'))
+      .sort((a, b) => b.href.length - a.href.length)[0];
 
   const roleLabel =
     identity.roleCodes.length === 0

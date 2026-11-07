@@ -9,6 +9,7 @@ import {
   type ReactNode,
 } from 'react';
 import type { CartLine } from '@/lib/types';
+import { trackVisit } from '@/features/analytics/track';
 import { MAX_QUANTITY } from './cart-storage';
 import {
   addLine,
@@ -81,6 +82,8 @@ export function CartProvider({
   const addItem = useCallback((productId: string, quantity = 1) => {
     addLine(productId, quantity);
     setLastAddedId(productId);
+    // The cart is the funnel's middle step, and it happens without a navigation (ADR 0025).
+    trackVisit('cart_add', typeof window === 'undefined' ? '/' : window.location.pathname);
   }, []);
 
   const setQuantity = useCallback((productId: string, quantity: number) => {
