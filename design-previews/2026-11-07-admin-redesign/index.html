@@ -1,0 +1,652 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>设计方向预览 — 后台管理面板重设计</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Archivo+Narrow:wght@400;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --shell-bg:#F4F4F2; --shell-ink:#1A1A1A; --shell-muted:#6B6B66; --shell-line:#DCDCD8;
+    --shell-card:#FFFFFF; --shell-accent:#1A1A1A;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{background:var(--shell-bg);color:var(--shell-ink);
+    font-family:system-ui,-apple-system,'Segoe UI','PingFang SC','Hiragino Sans GB','Microsoft YaHei',sans-serif;
+    font-size:14px;line-height:1.55;-webkit-font-smoothing:antialiased}
+  body.qmdp-preview-active .bar{display:none}
+  .bar{position:static;z-index:30;display:flex;align-items:center;justify-content:space-between;gap:16px;
+    padding:14px 28px;background:rgb(244 244 242 / 92%);backdrop-filter:blur(8px);border-bottom:1px solid var(--shell-line)}
+  .bar strong{font-size:14px;font-weight:650;letter-spacing:-.01em}
+  .bar .keys{display:flex;gap:6px;align-items:center;color:var(--shell-muted);font-size:12px}
+  .key{display:inline-flex;align-items:center;gap:4px;padding:2px 7px;border:1px solid var(--shell-line);border-radius:5px;background:#fff;font-variant-numeric:tabular-nums}
+  .status{font-size:12px;color:var(--shell-muted)}
+  .status.ok{color:#168a5f;font-weight:600}
+
+  .intro{max-width:1560px;margin:0 auto;padding:26px 28px 6px}
+  .read{font-size:15px;line-height:1.7;max-width:96ch;margin:0}
+  .read b{font-weight:650}
+  .contract{display:flex;flex-wrap:wrap;gap:8px 22px;margin:14px 0 0;padding:0;list-style:none;font-size:13px;color:var(--shell-muted)}
+  .contract li{display:flex;gap:7px;align-items:baseline}
+  .contract li::before{content:"";width:5px;height:5px;border-radius:50%;background:#B9B9B3;flex:none;transform:translateY(-2px)}
+  .contract b{color:var(--shell-ink);font-weight:600}
+
+  .dials{max-width:1560px;margin:0 auto;padding:18px 28px 6px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px 28px}
+  .dial{display:grid;gap:6px}
+  .dial-head{display:flex;justify-content:space-between;align-items:baseline;font-size:12.5px;font-weight:600}
+  .dial-head output{font-variant-numeric:tabular-nums;font-weight:700;color:#5B4BC4}
+  .dial small{font-size:11.5px;color:var(--shell-muted);font-weight:400}
+  input[type=range]{width:100%;accent-color:#5B4BC4;height:22px}
+
+  .grid{max-width:1560px;margin:0 auto;padding:22px 28px 40px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:24px}
+  .card{background:var(--shell-card);border:1px solid var(--shell-line);border-radius:14px;overflow:hidden;display:flex;flex-direction:column;min-width:0;cursor:pointer;transition:border-color 140ms ease,box-shadow 140ms ease}
+  .card:hover{border-color:#B9B9B3}
+  .card.selected{border-color:#1A1A1A;box-shadow:0 0 0 1px #1A1A1A}
+  .card-head{display:flex;align-items:center;gap:10px;padding:14px 18px 12px;border-bottom:1px solid #EFEFEC}
+  .badge{display:grid;place-items:center;width:24px;height:24px;border-radius:6px;background:#1A1A1A;color:#fff;font-size:12px;font-weight:700;flex:none}
+  .card-name{font-size:15px;font-weight:650;letter-spacing:-.01em}
+  .card-vibe{font-size:12.5px;color:var(--shell-muted);margin-left:auto;text-align:right}
+  .rec{font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#5B4BC4;border:1px solid #CFC6F5;background:#F3F0FF;border-radius:999px;padding:2px 8px;flex:none}
+
+  .stage{--ps:.64;--ds:.70;position:relative;display:flex;flex-direction:column;gap:14px;align-items:center;justify-content:center;
+    padding:18px 16px 28px;background:#EDEDEA;border-bottom:1px solid #E4E4E0}
+  .stage::after{content:"手机 390 × 844  ·  桌面 1440 × 900";position:absolute;left:0;right:0;bottom:8px;
+    text-align:center;font-size:9.5px;letter-spacing:.1em;color:#9C9C96}
+  .phone{width:calc(390px * var(--ps));height:calc(844px * var(--ps));overflow:hidden;border-radius:calc(30px * var(--ps));
+    background:#111;box-shadow:0 12px 30px rgb(0 0 0 / 20%);flex:none;position:relative}
+  .phone>.screen{width:390px;height:844px;transform:scale(var(--ps));transform-origin:top left;overflow:hidden;position:relative}
+  .desk{width:calc(900px * var(--ds));height:calc(462px * var(--ds));overflow:hidden;border-radius:calc(8px * var(--ds));
+    box-shadow:0 12px 30px rgb(0 0 0 / 20%);flex:none;background:#fff}
+  .desk>.screen{width:900px;height:560px;transform:scale(var(--ds));transform-origin:top left;overflow:hidden;position:relative}
+
+  .meta{padding:14px 18px 4px;display:grid;gap:6px;width:100%}
+  .meta p{margin:0;font-size:12.5px;line-height:1.55;color:#3A3A36;max-width:70ch}
+  .meta b{font-weight:650;color:#1A1A1A}
+  .pick{position:relative;z-index:1;margin:12px 18px 18px;min-height:44px;width:calc(100% - 36px);
+    border:1px solid #1A1A1A;background:#1A1A1A;color:#fff;border-radius:9px;font:inherit;font-size:13.5px;font-weight:600;
+    cursor:pointer;transition:transform 120ms ease,background 120ms ease}
+  .pick:hover{background:#333}
+  .pick:active{transform:scale(.99)}
+  .card.selected .pick{background:#168a5f;border-color:#168a5f}
+
+  .notes{max-width:1560px;margin:0 auto;padding:0 28px 60px}
+  .notes h2{font-size:16px;margin:0 0 4px;letter-spacing:-.01em}
+  .notes>p{color:var(--shell-muted);font-size:13px;margin:0 0 18px}
+  .note-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
+  .note{border:1px solid var(--shell-line);border-radius:12px;background:#fff;padding:16px 18px}
+  .note h3{margin:0 0 8px;font-size:13.5px;display:flex;align-items:center;gap:8px}
+  .note h3 .badge{width:20px;height:20px;font-size:11px;border-radius:5px}
+  .note dl{margin:0;display:grid;grid-template-columns:64px 1fr;gap:5px 10px;font-size:12.5px}
+  .note dt{color:var(--shell-muted)}
+  .note dd{margin:0;color:#2A2A26}
+  .note .mix{margin:10px 0 0;font-size:12px;color:#5B4BC4}
+
+  .toast{position:fixed;left:50%;bottom:22px;transform:translate(-50%,140%);background:#1A1A1A;color:#fff;
+    padding:11px 18px;border-radius:9px;font-size:13px;z-index:60;transition:transform 220ms cubic-bezier(.23,1,.32,1);max-width:calc(100vw - 32px)}
+  .toast.show{transform:translate(-50%,0)}
+
+  @media (max-width:1360px){
+    .stage{--ps:.60;--ds:.64}
+  }
+  @media (max-width:1100px){
+    .grid{grid-template-columns:1fr}
+    .note-grid{grid-template-columns:1fr}
+    .stage{--ps:.62;--ds:.70}
+  }
+  @media (max-width:760px){
+    .bar{padding:12px 16px;flex-wrap:wrap;gap:8px}
+    .intro,.dials,.grid,.notes{padding-left:16px;padding-right:16px}
+    .dials{grid-template-columns:1fr;gap:10px}
+    .stage{--ps:.62;--ds:.38;padding:14px 10px 26px}
+    .desk{display:none}
+    .stage::after{content:"手机 390 × 844  ·  桌面版见下方说明"}
+    .card-vibe{display:none}
+  }
+  @media (prefers-reduced-motion:reduce){*{transition-duration:.01ms!important;animation-duration:.01ms!important}}
+</style>
+</head>
+<body>
+<div class="bar">
+  <strong>后台管理面板重设计 · 方向样机</strong>
+  <span class="keys"><span class="key">1 A</span><span class="key">2 B</span><span class="key">3 C</span><span class="key">4 D</span></span>
+  <span class="status" id="status">方向样机，不是最终页面</span>
+</div>
+
+<div class="intro">
+  <p class="read" style="font-size:12.5px;color:#6B6B66;margin-bottom:10px">这是<b>设计方向样机</b>，用于选择视觉与交互气质，不是最终页面；点选方向后才进入正式实现。</p>
+  <p class="read"><b>读取为：</b>单店后台（订单队列 / 商品目录 / 设置），面向一位店主——白天在手机上确认订单、晚上在电脑上批量改商品——用<b>安静、可信、拇指优先</b>的语言，倾向<b>工业实用主义 + 编辑式排版</b>。</p>
+  <ul class="contract">
+    <li><b>3 秒内</b>知道：几单在等、今天进了多少钱、几件缺货</li>
+    <li><b>必须能完成</b>：确认/拒绝 COD、改库存状态、改价、看订单、改配送费</li>
+    <li><b>手机优先</b>：单手可达、行可点、操作不藏在 hover 里</li>
+  </ul>
+</div>
+
+<div class="dials" data-qmdp-dials aria-label="设计拨盘">
+  <label class="dial">
+    <span class="dial-head"><span>视觉冒险度 <small>（页面有多大胆）</small></span><output data-qmdp-output="variance">4</output></span>
+    <input data-qmdp-dial="variance" type="range" min="1" max="10" value="4">
+  </label>
+  <label class="dial">
+    <span class="dial-head"><span>动效强度 <small>（动画反馈多少）</small></span><output data-qmdp-output="motion">3</output></span>
+    <input data-qmdp-dial="motion" type="range" min="1" max="10" value="3">
+  </label>
+  <label class="dial">
+    <span class="dial-head"><span>信息密度 <small>（内容更松还是更紧）</small></span><output data-qmdp-output="density">6</output></span>
+    <input data-qmdp-dial="density" type="range" min="1" max="10" value="6">
+  </label>
+</div>
+
+<div class="grid">
+
+  <!-- ============ A · 柜台账本 ============ -->
+  <article class="card" data-design-option="A" data-name="柜台账本">
+    <div class="card-head">
+      <span class="badge">A</span>
+      <span class="card-name">柜台账本</span>
+      <span class="rec">推荐</span>
+      <span class="card-vibe">像一本精装店铺账本</span>
+    </div>
+    <div class="stage">
+      <div class="phone"><div class="screen a-screen">
+        <div class="a-top"><span class="a-mark">QueenBee's</span><span class="a-date">Fri 7 Nov</span></div>
+        <div class="a-greet"><p class="a-hello">Good afternoon,</p><h3 class="a-name">Owner</h3></div>
+        <div class="a-today">
+          <div class="a-row"><span>Waiting on a call</span><b>3</b></div>
+          <div class="a-row"><span>Recorded today</span><b>Tk 4,850</b></div>
+          <div class="a-row"><span>Out of stock</span><b>2</b></div>
+        </div>
+        <p class="a-sec">Waiting on you</p>
+        <ul class="a-list">
+          <li><span class="a-time">10:42</span><span class="a-who">Rahim Uddin<em>2 items · Dhaka</em></span><span class="a-amt">Tk 1,240</span></li>
+          <li><span class="a-time">09:15</span><span class="a-who">Sadia Akter<em>3 items · Chattogram</em></span><span class="a-amt">Tk 2,380</span></li>
+          <li><span class="a-time">08:03</span><span class="a-who">Tanvir Hasan<em>1 item · Dhaka</em></span><span class="a-amt">Tk 1,230</span></li>
+        </ul>
+        <p class="a-more">Open the queue →</p>
+        <p class="a-sec">Recent</p>
+        <ul class="a-list">
+          <li><span class="a-time">Yest</span><span class="a-who">Nusrat Jahan<em>Confirmed · Chattogram</em></span><span class="a-amt">Tk 3,150</span></li>
+          <li><span class="a-time">Yest</span><span class="a-who">Farhan Ali<em>Delivered · Dhaka</em></span><span class="a-amt">Tk 890</span></li>
+        </ul>
+        <div class="a-tabs"><span class="on">Home</span><span>Orders</span><span>Catalog</span><span>More</span></div>
+      </div></div>
+      <div class="desk"><div class="screen a-desk">
+        <aside class="a-rail">
+          <p class="a-rail-mark">QueenBee's</p>
+          <p class="a-rail-sub">Owner admin</p>
+          <p class="a-rail-group">Overview</p>
+          <p class="a-rail-item on">Overview</p>
+          <p class="a-rail-item">Analytics</p>
+          <p class="a-rail-group">Commerce</p>
+          <p class="a-rail-item">COD orders</p>
+          <p class="a-rail-item">All orders</p>
+          <p class="a-rail-item">Products</p>
+          <p class="a-rail-item">Categories</p>
+          <p class="a-rail-group">Settings</p>
+          <p class="a-rail-item">Delivery charges</p>
+        </aside>
+        <div class="a-main">
+          <div class="a-crumb">Admin / All orders</div>
+          <div class="a-head"><h4>All orders</h4><span class="a-count">22 orders</span></div>
+          <div class="a-filters"><span class="on">All</span><span>Pending</span><span>Confirmed</span><span>Shipped</span><span>Delivered</span><span>Cancelled</span></div>
+          <table class="a-table">
+            <thead><tr><th>Placed</th><th>Customer</th><th>Reference</th><th>Status</th><th class="r">Total</th></tr></thead>
+            <tbody>
+              <tr><td>10:42</td><td>Rahim Uddin</td><td class="mono">QB3F9A2C7D1E4B8A</td><td>Pending</td><td class="r">Tk 1,240</td></tr>
+              <tr><td>09:15</td><td>Sadia Akter</td><td class="mono">QB7C1D4E9A2B6F30</td><td>Pending</td><td class="r">Tk 2,380</td></tr>
+              <tr><td>08:03</td><td>Tanvir Hasan</td><td class="mono">QB2E8B5A1C9D7F44</td><td>Pending</td><td class="r">Tk 1,230</td></tr>
+              <tr><td>Yesterday</td><td>Nusrat Jahan</td><td class="mono">QB9D3C6F2A8E1B57</td><td>Confirmed</td><td class="r">Tk 3,150</td></tr>
+              <tr><td>Yesterday</td><td>Farhan Ali</td><td class="mono">QB5A1E7B3D9C2F68</td><td>Delivered</td><td class="r">Tk 890</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div></div>
+    </div>
+    <div class="meta">
+      <p><b>字体</b> Instrument Serif 标题与金额 + Inter 正文 · <b>色彩</b> 纸白 + 墨黑 + 单一深紫 · <b>布局</b> 无卡片，细线账本行 · <b>记忆点</b> 大号衬线金额右对齐</p>
+    </div>
+    <button class="pick qmdp-pick-button" type="button">选择 A · 柜台账本</button>
+  </article>
+
+  <!-- ============ B · 调度台 ============ -->
+  <article class="card" data-design-option="B" data-name="调度台">
+    <div class="card-head">
+      <span class="badge">B</span>
+      <span class="card-name">调度台</span>
+      <span class="card-vibe">像物流调度中心的终端</span>
+    </div>
+    <div class="stage">
+      <div class="phone"><div class="screen b-screen">
+        <div class="b-status"><span class="b-live">● LIVE</span><span>QB//ADMIN</span><span>07.11 12:04</span></div>
+        <div class="b-figures">
+          <div><span>WAITING</span><b>03</b></div>
+          <div><span>TODAY</span><b>4,850</b></div>
+          <div><span>OOS</span><b>02</b></div>
+        </div>
+        <div class="b-rule">────────────────────────────</div>
+        <p class="b-sec">QUEUE / 03</p>
+        <ul class="b-list">
+          <li><span class="b-t">10:42</span><span class="b-n">RAHIM UDDIN<em>QB3F9A2C7D1E4B8A</em></span><span class="b-a">1,240</span><span class="b-s">PEND</span></li>
+          <li><span class="b-t">09:15</span><span class="b-n">SADIA AKTER<em>QB7C1D4E9A2B6F30</em></span><span class="b-a">2,380</span><span class="b-s">PEND</span></li>
+          <li><span class="b-t">08:03</span><span class="b-n">TANVIR HASAN<em>QB2E8B5A1C9D7F44</em></span><span class="b-a">1,230</span><span class="b-s">PEND</span></li>
+        </ul>
+        <p class="b-sec">RECENT / 02</p>
+        <ul class="b-list">
+          <li><span class="b-t">YEST</span><span class="b-n">NUSRAT JAHAN<em>QB9D3C6F2A8E1B57</em></span><span class="b-a">3,150</span><span class="b-s g">CONF</span></li>
+          <li><span class="b-t">YEST</span><span class="b-n">FARHAN ALI<em>QB5A1E7B3D9C2F68</em></span><span class="b-a">890</span><span class="b-s g">DELV</span></li>
+        </ul>
+        <div class="b-tabs"><span class="on">[HOME]</span><span>ORDERS</span><span>CATALOG</span><span>MORE</span></div>
+      </div></div>
+      <div class="desk"><div class="screen b-desk">
+        <div class="b-dtop"><span class="b-live">● LIVE</span><span>QB//ADMIN</span><span class="b-spacer"></span><span>ORDERS 22</span><span>QUEUE 03</span><span>07.11.26 12:04</span></div>
+        <div class="b-dbody">
+          <aside class="b-dnav">
+            <p class="on">01 OVERVIEW</p><p>02 ANALYTICS</p><p>03 COD</p><p>04 ORDERS</p><p>05 PRODUCTS</p><p>06 CATEGORIES</p><p>07 SETTINGS</p>
+          </aside>
+          <div class="b-dlist">
+            <div class="b-dhead"><span>ALL ORDERS</span><span>FILTER: PENDING</span></div>
+            <div class="b-drow h"><span>TIME</span><span>CUSTOMER</span><span>REF</span><span>STATUS</span><span>TOTAL</span></div>
+            <div class="b-drow"><span>10:42</span><span>RAHIM UDDIN</span><span>QB3F9A2C</span><span class="w">PEND</span><span>1,240</span></div>
+            <div class="b-drow"><span>09:15</span><span>SADIA AKTER</span><span>QB7C1D4E</span><span class="w">PEND</span><span>2,380</span></div>
+            <div class="b-drow"><span>08:03</span><span>TANVIR HASAN</span><span>QB2E8B5A</span><span class="w">PEND</span><span>1,230</span></div>
+            <div class="b-drow"><span>YEST</span><span>NUSRAT JAHAN</span><span>QB9D3C6F</span><span class="g">CONF</span><span>3,150</span></div>
+            <div class="b-drow"><span>YEST</span><span>FARHAN ALI</span><span>QB5A1E7B</span><span class="g">DELV</span><span>890</span></div>
+          </div>
+          <aside class="b-ddetail">
+            <p class="b-dlabel">SELECTED</p>
+            <p class="b-dref">QB3F9A2C7D1E4B8A</p>
+            <p class="b-dmeta">RAHIM UDDIN<br>2 ITEMS · DHAKA<br>COD · 1,240</p>
+            <p class="b-dact">[ ACCEPT ]</p>
+            <p class="b-dact dim">[ REJECT ]</p>
+          </aside>
+        </div>
+      </div></div>
+    </div>
+    <div class="meta">
+      <p><b>字体</b> 全等宽（JetBrains Mono / 系统等宽）· <b>色彩</b> 近黑底 + 磷光绿单强调 · <b>布局</b> 桌面三栏控制台，手机单栏状态行 · <b>记忆点</b> 等宽状态行与 LIVE 点</p>
+    </div>
+    <button class="pick qmdp-pick-button" type="button">选择 B · 调度台</button>
+  </article>
+
+  <!-- ============ C · 软柜台 ============ -->
+  <article class="card" data-design-option="C" data-name="软柜台">
+    <div class="card-head">
+      <span class="badge">C</span>
+      <span class="card-name">软柜台</span>
+      <span class="card-vibe">像当代消费级 App</span>
+    </div>
+    <div class="stage">
+      <div class="phone"><div class="screen c-screen">
+        <div class="c-top"><span class="c-ava">OW</span><span class="c-hi">Hi, Owner</span><span class="c-bell">◔</span></div>
+        <div class="c-hero">
+          <p class="c-hero-k">Waiting on a call</p>
+          <p class="c-hero-v">3 orders</p>
+          <p class="c-hero-s">Oldest 2h 14m · Tk 4,850 in the queue</p>
+          <span class="c-cta">Review queue</span>
+        </div>
+        <div class="c-chips">
+          <div class="c-chip"><b>Tk 4,850</b><span>recorded today</span></div>
+          <div class="c-chip"><b>22</b><span>live products</span></div>
+          <div class="c-chip"><b>2</b><span>out of stock</span></div>
+        </div>
+        <div class="c-card">
+          <div class="c-card-h"><span>Out of stock</span><span class="c-link">Manage</span></div>
+          <div class="c-item"><span class="c-thumb"></span><span class="c-iname">Chaoba Hair Mask 500ml</span><span class="c-ip">Tk 1,150</span></div>
+          <div class="c-item"><span class="c-thumb"></span><span class="c-iname">Skin'O Hydration Boost Gel 70ml</span><span class="c-ip">Tk 390</span></div>
+        </div>
+        <div class="c-card" style="margin-top:10px">
+          <div class="c-card-h"><span>Recent orders</span><span class="c-link">All</span></div>
+          <div class="c-item"><span class="c-thumb"></span><span class="c-iname">Nusrat Jahan<em class="c-iem">Confirmed · Tk 3,150</em></span><span class="c-ip">›</span></div>
+          <div class="c-item"><span class="c-thumb"></span><span class="c-iname">Farhan Ali<em class="c-iem">Delivered · Tk 890</em></span><span class="c-ip">›</span></div>
+        </div>
+        <div class="c-tabs"><span class="on">Home</span><span>Orders</span><span>Catalog</span><span>More</span></div>
+      </div></div>
+      <div class="desk"><div class="screen c-desk">
+        <aside class="c-rail">
+          <p class="c-rail-mark">QueenBee's</p>
+          <p class="c-rail-sub">Owner admin</p>
+          <p class="c-rail-item on">Overview</p>
+          <p class="c-rail-item">Analytics</p>
+          <p class="c-rail-item">COD orders</p>
+          <p class="c-rail-item">All orders</p>
+          <p class="c-rail-item">Products</p>
+          <p class="c-rail-item">Categories</p>
+          <p class="c-rail-item">Settings</p>
+        </aside>
+        <div class="c-main">
+          <div class="c-dhead"><h4>Overview</h4><span class="c-dbtn">+ Add product</span></div>
+          <div class="c-dhero">
+            <div><p class="c-hero-k">Waiting on a call</p><p class="c-hero-v">3 orders</p><p class="c-hero-s">Oldest 2h 14m</p></div>
+            <span class="c-cta">Review queue</span>
+          </div>
+          <div class="c-dgrid">
+            <div class="c-dcard"><span>Recorded today</span><b>Tk 4,850</b><em>3 completed orders</em></div>
+            <div class="c-dcard"><span>Live products</span><b>22</b><em>2 out of stock</em></div>
+            <div class="c-dcard"><span>Customers</span><b>18</b><em>4 served this month</em></div>
+          </div>
+        </div>
+      </div></div>
+    </div>
+    <div class="meta">
+      <p><b>字体</b> Inter 700 标题 + 大号数字 · <b>色彩</b> 薰衣草大色块 + 粉点缀 + 白卡 · <b>布局</b> 大圆角卡片流，一卡一任务 · <b>记忆点</b> 顶部一张巨大的「今日」卡</p>
+    </div>
+    <button class="pick qmdp-pick-button" type="button">选择 C · 软柜台</button>
+  </article>
+
+  <!-- ============ D · 蓝图 ============ -->
+  <article class="card" data-design-option="D" data-name="蓝图">
+    <div class="card-head">
+      <span class="badge">D</span>
+      <span class="card-name">蓝图</span>
+      <span class="card-vibe">像工业制图手册</span>
+    </div>
+    <div class="stage">
+      <div class="phone"><div class="screen d-screen">
+        <div class="d-ruler"><span>ADMIN</span><span>07.11.26</span></div>
+        <h3 class="d-title">TODAY</h3>
+        <div class="d-box d-today">
+          <div class="d-row"><span>WAITING ON A CALL</span><i></i><b>03</b></div>
+          <div class="d-row"><span>RECORDED TODAY</span><i></i><b>4,850</b></div>
+          <div class="d-row"><span>OUT OF STOCK</span><i></i><b>02</b></div>
+        </div>
+        <p class="d-sec">QUEUE <span>/ 03</span></p>
+        <div class="d-box d-queue">
+          <div class="d-qrow"><span class="d-qt">10:42</span><span class="d-qn">RAHIM UDDIN</span><span class="d-qa">1,240</span><span class="d-qs">PEND</span></div>
+          <div class="d-qrow"><span class="d-qt">09:15</span><span class="d-qn">SADIA AKTER</span><span class="d-qa">2,380</span><span class="d-qs">PEND</span></div>
+          <div class="d-qrow"><span class="d-qt">08:03</span><span class="d-qn">TANVIR HASAN</span><span class="d-qa">1,230</span><span class="d-qs">PEND</span></div>
+        </div>
+        <p class="d-sec">RECENT <span>/ 02</span></p>
+        <div class="d-box d-queue">
+          <div class="d-qrow"><span class="d-qt">YEST</span><span class="d-qn">NUSRAT JAHAN</span><span class="d-qa">3,150</span><span class="d-qs ok">CONF</span></div>
+          <div class="d-qrow"><span class="d-qt">YEST</span><span class="d-qn">FARHAN ALI</span><span class="d-qa">890</span><span class="d-qs ok">DELV</span></div>
+        </div>
+        <div class="d-tabs"><span class="on">01 HOME</span><span>02 ORDERS</span><span>03 CATALOG</span><span>04 MORE</span></div>
+      </div></div>
+      <div class="desk"><div class="screen d-desk">
+        <aside class="d-rail">
+          <p class="d-rail-mark">QUEENBEE'S</p>
+          <p class="d-rail-sub">OWNER ADMIN</p>
+          <p class="d-rail-item on">01 OVERVIEW</p>
+          <p class="d-rail-item">02 ANALYTICS</p>
+          <p class="d-rail-item">03 COD ORDERS</p>
+          <p class="d-rail-item">04 ALL ORDERS</p>
+          <p class="d-rail-item">05 PRODUCTS</p>
+          <p class="d-rail-item">06 CATEGORIES</p>
+          <p class="d-rail-item">07 SETTINGS</p>
+        </aside>
+        <div class="d-main">
+          <div class="d-dhead"><span>ADMIN / ALL ORDERS</span><span>07.11.26</span></div>
+          <h4 class="d-dtitle">ALL ORDERS</h4>
+          <div class="d-box d-table">
+            <div class="d-trow h"><span>PLACED</span><span>CUSTOMER</span><span>REFERENCE</span><span>STATUS</span><span>TOTAL</span></div>
+            <div class="d-trow"><span>10:42</span><span>RAHIM UDDIN</span><span>QB3F9A2C</span><span>PEND</span><span>1,240</span></div>
+            <div class="d-trow"><span>09:15</span><span>SADIA AKTER</span><span>QB7C1D4E</span><span>PEND</span><span>2,380</span></div>
+            <div class="d-trow"><span>08:03</span><span>TANVIR HASAN</span><span>QB2E8B5A</span><span>PEND</span><span>1,230</span></div>
+            <div class="d-trow"><span>YEST</span><span>NUSRAT JAHAN</span><span>QB9D3C6F</span><span>CONF</span><span>3,150</span></div>
+          </div>
+          <div class="d-dim"><span>22 RECORDS</span><span>PAGE 1 / 1</span></div>
+        </div>
+      </div></div>
+    </div>
+    <div class="meta">
+      <p><b>字体</b> Archivo Narrow 窄体标题 + 等宽标注 · <b>色彩</b> 米白纸底 + 蓝墨线 + 红仅警示 · <b>布局</b> 双栏 + 带角标的方框 · <b>记忆点</b> 四角刻度与尺寸标注</p>
+    </div>
+    <button class="pick qmdp-pick-button" type="button">选择 D · 蓝图</button>
+  </article>
+
+</div>
+
+<div class="notes">
+  <h2>四个方向在说什么</h2>
+  <p>也可以只选中意某个细节，在对话里告诉我（例如：要 A 的配色 + B 的字体）。</p>
+  <div class="note-grid">
+    <div class="note">
+      <h3><span class="badge">A</span>柜台账本</h3>
+      <dl>
+        <dt>气质</dt><dd>像一本精装店铺账本，或当代印刷杂志的财务版</dd>
+        <dt>字体</dt><dd>Instrument Serif 标题与金额 + Inter 正文</dd>
+        <dt>色彩</dt><dd>纸白 #FBFAF7 + 墨黑 #1C1A17 + 单一深紫 #6B4FBF</dd>
+        <dt>布局</dt><dd>没有卡片，只有细线账本行；金额右对齐、等宽数字</dd>
+        <dt>记忆点</dt><dd>大号衬线金额与一条条账本线</dd>
+        <dt>适合</dt><dd>白天在店里用手机看队列，晚上在电脑上对账</dd>
+      </dl>
+      <p class="mix">混搭建议：A 的账本行 + C 的圆角触控目标</p>
+    </div>
+    <div class="note">
+      <h3><span class="badge">B</span>调度台</h3>
+      <dl>
+        <dt>气质</dt><dd>像物流调度中心的终端，或 90 年代工业控制台</dd>
+        <dt>字体</dt><dd>全等宽（JetBrains Mono / 系统等宽），大写微标签</dd>
+        <dt>色彩</dt><dd>近黑 #0E0F0C + 磷光绿 #B8F26A 单强调</dd>
+        <dt>布局</dt><dd>桌面三栏控制台；手机单栏 + 固定状态行</dd>
+        <dt>记忆点</dt><dd>等宽状态行与 LIVE 点</dd>
+        <dt>适合</dt><dd>一天处理几十单、喜欢键盘与高密度信息的人</dd>
+      </dl>
+      <p class="mix">混搭建议：B 的密度 + A 的衬线金额</p>
+    </div>
+    <div class="note">
+      <h3><span class="badge">C</span>软柜台</h3>
+      <dl>
+        <dt>气质</dt><dd>像当代消费级 App 的柔和版，友好、圆润</dd>
+        <dt>字体</dt><dd>Inter 700 标题 + 大号数字</dd>
+        <dt>色彩</dt><dd>薰衣草 #C8B6FF 大色块 + 粉 #F6B3CC 点缀 + 白卡</dd>
+        <dt>布局</dt><dd>大圆角卡片流，一卡一任务，56px 触控目标</dd>
+        <dt>记忆点</dt><dd>顶部一张巨大的「今日」卡</dd>
+        <dt>适合</dt><dd>手机为主、希望每个动作都一眼看懂</dd>
+      </dl>
+      <p class="mix">混搭建议：C 的卡片 + D 的标注线</p>
+    </div>
+    <div class="note">
+      <h3><span class="badge">D</span>蓝图</h3>
+      <dl>
+        <dt>气质</dt><dd>像工业制图手册或瑞士技术规格书</dd>
+        <dt>字体</dt><dd>Archivo Narrow 窄体标题 + 等宽标注</dd>
+        <dt>色彩</dt><dd>米白 #F2EFE6 纸底 + 蓝墨 #1F3A93 + 红仅用于警示</dd>
+        <dt>布局</dt><dd>双栏 + 带四角刻度的方框 + 尺寸标注</dd>
+        <dt>记忆点</dt><dd>方框四角的刻度与「22 RECORDS」这类标注</dd>
+        <dt>适合</dt><dd>喜欢把后台当仪表盘、看重精确与秩序</dd>
+      </dl>
+      <p class="mix">混搭建议：D 的方框 + A 的纸白</p>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<style>
+/* ================= A · 柜台账本 ================= */
+.a-screen{background:#FBFAF7;color:#1C1A17;font-family:Inter,system-ui,sans-serif;height:844px;position:relative;padding:0 22px}
+.a-top{display:flex;justify-content:space-between;align-items:baseline;padding:26px 0 12px;border-bottom:1px solid #1C1A17;font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:#6B6357}
+.a-mark{font-family:'Instrument Serif',Georgia,serif;font-size:16px;letter-spacing:.01em;text-transform:none;color:#1C1A17}
+.a-greet{padding:24px 0 16px}
+.a-hello{font-family:'Instrument Serif',Georgia,serif;font-size:19px;color:#6B6357;margin:0}
+.a-name{font-family:'Instrument Serif',Georgia,serif;font-size:42px;font-weight:400;line-height:1;margin:2px 0 0;letter-spacing:-.01em}
+.a-today{border-top:1px solid #1C1A17}
+.a-row{display:flex;justify-content:space-between;align-items:baseline;padding:10px 0;border-bottom:1px solid #D9D4C8;font-size:12.5px;color:#3A352C}
+.a-row b{font-family:'Instrument Serif',Georgia,serif;font-size:21px;font-weight:400;color:#1C1A17;font-variant-numeric:tabular-nums}
+.a-sec{margin:20px 0 6px;font-size:9.5px;letter-spacing:.18em;text-transform:uppercase;color:#6B6357}
+.a-list{list-style:none;margin:0;padding:0}
+.a-list li{display:grid;grid-template-columns:40px 1fr auto;gap:10px;align-items:baseline;padding:11px 0;border-bottom:1px solid #E4DFD3}
+.a-time{font-size:10.5px;color:#6B6357;font-variant-numeric:tabular-nums}
+.a-who{font-size:13.5px;font-weight:600;line-height:1.25}
+.a-who em{display:block;font-style:normal;font-weight:400;font-size:10.5px;color:#6B6357;margin-top:2px}
+.a-amt{font-family:'Instrument Serif',Georgia,serif;font-size:16px;font-variant-numeric:tabular-nums}
+.a-more{margin:12px 0 0;font-size:11px;color:#6B4FBF;font-weight:600}
+.a-tabs{position:absolute;left:0;right:0;bottom:0;display:flex;justify-content:space-around;padding:14px 0 24px;border-top:1px solid #1C1A17;background:#FBFAF7;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#6B6357}
+.a-tabs .on{color:#1C1A17;font-weight:700;box-shadow:inset 0 -2px 0 #6B4FBF;padding-bottom:3px}
+.a-desk{display:grid;grid-template-columns:196px 1fr;background:#FBFAF7;color:#1C1A17;font-family:Inter,system-ui,sans-serif;height:560px}
+.a-rail{border-right:1px solid #D9D4C8;padding:20px 16px}
+.a-rail-mark{font-family:'Instrument Serif',Georgia,serif;font-size:17px;margin:0}
+.a-rail-sub{font-size:9px;letter-spacing:.16em;text-transform:uppercase;color:#6B6357;margin:2px 0 18px}
+.a-rail-group{font-size:8.5px;letter-spacing:.18em;text-transform:uppercase;color:#8C8474;margin:14px 0 4px}
+.a-rail-item{font-size:12.5px;color:#3A352C;margin:0;padding:4px 0}
+.a-rail-item.on{color:#6B4FBF;font-weight:700}
+.a-main{padding:18px 22px}
+.a-crumb{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:#8C8474}
+.a-head{display:flex;align-items:baseline;justify-content:space-between;border-bottom:1px solid #1C1A17;padding:6px 0 10px;margin-top:4px}
+.a-head h4{font-family:'Instrument Serif',Georgia,serif;font-size:26px;font-weight:400;margin:0}
+.a-count{font-size:10px;color:#6B6357}
+.a-filters{display:flex;gap:14px;padding:10px 0;font-size:11.5px;color:#6B6357;border-bottom:1px solid #E4DFD3}
+.a-filters .on{color:#1C1A17;font-weight:700;box-shadow:inset 0 -2px 0 #6B4FBF;padding-bottom:2px}
+.a-table{width:100%;border-collapse:collapse;font-size:12.5px}
+.a-table th{text-align:left;font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:#8C8474;font-weight:600;padding:8px 0;border-bottom:1px solid #D9D4C8}
+.a-table td{padding:8px 0;border-bottom:1px solid #EDE9DF;color:#2A251D}
+.a-table .r{text-align:right;font-family:'Instrument Serif',Georgia,serif;font-size:13px}
+.a-table .mono{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:10px;color:#6B6357}
+
+/* ================= B · 调度台 ================= */
+.b-screen{background:#0E0F0C;color:#D8E0C8;font-family:'JetBrains Mono',ui-monospace,monospace;height:844px;position:relative;padding:0 18px}
+.b-status{display:flex;justify-content:space-between;align-items:center;padding:16px 0 12px;border-bottom:1px solid #2A2E22;font-size:9px;letter-spacing:.1em;color:#8A9478}
+.b-live{color:#B8F26A}
+.b-figures{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:16px 0 10px}
+.b-figures span{display:block;font-size:8px;letter-spacing:.14em;color:#8A9478}
+.b-figures b{display:block;font-size:26px;font-weight:500;color:#E8F0D8;letter-spacing:-.02em;margin-top:2px}
+.b-rule{color:#2A2E22;font-size:9px;letter-spacing:-.05em;overflow:hidden;white-space:nowrap}
+.b-sec{font-size:9px;letter-spacing:.16em;color:#8A9478;margin:14px 0 6px}
+.b-list{list-style:none;margin:0;padding:0}
+.b-list li{display:grid;grid-template-columns:38px 1fr 46px 34px;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid #22261C;font-size:10px}
+.b-t{color:#8A9478}
+.b-n{color:#E8F0D8;font-size:10.5px;letter-spacing:.02em}
+.b-n em{display:block;font-style:normal;color:#6E7860;font-size:8px;margin-top:2px}
+.b-a{text-align:right;color:#E8F0D8}
+.b-s{font-size:8px;color:#0E0F0C;background:#B8F26A;text-align:center;padding:2px 0;border-radius:2px}
+.b-s.g{background:#7FD1A8}
+.b-foot{position:absolute;left:18px;right:18px;bottom:74px;font-size:8px;letter-spacing:.12em;color:#4E5744;border-top:1px solid #22261C;padding-top:8px}
+.b-tabs{position:absolute;left:0;right:0;bottom:0;display:flex;justify-content:space-around;padding:14px 0 24px;border-top:1px solid #2A2E22;background:#0E0F0C;font-size:9px;letter-spacing:.1em;color:#6E7860}
+.b-tabs .on{color:#B8F26A}
+.b-desk{background:#0E0F0C;color:#D8E0C8;font-family:'JetBrains Mono',ui-monospace,monospace;height:560px;display:flex;flex-direction:column}
+.b-dtop{display:flex;gap:16px;align-items:center;padding:8px 14px;border-bottom:1px solid #2A2E22;font-size:9px;letter-spacing:.1em;color:#8A9478}
+.b-spacer{flex:1}
+.b-dbody{display:grid;grid-template-columns:130px 1fr 170px;flex:1;min-height:0}
+.b-dnav{border-right:1px solid #2A2E22;padding:12px 10px;font-size:9.5px;color:#6E7860}
+.b-dnav p{margin:0 0 9px}
+.b-dnav .on{color:#B8F26A}
+.b-dlist{padding:12px 14px;min-width:0}
+.b-dhead{display:flex;justify-content:space-between;font-size:9px;letter-spacing:.12em;color:#8A9478;padding-bottom:8px;border-bottom:1px solid #2A2E22}
+.b-drow{display:grid;grid-template-columns:44px 1fr 76px 44px 54px;gap:8px;padding:7px 0;border-bottom:1px solid #1C2018;font-size:10px;color:#C8D2B8}
+.b-drow.h{color:#6E7860;font-size:7.5px;letter-spacing:.12em;border-bottom:1px solid #2A2E22}
+.b-drow .w{color:#B8F26A}
+.b-drow .g{color:#7FD1A8}
+.b-ddetail{border-left:1px solid #2A2E22;padding:12px}
+.b-dlabel{font-size:7.5px;letter-spacing:.14em;margin:0 0 6px;color:#8A9478}
+.b-dref{color:#E8F0D8;font-size:9px;margin:0 0 10px;word-break:break-all}
+.b-dmeta{line-height:1.8;margin:0 0 12px;color:#8A9478;font-size:9.5px}
+.b-dact{color:#B8F26A;margin:0 0 6px;font-size:9px}
+.b-dact.dim{color:#6E7860}
+
+/* ================= C · 软柜台 ================= */
+.c-screen{background:#F7F4FF;color:#2A2136;font-family:Inter,system-ui,sans-serif;height:844px;position:relative;padding:0 18px}
+.c-top{display:flex;align-items:center;gap:10px;padding:18px 0 14px}
+.c-ava{width:34px;height:34px;border-radius:50%;background:#56358C;color:#fff;display:grid;place-items:center;font-size:11px;font-weight:700}
+.c-hi{font-size:15px;font-weight:700}
+.c-bell{margin-left:auto;font-size:16px;color:#6A6172}
+.c-hero{background:#C8B6FF;border-radius:22px;padding:20px;color:#201A29}
+.c-hero-k{font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;margin:0;opacity:.72}
+.c-hero-v{font-size:34px;font-weight:700;letter-spacing:-.02em;margin:4px 0 2px;line-height:1.05}
+.c-hero-s{font-size:11.5px;margin:0 0 14px;opacity:.78}
+.c-cta{display:inline-block;background:#fff;color:#201A29;font-size:12px;font-weight:700;padding:9px 16px;border-radius:999px}
+.c-chips{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:12px 0}
+.c-chip{background:#fff;border-radius:16px;padding:11px 10px}
+.c-chip b{display:block;font-size:14px;font-weight:700;letter-spacing:-.01em}
+.c-chip span{display:block;font-size:9.5px;color:#6A6172;margin-top:2px;line-height:1.3}
+.c-card{background:#fff;border-radius:20px;padding:14px 16px}
+.c-card-h{display:flex;justify-content:space-between;font-size:12.5px;font-weight:700;margin-bottom:8px}
+.c-link{color:#8155EF;font-weight:600;font-size:11px}
+.c-item{display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid #F0EBFA}
+.c-thumb{width:30px;height:30px;border-radius:9px;background:#EDE7FB;flex:none}
+.c-iname{font-size:11px;line-height:1.3;flex:1}
+.c-ip{font-size:11px;font-weight:700}
+.c-iem{display:block;font-style:normal;font-size:9.5px;color:#6A6172;margin-top:1px}
+.c-tabs{position:absolute;left:12px;right:12px;bottom:14px;display:flex;justify-content:space-around;background:#fff;border-radius:20px;padding:12px 0;box-shadow:0 6px 20px rgb(86 53 140 / 12%);font-size:9.5px;color:#6A6172}
+.c-tabs .on{color:#56358C;font-weight:700}
+.c-desk{display:grid;grid-template-columns:190px 1fr;background:#F7F4FF;color:#2A2136;font-family:Inter,system-ui,sans-serif;height:560px}
+.c-rail{background:#fff;padding:18px 14px;border-right:1px solid #EDE7FB}
+.c-rail-mark{font-size:14px;font-weight:700;margin:0}
+.c-rail-sub{font-size:9px;color:#6A6172;margin:1px 0 16px}
+.c-rail-item{font-size:12px;color:#4A4157;margin:0 0 3px;padding:7px 10px;border-radius:9px}
+.c-rail-item.on{background:#C8B6FF;color:#201A29;font-weight:700}
+.c-main{padding:18px 22px}
+.c-dhead{display:flex;justify-content:space-between;align-items:center}
+.c-dhead h4{font-size:20px;margin:0;letter-spacing:-.02em}
+.c-dbtn{background:#C8B6FF;color:#201A29;font-size:10.5px;font-weight:700;padding:8px 13px;border-radius:999px}
+.c-dhero{display:flex;justify-content:space-between;align-items:center;background:#C8B6FF;border-radius:20px;padding:18px 20px;margin:14px 0}
+.c-dhero .c-hero-v{font-size:28px}
+.c-dgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.c-dcard{background:#fff;border-radius:16px;padding:14px}
+.c-dcard span{font-size:10.5px;color:#6A6172;display:block}
+.c-dcard b{display:block;font-size:22px;letter-spacing:-.02em;margin:3px 0 2px}
+.c-dcard em{font-style:normal;font-size:9.5px;color:#6A6172}
+
+/* ================= D · 蓝图 ================= */
+.d-screen{background:#F2EFE6;color:#1F3A93;font-family:'Archivo Narrow',Inter,sans-serif;height:844px;position:relative;padding:0 18px}
+.d-ruler{display:flex;justify-content:space-between;padding:14px 0 10px;font-family:'JetBrains Mono',monospace;font-size:8.5px;letter-spacing:.14em;border-bottom:1px solid #1F3A93;
+  background-image:repeating-linear-gradient(90deg,#1F3A93 0 1px,transparent 1px 12px);background-size:100% 5px;background-position:0 100%;background-repeat:no-repeat}
+.d-title{font-family:'Archivo Narrow',Inter,sans-serif;font-size:36px;font-weight:700;letter-spacing:.02em;margin:12px 0 8px;line-height:1}
+.d-box{position:relative;border:1px solid #1F3A93;padding:10px 12px;
+  background-image:linear-gradient(#1F3A93,#1F3A93),linear-gradient(#1F3A93,#1F3A93),linear-gradient(#1F3A93,#1F3A93),linear-gradient(#1F3A93,#1F3A93),linear-gradient(#1F3A93,#1F3A93),linear-gradient(#1F3A93,#1F3A93),linear-gradient(#1F3A93,#1F3A93),linear-gradient(#1F3A93,#1F3A93);
+  background-repeat:no-repeat;
+  background-size:9px 2px,2px 9px,9px 2px,2px 9px,9px 2px,2px 9px,9px 2px,2px 9px;
+  background-position:0 0,0 0,100% 0,100% 0,0 100%,0 100%,100% 100%,100% 100%}
+.d-row{display:flex;align-items:baseline;gap:8px;padding:6px 0;font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.06em}
+.d-row i{flex:1;border-bottom:1px dotted #9AA6C8;transform:translateY(-3px)}
+.d-row b{font-family:'Archivo Narrow',Inter,sans-serif;font-size:19px;font-weight:700;letter-spacing:0}
+.d-sec{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.16em;margin:14px 0 6px}
+.d-sec span{color:#8A93B0}
+.d-box.d-queue{padding:4px 12px}
+.d-qrow{display:grid;grid-template-columns:38px 1fr 44px 34px;gap:6px;padding:6px 0;border-bottom:1px dotted #B9C0D6;font-family:'JetBrains Mono',monospace;font-size:8.5px;letter-spacing:.04em}
+.d-qrow:last-child{border-bottom:0}
+.d-qa{text-align:right}
+.d-qs{color:#C0392B;text-align:right}
+.d-qs.ok{color:#1F3A93}
+.d-tabs{position:absolute;left:0;right:0;bottom:0;display:flex;justify-content:space-around;padding:12px 0 22px;border-top:1px solid #1F3A93;background:#F2EFE6;font-family:'JetBrains Mono',monospace;font-size:8px;letter-spacing:.1em;color:#8A93B0}
+.d-tabs .on{color:#1F3A93;font-weight:700}
+.d-desk{display:grid;grid-template-columns:180px 1fr;background:#F2EFE6;color:#1F3A93;font-family:'Archivo Narrow',Inter,sans-serif;height:560px}
+.d-rail{border-right:1px solid #1F3A93;padding:16px 14px}
+.d-rail-mark{font-size:14px;font-weight:700;letter-spacing:.06em;margin:0}
+.d-rail-sub{font-family:'JetBrains Mono',monospace;font-size:7.5px;letter-spacing:.16em;color:#8A93B0;margin:2px 0 16px}
+.d-rail-item{font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.08em;margin:0 0 8px;color:#5A6A9E}
+.d-rail-item.on{color:#1F3A93;font-weight:700}
+.d-main{padding:14px 20px}
+.d-dhead{display:flex;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:8px;letter-spacing:.14em;color:#8A93B0;border-bottom:1px solid #1F3A93;padding-bottom:6px}
+.d-dtitle{font-size:32px;font-weight:700;letter-spacing:.02em;margin:10px 0 12px}
+.d-box.d-table{padding:0}
+.d-trow{display:grid;grid-template-columns:60px 1fr 90px 60px 60px;gap:8px;padding:7px 10px;border-bottom:1px dotted #B9C0D6;font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.04em}
+.d-trow:last-child{border-bottom:0}
+.d-trow.h{color:#8A93B0;font-size:7.5px;letter-spacing:.12em;border-bottom:1px solid #1F3A93}
+.d-dim{display:flex;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:7.5px;letter-spacing:.14em;color:#8A93B0;margin-top:8px}
+</style>
+
+<script>
+/* file:// 降级：没有本地回传服务时，点选后复制选择文本，提示回到对话发送。 */
+(function () {
+  if (location.protocol !== 'file:') return;
+  var dials = document.querySelectorAll('[data-qmdp-dial]');
+  Array.prototype.forEach.call(dials, function (input) {
+    var out = document.querySelector('[data-qmdp-output="' + input.dataset.qmdpDial + '"]');
+    input.addEventListener('input', function () { if (out) out.textContent = input.value; });
+  });
+  function values() {
+    var v = {};
+    Array.prototype.forEach.call(dials, function (i) { v[i.dataset.qmdpDial] = i.value; });
+    return v;
+  }
+  var toast = document.getElementById('toast');
+  document.addEventListener('click', function (event) {
+    var button = event.target.closest('.qmdp-pick-button');
+    if (!button) return;
+    var card = button.closest('[data-design-option]');
+    if (!card) return;
+    var v = values();
+    var text = '选 ' + card.dataset.designOption + '：' + card.dataset.name +
+      '；拨盘：视觉冒险度 ' + v.variance + ' / 动效强度 ' + v.motion + ' / 信息密度 ' + v.density;
+    if (navigator.clipboard) navigator.clipboard.writeText(text).catch(function () {});
+    toast.textContent = '已复制「' + text + '」— 当前为静态预览，请回到对话发送';
+    toast.classList.add('show');
+  });
+})();
+</script>
+</body>
+</html>
