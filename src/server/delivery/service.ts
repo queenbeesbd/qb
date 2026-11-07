@@ -16,21 +16,39 @@
 import { sql } from 'drizzle-orm';
 
 import type { Transaction } from '@/db/client';
-import { deliveryDistrictCharge, deliverySetting } from '@/db/schema';
+import { deliveryDistrictCharge, deliverySetting, order } from '@/db/schema';
 import { deliveryAreaByCode } from '@/lib/delivery-areas';
-import type { DeliveryQuote, DeliveryQuoteResult, DeliveryRates } from '@/lib/delivery';
+import type { DeliveryRates } from '@/lib/delivery';
 import { MAX_PRICE_MINOR, parsePoisha } from '@/server/catalog/validation';
 import { PERMISSIONS } from '@/server/authz/permissions';
 import { ConflictError, ValidationError, requirePermission, type ActorContext } from '@/server/authz/authorize';
 import { recordAudit } from '@/server/auth/audit';
 
-export type { DeliveryQuote, DeliveryQuoteResult, DeliveryRates };
-export { quoteDelivery } from '@/lib/delivery';
+export type {
+  DeliveryPricingContext,
+  DeliveryQuote,
+  DeliveryQuoteResult,
+  DeliveryRates,
+} from '@/lib/delivery';
+export { quoteDelivery, quoteOrderDelivery, repeatDiscountMinor } from '@/lib/delivery';
 
 /** Reads the current configuration. Absent configuration is represented as `null`, never as zero. */
 export async function loadDeliveryRates(tx: Transaction): Promise<DeliveryRates> {
   const settingRows = await tx
-    .select({ defaultMinor: deliverySetting.defaultMinor })
+    .select({
+      defaultMinor: deliverySetting.defaultMinor,
+      conditionalEnabled: deliverySetting.conditionalEnabled,
+      conditionalMinSubtotalMinor: deliverySetting.conditionalMinSubtotalMinor,
+      conditionalDhakaMinor: deliverySetting.conditionalDhakaMinor,
+      conditionalChattogramMinor: deliverySetting.conditionalChattogramMinor,
+      conditionalOthersMinor: deliverySetting.conditionalOthersMinor,
+      repeatDeliveryEnabled: deliverySetting.repeatDeliveryEnabled,
+      repeatChattogramMinor: deliverySetting.repeatChattogramMinor,
+      repeatOthersMinor: deliverySetting.repeatOthersMinor,
+      repeatDiscountEnabled: deliverySetting.repeatDiscountEnabled,
+      repeatDiscountPercent: deliverySetting.repeatDiscountPercent,
+      repeatDiscountMinSubtotalMinor: deliverySetting.repeatDiscountMinSubtotalMinor,
+    })
     .from(deliverySetting)
     .where(sql`${deliverySetting.id} = 1`);
 
@@ -39,10 +57,46 @@ export async function loadDeliveryRates(tx: Transaction): Promise<DeliveryRates>
     .from(deliveryDistrictCharge)
     .where(sql`${deliveryDistrictCharge.isActive}`);
 
+  const row = settingRows[0];
   return {
-    defaultMinor: settingRows[0]?.defaultMinor ?? null,
-    overrides: new Map(overrideRows.map((row) => [row.districtCode, row.amountMinor])),
+    defaultMinor: row?.defaultMinor ?? null,
+    overrides: new Map(overrideRows.map((entry) => [entry.districtCode, entry.amountMinor])),
+    // An absent settings row is an unconfigured shop: every optional rule is off, not defaulted on.
+    conditional: {
+      enabled: row?.conditionalEnabled ?? false,
+      minSubtotalMinor: row?.conditionalMinSubtotalMinor ?? null,
+      dhakaMinor: row?.conditionalDhakaMinor ?? null,
+      chattogramMinor: row?.conditionalChattogramMinor ?? null,
+      othersMinor: row?.conditionalOthersMinor ?? null,
+    },
+    repeat: {
+      enabled: row?.repeatDeliveryEnabled ?? false,
+      chattogramMinor: row?.repeatChattogramMinor ?? null,
+      othersMinor: row?.repeatOthersMinor ?? null,
+    },
+    repeatDiscount: {
+      enabled: row?.repeatDiscountEnabled ?? false,
+      percent: row?.repeatDiscountPercent ?? null,
+      minSubtotalMinor: row?.repeatDiscountMinSubtotalMinor ?? null,
+    },
   };
+}
+
+/**
+ * Whether this customer has completed a purchase before.
+ *
+ * **`status = 'completed'` is the definition**, and it is the only one that satisfies the rule: an
+ * order reaches `completed` only after the owner recorded the cash (`cod_collected`, ADR 0017), so
+ * pending, cancelled, rejected and unpaid orders cannot make anybody a repeat customer. A guest
+ * (`customerId === null`) never qualifies - there is no history to have.
+ */
+export async function isRepeatCustomer(tx: Transaction, customerId: number | null): Promise<boolean> {
+  if (customerId === null) return false;
+  const rows = await tx
+    .select({ completed: sql<number>`count(*)::int` })
+    .from(order)
+    .where(sql`${order.customerId} = ${customerId} and ${order.status} = 'completed'`);
+  return (rows[0]?.completed ?? 0) > 0;
 }
 
 export type DeliveryOverrideRow = {
@@ -241,6 +295,247 @@ export async function deactivateDistrictDeliveryCharge(
     entityId: existing.id,
     before: { districtCode, amountMinor: existing.amountMinor, isActive: true },
     after: { districtCode, amountMinor: existing.amountMinor, isActive: false },
+  });
+}
+
+// ------------------------------------------------------------------
+// Optional pricing rules (ADR 0029)
+// ------------------------------------------------------------------
+
+/** A blank field is `null`: the rule has no value for that area and will fall through. */
+function optionalAmount(raw: unknown, label: string): number | null {
+  if (raw === null || raw === undefined) return null;
+  if (typeof raw === 'string' && raw.trim() === '') return null;
+  const amount = parseDeliveryAmount(raw);
+  if (amount === null) throw new ValidationError(`${label} must be a valid BDT amount`);
+  return amount;
+}
+
+function parsePercent(raw: unknown): number | null {
+  if (raw === null || raw === undefined) return null;
+  if (typeof raw !== 'string' || raw.trim() === '') return null;
+  const value = Number(raw.trim());
+  if (!Number.isInteger(value) || value < 1 || value > 100) {
+    throw new ValidationError('the discount must be a whole percentage between 1 and 100');
+  }
+  return value;
+}
+
+function isOn(raw: unknown): boolean {
+  return raw === true || raw === 'true' || raw === 'on';
+}
+
+type RuleRow = {
+  id: number;
+  defaultMinor: number | null;
+  conditionalEnabled: boolean;
+  conditionalMinSubtotalMinor: number | null;
+  conditionalDhakaMinor: number | null;
+  conditionalChattogramMinor: number | null;
+  conditionalOthersMinor: number | null;
+  repeatDeliveryEnabled: boolean;
+  repeatChattogramMinor: number | null;
+  repeatOthersMinor: number | null;
+  repeatDiscountEnabled: boolean;
+  repeatDiscountPercent: number | null;
+  repeatDiscountMinSubtotalMinor: number | null;
+};
+
+async function loadRuleRow(tx: Transaction): Promise<RuleRow | null> {
+  const rows = await tx
+    .select({
+      id: deliverySetting.id,
+      defaultMinor: deliverySetting.defaultMinor,
+      conditionalEnabled: deliverySetting.conditionalEnabled,
+      conditionalMinSubtotalMinor: deliverySetting.conditionalMinSubtotalMinor,
+      conditionalDhakaMinor: deliverySetting.conditionalDhakaMinor,
+      conditionalChattogramMinor: deliverySetting.conditionalChattogramMinor,
+      conditionalOthersMinor: deliverySetting.conditionalOthersMinor,
+      repeatDeliveryEnabled: deliverySetting.repeatDeliveryEnabled,
+      repeatChattogramMinor: deliverySetting.repeatChattogramMinor,
+      repeatOthersMinor: deliverySetting.repeatOthersMinor,
+      repeatDiscountEnabled: deliverySetting.repeatDiscountEnabled,
+      repeatDiscountPercent: deliverySetting.repeatDiscountPercent,
+      repeatDiscountMinSubtotalMinor: deliverySetting.repeatDiscountMinSubtotalMinor,
+    })
+    .from(deliverySetting)
+    .where(sql`${deliverySetting.id} = 1`);
+  return rows[0] ?? null;
+}
+
+/**
+ * Creates the singleton row when it does not exist yet, so a rule can be saved on a shop whose default
+ * charge has never been configured. The default stays `null` - saving a benefit is not configuring the
+ * required default charge, and checkout still refuses until the owner sets it.
+ */
+async function ensureRuleRow(tx: Transaction, actor: ActorContext): Promise<RuleRow> {
+  const existing = await loadRuleRow(tx);
+  if (existing !== null) return existing;
+  await tx.insert(deliverySetting).values({ id: 1, defaultMinor: null, updatedByStaffId: actor.staffUserId });
+  const created = await loadRuleRow(tx);
+  if (created === null) throw new Error('delivery settings row was not created');
+  return created;
+}
+
+/**
+ * Saves the conditional delivery rule: a lower charge for a signed-in customer whose subtotal reaches
+ * the configured minimum. Switching it on requires a minimum and all three area rates, so the owner
+ * cannot leave a half-configured rule silently doing nothing.
+ */
+export async function saveConditionalDelivery(
+  tx: Transaction,
+  actor: ActorContext,
+  input: {
+    readonly enabled: unknown;
+    readonly minSubtotal: unknown;
+    readonly dhaka: unknown;
+    readonly chattogram: unknown;
+    readonly others: unknown;
+  },
+): Promise<void> {
+  await requirePermission(actor, PERMISSIONS.settingsWrite, 'delivery_setting', 1);
+
+  const before = await ensureRuleRow(tx, actor);
+  const enabled = isOn(input.enabled);
+  const minSubtotalMinor = optionalAmount(input.minSubtotal, 'the minimum purchase');
+  const dhakaMinor = optionalAmount(input.dhaka, 'the Dhaka charge');
+  const chattogramMinor = optionalAmount(input.chattogram, 'the Chattogram charge');
+  const othersMinor = optionalAmount(input.others, 'the other-districts charge');
+
+  if (
+    enabled &&
+    (minSubtotalMinor === null ||
+      dhakaMinor === null ||
+      chattogramMinor === null ||
+      othersMinor === null)
+  ) {
+    throw new ValidationError('a minimum purchase and all three area charges are required to switch this on');
+  }
+
+  await tx
+    .update(deliverySetting)
+    .set({
+      conditionalEnabled: enabled,
+      conditionalMinSubtotalMinor: minSubtotalMinor,
+      conditionalDhakaMinor: dhakaMinor,
+      conditionalChattogramMinor: chattogramMinor,
+      conditionalOthersMinor: othersMinor,
+      updatedAt: new Date(),
+      updatedByStaffId: actor.staffUserId,
+    })
+    .where(sql`${deliverySetting.id} = 1`);
+
+  await recordAudit(tx, {
+    actorType: 'staff',
+    actorStaffId: actor.staffUserId,
+    actorRoleCodes: actor.roleCodes,
+    action: 'delivery.conditional_updated',
+    entityType: 'delivery_setting',
+    entityId: 1,
+    before: {
+      enabled: before.conditionalEnabled,
+      minSubtotalMinor: before.conditionalMinSubtotalMinor,
+      dhakaMinor: before.conditionalDhakaMinor,
+      chattogramMinor: before.conditionalChattogramMinor,
+      othersMinor: before.conditionalOthersMinor,
+    },
+    after: { enabled, minSubtotalMinor, dhakaMinor, chattogramMinor, othersMinor },
+  });
+}
+
+/**
+ * Saves the repeat-customer delivery rule. Two rates, not three: Chattogram has its own, and Dhaka plus
+ * every other district share the second one - the benefit is deliberately simpler than the conditional
+ * rule it takes priority over.
+ */
+export async function saveRepeatDelivery(
+  tx: Transaction,
+  actor: ActorContext,
+  input: { readonly enabled: unknown; readonly chattogram: unknown; readonly others: unknown },
+): Promise<void> {
+  await requirePermission(actor, PERMISSIONS.settingsWrite, 'delivery_setting', 1);
+
+  const before = await ensureRuleRow(tx, actor);
+  const enabled = isOn(input.enabled);
+  const chattogramMinor = optionalAmount(input.chattogram, 'the Chattogram charge');
+  const othersMinor = optionalAmount(input.others, 'the other-districts charge');
+
+  if (enabled && (chattogramMinor === null || othersMinor === null)) {
+    throw new ValidationError('both repeat-customer charges are required to switch this on');
+  }
+
+  await tx
+    .update(deliverySetting)
+    .set({
+      repeatDeliveryEnabled: enabled,
+      repeatChattogramMinor: chattogramMinor,
+      repeatOthersMinor: othersMinor,
+      updatedAt: new Date(),
+      updatedByStaffId: actor.staffUserId,
+    })
+    .where(sql`${deliverySetting.id} = 1`);
+
+  await recordAudit(tx, {
+    actorType: 'staff',
+    actorStaffId: actor.staffUserId,
+    actorRoleCodes: actor.roleCodes,
+    action: 'delivery.repeat_delivery_updated',
+    entityType: 'delivery_setting',
+    entityId: 1,
+    before: {
+      enabled: before.repeatDeliveryEnabled,
+      chattogramMinor: before.repeatChattogramMinor,
+      othersMinor: before.repeatOthersMinor,
+    },
+    after: { enabled, chattogramMinor, othersMinor },
+  });
+}
+
+/**
+ * Saves the automatic repeat-customer discount. The percentage is a whole number and the minimum is a
+ * BDT amount; the discount itself is computed at checkout and at order creation from this rule, never
+ * stored as a rate on an order.
+ */
+export async function saveRepeatDiscount(
+  tx: Transaction,
+  actor: ActorContext,
+  input: { readonly enabled: unknown; readonly percent: unknown; readonly minSubtotal: unknown },
+): Promise<void> {
+  await requirePermission(actor, PERMISSIONS.settingsWrite, 'delivery_setting', 1);
+
+  const before = await ensureRuleRow(tx, actor);
+  const enabled = isOn(input.enabled);
+  const percent = parsePercent(input.percent);
+  const minSubtotalMinor = optionalAmount(input.minSubtotal, 'the minimum purchase');
+
+  if (enabled && (percent === null || minSubtotalMinor === null)) {
+    throw new ValidationError('a percentage and a minimum purchase are required to switch this on');
+  }
+
+  await tx
+    .update(deliverySetting)
+    .set({
+      repeatDiscountEnabled: enabled,
+      repeatDiscountPercent: percent,
+      repeatDiscountMinSubtotalMinor: minSubtotalMinor,
+      updatedAt: new Date(),
+      updatedByStaffId: actor.staffUserId,
+    })
+    .where(sql`${deliverySetting.id} = 1`);
+
+  await recordAudit(tx, {
+    actorType: 'staff',
+    actorStaffId: actor.staffUserId,
+    actorRoleCodes: actor.roleCodes,
+    action: 'delivery.repeat_discount_updated',
+    entityType: 'delivery_setting',
+    entityId: 1,
+    before: {
+      enabled: before.repeatDiscountEnabled,
+      percent: before.repeatDiscountPercent,
+      minSubtotalMinor: before.repeatDiscountMinSubtotalMinor,
+    },
+    after: { enabled, percent, minSubtotalMinor },
   });
 }
 

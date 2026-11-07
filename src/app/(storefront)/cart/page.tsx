@@ -1,9 +1,13 @@
 import type { Metadata } from 'next';
 import { cookies } from 'next/headers';
+
+import { withTransaction } from '@/db/client';
 import { CART_COOKIE_NAME, parseCartIds } from '@/features/cart/cart-cookie';
 import { selectCartProducts } from '@/features/cart/cart-product';
 import { CartView } from '@/features/cart/CartView';
 import { getStorefrontCatalog } from '@/server/catalog/storefront';
+import { currentCustomerPrincipal } from '@/server/customer-auth/guard';
+import { isRepeatCustomer, loadDeliveryRates } from '@/server/delivery/service';
 
 export const metadata: Metadata = { title: 'Cart' };
 
@@ -22,5 +26,27 @@ export const metadata: Metadata = { title: 'Cart' };
 export default async function CartPage() {
   const ids = parseCartIds((await cookies()).get(CART_COOKIE_NAME)?.value);
   const catalog = await getStorefrontCatalog();
-  return <CartView products={selectCartProducts(catalog.products, ids)} />;
+  /*
+   * The automatic repeat discount is shown here as well as at checkout, so a returning customer sees
+   * the benefit before entering an address. `isRepeatCustomer` is the server's answer from the order
+   * history; the browser cannot make itself eligible, and a guest is never asked.
+   */
+  const principal = await currentCustomerPrincipal();
+  const { rates, repeatCustomer } = await withTransaction(async (tx) => ({
+    rates: await loadDeliveryRates(tx),
+    repeatCustomer: await isRepeatCustomer(tx, principal?.customerId ?? null),
+  }));
+  return (
+    <CartView
+      products={selectCartProducts(catalog.products, ids)}
+      pricing={{
+        repeatDiscount: rates.repeatDiscount ?? {
+          enabled: false,
+          percent: null,
+          minSubtotalMinor: null,
+        },
+      }}
+      customer={{ authenticated: principal !== null, repeatCustomer }}
+    />
+  );
 }

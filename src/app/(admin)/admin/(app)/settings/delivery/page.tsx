@@ -1,7 +1,7 @@
 import { withTransaction } from '@/db/client';
 import { requireAdminPage } from '@/server/auth/guard';
 import { PERMISSIONS } from '@/server/authz/permissions';
-import { loadDeliveryOverview } from '@/server/delivery/service';
+import { loadDeliveryOverview, loadDeliveryRates } from '@/server/delivery/service';
 import { DeliverySettingsView, type DeliveryNotice } from './DeliverySettingsView';
 
 export const dynamic = 'force-dynamic';
@@ -10,6 +10,9 @@ const NOTICES: readonly DeliveryNotice[] = [
   'defaultSaved',
   'districtSaved',
   'districtDeactivated',
+  'conditionalSaved',
+  'repeatDeliverySaved',
+  'repeatDiscountSaved',
   'denied',
   'conflict',
   'invalid',
@@ -35,7 +38,10 @@ export default async function DeliverySettingsPage({
 }) {
   const principal = await requireAdminPage(PERMISSIONS.settingsWrite);
   const params = await searchParams;
-  const overview = await withTransaction((tx) => loadDeliveryOverview(tx));
+  const { overview, rates } = await withTransaction(async (tx) => ({
+    overview: await loadDeliveryOverview(tx),
+    rates: await loadDeliveryRates(tx),
+  }));
 
   return (
     <DeliverySettingsView
@@ -47,6 +53,21 @@ export default async function DeliverySettingsPage({
         isActive: row.isActive,
         updatedAt: row.updatedAt.toISOString(),
       }))}
+      pricing={{
+        conditional: rates.conditional ?? {
+          enabled: false,
+          minSubtotalMinor: null,
+          dhakaMinor: null,
+          chattogramMinor: null,
+          othersMinor: null,
+        },
+        repeat: rates.repeat ?? { enabled: false, chattogramMinor: null, othersMinor: null },
+        repeatDiscount: rates.repeatDiscount ?? {
+          enabled: false,
+          percent: null,
+          minSubtotalMinor: null,
+        },
+      }}
       notice={readNotice(params.notice)}
       csrfToken={principal.csrfToken}
     />

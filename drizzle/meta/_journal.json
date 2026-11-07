@@ -120,6 +120,13 @@
       "when": 1794082662428,
       "tag": "0016_steadfast_consignments",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1794083640343,
+      "tag": "0017_pricing_rules",
+      "breakpoints": true
     }
   ]
 }

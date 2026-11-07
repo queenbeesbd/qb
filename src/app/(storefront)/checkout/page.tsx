@@ -7,7 +7,8 @@ import { CART_COOKIE_NAME, parseCartIds } from '@/features/cart/cart-cookie';
 import { selectCartProducts } from '@/features/cart/cart-product';
 import { CheckoutForm } from '@/features/checkout/CheckoutForm';
 import { getStorefrontCatalog } from '@/server/catalog/storefront';
-import { loadDeliveryRates } from '@/server/delivery/service';
+import { isRepeatCustomer, loadDeliveryRates } from '@/server/delivery/service';
+import { loadPaymentInstructions } from '@/server/settings/payment';
 import { CHECKOUT_PATH, CUSTOMER_SESSION_COOKIE } from '@/server/customer-auth/constants';
 import { currentCustomerPrincipal, requireCustomerPage } from '@/server/customer-auth/guard';
 import { loadCheckoutSettings } from '@/server/settings/checkout';
@@ -28,7 +29,9 @@ export const dynamic = 'force-dynamic';
  *
  * **Cash on Delivery only (Phase 17).** Nothing on this page reads a payment-recipient configuration,
  * because there is no prepaid method to configure: the schema's recipient and claim tables stay as
- * implemented, unused design.
+ * implemented, unused design. The page does publish the owner's advance-payment **instructions**
+ * (ADR 0029) - where to send a bKash payment and from which subtotal it is expected - but that is copy
+ * the owner confirms on the phone, not a method the order records.
  *
  * The idempotency key is minted **once per page render** and carried in the form. A double submission of
  * the same rendered form is therefore the same submission and returns the original order, while a fresh
@@ -61,7 +64,16 @@ export default async function CheckoutPage({
 
   const params = await searchParams;
   const notice = typeof params.notice === 'string' ? params.notice : null;
-  const rates = await withTransaction((tx) => loadDeliveryRates(tx));
+  /*
+   * The pricing rules and this customer's standing are read together: the delivery hierarchy, the
+   * automatic repeat discount and the payment block all depend on the same two facts - is there a
+   * session, and has that account completed a purchase before.
+   */
+  const { rates, repeatCustomer, payment } = await withTransaction(async (tx) => ({
+    rates: await loadDeliveryRates(tx),
+    repeatCustomer: await isRepeatCustomer(tx, principal?.customerId ?? null),
+    payment: await loadPaymentInstructions(tx),
+  }));
   /*
    * Checkout draws the cart's lines, so it is the other route that needs product records - and, like
    * /cart, it asks for the ones the cart names rather than for the whole catalog (Phase 45b). The
@@ -76,9 +88,29 @@ export default async function CheckoutPage({
       idempotencyKey={randomUUID()}
       notice={notice}
       customerEmail={principal?.email ?? null}
-      delivery={{
+      pricing={{
         defaultMinor: rates.defaultMinor,
         overrides: Object.fromEntries(rates.overrides),
+        conditional: rates.conditional ?? {
+          enabled: false,
+          minSubtotalMinor: null,
+          dhakaMinor: null,
+          chattogramMinor: null,
+          othersMinor: null,
+        },
+        repeat: rates.repeat ?? { enabled: false, chattogramMinor: null, othersMinor: null },
+        repeatDiscount: rates.repeatDiscount ?? {
+          enabled: false,
+          percent: null,
+          minSubtotalMinor: null,
+        },
+      }}
+      customer={{ authenticated: principal !== null, repeatCustomer }}
+      payment={{
+        instructions: payment.instructions,
+        bkashNumber: payment.bkashNumber,
+        sendMoneyNote: payment.sendMoneyNote,
+        advanceThresholdMinor: payment.advanceThresholdMinor,
       }}
       products={selectCartProducts(catalog.products, cartIds)}
     />

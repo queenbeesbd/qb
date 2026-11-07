@@ -17,6 +17,9 @@ import { PERMISSIONS } from '@/server/authz/permissions';
 import { AuthorizationError, ConflictError, ValidationError } from '@/server/authz/authorize';
 import {
   deactivateDistrictDeliveryCharge,
+  saveConditionalDelivery,
+  saveRepeatDelivery,
+  saveRepeatDiscount,
   setDefaultDeliveryCharge,
   setDistrictDeliveryCharge,
 } from '@/server/delivery/service';
@@ -24,7 +27,14 @@ import { deny, redirectTo } from '../responses';
 
 export const dynamic = 'force-dynamic';
 
-const OPERATIONS = ['default', 'saveDistrict', 'deactivateDistrict'] as const;
+const OPERATIONS = [
+  'default',
+  'saveDistrict',
+  'deactivateDistrict',
+  'conditional',
+  'repeatDelivery',
+  'repeatDiscount',
+] as const;
 
 function backTo(notice: string): Response {
   return redirectTo(`${DELIVERY_SETTINGS_PATH}?notice=${notice}`);
@@ -52,6 +62,41 @@ export async function POST(request: Request): Promise<Response> {
     if (operation === 'default') {
       await withTransaction((tx) => setDefaultDeliveryCharge(tx, actor, form.get('amount')));
       return backTo('defaultSaved');
+    }
+
+    if (operation === 'conditional') {
+      await withTransaction((tx) =>
+        saveConditionalDelivery(tx, actor, {
+          enabled: form.getAll('enabled').includes('true'),
+          minSubtotal: form.get('minSubtotal'),
+          dhaka: form.get('dhaka'),
+          chattogram: form.get('chattogram'),
+          others: form.get('others'),
+        }),
+      );
+      return backTo('conditionalSaved');
+    }
+
+    if (operation === 'repeatDelivery') {
+      await withTransaction((tx) =>
+        saveRepeatDelivery(tx, actor, {
+          enabled: form.getAll('enabled').includes('true'),
+          chattogram: form.get('chattogram'),
+          others: form.get('others'),
+        }),
+      );
+      return backTo('repeatDeliverySaved');
+    }
+
+    if (operation === 'repeatDiscount') {
+      await withTransaction((tx) =>
+        saveRepeatDiscount(tx, actor, {
+          enabled: form.getAll('enabled').includes('true'),
+          percent: form.get('percent'),
+          minSubtotal: form.get('minSubtotal'),
+        }),
+      );
+      return backTo('repeatDiscountSaved');
     }
 
     if (operation === 'saveDistrict') {

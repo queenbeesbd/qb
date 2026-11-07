@@ -1,7 +1,12 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { quoteDelivery } from '../../src/lib/delivery';
+import {
+  quoteDelivery,
+  quoteOrderDelivery,
+  repeatDiscountMinor,
+  type DeliveryRates,
+} from '../../src/lib/delivery';
 import {
   DELIVERY_AREAS,
   deliveryAreaByCode,
@@ -113,5 +118,161 @@ describe('taka to poisha conversion for delivery', () => {
     }
     assert.equal(parsePoisha(80, { allowZero: true }), null, 'a bare number has no unit');
     assert.equal(parsePoisha('0'), null, 'zero is only allowed where explicitly requested');
+  });
+});
+
+/**
+ * The pricing hierarchy and the repeat discount (ADR 0029).
+ *
+ * These are the rules a customer's delivery charge and automatic discount depend on, tested without a
+ * database: the priority between repeat, conditional and default pricing, the guest exclusion, and the
+ * integer discount arithmetic.
+ */
+const BASE_RATES: DeliveryRates = {
+  defaultMinor: 12000,
+  overrides: new Map([['dhaka', 10000], ['chattogram', 8000]]),
+  conditional: {
+    enabled: true,
+    minSubtotalMinor: 100000,
+    dhakaMinor: 10000,
+    chattogramMinor: 6000,
+    othersMinor: 12000,
+  },
+  repeat: { enabled: true, chattogramMinor: 4000, othersMinor: 8000 },
+  repeatDiscount: { enabled: true, percent: 5, minSubtotalMinor: 200000 },
+};
+
+const guest = { subtotalMinor: 150000, authenticated: false, repeatCustomer: false };
+const newCustomer = { subtotalMinor: 150000, authenticated: true, repeatCustomer: false };
+const repeatCustomer = { subtotalMinor: 80000, authenticated: true, repeatCustomer: true };
+
+describe('delivery pricing priority', () => {
+  it('gives a guest the default charges at any subtotal', () => {
+    const quote = quoteOrderDelivery(BASE_RATES, 'others', { ...guest, subtotalMinor: 250000 });
+    assert.deepEqual(quote, {
+      ok: true,
+      quote: { areaCode: 'others', chargeMinor: 12000, source: 'default' },
+    });
+  });
+
+  it('gives a new customer the conditional rate above the minimum', () => {
+    assert.deepEqual(quoteOrderDelivery(BASE_RATES, 'dhaka', newCustomer), {
+      ok: true,
+      quote: { areaCode: 'dhaka', chargeMinor: 10000, source: 'conditional' },
+    });
+    assert.deepEqual(quoteOrderDelivery(BASE_RATES, 'chattogram', newCustomer), {
+      ok: true,
+      quote: { areaCode: 'chattogram', chargeMinor: 6000, source: 'conditional' },
+    });
+  });
+
+  it('keeps a new customer below the minimum on the default charges', () => {
+    assert.deepEqual(
+      quoteOrderDelivery(BASE_RATES, 'others', { ...newCustomer, subtotalMinor: 99999 }),
+      { ok: true, quote: { areaCode: 'others', chargeMinor: 12000, source: 'default' } },
+    );
+  });
+
+  it('gives a repeat customer the repeat rate, even below the conditional minimum', () => {
+    assert.deepEqual(quoteOrderDelivery(BASE_RATES, 'chattogram', repeatCustomer), {
+      ok: true,
+      quote: { areaCode: 'chattogram', chargeMinor: 4000, source: 'repeat' },
+    });
+  });
+
+  it('prices Dhaka and other districts at the single repeat "rest" rate', () => {
+    for (const area of ['dhaka', 'others']) {
+      assert.deepEqual(quoteOrderDelivery(BASE_RATES, area, repeatCustomer), {
+        ok: true,
+        quote: { areaCode: area, chargeMinor: 8000, source: 'repeat' },
+      });
+    }
+  });
+
+  it('takes the repeat rate over the conditional rate when both apply', () => {
+    assert.deepEqual(
+      quoteOrderDelivery(BASE_RATES, 'dhaka', { ...repeatCustomer, subtotalMinor: 250000 }),
+      { ok: true, quote: { areaCode: 'dhaka', chargeMinor: 8000, source: 'repeat' } },
+    );
+  });
+
+  it('falls back to the default when a rule is switched off', () => {
+    const off: DeliveryRates = {
+      ...BASE_RATES,
+      conditional: { ...BASE_RATES.conditional!, enabled: false },
+      repeat: { ...BASE_RATES.repeat!, enabled: false },
+    };
+    assert.equal(
+      (quoteOrderDelivery(off, 'chattogram', repeatCustomer) as { quote: { source: string } }).quote.source,
+      'district',
+    );
+  });
+
+  it('falls through a rule that has no rate for the area rather than guessing one', () => {
+    const partial: DeliveryRates = {
+      ...BASE_RATES,
+      repeat: { enabled: true, chattogramMinor: 4000, othersMinor: null },
+    };
+    assert.deepEqual(quoteOrderDelivery(partial, 'dhaka', repeatCustomer), {
+      ok: true,
+      quote: { areaCode: 'dhaka', chargeMinor: 10000, source: 'district' },
+    });
+  });
+
+  it('still refuses an unknown area and an unconfigured default', () => {
+    assert.deepEqual(quoteOrderDelivery(BASE_RATES, 'khulna', newCustomer), {
+      ok: false,
+      reason: 'invalid_district',
+    });
+    assert.deepEqual(
+      quoteOrderDelivery({ defaultMinor: null, overrides: new Map() }, 'others', guest),
+      { ok: false, reason: 'unconfigured' },
+    );
+  });
+});
+
+describe('repeat-customer discount', () => {
+  it('takes the configured percentage off a repeat customer above the minimum', () => {
+    assert.equal(
+      repeatDiscountMinor(BASE_RATES, { ...repeatCustomer, subtotalMinor: 250000 }),
+      12500,
+    );
+  });
+
+  it('applies nothing to a guest, a new customer or a subtotal below the minimum', () => {
+    assert.equal(repeatDiscountMinor(BASE_RATES, { ...guest, subtotalMinor: 250000 }), 0);
+    assert.equal(repeatDiscountMinor(BASE_RATES, { ...newCustomer, subtotalMinor: 250000 }), 0);
+    assert.equal(repeatDiscountMinor(BASE_RATES, { ...repeatCustomer, subtotalMinor: 199999 }), 0);
+  });
+
+  it('floors the percentage, and never exceeds the goods subtotal', () => {
+    const odd: DeliveryRates = {
+      ...BASE_RATES,
+      repeatDiscount: { enabled: true, percent: 7, minSubtotalMinor: 0 },
+    };
+    // 7% of 999 poisha is 69.93 -> 69, never 70.
+    assert.equal(repeatDiscountMinor(odd, { ...repeatCustomer, subtotalMinor: 999 }), 69);
+
+    const everything: DeliveryRates = {
+      ...BASE_RATES,
+      repeatDiscount: { enabled: true, percent: 100, minSubtotalMinor: 0 },
+    };
+    assert.equal(repeatDiscountMinor(everything, { ...repeatCustomer, subtotalMinor: 12000 }), 12000);
+  });
+
+  it('ignores a rule that is off, unconfigured or out of range', () => {
+    const off: DeliveryRates = {
+      ...BASE_RATES,
+      repeatDiscount: { ...BASE_RATES.repeatDiscount!, enabled: false },
+    };
+    assert.equal(repeatDiscountMinor(off, { ...repeatCustomer, subtotalMinor: 250000 }), 0);
+
+    for (const percent of [0, 101, 12.5]) {
+      const invalid: DeliveryRates = {
+        ...BASE_RATES,
+        repeatDiscount: { enabled: true, percent, minSubtotalMinor: 0 },
+      };
+      assert.equal(repeatDiscountMinor(invalid, { ...repeatCustomer, subtotalMinor: 250000 }), 0);
+    }
   });
 });

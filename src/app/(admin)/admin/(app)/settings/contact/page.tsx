@@ -2,11 +2,12 @@ import { withTransaction } from '@/db/client';
 import { requireAdminPage } from '@/server/auth/guard';
 import { PERMISSIONS } from '@/server/authz/permissions';
 import { CONTACT_MAX, loadStoreContact } from '@/server/settings/contact';
+import { loadPaymentInstructions, PAYMENT_MAX } from '@/server/settings/payment';
 import { ContactSettingsView, type ContactNotice } from './ContactSettingsView';
 
 export const dynamic = 'force-dynamic';
 
-const NOTICES: readonly ContactNotice[] = ['saved', 'denied', 'invalid'];
+const NOTICES: readonly ContactNotice[] = ['saved', 'paymentSaved', 'denied', 'invalid'];
 
 function readNotice(value: string | string[] | undefined): ContactNotice | null {
   const candidate = Array.isArray(value) ? value[0] : value;
@@ -30,14 +31,19 @@ export default async function ContactSettingsPage({
 }) {
   const principal = await requireAdminPage(PERMISSIONS.settingsWrite);
   const params = await searchParams;
-  const contact = await withTransaction((tx) => loadStoreContact(tx));
+  const { contact, payment } = await withTransaction(async (tx) => ({
+    contact: await loadStoreContact(tx),
+    payment: await loadPaymentInstructions(tx),
+  }));
 
   return (
     <ContactSettingsView
       contact={contact}
+      payment={payment}
       notice={readNotice(params.notice)}
       csrfToken={principal.csrfToken}
       maxLengths={CONTACT_MAX}
+      paymentMaxLengths={PAYMENT_MAX}
     />
   );
 }

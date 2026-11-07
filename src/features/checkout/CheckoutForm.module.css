@@ -383,3 +383,74 @@
     top: calc(var(--header-height) + var(--space-4));
   }
 }
+
+/*
+ * The owner's payment instructions.
+ *
+ * Prose, not a control: the paragraphs are the shop's own words, rendered as text. The bKash number is
+ * the one emphasised element, because it is the only thing on this card a customer has to copy.
+ */
+.paymentInstructions {
+  display: grid;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+  line-height: var(--leading-body);
+}
+
+.paymentInstructions p {
+  margin: 0;
+}
+
+.bkashCard {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-sunken);
+}
+
+.bkashLabel {
+  font-size: var(--text-sm);
+  color: var(--color-ink-muted);
+}
+
+.bkashNumber {
+  font-size: var(--text-lg);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.bkashCopy {
+  min-height: 40px;
+  margin-left: auto;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  background: var(--color-button);
+  color: var(--color-button-ink);
+  font: inherit;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.bkashCopy:hover {
+  background: var(--color-button-hover);
+}
+
+.bkashCopy:focus-visible {
+  outline: 2px solid var(--color-action);
+  outline-offset: 2px;
+}
+
+.paymentCaution {
+  flex-basis: 100%;
+  margin: 0;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--color-danger);
+}

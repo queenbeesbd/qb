@@ -25,11 +25,16 @@ const BENGALI = /[\u0980-\u09FF]/;
 const errors: string[] = [];
 const keys = Object.keys(dictionary);
 
-/** Files allowed to contain Bengali: owner records and the seed that writes them. */
+/**
+ * Files allowed to contain Bengali: owner records and the seed that writes them. The payment
+ * instructions are owner copy (ADR 0029) stored in `store_setting` and printed verbatim, exactly like a
+ * product's Bengali name - the interface itself stays English.
+ */
 const DATA_FILES = new Set([
   'src/data/catalog.ts',
   'src/data/categories.ts',
   'src/data/announcements.ts',
+  'src/data/payment-instructions.ts',
   'src/db/seed-catalog.ts',
   'src/lib/delivery-areas.ts',
 ]);

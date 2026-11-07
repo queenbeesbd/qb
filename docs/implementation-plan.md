@@ -1734,3 +1734,52 @@ cash reconciliation or automatic order transition from a courier event; no couri
 **Limits.** `verify:admin`, `verify:browser`, `verify:storefront` and the db suite were not re-run for
 this change, and the live SteadFast API was never called: the smoke used a stub through the
 development-only `STEADFAST_API_BASE_URL`.
+
+## Phase 54 - conditional delivery, repeat-customer pricing and payment instructions (2026-11-08)
+
+**Owner direction.** Conditional delivery charges above a minimum purchase, repeat-customer delivery
+rates, an automatic repeat-customer discount, and a checkout block publishing the advance-payment
+rules (ADR 0029).
+
+**Implemented.**
+
+- **`delivery_setting`** gains eleven additive columns (migration `0017_pricing_rules`): the conditional
+  switch, its minimum and three area rates; the repeat-delivery switch, its Chattogram and
+  "Dhaka + other districts" rates; the repeat-discount switch, its whole percentage and its minimum.
+  Range `CHECK`s on every amount and on the percentage. Table count unchanged at **51**.
+- **`src/lib/delivery.ts`** - `quoteOrderDelivery` implements repeat -> conditional -> district
+  override -> default -> refusal, and `repeatDiscountMinor` implements the floored automatic discount.
+  `src/server/delivery/service.ts` loads and saves the rules (three audited operations) and answers
+  `isRepeatCustomer` from `order.status = 'completed'`.
+- **`createOrder`** reads the customer's standing inside the transaction, resolves the charge with the
+  shared function, adds the automatic discount to any promotion and caps the pair at the subtotal.
+- **Settings -> Delivery charges** gains three sections with their own saves; a rule cannot be switched
+  on without its values.
+- **Checkout** names the automatic discount and, below the threshold, the advance delivery amount; the
+  cart shows the discount too. **Settings -> Contact and policies** gains the payment-instructions
+  editor (`payment.instructions`, `payment.bkash_number`, `payment.send_money_note`,
+  `payment.advance_threshold_minor`, audited), and the checkout payment card renders those owner
+  records with the number bold and a copy button.
+- **Cash on Delivery remains the only order method.** No payment state, claim, screenshot or
+  verification is written; the instruction block is copy the owner confirms on the phone.
+
+**Deliberately not built.** No payment-method selection, claim or verification queue (ADR 0015 stands);
+no scheduled campaign, per-product rule, coupon stacking engine, gateway or courier integration.
+
+**Verification (2026-11-08, local only; nothing deployed).**
+
+| Check | Result |
+| --- | --- |
+| `npm run typecheck` | clean |
+| `npm run lint` | 0 errors, 2 pre-existing warnings |
+| `npm run check:i18n` | 1,714 keys, every referenced key present |
+| `npm test` | 251/251, including 19 pricing cases |
+| `npm run build` | success |
+| `db:migrate` / `db:validate` | `0017_pricing_rules` applied; 51 tables, 191 checks |
+| HTTP settings walk-through | four rule groups saved, audit rows present, a half-configured rule refused and nothing changed, saved values prefill |
+| `createOrder` matrix | guest/new/repeat at 810, 1500 and 2510 BDT, Chattogram, and a cancelled-order customer - all ten cases return the expected shipping, discount and total |
+| Chromium, 1440px and 390px | instructions, number, copy control and caution render; default / conditional / repeat delivery as specified; 5% row for the repeat customer; advance line under 500 BDT; rules off restores the conditional rate and removes the discount in checkout and cart; no horizontal overflow |
+
+**Limits.** `verify:admin`, `verify:browser`, `verify:storefront` and the db suite were not re-run for
+this change; the copy button was verified as a rendered control but its clipboard write was not driven;
+real devices and screen readers were not used.

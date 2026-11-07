@@ -14,9 +14,25 @@ export type DeliveryNotice =
   | 'defaultSaved'
   | 'districtSaved'
   | 'districtDeactivated'
+  | 'conditionalSaved'
+  | 'repeatDeliverySaved'
+  | 'repeatDiscountSaved'
   | 'denied'
   | 'conflict'
   | 'invalid';
+
+/** The optional rules (ADR 0029), as the page reads them. */
+export type DeliveryPricingRules = {
+  conditional: {
+    enabled: boolean;
+    minSubtotalMinor: number | null;
+    dhakaMinor: number | null;
+    chattogramMinor: number | null;
+    othersMinor: number | null;
+  };
+  repeat: { enabled: boolean; chattogramMinor: number | null; othersMinor: number | null };
+  repeatDiscount: { enabled: boolean; percent: number | null; minSubtotalMinor: number | null };
+};
 
 export type OverrideRow = {
   id: number;
@@ -30,6 +46,9 @@ const NOTICE_KEYS: Record<DeliveryNotice, TranslationKey> = {
   defaultSaved: 'admin.delivery.notice.defaultSaved',
   districtSaved: 'admin.delivery.notice.districtSaved',
   districtDeactivated: 'admin.delivery.notice.districtDeactivated',
+  conditionalSaved: 'admin.delivery.notice.conditionalSaved',
+  repeatDeliverySaved: 'admin.delivery.notice.repeatDeliverySaved',
+  repeatDiscountSaved: 'admin.delivery.notice.repeatDiscountSaved',
   denied: 'admin.delivery.notice.denied',
   conflict: 'admin.delivery.notice.conflict',
   invalid: 'admin.delivery.notice.invalid',
@@ -62,11 +81,13 @@ function taka(minor: number): string {
 export function DeliverySettingsView({
   defaultMinor,
   overrides,
+  pricing,
   notice,
   csrfToken,
 }: {
   defaultMinor: number | null;
   overrides: readonly OverrideRow[];
+  pricing: DeliveryPricingRules;
   notice: DeliveryNotice | null;
   csrfToken: string;
 }) {
@@ -227,6 +248,234 @@ export function DeliverySettingsView({
             );
           })}
         </div>
+      </section>
+
+      {/*
+        Conditional delivery: a lower charge once the goods subtotal reaches a minimum. The areas match
+        the default rule's three choices, because that is the whole area model - a fourth field would be
+        a price for nowhere.
+      */}
+      <section className={styles.section} aria-labelledby="delivery-conditional">
+        <div className={styles.sectionHead}>
+          <h2 id="delivery-conditional">{t('admin.delivery.conditionalTitle')}</h2>
+        </div>
+        <p className={styles.hint}>{t('admin.delivery.conditionalBody')}</p>
+
+        <form className={styles.formCard} action="/api/admin/delivery" method="post">
+          <input type="hidden" name="csrf" value={csrfToken} />
+          <input type="hidden" name="operation" value="conditional" />
+
+          <label className={styles.switchRow} htmlFor="conditionalEnabled">
+            <input
+              id="conditionalEnabled"
+              name="enabled"
+              type="checkbox"
+              value="true"
+              defaultChecked={pricing.conditional.enabled}
+            />
+            <span className={styles.switchRowText}>
+              <span className={styles.switchRowLabel}>{t('admin.delivery.conditionalEnable')}</span>
+              <span className={styles.hint}>{t('admin.delivery.conditionalEnableHelp')}</span>
+            </span>
+          </label>
+
+          <div className={styles.formGrid}>
+            <div className={styles.field}>
+              <label htmlFor="conditionalMinSubtotal">{t('admin.delivery.conditionalMinimum')}</label>
+              <div className={styles.moneyInput}>
+                <span className={styles.moneyPrefix} aria-hidden="true">
+                  {t('admin.catalog.currencyMark')}
+                </span>
+                <input
+                  className={styles.input}
+                  id="conditionalMinSubtotal"
+                  name="minSubtotal"
+                  inputMode="decimal"
+                  defaultValue={
+                    pricing.conditional.minSubtotalMinor === null
+                      ? ''
+                      : taka(pricing.conditional.minSubtotalMinor)
+                  }
+                />
+              </div>
+              <span className={styles.hint}>{t('admin.delivery.conditionalMinimumHelp')}</span>
+            </div>
+
+            {(
+              [
+                ['dhaka', 'admin.delivery.areaDhaka', pricing.conditional.dhakaMinor],
+                ['chattogram', 'admin.delivery.areaChattogram', pricing.conditional.chattogramMinor],
+                ['others', 'admin.delivery.areaOthers', pricing.conditional.othersMinor],
+              ] as const
+            ).map(([name, labelKey, value]) => (
+              <div className={styles.field} key={name}>
+                <label htmlFor={`conditional-${name}`}>{t(labelKey)}</label>
+                <div className={styles.moneyInput}>
+                  <span className={styles.moneyPrefix} aria-hidden="true">
+                    {t('admin.catalog.currencyMark')}
+                  </span>
+                  <input
+                    className={styles.input}
+                    id={`conditional-${name}`}
+                    name={name}
+                    inputMode="decimal"
+                    defaultValue={value === null ? '' : taka(value)}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className={styles.settingActions}>
+            <SubmitButton
+              label={t('admin.delivery.conditionalSave')}
+              pendingLabel={t('admin.common.working')}
+            />
+          </div>
+        </form>
+      </section>
+
+      {/*
+        Repeat-customer delivery: two rates, not three. Chattogram has its own, and Dhaka plus every
+        other district share the second - the benefit is deliberately simpler than the conditional rule
+        whose place it takes.
+      */}
+      <section className={styles.section} aria-labelledby="delivery-repeat">
+        <div className={styles.sectionHead}>
+          <h2 id="delivery-repeat">{t('admin.delivery.repeatTitle')}</h2>
+        </div>
+        <p className={styles.hint}>{t('admin.delivery.repeatBody')}</p>
+
+        <form className={styles.formCard} action="/api/admin/delivery" method="post">
+          <input type="hidden" name="csrf" value={csrfToken} />
+          <input type="hidden" name="operation" value="repeatDelivery" />
+
+          <label className={styles.switchRow} htmlFor="repeatEnabled">
+            <input
+              id="repeatEnabled"
+              name="enabled"
+              type="checkbox"
+              value="true"
+              defaultChecked={pricing.repeat.enabled}
+            />
+            <span className={styles.switchRowText}>
+              <span className={styles.switchRowLabel}>{t('admin.delivery.repeatEnable')}</span>
+              <span className={styles.hint}>{t('admin.delivery.repeatEnableHelp')}</span>
+            </span>
+          </label>
+
+          <div className={styles.formGrid}>
+            {(
+              [
+                ['chattogram', 'admin.delivery.areaChattogram', pricing.repeat.chattogramMinor],
+                ['others', 'admin.delivery.repeatAreaOthers', pricing.repeat.othersMinor],
+              ] as const
+            ).map(([name, labelKey, value]) => (
+              <div className={styles.field} key={name}>
+                <label htmlFor={`repeat-${name}`}>{t(labelKey)}</label>
+                <div className={styles.moneyInput}>
+                  <span className={styles.moneyPrefix} aria-hidden="true">
+                    {t('admin.catalog.currencyMark')}
+                  </span>
+                  <input
+                    className={styles.input}
+                    id={`repeat-${name}`}
+                    name={name}
+                    inputMode="decimal"
+                    defaultValue={value === null ? '' : taka(value)}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className={styles.settingActions}>
+            <SubmitButton
+              label={t('admin.delivery.repeatSave')}
+              pendingLabel={t('admin.common.working')}
+            />
+          </div>
+        </form>
+      </section>
+
+      {/*
+        Repeat-customer discount: a percentage off the goods, above a minimum subtotal. It is a separate
+        rule from the delivery benefit and applies alongside whichever delivery charge was resolved.
+      */}
+      <section className={styles.section} aria-labelledby="delivery-repeat-discount">
+        <div className={styles.sectionHead}>
+          <h2 id="delivery-repeat-discount">{t('admin.delivery.discountTitle')}</h2>
+        </div>
+        <p className={styles.hint}>{t('admin.delivery.discountBody')}</p>
+
+        <form className={styles.formCard} action="/api/admin/delivery" method="post">
+          <input type="hidden" name="csrf" value={csrfToken} />
+          <input type="hidden" name="operation" value="repeatDiscount" />
+
+          <label className={styles.switchRow} htmlFor="repeatDiscountEnabled">
+            <input
+              id="repeatDiscountEnabled"
+              name="enabled"
+              type="checkbox"
+              value="true"
+              defaultChecked={pricing.repeatDiscount.enabled}
+            />
+            <span className={styles.switchRowText}>
+              <span className={styles.switchRowLabel}>{t('admin.delivery.discountEnable')}</span>
+              <span className={styles.hint}>{t('admin.delivery.discountEnableHelp')}</span>
+            </span>
+          </label>
+
+          <div className={styles.formGrid}>
+            <div className={styles.field}>
+              <label htmlFor="repeatDiscountPercent">{t('admin.delivery.discountPercent')}</label>
+              <div className={styles.moneyInput}>
+                <span className={styles.moneyPrefix} aria-hidden="true">
+                  %
+                </span>
+                <input
+                  className={styles.input}
+                  id="repeatDiscountPercent"
+                  name="percent"
+                  inputMode="numeric"
+                  maxLength={3}
+                  defaultValue={
+                    pricing.repeatDiscount.percent === null ? '' : String(pricing.repeatDiscount.percent)
+                  }
+                />
+              </div>
+              <span className={styles.hint}>{t('admin.delivery.discountPercentHelp')}</span>
+            </div>
+
+            <div className={styles.field}>
+              <label htmlFor="repeatDiscountMinSubtotal">{t('admin.delivery.discountMinimum')}</label>
+              <div className={styles.moneyInput}>
+                <span className={styles.moneyPrefix} aria-hidden="true">
+                  {t('admin.catalog.currencyMark')}
+                </span>
+                <input
+                  className={styles.input}
+                  id="repeatDiscountMinSubtotal"
+                  name="minSubtotal"
+                  inputMode="decimal"
+                  defaultValue={
+                    pricing.repeatDiscount.minSubtotalMinor === null
+                      ? ''
+                      : taka(pricing.repeatDiscount.minSubtotalMinor)
+                  }
+                />
+              </div>
+              <span className={styles.hint}>{t('admin.delivery.discountMinimumHelp')}</span>
+            </div>
+          </div>
+
+          <div className={styles.settingActions}>
+            <SubmitButton
+              label={t('admin.delivery.discountSave')}
+              pendingLabel={t('admin.common.working')}
+            />
+          </div>
+        </form>
       </section>
     </>
   );

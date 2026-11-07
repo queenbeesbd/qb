@@ -7,9 +7,11 @@
  * submission leaves no partial order and a retry cannot create a second one.
  *
  * **Cash on Delivery is the only method this release accepts (Phase 17).** The method is not a request
- * field: there is no payment method in `CreateOrderInput`, so a submission cannot choose one, and no
- * page or endpoint can imply that a manual transfer is supported. A prepaid method is a future roadmap
- * item with no implementation, no provider and no schema change here.
+ * field: there is no payment method in `CreateOrderInput`, so a submission cannot choose one. The
+ * checkout page publishes the owner's advance-payment **instructions** (ADR 0029), but an instruction
+ * is not a method: nothing here writes a prepaid payment state, a claim or a verification, and the
+ * order this function creates is always a COD order. A prepaid method is a future roadmap item with no
+ * implementation, no provider and no schema change here.
  *
  * What this deliberately does **not** do (ADR 0013):
  *
@@ -47,8 +49,8 @@ import {
   productVariant,
 } from '@/db/schema';
 import { checkOrderability } from '@/server/catalog/orderability';
-import { quoteDelivery } from '@/lib/delivery';
-import { loadDeliveryRates } from '@/server/delivery/service';
+import { quoteOrderDelivery, repeatDiscountMinor } from '@/lib/delivery';
+import { isRepeatCustomer, loadDeliveryRates } from '@/server/delivery/service';
 import { recordPromoRedemption, resolvePromo } from '@/server/promotions/service';
 
 import { ORDER_LIMITS, type CartLineInput, type ContactInput } from './validation';
@@ -225,7 +227,18 @@ export async function createOrder(tx: Transaction, input: CreateOrderInput): Pro
   // The same resolver the checkout preview uses. A missing default is a refusal, never free delivery;
   // an active district override wins over the default. Nothing in the request can supply this number.
   const rates = await loadDeliveryRates(tx);
-  const quote = quoteDelivery(rates, input.contact.districtCode);
+  /*
+   * Who is asking decides the delivery hierarchy and the automatic discount (ADR 0029). Both facts are
+   * read here, inside the order transaction: a guest is authenticated = false, so neither benefit can
+   * apply, and "repeat customer" is a completed order in the database, never a request field.
+   */
+  const repeatCustomer = await isRepeatCustomer(tx, input.customerId);
+  const pricing = {
+    subtotalMinor,
+    authenticated: input.customerId !== null,
+    repeatCustomer,
+  };
+  const quote = quoteOrderDelivery(rates, input.contact.districtCode, pricing);
   if (!quote.ok) {
     throw new OrderRefusalError(
       quote.reason === 'unconfigured' ? 'delivery_unconfigured' : 'invalid_district',
@@ -238,7 +251,7 @@ export async function createOrder(tx: Transaction, input: CreateOrderInput): Pro
 
   // 5. The promotion code, resolved against the stored rule with the code row locked, so two checkouts
   //    cannot both take the last use. The request supplies a string, never an amount.
-  let discountMinor = 0;
+  let promoDiscountMinor = 0;
   let appliedPromo: { promoCodeId: number; code: string } | null = null;
   const promoCodeInput = input.promoCode ?? null;
   if (promoCodeInput !== null && promoCodeInput.trim() !== '') {
@@ -246,11 +259,18 @@ export async function createOrder(tx: Transaction, input: CreateOrderInput): Pro
     if (!promo.ok) {
       throw new OrderRefusalError('promo_invalid', `the promotion code was refused: ${promo.reason}`);
     }
-    discountMinor = promo.discountMinor;
+    promoDiscountMinor = promo.discountMinor;
     appliedPromo = { promoCodeId: promo.promoCodeId, code: promo.code };
   }
 
-  // Delivery is charged after the discount, so a code can never pay for the courier.
+  /*
+   * The repeat-customer discount is automatic, but it is **one** discount however it is produced: the
+   * promotion and the repeat benefit are added, then capped at the goods subtotal, so no combination can
+   * make the order cheaper than its delivery charge or discount the same taka twice. Delivery is charged
+   * after the discount, so a discount never pays for the courier.
+   */
+  const automaticDiscountMinor = repeatDiscountMinor(rates, pricing);
+  const discountMinor = Math.min(subtotalMinor, promoDiscountMinor + automaticDiscountMinor);
   const totalMinor = subtotalMinor - discountMinor + shippingMinor;
 
   const placedAt = new Date();
@@ -316,7 +336,8 @@ export async function createOrder(tx: Transaction, input: CreateOrderInput): Pro
       promoCodeId: appliedPromo.promoCodeId,
       orderId: created.id,
       customerId: input.customerId,
-      discountMinor,
+      // The code's own share of the discount, bounded by what was actually applied.
+      discountMinor: Math.min(promoDiscountMinor, discountMinor),
     });
   }
 

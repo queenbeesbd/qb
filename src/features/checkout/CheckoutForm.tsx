@@ -8,7 +8,7 @@ import {
   type ContactFieldName,
   type ContactValues,
 } from '@/lib/checkout-fields';
-import { quoteDelivery } from '@/lib/delivery';
+import { quoteOrderDelivery, repeatDiscountMinor, type DeliveryRates } from '@/lib/delivery';
 import { DELIVERY_AREAS } from '@/lib/delivery-areas';
 import { useTranslation } from '@/i18n/useTranslation';
 import { useCart } from '@/features/cart/useCart';
@@ -94,9 +94,12 @@ type AppliedPromo = {
  * It submits **ids, quantities, delivery contact and at most one promotion code**. There is still no
  * price field the server trusts, and **no payment-method field at all**: Cash on Delivery is the only
  * method this release accepts (Phase 17), so the method is not a choice the browser can make and the
- * route does not read one.
+ * route does not read one. The payment card prints the owner's advance-payment instructions (ADR 0029)
+ * - where to send money and under which threshold - which is copy, not a method: the order is still
+ * written as COD and the owner confirms the transfer on the phone.
  *
- * The promotion code is applied by asking the server, never by computing the discount here: the preview
+ * The delivery charge and the automatic repeat-customer discount are previewed with the same pure
+ * resolver the order transaction uses, and the promotion code is applied by asking the server: the preview
  * endpoint prices the cart with the same resolver order creation uses, so the number on screen is the
  * number the order receives. If the cart changes afterwards the quote is treated as stale and the code
  * must be applied again - an old discount must never ride along with a new basket.
@@ -109,7 +112,9 @@ export function CheckoutForm({
   idempotencyKey,
   notice,
   customerEmail,
-  delivery,
+  pricing,
+  customer,
+  payment,
   products,
 }: {
   /** Null for a guest: there is no session to bind a token to, and the route checks the origin. */
@@ -118,7 +123,23 @@ export function CheckoutForm({
   notice: string | null;
   /** Null for a guest: nothing is signed in, and the page does not claim otherwise. */
   customerEmail: string | null;
-  delivery: { defaultMinor: number | null; overrides: Record<string, number> };
+  /** The whole pricing configuration: the default rule and the three optional rules (ADR 0029). */
+  pricing: {
+    defaultMinor: number | null;
+    overrides: Record<string, number>;
+    conditional: NonNullable<DeliveryRates['conditional']>;
+    repeat: NonNullable<DeliveryRates['repeat']>;
+    repeatDiscount: NonNullable<DeliveryRates['repeatDiscount']>;
+  };
+  /** Read by the server from the session and the order history; the preview only mirrors it. */
+  customer: { authenticated: boolean; repeatCustomer: boolean };
+  /** The owner's published payment instructions. An instruction, never a payment method. */
+  payment: {
+    instructions: string;
+    bkashNumber: string | null;
+    sendMoneyNote: string | null;
+    advanceThresholdMinor: number;
+  };
   /** The compact catalog projection, supplied by the server page because this route draws lines. */
   products: readonly CartProduct[];
 }) {
@@ -131,6 +152,7 @@ export function CheckoutForm({
   const [promo, setPromo] = useState<AppliedPromo | null>(null);
   const [promoReason, setPromoReason] = useState<string | null>(null);
   const [promoBusy, setPromoBusy] = useState(false);
+  const [bkashCopied, setBkashCopied] = useState(false);
   /**
    * The fields the last submit attempt would be refused for, or `null` before the first attempt.
    *
@@ -143,12 +165,25 @@ export function CheckoutForm({
   const invalid = (field: ContactFieldName): true | undefined =>
     problems?.includes(field) === true ? true : undefined;
 
-  const rates = {
-    defaultMinor: delivery.defaultMinor,
-    overrides: new Map(Object.entries(delivery.overrides)),
+  const rates: DeliveryRates = {
+    defaultMinor: pricing.defaultMinor,
+    overrides: new Map(Object.entries(pricing.overrides)),
+    conditional: pricing.conditional,
+    repeat: pricing.repeat,
+    repeatDiscount: pricing.repeatDiscount,
   };
-  const quote = districtCode === '' ? null : quoteDelivery(rates, districtCode);
-  const deliveryConfigured = delivery.defaultMinor !== null;
+  /*
+   * The same hierarchy the order transaction applies, previewed with the same function. `customer` is
+   * the server's answer about this session - the browser cannot make itself a repeat customer, and a
+   * guest's context always takes the default path.
+   */
+  const pricingContext = {
+    subtotalMinor: resolved.subtotalMinor,
+    authenticated: customer.authenticated,
+    repeatCustomer: customer.repeatCustomer,
+  };
+  const quote = districtCode === '' ? null : quoteOrderDelivery(rates, districtCode, pricingContext);
+  const deliveryConfigured = pricing.defaultMinor !== null;
   /**
    * A line whose product is not in stock right now. Availability comes from the same catalog snapshot
    * the cart is built from, and the server refuses such an order anyway - so the form says so here
@@ -159,9 +194,24 @@ export function CheckoutForm({
   // Derived, not stored: the cart is the source of truth, so a quote from an older basket simply stops
   // counting the moment the basket changes. No effect and no second copy of the total.
   const promoIsCurrent = promo !== null && promo.subtotalMinor === resolved.subtotalMinor;
-  const discountMinor = promoIsCurrent && promo !== null ? promo.discountMinor : 0;
+  const promoDiscountMinor = promoIsCurrent && promo !== null ? promo.discountMinor : 0;
+  /**
+   * The automatic repeat discount, previewed here and re-resolved inside the order transaction. It is
+   * added to any promotion and the pair is capped at the goods subtotal, so no combination discounts
+   * the same taka twice or makes delivery free.
+   */
+  const automaticDiscountMinor = repeatDiscountMinor(rates, pricingContext);
+  const discountMinor = Math.min(
+    resolved.subtotalMinor,
+    promoDiscountMinor + automaticDiscountMinor,
+  );
   const previewTotal =
     quote?.ok === true ? resolved.subtotalMinor - discountMinor + quote.quote.chargeMinor : null;
+  const advanceApplies = resolved.subtotalMinor < payment.advanceThresholdMinor;
+  const paymentParagraphs = payment.instructions
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0);
 
   const refusal = notice === null ? null : (REFUSAL_KEYS[notice] ?? 'checkout.notice.invalid');
   const promoMessage =
@@ -398,6 +448,39 @@ export function CheckoutForm({
             <section className={styles.card} aria-labelledby="checkout-payment">
               <h2 id="checkout-payment">{t('checkout.paymentTitle')}</h2>
               <p className={styles.methodOnly}>{t('checkout.method.cod')}</p>
+
+              {paymentParagraphs.length > 0 && (
+                <div className={styles.paymentInstructions}>
+                  {paymentParagraphs.map((paragraph) => (
+                    <p key={paragraph}>{paragraph}</p>
+                  ))}
+                </div>
+              )}
+
+              {payment.bkashNumber !== null ? (
+                <div className={styles.bkashCard}>
+                  <span className={styles.bkashLabel}>{t('checkout.payment.bkashLabel')}</span>
+                  <strong className={styles.bkashNumber}>{payment.bkashNumber}</strong>
+                  <button
+                    type="button"
+                    className={styles.bkashCopy}
+                    onClick={() => {
+                      void navigator.clipboard
+                        .writeText(payment.bkashNumber ?? '')
+                        .then(() => setBkashCopied(true))
+                        .catch(() => setBkashCopied(false));
+                    }}
+                  >
+                    {bkashCopied ? t('checkout.payment.copied') : t('checkout.payment.copy')}
+                  </button>
+                  {payment.sendMoneyNote !== null && (
+                    <p className={styles.paymentCaution}>{payment.sendMoneyNote}</p>
+                  )}
+                </div>
+              ) : (
+                <p className={styles.muted}>{t('checkout.payment.numberMissing')}</p>
+              )}
+
               <p className={styles.muted}>{t('checkout.methodCodNote')}</p>
               <p className={styles.muted}>{t('checkout.paymentMethodOnly')}</p>
             </section>
@@ -482,10 +565,20 @@ export function CheckoutForm({
                   <dt>{t('cart.subtotal')}</dt>
                   <dd>{price(resolved.subtotalMinor)}</dd>
                 </div>
-                {discountMinor > 0 && promo !== null && (
+                {promoDiscountMinor > 0 && promo !== null && (
                   <div className={styles.discountRow}>
                     <dt>{t('checkout.promo.discountLine', { code: promo.code })}</dt>
-                    <dd>&minus;{price(discountMinor)}</dd>
+                    <dd>&minus;{price(promoDiscountMinor)}</dd>
+                  </div>
+                )}
+                {automaticDiscountMinor > 0 && (
+                  <div className={styles.discountRow}>
+                    <dt>
+                      {t('checkout.repeatDiscount', {
+                        percent: pricing.repeatDiscount.percent ?? 0,
+                      })}
+                    </dt>
+                    <dd>&minus;{price(automaticDiscountMinor)}</dd>
                   </div>
                 )}
                 <div>
@@ -500,11 +593,24 @@ export function CheckoutForm({
                           : t('checkout.notice.invalidDistrict')}
                   </dd>
                 </div>
+                {advanceApplies && quote?.ok === true && (
+                  <div>
+                    <dt>{t('checkout.advanceLine')}</dt>
+                    <dd>{price(quote.quote.chargeMinor)}</dd>
+                  </div>
+                )}
                 <div className={styles.totalRow}>
                   <dt>{t('cart.total')}</dt>
                   <dd>{previewTotal === null ? '—' : price(previewTotal)}</dd>
                 </div>
               </dl>
+              {advanceApplies && quote?.ok === true && (
+                <p className={styles.muted}>
+                  {t('checkout.advanceHelp', {
+                    amount: price(payment.advanceThresholdMinor),
+                  })}
+                </p>
+              )}
               {previewTotal !== null && (
                 <p className={styles.muted}>
                   {quote?.ok === true && quote.quote.source === 'district'

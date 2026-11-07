@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from '@/i18n/useTranslation';
+import { repeatDiscountMinor, type DeliveryRates } from '@/lib/delivery';
 import { useCart } from './useCart';
 import { resolveCartLines } from './cart-lines';
 import { useCartProjection } from './useCartProjection';
@@ -73,10 +74,30 @@ function useCartAnnouncement(count: number): string | null {
  * cart line's name, price and picture can come from: the browser stores ids and quantities, never
  * prices. The provider above it stays free of product records so every other route stays small.
  */
-export function CartView({ products }: { products: readonly CartProduct[] }) {
+export function CartView({
+  products,
+  pricing,
+  customer,
+}: {
+  products: readonly CartProduct[];
+  /** The optional rules, so the cart can preview the same automatic discount checkout will apply. */
+  pricing: {
+    repeatDiscount: NonNullable<DeliveryRates['repeatDiscount']>;
+  };
+  /** The server's answer about this session. A guest is never a repeat customer. */
+  customer: { authenticated: boolean; repeatCustomer: boolean };
+}) {
   const { t, price } = useTranslation();
   const cart = useCart();
   const resolved = useMemo(() => resolveCartLines(cart.lines, products), [cart.lines, products]);
+  const automaticDiscountMinor = repeatDiscountMinor(
+    { defaultMinor: null, overrides: new Map(), repeatDiscount: pricing.repeatDiscount },
+    {
+      subtotalMinor: resolved.subtotalMinor,
+      authenticated: customer.authenticated,
+      repeatCustomer: customer.repeatCustomer,
+    },
+  );
   const projection = useCartProjection(cart.lines, products);
   const unavailableCount = resolved.entries.filter((entry) => unavailable(entry.product)).length;
   const announced = useCartAnnouncement(cart.itemCount);
@@ -240,13 +261,21 @@ export function CartView({ products }: { products: readonly CartProduct[] }) {
               <dt>{t('cart.subtotal')}</dt>
               <dd>{price(resolved.subtotalMinor)}</dd>
             </div>
+            {automaticDiscountMinor > 0 && (
+              <div>
+                <dt>
+                  {t('cart.repeatDiscount', { percent: pricing.repeatDiscount.percent ?? 0 })}
+                </dt>
+                <dd>&minus;{price(automaticDiscountMinor)}</dd>
+              </div>
+            )}
             <div>
               <dt>{t('cart.delivery')}</dt>
               <dd className={styles.muted}>{t('cart.deliveryUnknown')}</dd>
             </div>
             <div className={styles.totalRow}>
               <dt>{t('cart.total')}</dt>
-              <dd>{price(resolved.subtotalMinor)}</dd>
+              <dd>{price(resolved.subtotalMinor - automaticDiscountMinor)}</dd>
             </div>
           </dl>
           <Link className={styles.primaryAction} href="/checkout">

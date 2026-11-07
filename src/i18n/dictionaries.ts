@@ -180,6 +180,7 @@ export const dictionary = {
   'cart.deliveryUnknown': 'Not determined yet',
   'cart.total': 'Estimated total',
   'cart.totalNote': 'Excludes delivery — no charge is taken.',
+  'cart.repeatDiscount': 'Repeat customer discount ({percent}%)',
   'cart.lineUnavailable': 'cannot be ordered right now',
   'support.facebook': 'Open our Facebook page',
   'support.whatsapp': 'Message us on WhatsApp',
@@ -221,6 +222,15 @@ export const dictionary = {
   'checkout.methodCodNote': 'A cash-on-delivery order needs the owner’s approval before dispatch.',
   'checkout.paymentMethodOnly':
     'Cash on delivery is the only method in this release. Nothing is paid online.',
+  'checkout.payment.bkashLabel': 'bKash',
+  'checkout.payment.copy': 'Copy number',
+  'checkout.payment.copied': 'Number copied',
+  'checkout.payment.numberMissing':
+    'The shop has not published an advance-payment number. Contact the store before sending money.',
+  'checkout.repeatDiscount': 'Repeat customer discount ({percent}%)',
+  'checkout.advanceLine': 'Delivery charge payable in advance',
+  'checkout.advanceHelp':
+    'Below {amount} the delivery charge is paid in advance; the goods are paid on delivery.',
   'checkout.totalNote':
     'Delivery is priced by district on the server and included in the final total.',
   'checkout.deliveryUnconfigured':
@@ -404,6 +414,21 @@ export const dictionary = {
   'admin.contact.policyHelp':
     'Plain text. A blank line starts a new paragraph. Markup is refused rather than rendered.',
   'admin.contact.save': 'Save contact and policies',
+  'admin.payment.title': 'Payment instructions',
+  'admin.payment.body':
+    'What checkout tells a customer about paying. Cash on Delivery stays the method an order records; this block publishes the advance-payment terms, the bKash number and the gift note.',
+  'admin.payment.instructionsLabel': 'Instructions',
+  'admin.payment.instructionsHelp':
+    'One paragraph per line, printed exactly as written. Plain text only - < and > are refused.',
+  'admin.payment.bkashLabel': 'bKash number',
+  'admin.payment.bkashHelp': 'An 11-digit Bangladeshi mobile. Leave blank to publish no advance-payment number.',
+  'admin.payment.thresholdLabel': 'Advance applies below',
+  'admin.payment.thresholdHelp':
+    'Orders whose goods subtotal is below this amount are told the delivery charge is payable in advance. The delivery charge itself is not part of the subtotal.',
+  'admin.payment.noteLabel': 'Payment, not Send Money',
+  'admin.payment.noteHelp': 'Shown under the number. Leave blank to omit the caution.',
+  'admin.payment.save': 'Save payment instructions',
+  'admin.contact.notice.paymentSaved': 'Payment instructions saved.',
   'admin.contact.notice.saved': 'The contact facts and policy text are saved.',
   'admin.contact.notice.denied': 'Your account does not have permission to change the store settings.',
   'admin.contact.notice.invalid':
@@ -677,6 +702,41 @@ export const dictionary = {
   'admin.delivery.notice.denied': 'You do not have permission to make that change.',
   'admin.delivery.notice.conflict': 'That charge is already removed.',
   'admin.delivery.notice.invalid': 'Those details could not be validated. Check the amount and district.',
+
+  'admin.delivery.conditionalTitle': 'Conditional delivery pricing',
+  'admin.delivery.conditionalBody':
+    'A lower charge once the goods subtotal reaches the minimum. It applies to signed-in customers only - a guest always pays the default charges above.',
+  'admin.delivery.conditionalEnable': 'Charge a lower delivery fee above a minimum purchase',
+  'admin.delivery.conditionalEnableHelp':
+    'Off by default. Orders below the minimum, and every guest order, keep the default charges.',
+  'admin.delivery.conditionalMinimum': 'Minimum purchase (goods only)',
+  'admin.delivery.conditionalMinimumHelp': 'The delivery charge is not counted towards this amount.',
+  'admin.delivery.areaDhaka': 'Dhaka',
+  'admin.delivery.areaChattogram': 'Chattogram',
+  'admin.delivery.areaOthers': 'Outside Dhaka and Chattogram',
+  'admin.delivery.conditionalSave': 'Save conditional pricing',
+  'admin.delivery.repeatTitle': 'Repeat-customer delivery charges',
+  'admin.delivery.repeatBody':
+    'A returning customer - one with at least one completed order - pays these charges instead of the conditional ones. Guests never qualify, and a cancelled or unpaid order does not count as a previous purchase.',
+  'admin.delivery.repeatEnable': 'Give repeat customers a lower delivery fee',
+  'admin.delivery.repeatEnableHelp':
+    'Takes priority over conditional pricing. Off by default; the default charges apply while it is off.',
+  'admin.delivery.repeatAreaOthers': 'Dhaka and all other districts',
+  'admin.delivery.repeatSave': 'Save repeat delivery',
+  'admin.delivery.discountTitle': 'Repeat-customer purchase discount',
+  'admin.delivery.discountBody':
+    'An automatic percentage off the goods for a returning customer, applied at checkout and re-checked when the order is placed. It is separate from delivery and can apply alongside a promotion code.',
+  'admin.delivery.discountEnable': 'Discount repeat customers automatically',
+  'admin.delivery.discountEnableHelp':
+    'Off by default. Only a signed-in customer with a completed order qualifies.',
+  'admin.delivery.discountPercent': 'Discount',
+  'admin.delivery.discountPercentHelp': 'A whole percentage from 1 to 100, taken off the goods subtotal.',
+  'admin.delivery.discountMinimum': 'Minimum purchase (goods only)',
+  'admin.delivery.discountMinimumHelp': 'Below this subtotal no automatic discount applies.',
+  'admin.delivery.discountSave': 'Save repeat discount',
+  'admin.delivery.notice.conditionalSaved': 'Conditional delivery pricing saved.',
+  'admin.delivery.notice.repeatDeliverySaved': 'Repeat-customer delivery charges saved.',
+  'admin.delivery.notice.repeatDiscountSaved': 'Repeat-customer discount saved.',
 
   'admin.breadcrumbLabel': 'Breadcrumb',
   'admin.account.menuLabel': 'Account and sign out',

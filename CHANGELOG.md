@@ -14,6 +14,49 @@ An entry may describe a deployment only once it has actually happened and been o
 
 ## [Unreleased]
 
+### Added - 2026-11-08: conditional delivery, repeat-customer pricing and checkout payment instructions (ADR 0029)
+Settings -> Delivery charges now owns three optional pricing rules beside the existing default and
+per-district charges, and checkout publishes the owner's advance-payment instructions.
+
+- **Conditional delivery**: a lower charge for a signed-in customer whose goods subtotal reaches a
+  configured minimum, priced for Dhaka, Chattogram and the rest of the country.
+- **Repeat-customer delivery**: a returning customer (at least one **completed** order) pays the repeat
+  rates - Chattogram has its own; Dhaka and every other district share the second - and it takes
+  priority over conditional pricing.
+- **Repeat-customer discount**: an automatic whole-percentage discount above a configured subtotal,
+  added to any promotion code and capped at the goods subtotal.
+- **Payment instructions**: the owner's Bangla copy, the bKash number with a copy button, the
+  "Payment, not Send Money" caution and the subtotal below which the delivery charge is expected in
+  advance, edited at Settings -> Contact and policies.
+
+Migration `0017_pricing_rules` adds eleven additive columns to `delivery_setting` (three switches,
+their amounts, the discount percent and minimum) with range `CHECK`s. **No new table; schema stays 51.**
+Every rule defaults to **off** and every value is nullable, so an upgraded database keeps its previous
+pricing exactly. One pure resolver (`quoteOrderDelivery`, plus `repeatDiscountMinor`) is shared by the
+cart, the checkout preview and `createOrder`, so the shown number and the stored snapshot cannot
+diverge: repeat delivery -> conditional -> district override -> default -> refusal, with a guest
+stopping at the override. Eligibility is read inside the order transaction from `order.status =
+'completed'`; a guest is never eligible and a cancelled or unpaid order never counts.
+
+**Cash on Delivery remains the only method an order records.** The payment block is an instruction the
+owner confirms on the phone: nothing writes a payment method, claim, screenshot or verification, and
+ADR 0015 is untouched. The Bangla defaults live in `src/data/payment-instructions.ts` as owner data and
+are rendered as plain paragraphs (markup refused), which `check:i18n` treats as data rather than
+interface copy.
+
+Verified locally: typecheck, lint (0 errors, 2 pre-existing warnings), `check:i18n` (1,714 keys),
+`build`, unit **251/251** (19 new pricing cases), `db:migrate`/`db:validate` (51 tables, 191 checks),
+an HTTP settings walk-through that saved all four rule groups, proved the audit rows and refused a
+half-configured rule without changing anything, ten real `createOrder` scenarios matching the brief's
+matrix (guest/new/repeat x 810/1500/2510 BDT, Chattogram, and a cancelled-order customer that stays new),
+and a Chromium walk-through at 1440px and 390px: the owner instructions, number, copy control and
+caution render; guest delivery is the default, a new customer gets the conditional rate, a repeat
+customer gets the repeat rate plus the 5% row, a cancelled-order customer does not; the advance line
+appears below 500 BDT; and with both repeat rules switched off the same customer falls back to the
+conditional rate with no discount, in the checkout and in the cart, with no horizontal overflow at
+390px. `verify:admin`, `verify:browser`, `verify:storefront` and the db suite were not re-run; real
+devices and screen readers were not used. Nothing is deployed.
+
 ### Added - 2026-11-08: SteadFast courier booking (ADR 0028)
 Confirming a COD order on the phone is now also the moment its parcel is booked. Approving an order in
 `/admin/orders-cod` sends it to **SteadFast Courier** (`POST /create_order`) immediately after the

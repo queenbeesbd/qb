@@ -1520,6 +1520,15 @@ entered by the owner in taka and converted by `parsePoisha`; zero is a valid fre
 | --- | --- | --- | --- |
 | `id` | integer | PK | `CHECK (id = 1)` - exactly one row |
 | `default_minor` | integer | NULL | The required charge for **Other districts**. NULL means unconfigured, which **blocks checkout**; it is never read as zero. `CHECK (0 .. 100000000)` |
+| `conditional_enabled` | boolean | NOT NULL | Default false. The conditional rule is off until the owner switches it on |
+| `conditional_min_subtotal_minor` | integer | NULL | Goods subtotal at which the conditional rates begin. `CHECK (0 .. 100000000)` |
+| `conditional_dhaka_minor` / `conditional_chattogram_minor` / `conditional_others_minor` | integer | NULL | The conditional charge per delivery area. A missing value means the rule cannot price that area and the next rule applies |
+| `repeat_delivery_enabled` | boolean | NOT NULL | Default false |
+| `repeat_chattogram_minor` | integer | NULL | Repeat-customer charge for Chattogram |
+| `repeat_others_minor` | integer | NULL | Repeat-customer charge for **Dhaka and every other district** - the benefit offers two rates, not three |
+| `repeat_discount_enabled` | boolean | NOT NULL | Default false |
+| `repeat_discount_percent` | integer | NULL | Whole percent, `CHECK (1 .. 100)` |
+| `repeat_discount_min_subtotal_minor` | integer | NULL | Goods subtotal at which the automatic discount begins |
 | `updated_at` | timestamptz | NOT NULL | |
 | `updated_by_staff_id` | bigint | NOT NULL | FK `staff_user(id)` |
 
@@ -1534,9 +1543,22 @@ entered by the owner in taka and converted by `parsePoisha`; zero is a valid fre
 | `created_at` / `updated_at` | timestamptz | NOT NULL | |
 | `updated_by_staff_id` | bigint | NOT NULL | FK `staff_user(id)` |
 
-**Resolution.** Active Dhaka/Chattogram override → configured default → **refusal**. The customer
-chooses one of the three codes; free-text `area`/`city` is never matched. The resolved charge and the
-chosen code are written into the order and its contact row in the same transaction (ADR 0016).
+**Resolution (ADR 0016, extended by ADR 0029).** For a **signed-in** customer: repeat delivery (repeat
+customer, rule on, rate for the area) → conditional delivery (rule on, subtotal reaches the minimum,
+rate for the area) → active district override → configured default → **refusal**. A **guest** always
+starts at the district override. A rule that is on but has no rate for the area falls through rather
+than charging an assumed number. The customer chooses one of the three codes; free-text `area`/`city`
+is never matched. The resolved charge and the chosen code are written into the order and its contact
+row in the same transaction (ADR 0016).
+
+**Repeat customer.** An authenticated customer with at least one order whose `status = 'completed'` -
+the only state reachable through recorded cash, so a pending, cancelled, rejected or unpaid order does
+not count. A guest (`customer_id IS NULL`) can never qualify.
+
+**Automatic repeat discount.** `floor(subtotal × percent / 100)` poisha, applied only when the rule is
+on, the caller is a repeat customer, and the subtotal reaches the minimum. It is added to any promotion
+code's discount and the pair is capped at the goods subtotal, then snapshotted in `order.discount_minor`
+with the resolved `order.shipping_minor` - an order always states what it was actually charged.
 
 **Authorization.** Read: staff with `settings.write` (the settings screen) and the server-side checkout
 projection. Write: `settings.write` only, audited with before/after. There is no public settings endpoint.

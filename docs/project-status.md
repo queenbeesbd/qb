@@ -481,3 +481,37 @@ answering "already booked" with one row, a non-bookable order refused with an au
 removed, and - with the stub down - an approval that still succeeded, wrote no row, audited the failure
 and offered the retry. `verify:admin`, `verify:browser`, `verify:storefront`, the db suite, the live
 SteadFast API, real devices and screen readers were not run. Nothing is deployed.
+
+## Conditional and repeat-customer pricing, and payment instructions (2026-11-08)
+
+Implemented locally, not deployed. Settings -> Delivery charges now holds three optional rules beside
+the existing default and district charges, stored as eleven additive columns on `delivery_setting`
+(migration `0017_pricing_rules`, schema unchanged at **51 tables**, every rule off by default):
+**conditional delivery** (a lower charge above a configured goods subtotal, priced for Dhaka,
+Chattogram and the rest), **repeat-customer delivery** (Chattogram has its own rate; Dhaka and other
+districts share the second; it outranks conditional pricing) and an **automatic repeat-customer
+discount** (whole percent above a minimum).
+
+One pure resolver - `quoteOrderDelivery` in `src/lib/delivery.ts` - is used by the cart, the checkout
+preview and `createOrder`, so the shown price and the stored snapshot cannot disagree. The hierarchy is
+repeat -> conditional -> district override -> default -> refusal, and a **guest stops at the district
+override**. "Repeat customer" is `order.status = 'completed'`, read inside the order transaction: a
+pending, cancelled, rejected or unpaid order does not count. The automatic discount is added to any
+promotion code and the pair is capped at the goods subtotal; `order.discount_minor` and
+`order.shipping_minor` keep the snapshot the customer was charged.
+
+Checkout also publishes the owner's **payment instructions** - Bangla paragraphs, the bKash number with
+a copy button, the "Payment, not Send Money" caution and the subtotal below which the delivery charge is
+expected in advance - from `store_setting`, edited at Settings -> Contact and policies and audited. The
+defaults are owner data in `src/data/payment-instructions.ts`; markup is refused and everything renders
+as plain paragraphs. **Cash on Delivery remains the only method an order records:** no payment state,
+claim, screenshot upload or verification queue exists, and the block is an instruction the owner
+confirms on the phone.
+
+Verified with typecheck, lint (0 errors, 2 pre-existing warnings), `check:i18n` (1,714 keys), `build`,
+unit **251/251**, `db:migrate`/`db:validate` (51 tables, 191 checks), an HTTP settings walk-through
+(four saves, audit rows, a half-configured rule refused), ten `createOrder` matrix scenarios matching
+the brief, and Chromium at 1440px and 390px (owner copy and copy control, default vs conditional vs
+repeat rates, the 5% row, the advance line below 500 BDT, the rules-off fallback in checkout and cart,
+no horizontal overflow). `verify:admin`, `verify:browser`, `verify:storefront`, the db suite, the
+clipboard write, real devices and screen readers were not exercised. Nothing is deployed.

@@ -44,10 +44,17 @@ describe('order labels', () => {
     assert.match(dictionary['orders.legacyPaymentNote'], /predates cash on delivery/i);
   });
 
-  it('offers no copy that implies a manual prepaid method is supported now', () => {
+  it('names bKash only inside the payment-instruction block, never as a second method', () => {
+    // ADR 0029: the owner publishes advance-payment *instructions* on checkout (the bKash number and
+    // the 500 BDT rule), while Cash on Delivery stays the only method an order records. So a bKash
+    // mention is allowed only under `checkout.payment.`, and no copy may offer a claim, a transaction
+    // reference or a selectable prepaid method.
     for (const [key, value] of Object.entries(dictionary)) {
       if (!key.startsWith('checkout.')) continue;
-      assert.doesNotMatch(value, /bkash|nagad|transaction id/iu, key);
+      assert.doesNotMatch(value, /nagad|transaction id|sender number/iu, key);
+      if (/bkash/iu.test(value)) {
+        assert.ok(key.startsWith('checkout.payment.'), `${key} names bKash outside the payment block`);
+      }
     }
   });
 });
