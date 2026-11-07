@@ -797,6 +797,11 @@ export const dictionary = {
   'admin.integrations.hubNote':
     'Recipients are managed per integration. Telegram ids are stored in this store\u2019s database; the bot\u2019s own credential is a deployment secret and is never stored or shown here.',
   'admin.integrations.open': 'Open',
+  'admin.integrations.steadfastTitle': 'SteadFast Courier',
+  'admin.integrations.steadfastSummary':
+    'Sends a confirmed COD order to SteadFast and keeps the consignment it returns.',
+  'admin.integrations.steadfastReady': 'Booking on',
+  'admin.integrations.steadfastNotReady': 'Booking off',
   'admin.integrations.telegramSummary':
     'Sends a message to each registered Telegram account when an order is placed.',
   'admin.integrations.telegramTitle': 'Telegram notifications',
@@ -862,6 +867,48 @@ export const dictionary = {
   'admin.integrations.notice.denied': 'Your account does not have permission for that action.',
   'admin.integrations.notice.invalid':
     'Check the fields: a name and a numeric Telegram id are required, and the id must not already be registered.',
+  'admin.steadfast.title': 'SteadFast Courier',
+  'admin.steadfast.body':
+    'The courier account this shop books its COD parcels with. Approving a COD order in the confirmation queue sends it here automatically once booking is on.',
+  'admin.steadfast.stateTitle': 'Saved account',
+  'admin.steadfast.stateBody': 'What is stored, and whether a confirmed order would be sent right now.',
+  'admin.steadfast.keysSaved': 'Keys saved',
+  'admin.steadfast.keysMissing': 'Keys not saved',
+  'admin.steadfast.bookingOn': 'Booking on',
+  'admin.steadfast.bookingOff': 'Booking off',
+  'admin.steadfast.apiKeySaved': 'API key {hint}',
+  'admin.steadfast.secretKeySaved': 'Secret key {hint}',
+  'admin.steadfast.stateNote':
+    'The keys are stored server-side and are never sent back to this screen. A key on a screen is a key in a screenshot.',
+  'admin.steadfast.accountTitle': 'Account keys',
+  'admin.steadfast.accountBody':
+    'Both values are issued by SteadFast. An empty field keeps the saved value, so one key can be replaced without retyping the other.',
+  'admin.steadfast.apiKeyLabel': 'API key',
+  'admin.steadfast.secretKeyLabel': 'Secret key',
+  'admin.steadfast.keyHelp': 'The Api-Key SteadFast shows in its merchant portal.',
+  'admin.steadfast.secretKeyHelp': 'The Secret-Key paired with that API key.',
+  'admin.steadfast.enableLabel': 'Send confirmed COD orders to SteadFast',
+  'admin.steadfast.enableHelp':
+    'Off by default. When on, approving an order in the confirmation queue books the parcel; a failure leaves the order approved and is retried from the order screen.',
+  'admin.steadfast.save': 'Save account',
+  'admin.steadfast.testTitle': 'Check the account',
+  'admin.steadfast.testBody':
+    'Asks SteadFast for the account balance with the saved keys. It tests what is stored, not what is typed above.',
+  'admin.steadfast.test': 'Test connection',
+  'admin.steadfast.clear': 'Remove account',
+  'admin.steadfast.clearTitle': 'Remove the SteadFast account?',
+  'admin.steadfast.clearBody':
+    'Both keys are deleted and booking is switched off. Orders already sent keep their consignment; no new order will be booked until the keys are saved again.',
+  'admin.steadfast.clearConfirm': 'Remove keys',
+  'admin.steadfast.notice.saved': 'The SteadFast account was saved.',
+  'admin.steadfast.notice.cleared': 'The keys were removed and booking is off.',
+  'admin.steadfast.notice.tested': 'SteadFast accepted the saved keys.',
+  'admin.steadfast.notice.testFailed':
+    'SteadFast did not accept the saved keys, or could not be reached. Check the keys and try again.',
+  'admin.steadfast.notice.notConfigured': 'Save both keys before testing the account.',
+  'admin.steadfast.notice.denied': 'Your account does not have permission for that action.',
+  'admin.steadfast.notice.invalid':
+    'Check the fields: both keys are required together, and switching booking on needs both saved.',
   'admin.customers.searchLabel': 'Search customers',
   'admin.customers.searchPlaceholder': 'Email or name',
   'admin.customers.searchEmptyTitle': 'No customers match',
@@ -976,11 +1023,39 @@ export const dictionary = {
   'admin.order.inspectRejectedPlaceholder': 'e.g. Seal broken and the item has been used',
   'admin.order.returnsStockNote':
     'Stock does not change on this page: only the owner sets In Stock or Out of Stock, on the product screen. Accepting an inspection means the goods came back sound - not that they returned to stock automatically.',
+  'admin.order.notice.steadfastBooked': 'The order was sent to SteadFast and the consignment was recorded.',
+  'admin.order.notice.steadfastExists': 'This order already has a SteadFast consignment.',
+  'admin.order.notice.steadfastFailed':
+    'SteadFast did not accept the booking. The order is unchanged; try again once the problem is fixed.',
+  'admin.order.notice.steadfastNotConfigured':
+    'SteadFast booking is off or its keys are not saved, so nothing was sent.',
+  'admin.order.notice.steadfastInProgress': 'This order is already being sent to SteadFast.',
+  'admin.order.notice.steadfastRefreshed': 'The delivery status was read from SteadFast.',
+  'admin.order.notice.steadfastMissing': 'This order has no SteadFast consignment to check.',
   'admin.order.notice.dispatched': 'Recorded as dispatched.',
   'admin.order.notice.delivered': 'Recorded as delivered. Cash collection is still not recorded.',
   'admin.order.notice.failed':
     'Delivery recorded as failed. Record the parcel receipt and the inspection once the goods are back.',
   'admin.order.notice.returned': 'Recorded as returned. Inspect each line now.',
+  'admin.order.steadfast.title': 'SteadFast consignment',
+  'admin.order.steadfast.body':
+    'What the courier accepted for this parcel. The delivery status below is SteadFast\u2019s own; it does not change this order.',
+  'admin.order.steadfast.refresh': 'Refresh status',
+  'admin.order.steadfast.notSent':
+    'This order has not been sent to SteadFast yet. Sending it books the parcel and records the consignment.',
+  'admin.order.steadfast.notConfigured':
+    'SteadFast booking is off or its keys are not saved, so this order cannot be sent from here.',
+  'admin.order.steadfast.send': 'Send to SteadFast',
+  'admin.order.steadfast.openSettings': 'Open SteadFast settings',
+  'admin.order.steadfast.invoice': 'Invoice',
+  'admin.order.steadfast.consignmentId': 'Consignment id',
+  'admin.order.steadfast.trackingCode': 'Tracking code',
+  'admin.order.steadfast.status': 'Delivery status',
+  'admin.order.steadfast.codAmount': 'Amount to collect',
+  'admin.order.steadfast.bookedAt': 'Booked',
+  'admin.order.steadfast.neverChecked':
+    'Not read back from SteadFast since the booking; the status above is what it answered at that moment.',
+  'admin.order.steadfast.checkedAt': 'Status read from SteadFast {time}.',
   'admin.order.moneyTitle': 'Money',
   'admin.order.moneyCustomerPayment': 'Customer payment (goods and delivery)',
   'admin.order.moneyStandardFee': 'Standard delivery fee',
@@ -1441,6 +1516,9 @@ export const dictionary = {
   'admin.cod.approveReason': 'Note from the confirmation call',
   'admin.cod.rejectReason': 'Reason for rejection (10+ characters)',
   'admin.cod.notice.approved': 'Order approved and confirmed.',
+  'admin.cod.notice.approvedBooked': 'Order approved and booked with SteadFast.',
+  'admin.cod.notice.approvedBookingFailed':
+    'Order approved, but SteadFast did not accept the booking. Retry it from the order screen.',
   'admin.cod.notice.rejected': 'Order rejected and cancelled.',
   'admin.cod.notice.denied': 'Your account does not have permission for that action.',
   'admin.cod.notice.conflict': 'That order has already been decided.',

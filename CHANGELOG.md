@@ -14,6 +14,47 @@ An entry may describe a deployment only once it has actually happened and been o
 
 ## [Unreleased]
 
+### Added - 2026-11-08: SteadFast courier booking (ADR 0028)
+Confirming a COD order on the phone is now also the moment its parcel is booked. Approving an order in
+`/admin/orders-cod` sends it to **SteadFast Courier** (`POST /create_order`) immediately after the
+approval commits, and the consignment id, tracking code and courier status are stored in a new
+**`steadfast_consignment`** table (migration `0016`, schema 50 -> **51 tables**), one row per order.
+
+The owner enters the courier account at **Settings -> Integrations -> SteadFast** (`settings.write`):
+the `Api-Key` and `Secret-Key`, and a switch that is **off by default**. The keys are stored in
+`store_setting`, are never sent to the browser, logged, redirected or audited as values - the screen and
+the audit record carry only `••••` plus the last four characters - and **Test connection** asks SteadFast
+for the account balance using the **saved** keys. Removing the account is a confirmed action that deletes
+both keys and switches booking off; an empty field keeps the stored value so one key can be rotated
+without retyping the other.
+
+Booking is **separate from the approval transaction**, so a courier outage cannot undo a decision made on
+the phone: the order stays `cod_approved` / `confirmed`, `order.steadfast_booking_failed` is written in
+its own transaction, the queue says the booking failed, and the order screen offers **Send to SteadFast**
+as the retry. A booking, a failure and a **Refresh status** all leave `order.status`, `order.cod_state`,
+payment, refund and stock untouched - SteadFast's `delivered` status is a stored mirror with the time it
+was read, never an order transition. One consignment per order is enforced three times: a unique
+`order_id`, a unique `invoice`, and a transaction-scoped advisory lock, so a second send answers "already
+booked" instead of creating a second parcel.
+
+The amount to collect is the order's frozen `total_minor` in BDT; the invoice is the order number; the
+address is the stored line plus area, city and postcode with repeats dropped; a phone that is not an
+11-digit Bangladeshi mobile is refused before the call. Two provider field limits (name 100, address 250)
+are clipped, because a confirmed parcel must not be blocked over whitespace and the order keeps the full
+value. **No new permission**: sending is re-authorized as `cod.approve`, refreshing as `order.read`.
+
+Verified locally against a disposable dev cluster and a **stub courier**: `npm run typecheck`, lint
+(0 errors, 2 pre-existing warnings), `check:i18n` (1,666 keys), `build`, unit **238/238** (20 new), and an
+end-to-end HTTP smoke through the real routes - keys saved and masked (the page never contains either
+value), a stub balance read, an approval that created the consignment and sent the exact payload
+(`cod_amount: 620`, address composed, note), an order page showing the id and tracking code, a status
+refresh that stored `delivered` without moving the order, a second send answering "already booked" with
+exactly one row, a non-bookable order refused with no row and an audit entry, and the account removed with
+both keys deleted. A second smoke with the stub **down** proved the approval still succeeds, no row is
+written, the failure is audited and the retry is offered. `verify:admin`, `verify:browser`,
+`verify:storefront`, the db suite, real devices and the live SteadFast API were **not** run; nothing is
+deployed and no live courier account was contacted.
+
 ### Added - 2026-11-07: contact and policy surfaces (Phase 51)
 The shop told customers to contact it and published no way to do so. `/contact` and four policy pages
 (`/policies/delivery`, `/policies/returns`, `/policies/privacy`, `/policies/terms`) now render the

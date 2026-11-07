@@ -4,7 +4,7 @@
  * This barrel is the single entrypoint `drizzle-kit` reads, so every table must be re-exported
  * here or it will silently not be migrated.
  *
- * 50 tables across ten groups:
+ * 51 tables across ten groups:
  * - identity (13)   principals, credentials, sessions, recovery, throttle, roles and permissions
  * - catalog (10)    brands, categories, products, variants, imagery, hero banner, curation,
  *                   import provenance
@@ -14,7 +14,7 @@
  * - operations (6)  notifications, exceptions, audit, idempotency, settings, customer flags
  * - delivery (2)    default charge and active district overrides
  * - promotions (2)  owner-published codes and the orders that used them
- * - integrations (1) Telegram destinations an order notification is sent to
+ * - integrations (2) Telegram destinations and the SteadFast consignment per order
  * - analytics (2)   first-party visit sessions and their step log (ADR 0027)
  */
 

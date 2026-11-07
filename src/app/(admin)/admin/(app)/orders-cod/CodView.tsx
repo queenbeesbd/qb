@@ -13,19 +13,28 @@ import { PageHeader } from '../../_ui/PageHeader';
 import { Pagination } from '../../_ui/Pagination';
 import styles from '../../admin.module.css';
 
-export type CodNotice = 'approved' | 'rejected' | 'denied' | 'conflict' | 'invalid';
+export type CodNotice =
+  | 'approved'
+  | 'approvedBooked'
+  | 'approvedBookingFailed'
+  | 'rejected'
+  | 'denied'
+  | 'conflict'
+  | 'invalid';
 
 type Row = CodOrderRow & { decision?: 'approved' | 'rejected'; decidedAt?: string };
 
 const NOTICE_KEYS: Record<CodNotice, TranslationKey> = {
   approved: 'admin.cod.notice.approved',
+  approvedBooked: 'admin.cod.notice.approvedBooked',
+  approvedBookingFailed: 'admin.cod.notice.approvedBookingFailed',
   rejected: 'admin.cod.notice.rejected',
   denied: 'admin.cod.notice.denied',
   conflict: 'admin.cod.notice.conflict',
   invalid: 'admin.cod.notice.invalid',
 };
 
-const ERROR_NOTICES: readonly CodNotice[] = ['denied', 'conflict', 'invalid'];
+const ERROR_NOTICES: readonly CodNotice[] = ['denied', 'conflict', 'invalid', 'approvedBookingFailed'];
 
 /**
  * The COD queue: call the customer, then accept or cancel. Nothing is automatic.

@@ -5,6 +5,8 @@ import { withTransaction } from '@/db/client';
 import { requireAdminPage } from '@/server/auth/guard';
 import { hasPermission } from '@/server/authz/principal';
 import { PERMISSIONS } from '@/server/authz/permissions';
+import { loadSteadfastSettings, publicStatus } from '@/server/integrations/steadfast';
+import { loadConsignment } from '@/server/integrations/steadfast-booking';
 import { adminOrderAudit, adminOrderDetail } from '@/server/orders/admin-order';
 import { AdminOrderDetailView, type AdminOrderNotice } from './OrderDetailView';
 
@@ -14,6 +16,13 @@ export const metadata: Metadata = { title: 'Order', robots: { index: false, foll
 
 const NOTICES: readonly AdminOrderNotice[] = [
   'approved',
+  'steadfastBooked',
+  'steadfastExists',
+  'steadfastFailed',
+  'steadfastNotConfigured',
+  'steadfastInProgress',
+  'steadfastRefreshed',
+  'steadfastMissing',
   'rejected',
   'dispatched',
   'delivered',
@@ -70,7 +79,11 @@ export default async function AdminOrderDetailPage({
     if (detail === null) return null;
     const canReadAudit = hasPermission(principal, PERMISSIONS.auditRead);
     const audit = canReadAudit ? await adminOrderAudit(tx, detail.orderId) : null;
-    return { detail, audit };
+    // The courier record is read beside the order, and the account's shape beside that: the page may
+    // offer "Send to SteadFast" only when the order is bookable and the account can actually be used.
+    const consignment = await loadConsignment(tx, detail.orderId);
+    const steadfast = publicStatus(await loadSteadfastSettings(tx));
+    return { detail, audit, consignment, steadfast };
   });
   if (data === null) notFound();
 
@@ -162,6 +175,22 @@ export default async function AdminOrderDetailPage({
           reason: event.reason,
           occurredAt: event.occurredAt.toISOString(),
         })),
+        consignment:
+          data.consignment === null
+            ? null
+            : {
+                invoice: data.consignment.invoice,
+                consignmentId: data.consignment.consignmentId,
+                trackingCode: data.consignment.trackingCode,
+                status: data.consignment.status,
+                codAmountMinor: data.consignment.codAmountMinor,
+                createdAt: data.consignment.createdAt.toISOString(),
+                statusCheckedAt:
+                  data.consignment.statusCheckedAt === null
+                    ? null
+                    : data.consignment.statusCheckedAt.toISOString(),
+              },
+        steadfast: { configured: data.steadfast.configured, enabled: data.steadfast.enabled },
         audit:
           data.audit === null
             ? null

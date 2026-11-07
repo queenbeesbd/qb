@@ -16,7 +16,15 @@ import { CodView, type CodNotice } from './CodView';
 
 export const dynamic = 'force-dynamic';
 
-const NOTICES: readonly CodNotice[] = ['approved', 'rejected', 'denied', 'conflict', 'invalid'];
+const NOTICES: readonly CodNotice[] = [
+  'approved',
+  'approvedBooked',
+  'approvedBookingFailed',
+  'rejected',
+  'denied',
+  'conflict',
+  'invalid',
+];
 
 /** Rows per page for the waiting queue. Both tabs page at the same size. */
 const WAITING_PAGE_SIZE = DECIDED_PAGE_SIZE;

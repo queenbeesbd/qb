@@ -19,6 +19,13 @@ import { INTL_LOCALE } from '@/i18n/config';
 
 export type AdminOrderNotice =
   | 'approved'
+  | 'steadfastBooked'
+  | 'steadfastExists'
+  | 'steadfastFailed'
+  | 'steadfastNotConfigured'
+  | 'steadfastInProgress'
+  | 'steadfastRefreshed'
+  | 'steadfastMissing'
   | 'rejected'
   | 'dispatched'
   | 'delivered'
@@ -110,6 +117,21 @@ export type AdminOrderDetailModel = {
     voidedAt: string | null;
     voidReason: string | null;
   }[];
+  /**
+   * The SteadFast consignment this order was sent to, or `null`. It is a mirror of what the courier
+   * accepted - sending a parcel never changes the order's own state.
+   */
+  consignment: {
+    invoice: string;
+    consignmentId: number;
+    trackingCode: string;
+    status: string;
+    codAmountMinor: number;
+    createdAt: string;
+    statusCheckedAt: string | null;
+  } | null;
+  /** Whether the courier account is usable, so the screen never offers a send that cannot work. */
+  steadfast: { configured: boolean; enabled: boolean };
   /** The four money facts, kept separate: never collapsed into one "revenue" number. */
   money: {
     customerPaymentMinor: number;
@@ -142,6 +164,13 @@ export type AdminOrderDetailModel = {
 
 const NOTICE_KEYS: Record<AdminOrderNotice, TranslationKey> = {
   approved: 'admin.cod.notice.approved',
+  steadfastBooked: 'admin.order.notice.steadfastBooked',
+  steadfastExists: 'admin.order.notice.steadfastExists',
+  steadfastFailed: 'admin.order.notice.steadfastFailed',
+  steadfastNotConfigured: 'admin.order.notice.steadfastNotConfigured',
+  steadfastInProgress: 'admin.order.notice.steadfastInProgress',
+  steadfastRefreshed: 'admin.order.notice.steadfastRefreshed',
+  steadfastMissing: 'admin.order.notice.steadfastMissing',
   rejected: 'admin.cod.notice.rejected',
   dispatched: 'admin.order.notice.dispatched',
   delivered: 'admin.order.notice.delivered',
@@ -159,7 +188,13 @@ const NOTICE_KEYS: Record<AdminOrderNotice, TranslationKey> = {
   invalid: 'admin.cod.notice.invalid',
 };
 
-const ERROR_NOTICES: readonly AdminOrderNotice[] = ['denied', 'conflict', 'invalid', 'costInvalid'];
+const ERROR_NOTICES: readonly AdminOrderNotice[] = [
+  'denied',
+  'conflict',
+  'invalid',
+  'costInvalid',
+  'steadfastFailed',
+];
 
 /**
  * Event types this release can actually write, translated. Anything else is shown as its stored code:
@@ -283,6 +318,13 @@ export function AdminOrderDetailView({
   const completable =
     order.status === 'delivered' && (order.codState === 'cod_collected' || order.codState === 'cod_failed');
   const cancellable = order.status === 'pending' || order.status === 'confirmed' || order.status === 'processing';
+  // The same eligibility the booking service guards on: a confirmed COD order that has not been
+  // dispatched yet. The panel is shown for that order, or for any order that already has a parcel.
+  const sendable =
+    order.paymentMethod === 'cod' &&
+    order.codState === 'cod_approved' &&
+    (order.status === 'confirmed' || order.status === 'processing');
+  const courierReady = order.steadfast.configured && order.steadfast.enabled;
 
   const ageText = ((): string => {
     const format = new Intl.RelativeTimeFormat('en', { numeric: 'auto' });
@@ -350,6 +392,97 @@ export function AdminOrderDetailView({
           canInspect={canInspect}
           canRecordCosts={canRecordCosts}
         />
+      )}
+
+      {/*
+        The courier record. A parcel is not a state of the order: this panel states what SteadFast
+        accepted and when its status was last read, and nothing here advances the order by itself.
+      */}
+      {(order.consignment !== null || sendable) && (
+        <section className={styles.section} aria-labelledby="order-steadfast">
+          <div className={styles.sectionHead}>
+            <div>
+              <h2 id="order-steadfast">{t('admin.order.steadfast.title')}</h2>
+              <p>{t('admin.order.steadfast.body')}</p>
+            </div>
+            {order.consignment !== null && (
+              <form action="/api/admin/orders/consignment" method="post">
+                <input type="hidden" name="csrf" value={csrfToken} />
+                <input type="hidden" name="operation" value="refresh" />
+                <input type="hidden" name="orderNumber" value={order.orderNumber} />
+                <SubmitButton
+                  label={t('admin.order.steadfast.refresh')}
+                  pendingLabel={t('admin.common.working')}
+                  variant="secondary"
+                />
+              </form>
+            )}
+          </div>
+
+          {order.consignment === null ? (
+            <>
+              <p className={styles.note}>
+                {courierReady
+                  ? t('admin.order.steadfast.notSent')
+                  : t('admin.order.steadfast.notConfigured')}
+              </p>
+              <div className={styles.settingActions}>
+                {courierReady && canApprove && (
+                  <form action="/api/admin/orders/consignment" method="post">
+                    <input type="hidden" name="csrf" value={csrfToken} />
+                    <input type="hidden" name="operation" value="send" />
+                    <input type="hidden" name="orderNumber" value={order.orderNumber} />
+                    <SubmitButton
+                      label={t('admin.order.steadfast.send')}
+                      pendingLabel={t('admin.common.working')}
+                    />
+                  </form>
+                )}
+                {!courierReady && (
+                  <Link className={styles.recordLink} href="/admin/settings/integrations/steadfast">
+                    {t('admin.order.steadfast.openSettings')}
+                  </Link>
+                )}
+              </div>
+            </>
+          ) : (
+            <>
+              <dl className={styles.moneyGrid}>
+                <div className={styles.moneyItem}>
+                  <dt className={styles.factLabel}>{t('admin.order.steadfast.invoice')}</dt>
+                  <dd className={styles.mono}>{order.consignment.invoice}</dd>
+                </div>
+                <div className={styles.moneyItem}>
+                  <dt className={styles.factLabel}>{t('admin.order.steadfast.consignmentId')}</dt>
+                  <dd className={styles.mono}>{order.consignment.consignmentId}</dd>
+                </div>
+                <div className={styles.moneyItem}>
+                  <dt className={styles.factLabel}>{t('admin.order.steadfast.trackingCode')}</dt>
+                  <dd className={styles.mono}>{order.consignment.trackingCode}</dd>
+                </div>
+                <div className={styles.moneyItem}>
+                  <dt className={styles.factLabel}>{t('admin.order.steadfast.status')}</dt>
+                  <dd className={styles.mono}>{order.consignment.status}</dd>
+                </div>
+                <div className={styles.moneyItem}>
+                  <dt className={styles.factLabel}>{t('admin.order.steadfast.codAmount')}</dt>
+                  <dd className={styles.recordPrice}>{price(order.consignment.codAmountMinor)}</dd>
+                </div>
+                <div className={styles.moneyItem}>
+                  <dt className={styles.factLabel}>{t('admin.order.steadfast.bookedAt')}</dt>
+                  <dd>{dateTime.format(new Date(order.consignment.createdAt))}</dd>
+                </div>
+              </dl>
+              <p className={styles.note}>
+                {order.consignment.statusCheckedAt === null
+                  ? t('admin.order.steadfast.neverChecked')
+                  : t('admin.order.steadfast.checkedAt', {
+                      time: dateTime.format(new Date(order.consignment.statusCheckedAt)),
+                    })}
+              </p>
+            </>
+          )}
+        </section>
       )}
 
       {/*

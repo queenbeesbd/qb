@@ -93,6 +93,7 @@ export const INTEGRATIONS_PATH = '/admin/settings/integrations';
 /** Checkout policy the owner controls (Phase 42): today, whether guests may order. */
 export const OTHER_SETTINGS_PATH = '/admin/settings/other';
 export const TELEGRAM_SETTINGS_PATH = '/admin/settings/integrations/telegram';
+export const STEADFAST_SETTINGS_PATH = '/admin/settings/integrations/steadfast';
 
 /**
  * Phase 16 worklists: COD confirmation and customer moderation.

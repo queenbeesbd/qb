@@ -452,3 +452,32 @@ changing anything, the contact page's phone/hours/address and `tel:` target, a w
 an unwritten one and a 404 for an unknown slug, the footer's population rule, the saved values prefilling
 the admin screen, and Chromium at 1440 and 390 with no overflow. `verify:storefront` and
 `verify:browser` were not re-run for this change; real devices and screen readers were not used.
+
+## SteadFast courier booking (2026-11-08)
+
+Implemented locally, not deployed. Approving a confirmed COD order in `/admin/orders-cod` now books the
+parcel with **SteadFast** immediately after the approval commits, and the consignment id, tracking code
+and courier status are stored in **`steadfast_consignment`** (migration `0016`, schema 50 -> **51
+tables**, one row per order). The courier account is entered at **Settings -> Integrations -> SteadFast**
+(`settings.write`): `Api-Key`, `Secret-Key` and a switch that is **off by default**. The keys live in
+`store_setting`, never reach the browser (`••••` plus the last four characters only), are never logged,
+redirected or audited as values, and are removed by a confirmed action. **Test connection** reads the
+account balance with the saved keys.
+
+Booking runs in its own transaction after the approval, so a courier outage cannot undo the owner's
+decision: the order remains `cod_approved` / `confirmed`, the failure is audited
+(`order.steadfast_booking_failed`) and the order screen offers **Send to SteadFast**. One consignment per
+order is enforced by a unique `order_id`, a unique `invoice` and a transaction-scoped advisory lock. A
+booking, a failure and a **Refresh status** never touch `order.status`, `order.cod_state`, payment,
+refund or stock - SteadFast's `delivered` is stored with the time it was read, not applied to the order.
+The amount to collect is the frozen `total_minor` in BDT, the invoice is the order number, and the
+address is composed from the stored line plus area, city and postcode.
+
+Verified locally with typecheck, lint (0 errors), `check:i18n` (1,666 keys), `build`, unit **238/238**
+(20 new), `db:migrate`/`db:validate` (51 tables) and two HTTP smokes through the real admin routes against
+a **stub** courier: keys saved and masked, balance read, an approval booking the exact payload, the order
+page showing the consignment, a refresh storing `delivered` without moving the order, a second send
+answering "already booked" with one row, a non-bookable order refused with an audit entry, the account
+removed, and - with the stub down - an approval that still succeeded, wrote no row, audited the failure
+and offered the retry. `verify:admin`, `verify:browser`, `verify:storefront`, the db suite, the live
+SteadFast API, real devices and screen readers were not run. Nothing is deployed.

@@ -1689,3 +1689,48 @@ Settings -> Homepage hero, with at least one image, at most ten, and manual orde
 associated in the admin screen, the same rule product imagery follows (no object storage is provisioned).
 This was verified against the 22-product seed; the imported catalogue and real devices were not used.
 
+
+## Phase 53 - SteadFast courier booking on COD confirmation (2026-11-08)
+
+**Owner direction.** Book a COD order with SteadFast when the owner confirms it by phone, and add a
+settings screen where the owner enters the courier's secrets.
+
+**Implemented (ADR 0028).**
+
+- **`steadfast_consignment`** (migration `0016_steadfast_consignments`, schema 50 -> 51 tables): one row
+  per order, unique `order_id`, unique `invoice`, unique courier `consignment_id`, the courier status, the
+  COD amount in poisha and `status_checked_at`. It stores no credential and no second copy of the
+  customer's details.
+- **`src/server/integrations/steadfast.ts`** - the account (`store_setting` keys `steadfast.api_key`,
+  `steadfast.secret_key`, `steadfast.enabled`), the payload builder (invoice, name, 11-digit phone,
+  composed address, BDT `cod_amount`, note) and the client (`create_order`, `get_balance`,
+  `status_by_cid`) with an 8-second bound and the courier's own message surfaced, bounded.
+- **`src/server/integrations/steadfast-booking.ts`** - booking in its own transaction with a
+  transaction-scoped advisory lock, refused/failed attempts audited in a separate transaction, and a
+  status refresh that writes only the mirror.
+- **`POST /api/admin/orders-cod`** books after the approval commits and states the outcome on the queue
+  (`approvedBooked` / `approvedBookingFailed`). **`POST /api/admin/orders/consignment`** offers the retry
+  (`send`, `cod.approve`) and `refresh` (`order.read`).
+- **Settings -> Integrations -> SteadFast** - masked keys, the default-off switch, **Test connection** and
+  a confirmed removal. The integrations hub lists it beside Telegram.
+- **Order detail** shows the consignment, the courier status with the time it was read, and the actions.
+
+**Deliberately not built.** No label, pickup request, bulk create, fraud check, courier statement import,
+cash reconciliation or automatic order transition from a courier event; no courier other than SteadFast.
+
+**Verification (2026-11-08, local only; nothing deployed).**
+
+| Check | Result |
+| --- | --- |
+| `npm run typecheck` | clean |
+| `npm run lint` | 0 errors, 2 pre-existing warnings |
+| `npm run check:i18n` | 1,666 keys, every referenced key present |
+| `npm run build` | success, the three new routes present |
+| `npm test` | 238/238 (20 new SteadFast unit tests) |
+| `npm run db:migrate` / `db:validate` | 17 migrations applied; 51 tables, 188 checks, 102 indexes, 12 triggers |
+| HTTP smoke, real routes + stub courier | keys saved and masked (neither value in the HTML), balance read, approval booked the exact payload, order page showed id/tracking, refresh stored `delivered` without moving the order, a second send answered "already booked", a non-bookable order refused with no row, account removed with both keys gone |
+| HTTP smoke, stub stopped | approval still succeeded, no row written, `order.steadfast_booking_failed` audited, retry offered |
+
+**Limits.** `verify:admin`, `verify:browser`, `verify:storefront` and the db suite were not re-run for
+this change, and the live SteadFast API was never called: the smoke used a stub through the
+development-only `STEADFAST_API_BASE_URL`.

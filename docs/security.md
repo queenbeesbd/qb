@@ -779,9 +779,21 @@ below is implemented**, and none has been tested. Residual risks are stated rath
 
 - **Scenario.** A secret reaches a client bundle, a log, a committed file or a `NEXT_PUBLIC_*` variable.
 - **Impact.** Full database or storage compromise.
-- **Control.** Secrets exist only as server-side environment variables, configured per deployment target.
-  No secret is read from a committed file. Client bundles are scanned for secret material. The storefront
-  never receives a storage credential - only a scoped presigned URL.
+- **Control.** Secrets exist only as server-side environment variables, configured per deployment target,
+  **or** - for the one merchant-issued, owner-rotatable pair - in `store_setting`, read only by server
+  modules. No secret is read from a committed file. Client bundles are scanned for secret material. The
+  storefront never receives a storage credential - only a scoped presigned URL.
+- **The SteadFast `Api-Key`/`Secret-Key` pair is stored in `store_setting` and never leaves the server**
+  (ADR 0028). It is entered at Settings -> Integrations -> SteadFast, returned to the browser only as
+  `••••` plus its last four characters, never logged, never placed in a redirect, and never written to an
+  audit record - the audit entry states whether each key is present and its last four characters. It is
+  the deliberate exception to "secrets live only in the process environment" because the owner rotates it
+  from the courier's own portal, and a rotation that needed a redeploy would be a dead key instead. A
+  leaked database backup is a credential exposure either way; a leaked page, screen recording or support
+  paste is not.
+- **A courier call is never allowed to move money or an order state.** SteadFast's `delivered` status is
+  stored on `steadfast_consignment` with the time it was read; it does not complete the order, record cash
+  or touch any payment, refund or stock state (ADR 0017, ADR 0028).
 - **Detection.** A build-time scan of client output; log scanning; alert on credential use from an
   unexpected source.
 - **Verification.** Grep the built client bundle for secret patterns and for every declared secret's name;
@@ -878,7 +890,7 @@ below is implemented**, and none has been tested. Residual risks are stated rath
 - [ ] **Gap, recorded:** there is no owner-facing control that bans a customer. `suspendCustomer` (status `suspended`, every live session revoked, audited staff record) and its enforcement in `createOrder` and `resolveCustomerSession` are implemented and tested, but the administrative screen that would call it is not built.
 - [ ] Customer authentication **decision** settled (2026-10-15): **D17 first-party customer sessions**, recorded in **ADR 0012**, with **no external provider and no self-service recovery**.
 - [ ] Manual payment verification controls P1-P18 implemented and verified, including duplicate-reference detection, reconciliation and COD cash reconciliation. **Decision record: ADR 0014.**
-- [ ] Owner-confirmed courier arrangement and delivery charges, including COD cash settlement. **Delivery charges are a confirmed requirement with no area representation yet (ADR 0014 decision 10):** the amounts, areas and matching policy are outstanding owner inputs, and per-area charges need a migration. **No courier API is authorized** (D6 open).
+- [ ] Owner-confirmed courier arrangement and delivery charges, including COD cash settlement. **Delivery charges are a confirmed requirement with no area representation yet (ADR 0014 decision 10):** the amounts, areas and matching policy are outstanding owner inputs, and per-area charges need a migration. **SteadFast booking is implemented (ADR 0028)** - a confirmed COD order is sent on approval and its delivery status is read back; there is **no courier statement import, no cash reconciliation and no automatic order transition from a courier event**.
 - [ ] API route inventory and explicit authentication/authorization decisions.
 - [ ] Trusted price, discount, shipping, stock and order validation proved.
 - [ ] Account access controls, secure sessions and CSRF/CORS defenses verified. (No guest checkout exists, so no anonymous order surface should remain.)
