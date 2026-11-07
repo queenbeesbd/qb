@@ -3500,8 +3500,25 @@ async function main(): Promise<void> {
              * row under test, and the operation is matched on the hidden field the form posts. Submitting
              * is what the owner does: for removal it opens the confirmation dialog rather than posting.
              */
-            const submitRowOperation = async (label: string, operation: string): Promise<boolean> =>
-              browser.evaluate<boolean>(
+            /*
+             * A form post reloads the page, and the URL changes before React has hydrated it. Submitting
+             * in that window posts natively, so the confirmation dialog never opens and the check fails
+             * for a reason that has nothing to do with the behaviour under test. Wait for React's own
+             * marker on the form - the same thing a person waits for, since a control that is not
+             * interactive yet cannot be clicked either.
+             */
+            const waitForHydration = async (): Promise<boolean> =>
+              browser.waitFor(
+                '(() => {' +
+                  ' const form = document.querySelector("main form");' +
+                  ' if (form === null) return false;' +
+                  ' return Object.keys(form).some((key) => key.startsWith("__reactFiber$") || key.startsWith("__reactProps$"));' +
+                  ' })()',
+              );
+
+            const submitRowOperation = async (label: string, operation: string): Promise<boolean> => {
+              await waitForHydration();
+              return browser.evaluate<boolean>(
                 '(() => {' +
                   ' const row = [...document.querySelectorAll("main li")].find((el) => (el.textContent || "").includes(' +
                   JSON.stringify(label) +
@@ -3515,6 +3532,7 @@ async function main(): Promise<void> {
                   ' return true;' +
                   ' })()',
               );
+            };
 
             const confirmRemoval = async (): Promise<boolean> =>
               browser.evaluate<boolean>(

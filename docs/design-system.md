@@ -321,26 +321,50 @@ modal sheet: focus moves to Close, Tab is trapped, Escape closes, body scroll is
 the draft, Reset clears it, and focus returns to the Filters button. Category rows in the drawer are
 links, so they navigate immediately and carry the draft's other facets. No filter is visual-only.
 
-## Admin surface (Phase 18)
+## Admin surface (Phase 18, redesigned 2026-11-07)
 
 The owner panel is the same design system in a different mode: **Operate**, not Persuade. The
-storefront earns attention; the panel removes obstacles from a task the owner repeats every day. Its
-visual world is a quiet desk in the same shop - a lavender wash for the rail, a paper workspace, plum
-ink, hairline rules and typography doing the hierarchy work - rather than a dark console or a grid of
-rounded metric cards. The phone is the primary device, and its navigation is a **bottom tab bar** at the
-bottom of the screen, not a drawer.
+storefront earns attention; the panel removes obstacles from a task the owner repeats every day.
+
+**Direction C, "soft counter" (2026-11-07).** The panel was rebuilt on a new visual system chosen from
+four rendered directions on the `experiment/admin-redesign-v2` branch. Its world is the shop seen from
+behind the counter: a **white rail** with a lavender active pill, a **lavender-tinted canvas**, a
+**paper-white card** at 20px with one soft shadow, and the storefront's own lavender and blush spent
+only where they carry meaning - the current destination, the queue that waits on a person, and the
+filled primary control. The owner's two adjustments were kept: the phone bottom bar is unchanged
+(lavender field, ink labels, 2px active rule), and the palette stays the storefront's.
+
+The phone is the primary device, and its navigation is a **bottom tab bar** at the bottom of the
+screen, not a drawer. No route, permission, form field, mutation or state machine changed in the
+redesign; the class names in `admin.module.css` were kept so every component kept working.
 
 ### Tokens added
 
 | Token | Value | Role |
 | --- | --- | --- |
-| `--color-admin-sidebar` | `#F3EDFF` | Navigation rail: a lavender wash of the storefront canvas, not a dark console. |
-| `--color-admin-sidebar-ink` | `#2A2136` | Rail text. 14.2:1 on the rail. |
-| `--color-admin-sidebar-muted` | `#6F6480` | Inactive rail labels. 5.6:1 on the rail - AA for body text. |
-| `--color-admin-sidebar-border` | `#E6DCF4` | Rail edge and queue-panel outline. |
-| `--admin-sidebar-width` | `15.5rem` | Desktop rail width; below 1024px the rail is replaced by the bottom bar. |
+| `--admin-canvas` | `#F7F4FF` | Workspace canvas: the storefront's lavender, one step quieter. |
+| `--admin-surface` | `#FFFFFF` | Cards, panels and records. |
+| `--admin-surface-soft` | `#FBF9FF` | Hover, decided rows, quiet fills. |
+| `--admin-line` | `#ECE6F7` | Hairlines inside and around a card. |
+| `--admin-line-strong` | `#D9CFF0` | Input borders and disclosure outlines. |
+| `--admin-ink` | `#201A29` | Text. |
+| `--admin-muted` | `#6A6172` | Secondary text. |
+| `--admin-subtle` | `#79718A` | Metadata and hints. |
+| `--admin-lavender` | `#C8B6FF` | The active rail pill, the queue hero, avatars. |
+| `--admin-lavender-soft` | `#EFE9FF` | Icon plates, filter tracks, quiet fills. |
+| `--admin-lavender-deep` | `#8155EF` | Links and the one accent on a white card. |
+| `--admin-pink` | `#F6B3CC` | The queue count badge only. |
+| `--admin-radius-card` | `20px` | Every card and panel. |
+| `--admin-radius-control` | `12px` | Buttons, inputs, selects, disclosures. |
+| `--admin-shadow-card` | contact + lavender ambient | The one card shadow. |
+| `--admin-shadow-pop` | deeper pair | Popovers, dialogs, the More sheet. |
+| `--color-admin-sidebar` | `#FFFFFF` | Navigation rail: white, so lavender is spent on state. |
+| `--color-admin-sidebar-ink` | `#201A29` | Rail text. |
+| `--color-admin-sidebar-muted` | `#6A6172` | Inactive rail labels. |
+| `--color-admin-sidebar-border` | `#ECE6F7` | Rail edge. |
+| `--admin-sidebar-width` | `16rem` | Desktop rail width; below 1024px the rail is replaced by the bottom bar. |
 | `--admin-topbar-height` | `3.75rem` | Top bar, including the breadcrumb and account menu. |
-| `--admin-content-width` | `75rem` | Workspace cap. Narrower than the storefront container because a worklist is read in a column. |
+| `--admin-content-width` | `78rem` | Workspace cap. Narrower than the storefront container because a worklist is read in a column. |
 | `--admin-bottom-nav-height` | `4rem` | Phone tab bar, before the device safe-area inset is added. |
 | `--ease-out-ui` | `cubic-bezier(0.23, 1, 0.32, 1)` | State and entrance motion. |
 | `--ease-drawer` | `cubic-bezier(0.32, 0.72, 0, 1)` | The More sheet's slide-up only. |
@@ -377,26 +401,31 @@ how a page grows a second, conflicting set of filter conventions.
 
 ### Shell and page anatomy
 
-- **Rail (desktop):** a lavender wash, brand, then permission-filtered groups - Overview, Commerce
-  (COD orders, products, categories), Customers, Settings (delivery charges, announcement), System
-  (owner accounts, audit trail) - then a storefront link. The active item is a filled action-purple
-  pill with white text; `aria-current` carries the same fact. No border strip is used as a marker.
+- **Rail (desktop):** white, brand, then permission-filtered groups - Overview, Commerce (COD orders,
+  products, categories, brands, promo codes), Customers, Settings (delivery charges, announcement,
+  support links, homepage hero, offer popup, integrations, other settings), System (owner accounts,
+  audit trail) - then a storefront link. The active item is a **lavender pill with ink text**;
+  `aria-current` carries the same fact. No border strip is used as a marker.
 - **Top bar:** a breadcrumb (Admin / current page) and the account menu (name, email, role, sign out).
   Below 1024px the breadcrumb gives way to the current section name and the brand mark; there is **no
   hamburger and no drawer**.
 - **Bottom bar (phone):** four ranked destinations - Overview, COD orders, Products, All orders - plus
-  **More**, fixed above the safe-area inset. Labels are 11px under 22px icons, each tab is a 64px
-  touch target, and the current tab carries `aria-current` plus a 2px indicator.
+  **More**, fixed above the safe-area inset. It keeps the storefront's lavender field and ink labels
+  (owner instruction, 2026-11-07): labels are 11px under 22px icons, each tab is a 64px touch target,
+  and the current tab carries `aria-current`, the action-purple label and a 2px indicator.
 - **More sheet:** every remaining destination grouped, the signed-in account, sign out and the
   storefront link. It is a modal surface: focus moves to close, Tab is trapped, Escape closes, body
   scroll locks, and focus returns to the More tab.
-- **Overview:** a greeting instead of an eyebrow; the COD queue as a full-width lavender panel with a
-  count badge and the oldest wait in one sentence; then recorded revenue and catalog state on the left
-  with "needs attention" on the right. On a phone the order is queue, attention, money, catalog.
+- **Overview:** a greeting instead of an eyebrow; the COD queue as a full-width **lavender hero card**
+  with a blush count badge and the oldest wait in one sentence; then five white KPI cards, the revenue
+  and status charts, and the closing panels. On a phone the order is queue, figures, money, catalog.
   The dashboard stops at three queue cards; the full queue is one tap away.
 - **Order cards:** reference and age on the top line, name with a 40px `tel:` chip, address, recorded
   lines and totals, then a full-width decision footer with the note and Accept/Reject on one line. The
-  old 3px left accent is gone: the card is outlined, and age is carried by its own pill.
+  card is a white 18px surface with one soft shadow; age is carried by its own pill.
+- **Record pages:** each section of an order or customer detail owns one card, and a second question
+  inside the same card starts a new band rather than running on. The action band still precedes the
+  money facts.
 
 ### List anatomy (Phase 30)
 

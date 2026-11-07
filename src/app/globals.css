@@ -177,13 +177,40 @@
    * purple marks the current section, and the workspace keeps the storefront page canvas. Content is
    * capped narrower than the storefront container because a worklist is read in a column.
    */
-  --color-admin-sidebar: #f3edff;
-  --color-admin-sidebar-ink: #2a2136;
-  --color-admin-sidebar-muted: #6f6480;
-  --color-admin-sidebar-border: #e6dcf4;
-  --admin-sidebar-width: 15.5rem;
+  --color-admin-sidebar: #ffffff;
+  --color-admin-sidebar-ink: #201a29;
+  --color-admin-sidebar-muted: #6a6172;
+  --color-admin-sidebar-border: #ece6f7;
+  --admin-sidebar-width: 16rem;
   --admin-topbar-height: 3.75rem;
-  --admin-content-width: 75rem;
+  --admin-content-width: 78rem;
+
+  /*
+   * Admin surface, direction C (2026-11-07).
+   *
+   * The panel is the same shop seen from behind the counter: the storefront's lavender and pink,
+   * a paper-white card on a lavender-tinted canvas, and one soft shadow instead of a hairline
+   * around every surface. The rail is white so the lavender is spent on the one thing that is
+   * actually a state - the current destination and the queue that waits on a person.
+   */
+  --admin-canvas: #f7f4ff;
+  --admin-surface: #ffffff;
+  --admin-surface-soft: #fbf9ff;
+  --admin-line: #ece6f7;
+  --admin-line-strong: #d9cff0;
+  --admin-ink: #201a29;
+  --admin-muted: #6a6172;
+  --admin-subtle: #79718a;
+  --admin-lavender: #c8b6ff;
+  --admin-lavender-soft: #efe9ff;
+  --admin-lavender-deep: #8155ef;
+  --admin-pink: #f6b3cc;
+  --admin-pink-soft: #fdeef3;
+  --admin-radius-card: 20px;
+  --admin-radius-control: 12px;
+  --admin-radius-sm: 10px;
+  --admin-shadow-card: 0 1px 2px rgba(32, 26, 41, 0.04), 0 12px 32px -20px rgba(86, 53, 140, 0.45);
+  --admin-shadow-pop: 0 2px 6px rgba(32, 26, 41, 0.06), 0 24px 60px -28px rgba(86, 53, 140, 0.5);
   /* The mobile tab bar: 64px of controls plus the device's own safe-area inset. */
   --admin-bottom-nav-height: 4rem;
 

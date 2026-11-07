@@ -1,0 +1,14 @@
+{
+  "id": "C",
+  "label": "C: 软柜台",
+  "name": "软柜台",
+  "notes": "",
+  "dials": {
+    "variance": 4,
+    "motion": 4,
+    "density": 6
+  },
+  "adjustments": "the bottom bar will be like the current bottom bar and the dashboard will maintain the colorscheme of the storefront",
+  "source": "click",
+  "receivedAt": "2026-11-07T06:23:25.036Z"
+}

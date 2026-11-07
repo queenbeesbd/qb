@@ -14,6 +14,39 @@ An entry may describe a deployment only once it has actually happened and been o
 
 ## [Unreleased]
 
+### Changed - 2026-11-07: the admin panel is redesigned around the phone
+The owner panel was rebuilt on a new visual system, **direction C "soft counter"**, chosen by the owner
+from four rendered directions (counter ledger, dispatch console, soft counter, blueprint) on the
+`experiment/admin-redesign-v2` branch. The owner's two adjustments were kept: the phone bottom bar is
+unchanged, and the palette stays the storefront's.
+
+What changed is the surface, not the product. The rail is white with a lavender active pill instead of
+a lavender wash; the workspace canvas is `#F7F4FF`; every card is a 20px paper-white surface with one
+soft lavender shadow instead of a hairline; controls are 12px; the queue is a lavender hero card with a
+blush count badge; the KPI band is five white cards with tinted icon plates and no coloured top rule;
+record pages give each section its own card, with a second question inside a card starting a new band.
+The phone bottom bar keeps its lavender field, ink labels and 2px active rule.
+
+`admin.module.css` was rewritten against the same class names, so every component kept working, and
+`charts.module.css` chrome moved onto the new tokens. **No route, permission, form field, mutation,
+state machine, query or stored value changed.** The two control heights (40px / 34px, 40px on a phone)
+are unchanged, and no left border strip marks a selection.
+
+**Verification:** `typecheck`, `lint` (0 errors, 2 pre-existing warnings), `build`,
+`check:i18n`, `check:catalog`, and `verify:admin` at **207/208**. The one failure is pre-existing and
+unrelated: the suite still asserts that no `Content-Security-Policy` header is sent, while
+`src/proxy.ts` has sent a nonce-based one since commit `839ca05` (2026-11-01); the check predates the
+policy and was not updated with it.
+
+The Telegram row-operation checks were racing hydration after a form post - the URL changes before
+React is interactive, so `requestSubmit()` posted natively and the confirmation dialog never opened.
+The suite now waits for React's own marker on the form before submitting; the assertions are unchanged.
+
+**Not verified:** `verify:browser` did not complete in this environment. Its first run reported 7/10
+against a `storefront-catalog` cache entry left behind by `verify:admin`'s disposable cluster (the
+cache was cleared afterwards); the second run stalled after check 28b and was stopped. No storefront
+file is touched by this change, and `verify:admin`'s own "storefront is unaffected" checks pass.
+
 ### Fixed - 2026-11-07: admin KPI cards no longer overlap and carry their tone
 The analytics tiles put the label, value and note directly into the card's two-column grid, so at
 narrow widths they printed over one another. Both dashboards now use one `MetricCard` with a single
