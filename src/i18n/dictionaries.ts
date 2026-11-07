@@ -730,9 +730,9 @@ export const dictionary = {
   'admin.delivery.discountEnableHelp':
     'Off by default. Only a signed-in customer with a completed order qualifies.',
   'admin.delivery.discountPercent': 'Discount',
-  'admin.delivery.discountPercentHelp': 'A whole percentage from 1 to 100, taken off the goods subtotal.',
   'admin.delivery.discountMinimum': 'Minimum purchase (goods only)',
-  'admin.delivery.discountMinimumHelp': 'Below this subtotal no automatic discount applies.',
+  'admin.delivery.discountHelp':
+    'A whole percentage from 1 to 100, taken off the goods subtotal. Below the minimum purchase no automatic discount applies.',
   'admin.delivery.discountSave': 'Save repeat discount',
   'admin.delivery.notice.conditionalSaved': 'Conditional delivery pricing saved.',
   'admin.delivery.notice.repeatDeliverySaved': 'Repeat-customer delivery charges saved.',

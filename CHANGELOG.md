@@ -14,6 +14,19 @@ An entry may describe a deployment only once it has actually happened and been o
 
 ## [Unreleased]
 
+### Fixed - 2026-11-08: two misaligned rows
+The checkout bKash block was a wrapping flex row, so the copy button floated against the label line
+while the number sat below it and the caution line started with a gap. It is now a two-column grid: the
+label and number stack in the first column, the copy control is centred against both in the second, and
+the caution spans the card.
+
+The three new delivery-pricing rows put a helper sentence inside one column, which made that column
+taller and pushed its input out of line with the others. Every field in those rows is now label plus
+money input only, with one explanation under the row, and the rows use the start-aligned grid. Measured
+in Chromium: the four conditional inputs share a top edge (`857` each) and width (`210` each), the
+discount pair matches (`528` each), the copy button's centre equals the label+number block centre
+(`1389`), and the card has no overflow at 390px.
+
 ### Fixed - 2026-11-08: production was three migrations behind the deployed code
 `/admin/settings/delivery` failed with `column "conditional_enabled" does not exist` because the Neon
 production branch had 16 applied migrations while the deployed build expects 19. `0016_steadfast_consignments`,

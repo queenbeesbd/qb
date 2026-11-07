@@ -279,7 +279,7 @@ export function DeliverySettingsView({
             </span>
           </label>
 
-          <div className={styles.formGrid}>
+          <div className={`${styles.formGrid} ${styles.formGridStart}`}>
             <div className={styles.field}>
               <label htmlFor="conditionalMinSubtotal">{t('admin.delivery.conditionalMinimum')}</label>
               <div className={styles.moneyInput}>
@@ -298,7 +298,6 @@ export function DeliverySettingsView({
                   }
                 />
               </div>
-              <span className={styles.hint}>{t('admin.delivery.conditionalMinimumHelp')}</span>
             </div>
 
             {(
@@ -325,6 +324,8 @@ export function DeliverySettingsView({
               </div>
             ))}
           </div>
+
+          <p className={styles.hint}>{t('admin.delivery.conditionalMinimumHelp')}</p>
 
           <div className={styles.settingActions}>
             <SubmitButton
@@ -364,7 +365,7 @@ export function DeliverySettingsView({
             </span>
           </label>
 
-          <div className={styles.formGrid}>
+          <div className={`${styles.formGrid} ${styles.formGridStart}`}>
             {(
               [
                 ['chattogram', 'admin.delivery.areaChattogram', pricing.repeat.chattogramMinor],
@@ -426,7 +427,7 @@ export function DeliverySettingsView({
             </span>
           </label>
 
-          <div className={styles.formGrid}>
+          <div className={`${styles.formGrid} ${styles.formGridStart}`}>
             <div className={styles.field}>
               <label htmlFor="repeatDiscountPercent">{t('admin.delivery.discountPercent')}</label>
               <div className={styles.moneyInput}>
@@ -444,7 +445,6 @@ export function DeliverySettingsView({
                   }
                 />
               </div>
-              <span className={styles.hint}>{t('admin.delivery.discountPercentHelp')}</span>
             </div>
 
             <div className={styles.field}>
@@ -465,9 +465,10 @@ export function DeliverySettingsView({
                   }
                 />
               </div>
-              <span className={styles.hint}>{t('admin.delivery.discountMinimumHelp')}</span>
             </div>
           </div>
+
+          <p className={styles.hint}>{t('admin.delivery.discountHelp')}</p>
 
           <div className={styles.settingActions}>
             <SubmitButton
