@@ -14,6 +14,26 @@ An entry may describe a deployment only once it has actually happened and been o
 
 ## [Unreleased]
 
+### Added - 2026-11-07: contact and policy surfaces (Phase 51)
+The shop told customers to contact it and published no way to do so. `/contact` and four policy pages
+(`/policies/delivery`, `/policies/returns`, `/policies/privacy`, `/policies/terms`) now render the
+owner's own facts and words from `store_setting` (`contact.phone`, `contact.hours`, `contact.address`,
+`policy.delivery`, `policy.returns`, `policy.privacy`, `policy.terms`), edited at **Settings -> Contact
+and policies** behind `settings.write`, audited as `settings.contact_updated`. No schema change.
+
+Nothing is invented: a blank field is not published, the contact page states which facts are missing, a
+policy page whose text is blank says so, and the footer's Help column links contact always and each
+policy page only once the owner has written it. Text is plain - `<` and `>` are refused rather than
+stored - and the phone is validated as a dialable number so `tel:` never carries a sentence. The copy
+that said "contact the store" now links `/contact` from checkout, the account recovery copy and the order
+receipt, so the promise resolves.
+
+Verified: typecheck, lint (0 errors), `check:i18n`, unit **218/218**, `build`, and `verify:admin`
+**224/225** (the remaining check is the documented "no CSP is claimed" assertion), including the write and
+its refusal over HTTP, the audit record, the rendered pages, the footer's population rule, and Chromium at
+1440/390 with no overflow. The owner has not supplied any contact fact yet, so production publishes the
+gap states until they do. Nothing is deployed.
+
 ### Added - 2026-11-07: dispatch slip (Phase 52)
 A COD dispatch had nothing to hand to the courier. `/admin/orders/[orderNumber]/slip`, behind
 `order.read`, prints the reference, recipient, phone, composed address, the customer's note, the frozen

@@ -5,6 +5,7 @@ import { FloatingCart } from '@/components/FloatingCart';
 import { Footer } from '@/components/Footer';
 import { Header } from '@/components/Header';
 import { StorefrontTabBar } from '@/components/StorefrontTabBar';
+import type { TranslationKey } from '@/i18n/dictionaries';
 import { useTranslation } from '@/i18n/useTranslation';
 import type { CatalogCategory } from '@/lib/types';
 import styles from './Shell.module.css';
@@ -21,6 +22,7 @@ export function Shell({
   categories,
   customer,
   announcements,
+  help,
   children,
 }: {
   /**
@@ -36,6 +38,11 @@ export function Shell({
    * decide policy.
    */
   announcements: readonly AnnouncementItem[];
+  /**
+   * The footer's help destinations, decided on the server: contact always, and each policy page only
+   * once the owner has written it. The chrome does not decide what the shop has published.
+   */
+  help: readonly { href: string; labelKey: TranslationKey }[];
   children: React.ReactNode;
 }) {
   return (
@@ -48,7 +55,7 @@ export function Shell({
       <main id="main-content" className={styles.main} tabIndex={-1}>
         {children}
       </main>
-      <Footer />
+      <Footer help={help} />
       {/*
         The tab bar is fixed, so it would cover the last row of the footer. This spacer reserves exactly
         its height (including the device inset) and is removed at the width where the bar is hidden.

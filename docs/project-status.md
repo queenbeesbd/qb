@@ -423,3 +423,32 @@ never called on load and called once on click, the screen wrapper hidden and the
 80mm but kept at A4, no horizontal overflow at either width, and Chromium rendering **one A4 page** and a
 **1-3 page 80mm roll**. `npm run verify:storefront` was not re-run for this change; real printers, real
 iOS Safari, Android Chrome and screen readers were not used.
+
+## Contact and policy surfaces (2026-11-07)
+
+Implemented locally, not deployed. The shop can now publish **its own** contact facts and policy text:
+`store_setting` keys `contact.phone`, `contact.hours`, `contact.address`, `policy.delivery`,
+`policy.returns`, `policy.privacy`, `policy.terms`, edited at **Settings -> Contact and policies**
+(`settings.write`, audited `settings.contact_updated`). No schema change and no migration.
+
+The storefront gained `/contact` and `/policies/[policy]` (`delivery`, `returns`, `privacy`, `terms`).
+Nothing is invented: a blank field is not rendered, the contact page states which facts are missing, an
+unwritten policy page states that the owner has not published it, and the footer's Help column links
+contact always and each policy page only once it has text. Free text is refused if it contains `<` or `>`
+rather than being stored for a later render, the phone must be dialable (6-15 digits plus `+ - ( )` and
+spaces) so `tel:` never carries a sentence, and every edit shares the caller's transaction with its audit
+row. The copy that said "contact the store" now renders a `/contact` link at checkout, in the account
+recovery copy and on the order receipt (cancelled, returned and failed-delivery states plus the legacy
+payment note), so the promise resolves.
+
+**Owner content is still missing, deliberately.** No phone number, hours, address or policy wording was
+supplied, and none was written: production will show the stated gaps until the owner fills the fields.
+
+Verified with typecheck, lint (0 errors, 2 pre-existing warnings), `check:i18n` (1,604 keys),
+`check:catalog`, unit **218/218**, `build`, and `verify:admin` **224/225** - the one failure is the
+documented "no CSP is claimed" assertion. The nine new checks cover the settings screen and its fields,
+a save that stores all seven keys and audits its actor, an undialable phone and markup refused without
+changing anything, the contact page's phone/hours/address and `tel:` target, a written policy page versus
+an unwritten one and a 404 for an unknown slug, the footer's population rule, the saved values prefilling
+the admin screen, and Chromium at 1440 and 390 with no overflow. `verify:storefront` and
+`verify:browser` were not re-run for this change; real devices and screen readers were not used.

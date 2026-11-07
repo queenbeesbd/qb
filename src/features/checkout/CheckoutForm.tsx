@@ -14,6 +14,7 @@ import { useTranslation } from '@/i18n/useTranslation';
 import { useCart } from '@/features/cart/useCart';
 import { resolveCartLines } from '@/features/cart/cart-lines';
 import { useCartProjection } from '@/features/cart/useCartProjection';
+import { ContactLink } from '@/components/ContactLink';
 import type { CartProduct } from '@/features/cart/cart-product';
 import styles from './CheckoutForm.module.css';
 
@@ -491,7 +492,7 @@ export function CheckoutForm({
                   <dt>{t('cart.delivery')}</dt>
                   <dd className={quote?.ok === true ? undefined : styles.muted}>
                     {!deliveryConfigured
-                      ? t('checkout.deliveryUnconfigured')
+                      ? t('checkout.deliveryNotConfigured')
                       : quote === null
                         ? t('checkout.field.districtPrompt')
                         : quote.ok
@@ -513,7 +514,7 @@ export function CheckoutForm({
               )}
               {!deliveryConfigured && (
                 <p className={styles.notice} role="alert">
-                  {t('checkout.deliveryUnconfigured')}
+                  {t('checkout.deliveryUnconfigured')} <ContactLink />
                 </p>
               )}
               {unavailableCount > 0 && (

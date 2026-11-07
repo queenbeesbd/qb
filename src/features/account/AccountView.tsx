@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useTranslation } from '@/i18n/useTranslation';
 import { CheckIcon } from '@/components/icons';
+import { ContactLink } from '@/components/ContactLink';
 import styles from '@/app/account.module.css';
 
 /**
@@ -125,7 +126,7 @@ export function AccountView({
             <span className={styles.cardNoteIcon} aria-hidden="true">
               <CheckIcon width={14} height={14} />
             </span>
-            {t('account.recoveryContactNote')}
+            {t('account.recoveryContactNote')} <ContactLink />
           </p>
           <Link className={styles.cardAction} href="/account/recover">
             {t('account.recoverTitle')}

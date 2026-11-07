@@ -569,6 +569,28 @@ sign-in and a missing order is 404, that `window.print` is never called on load 
 that the screen wrapper and price column behave as above at A4 and 80mm widths, and that Chromium renders
 the page to **one A4 page** and a short 80mm roll.
 
+### The help pages: contact and policy (Phase 51)
+
+`/contact` and `/policies/[policy]` (`delivery`, `returns`, `privacy`, `terms`) are the shop's own
+answers, not a support widget. They read one `store_setting` group and render **the owner's facts and
+words**; the panel that edits them is **Settings -> Contact and policies**.
+
+| Rule | Why |
+| --- | --- |
+| A blank field publishes nothing | The page states the gap ("has not published...") instead of a placeholder number or hours |
+| Policy text is plain text | `<` and `>` are refused at save time; the page renders paragraphs, never markup |
+| The phone is a dialable number or a refusal | It becomes a `tel:` target, so the format rule is mechanical (6-15 digits plus `+ - ( )` and spaces) |
+| The footer's Help column is derived | Contact always; a policy page only once the owner has written it, so no link promises an empty page |
+| One reading column, 68ch | These are pages to read, not a catalogue to scan |
+
+The copy that used to end in "contact the store" now renders `ContactLink` (`/contact`) at checkout, in
+the account recovery copy and on the order receipt, which is what makes the promise resolve. Those
+strings keep their fact and drop the instruction, so the link is the instruction.
+
+`scripts/verify-admin.ts` writes the facts over HTTP, refuses an undialable phone and markup without
+changing anything, reads the audit record, and renders `/contact`, one written policy page and one
+unwritten one at 1440 and 390 - including the footer's population rule.
+
 ### Components
 
 `AdminShell` (rail, bottom tab bar, More sheet, account menu, skip link), `PageHeader`, `Notice` (one polite/alert region

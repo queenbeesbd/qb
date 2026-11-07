@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import type { TranslationKey } from '@/i18n/dictionaries';
 import { useTranslation } from '@/i18n/useTranslation';
 import styles from './Footer.module.css';
 
@@ -21,7 +22,7 @@ import styles from './Footer.module.css';
  * year. No shipping, return or payment promise is published, because the only approved delivery
  * policy is the owner-configured charge shown at checkout.
  */
-export function Footer() {
+export function Footer({ help }: { help: readonly { href: string; labelKey: TranslationKey }[] }) {
   const { t } = useTranslation();
   const year = new Date().getFullYear();
 
@@ -49,6 +50,26 @@ export function Footer() {
             </li>
           </ul>
         </nav>
+
+        {/*
+          Only destinations the shop can actually answer for. Contact is always here because the page
+          exists and states its own gaps; a policy page appears once the owner has written it, so the
+          footer never offers an empty promise.
+        */}
+        {help.length > 0 && (
+          <nav className={styles.column} aria-labelledby="footer-help">
+            <h2 id="footer-help" className={styles.columnTitle}>
+              {t('footer.help')}
+            </h2>
+            <ul>
+              {help.map((item) => (
+                <li key={item.href}>
+                  <Link href={item.href}>{t(item.labelKey)}</Link>
+                </li>
+              ))}
+            </ul>
+          </nav>
+        )}
 
         <nav className={styles.column} aria-labelledby="footer-account">
           <h2 id="footer-account" className={styles.columnTitle}>

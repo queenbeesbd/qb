@@ -77,6 +77,7 @@ export type AuditAction =
   | 'settings.offer_popup_saved'
   | 'settings.guest_orders_updated'
   | 'settings.support_links_updated'
+  | 'settings.contact_updated'
   | 'settings.hero_image_added'
   | 'settings.hero_image_updated'
   | 'settings.hero_image_removed'

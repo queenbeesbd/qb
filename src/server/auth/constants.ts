@@ -78,6 +78,8 @@ export const PROMO_CODES_PATH = '/admin/promo-codes';
 export const ANALYTICS_PATH = '/admin/analytics';
 export const ANNOUNCEMENT_SETTINGS_PATH = '/admin/settings/announcement';
 export const SUPPORT_SETTINGS_PATH = '/admin/settings/support';
+/** The shop's own phone, hours and address, and the policy text it publishes (Phase 51). */
+export const CONTACT_SETTINGS_PATH = '/admin/settings/contact';
 /** The homepage hero carousel's images and their order (Phase 51). */
 export const HERO_SETTINGS_PATH = '/admin/settings/hero';
 export const OFFER_POPUP_SETTINGS_PATH = '/admin/settings/offer-popup';

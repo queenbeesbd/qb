@@ -206,7 +206,19 @@ panel) and the PDP renders one.
 
 ---
 
-## Phase 51 - Support and policy surfaces (owner content first)
+## Phase 51 - Support and policy surfaces (implemented 2026-11-07, owner content outstanding)
+
+**Status: implemented, with the owner's content still empty.** `/contact` and `/policies/[policy]` exist
+and read `store_setting`; **Settings -> Contact and policies** edits them behind `settings.write`
+(audited `settings.contact_updated`); the footer's Help column links contact always and a policy page only
+once it is written; and the copy that promised contact now links `/contact` from checkout, the account
+recovery copy and the order receipt. Evidence: `CHANGELOG.md` (Phase 51), the `docs/project-status.md`
+entry of the same date, `docs/design-system.md` ("The help pages") and the new `verify:admin` checks.
+
+**The prerequisite is only half met:** engineering built the mechanism, but the owner has supplied no
+phone number, hours, address or policy text. The pages therefore publish their stated gaps, and the
+owner must fill the fields for the acceptance criterion "every promise resolves to a real page with the
+owner's real facts" to hold in production. No placeholder was ever published.
 
 **Why.** AUD-06, AUD-21, AUD-24. The shop tells customers to contact it and publishes no way to do so.
 

@@ -12,6 +12,7 @@
  */
 export const dictionary = {
   'common.brand': "QueenBee's",
+  'common.contactStore': 'Contact the store',
   'announcement.regionLabel': 'Announcement',
   'common.skipToContent': 'Skip to main content',
   'common.loading': 'Loading…',
@@ -223,7 +224,8 @@ export const dictionary = {
   'checkout.totalNote':
     'Delivery is priced by district on the server and included in the final total.',
   'checkout.deliveryUnconfigured':
-    'Delivery charges are not configured yet, so orders cannot be placed. Please contact the store.',
+    'Delivery charges are not configured yet, so orders cannot be placed.',
+  'checkout.deliveryNotConfigured': 'Not configured yet',
   'checkout.unavailableNotice':
     'A product in your cart cannot be ordered right now. Return to the cart, remove it and try again.',
   'checkout.loadingLines': 'Loading the items in your cart…',
@@ -290,7 +292,34 @@ export const dictionary = {
   'footer.account': 'Account',
   'footer.about': 'About',
   'footer.contact': 'Contact',
+  'footer.help': 'Help',
+  'footer.delivery': 'Delivery',
+  'footer.returns': 'Returns',
+  'footer.privacy': 'Privacy',
+  'footer.terms': 'Terms',
   'footer.tagline': 'A small, owner-run cosmetics shop, selling its own stock to its own customers.',
+
+  // The help pages: the shop's own contact facts and the policy text it publishes (Phase 51). Every
+  // sentence here describes the shop's state, never a promise the owner has not made.
+  'help.contact.title': 'Contact',
+  'help.contact.lead': 'How to reach the shop.',
+  'help.contact.phone': 'Phone',
+  'help.contact.hours': 'Opening hours',
+  'help.contact.address': 'Address',
+  'help.contact.noFacts':
+    'The shop has not published a phone number, opening hours or an address yet.',
+  'help.contact.links': 'Message the shop',
+  'help.contact.linksBody': 'The shop’s own support channels.',
+  'help.contact.facebook': 'Facebook',
+  'help.contact.whatsapp': 'WhatsApp',
+  'help.contact.noLinks':
+    'No support channel is published yet, so there is nothing here to open. Please try again later.',
+  'help.policy.lead': 'Published by the shop owner.',
+  'help.policy.delivery': 'Delivery information',
+  'help.policy.returns': 'Returns and cancellations',
+  'help.policy.privacy': 'Privacy',
+  'help.policy.terms': 'Terms',
+  'help.policy.empty': 'The owner has not published this text yet.',
 
   'error.genericTitle': 'Something went wrong',
   'error.genericBody': 'The page could not be loaded. Please try again.',
@@ -350,7 +379,37 @@ export const dictionary = {
   'admin.support.notice.denied': 'Your account does not have permission to change the store settings.',
   'admin.support.notice.invalid':
     'That address is not a complete https link, so nothing was saved. Both fields were left as they were.',
+  'admin.contact.title': 'Contact and policies',
+  'admin.contact.body':
+    'What the shop publishes about itself: how to reach it, and the policy text it is willing to stand behind. A blank field is published nowhere.',
+  'admin.contact.factsTitle': 'How to reach the shop',
+  'admin.contact.factsBody':
+    'These appear on the storefront’s contact page. Nothing is filled in for you: a blank field is simply not published.',
+  'admin.contact.phone': 'Phone number',
+  'admin.contact.phoneHelp':
+    'Digits with an optional country code. It becomes a tap-to-call link, so a number that cannot be dialled is refused.',
+  'admin.contact.hours': 'Opening hours',
+  'admin.contact.hoursPlaceholder': 'e.g. Every day, 10:00 to 21:00',
+  'admin.contact.hoursHelp': 'Plain text. Line breaks are kept as written.',
+  'admin.contact.address': 'Shop address',
+  'admin.contact.addressHelp':
+    'Published only if you fill it in. Line breaks are kept as written.',
+  'admin.contact.policiesTitle': 'Policy text',
+  'admin.contact.policiesBody':
+    'Each field becomes its own page and is published word for word. Leave a field blank and the page states that nothing is published yet, and the footer does not link it.',
+  'admin.contact.delivery': 'Delivery information',
+  'admin.contact.returns': 'Returns and cancellations',
+  'admin.contact.privacy': 'Privacy',
+  'admin.contact.terms': 'Terms',
+  'admin.contact.policyHelp':
+    'Plain text. A blank line starts a new paragraph. Markup is refused rather than rendered.',
+  'admin.contact.save': 'Save contact and policies',
+  'admin.contact.notice.saved': 'The contact facts and policy text are saved.',
+  'admin.contact.notice.denied': 'Your account does not have permission to change the store settings.',
+  'admin.contact.notice.invalid':
+    'One of the fields could not be saved: the phone number must be a dialable number and the text must be plain, without < or >. Nothing was changed.',
   'admin.nav.support': 'Support links',
+  'admin.nav.contact': 'Contact and policies',
 
   'admin.nav.announcement': 'Announcement bar',
   'admin.nav.hero': 'Homepage hero',
@@ -1424,7 +1483,7 @@ export const dictionary = {
   'account.recoverSubmit': 'Save the new password',
   'account.newPassword': 'New password',
   'account.errors.recoveryInvalid':
-    'The code did not match, or it expired or was already used. Contact the store for a new one.',
+    'The code did not match, or it expired or was already used.',
   'admin.customers.notice.suspended': 'Account suspended; every live session was revoked.',
   'admin.customers.notice.restored':
     'Access restored. The account can sign in and order again; its order history is unchanged.',
@@ -1471,7 +1530,7 @@ export const dictionary = {
   'account.signedInAs': 'Signed in as',
   'account.welcomeBack': 'Welcome, {name}',
   'account.recoveryContactNote':
-    'If you forget your password, contact the store by phone. The owner verifies who you are and issues a one-time code you can use to set a new password.',
+    'If you forget your password, the owner verifies who you are by phone and issues a one-time code you can use to set a new password.',
   'account.email': 'Email',
   'account.displayName': 'Name',
   'account.orders': 'My orders',
@@ -1510,7 +1569,7 @@ export const dictionary = {
   'account.sessionBody': 'Signing out on this device does not cancel any order.',
   'account.noRecoveryTitle': 'There is no password recovery',
   'account.noRecoveryBody':
-    'Self-service password reset is not available at launch, and no reset link can be emailed because no mail provider is authorised. If you forget your password, contact the store: the owner verifies the request and issues a new one.',
+    'Self-service password reset is not available at launch, and no reset link can be emailed because no mail provider is authorised.',
   'account.errors.invalid': 'The email or password did not match.',
   'account.errors.throttled': 'Too many attempts. Please try again in a few minutes.',
   'account.errors.invalidEmail': 'Enter a valid email address.',
@@ -1530,9 +1589,9 @@ export const dictionary = {
   'orders.next.codAwaitingApproval':
     'The store will call you to confirm this order. It is sent only after that call, and cash is paid to the courier on delivery.',
   'orders.next.confirmed': 'This order is confirmed. Cash is paid to the courier on delivery.',
-  'orders.next.codFailed': 'This delivery did not complete. Contact the store for details.',
-  'orders.next.cancelled': 'This order was cancelled. Contact the store for details.',
-  'orders.next.returned': 'This order is recorded as returned. Contact the store for details.',
+  'orders.next.codFailed': 'This delivery did not complete.',
+  'orders.next.cancelled': 'This order was cancelled.',
+  'orders.next.returned': 'This order is recorded as returned.',
   'orders.next.dispatched': 'This order has been dispatched. Cash is paid to the courier on delivery.',
   'orders.next.delivered': 'This order was delivered. Thank you.',
   'orders.next.cashReceived': 'Your cash payment is recorded as received. Thank you.',
@@ -1546,7 +1605,7 @@ export const dictionary = {
   'orders.codNote':
     'Cash on delivery: the owner approves the order before dispatch, and courier cash is reconciled separately.',
   'orders.legacyPaymentNote':
-    'This order predates cash on delivery being the only method. Contact the store about its payment.',
+    'This order predates cash on delivery being the only method.',
   'orders.guestTitle': 'Your order',
   'orders.guestKeepLink':
     'This order was placed without an account, so this page’s address is the only way to see it again. Keep it.',

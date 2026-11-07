@@ -4,6 +4,7 @@ import Link from 'next/link';
 
 import { useTranslation } from '@/i18n/useTranslation';
 import styles from '@/app/account.module.css';
+import { ContactLink } from '@/components/ContactLink';
 import { AuthShell } from './AuthShell';
 
 /**
@@ -48,6 +49,12 @@ export function RecoverView({
       {noticeText !== null && (
         <p className={styles.notice} role="alert">
           {noticeText}
+          {notice === 'invalid' && (
+            <>
+              {' '}
+              <ContactLink />
+            </>
+          )}
         </p>
       )}
 

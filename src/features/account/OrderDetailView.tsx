@@ -6,6 +6,7 @@ import type { TranslationKey } from '@/i18n/dictionaries';
 import { deliveryAreaName } from '@/lib/delivery-areas';
 import { orderDiscountMinor } from '@/lib/money';
 import { ClearCart } from '@/features/checkout/ClearCart';
+import { ContactLink } from '@/components/ContactLink';
 import { methodLabel, paymentLabel, statusLabel } from './order-labels';
 import styles from '@/app/account.module.css';
 import { INTL_LOCALE } from '@/i18n/config';
@@ -134,14 +135,35 @@ export function OrderDetailView({
           </div>
         </dl>
         <p className={styles.muted}>
-          {order.paymentMethod === 'cod' ? t('orders.codNote') : t('orders.legacyPaymentNote')}
+          {order.paymentMethod === 'cod' ? (
+            t('orders.codNote')
+          ) : (
+            <>
+              {t('orders.legacyPaymentNote')} <ContactLink />
+            </>
+          )}
         </p>
         {/*
           What happens next is read from the stored order state, never from a policy guess. There is no
           delivery deadline here because the store publishes none, and no cash-collection claim because
           only the owner's real-world action can establish that.
         */}
-        <p className={styles.nextStep}>{t(nextStepKey(order))}</p>
+        <p className={styles.nextStep}>
+          {t(nextStepKey(order))}
+          {/*
+            Three stored states leave something to settle with a person: a failed delivery, a
+            cancellation, and a returned parcel. The sentence states the fact; the link is the route that
+            used to be missing.
+          */}
+          {(order.status === 'cancelled' ||
+            order.status === 'returned' ||
+            (order.paymentMethod === 'cod' && order.codState === 'cod_failed')) && (
+            <>
+              {' '}
+              <ContactLink />
+            </>
+          )}
+        </p>
       </section>
 
       <section className={styles.card} aria-labelledby="order-items">

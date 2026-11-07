@@ -1267,6 +1267,154 @@ async function main(): Promise<void> {
         `status ${slip.status}`,
       );
 
+      // ---- Phase 51: the shop's contact facts and policy text over HTTP ----
+      //
+      // The storefront used to tell customers to contact a shop that published no route. These checks
+      // exercise the write, the refusal, and what a customer actually receives afterwards - including
+      // that the footer offers only the policy pages the owner has written.
+      const contactScreen = await call(base, '/admin/settings/contact', { jar: ownerJar });
+      const contactCsrf = csrfFrom(contactScreen.body);
+      record(
+        'the contact settings screen offers the owner its fields behind settings.write',
+        contactScreen.status === 200 &&
+          contactScreen.body.includes('Contact and policies') &&
+          contactScreen.body.includes('name="phone"') &&
+          contactScreen.body.includes('name="delivery"') &&
+          contactCsrf !== '',
+        `status ${contactScreen.status}, csrf present: ${contactCsrf !== ''}`,
+      );
+
+      const PHONE = '+880 1712-345678';
+      const HOURS = 'Every day, 10:00 to 21:00';
+      const ADDRESS = 'House 12, Road 5\nDhanmondi, Dhaka';
+      const DELIVERY = 'Orders travel by courier. The owner calls before dispatch.';
+      const contactSave = await call(base, '/api/admin/settings/contact', {
+        method: 'POST',
+        jar: ownerJar,
+        form: {
+          csrf: contactCsrf,
+          phone: PHONE,
+          hours: HOURS,
+          address: ADDRESS,
+          delivery: DELIVERY,
+          returns: '',
+          privacy: '',
+          terms: '',
+        },
+      });
+      record(
+        'saving the contact facts answers with a saved notice',
+        contactSave.status === 303 && (contactSave.location ?? '').includes('notice=saved'),
+        `status ${contactSave.status} → ${contactSave.location ?? ''}`,
+      );
+
+      const storedContact = async (): Promise<Record<string, string>> => {
+        const rows = await withTransaction((tx) =>
+          tx
+            .select({ key: storeSetting.key, value: storeSetting.value })
+            .from(storeSetting)
+            .where(sql`${storeSetting.key} like 'contact.%' or ${storeSetting.key} like 'policy.%'`),
+        );
+        return Object.fromEntries(rows.map((row) => [row.key, String(row.value ?? '')] as const));
+      };
+      const savedContact = await storedContact();
+      const contactAudit = await withTransaction((tx) =>
+        tx
+          .select({ actorStaffId: auditEvent.actorStaffId, after: auditEvent.after })
+          .from(auditEvent)
+          .where(sql`${auditEvent.action} = 'settings.contact_updated'`),
+      );
+      record(
+        'the facts and the policy text are stored, and the change is audited against its actor',
+        savedContact['contact.phone'] === PHONE &&
+          savedContact['contact.hours'] === HOURS &&
+          savedContact['contact.address'] === ADDRESS &&
+          savedContact['policy.delivery'] === DELIVERY &&
+          savedContact['policy.privacy'] === '' &&
+          contactAudit.length >= 1 &&
+          (contactAudit[0]?.after as { phone?: string } | null)?.phone === PHONE,
+        `${contactAudit.length} audit record(s), phone saved: ${savedContact['contact.phone'] === PHONE}`,
+      );
+
+      const badPhone = await call(base, '/api/admin/settings/contact', {
+        method: 'POST',
+        jar: ownerJar,
+        form: {
+          csrf: contactCsrf,
+          phone: 'call me',
+          hours: 'Tampered',
+          address: '',
+          delivery: '',
+          returns: '',
+          privacy: '',
+          terms: '',
+        },
+      });
+      const afterBadPhone = await storedContact();
+      record(
+        'an undialable phone number is refused, and nothing it travelled with is saved',
+        badPhone.status === 303 &&
+          (badPhone.location ?? '').includes('notice=invalid') &&
+          afterBadPhone['contact.phone'] === PHONE &&
+          afterBadPhone['contact.hours'] === HOURS,
+        `status ${badPhone.status} → ${badPhone.location ?? ''}, phone unchanged: ${afterBadPhone['contact.phone'] === PHONE}`,
+      );
+
+      const markupRefused = await call(base, '/api/admin/settings/contact', {
+        method: 'POST',
+        jar: ownerJar,
+        form: {
+          csrf: contactCsrf,
+          phone: PHONE,
+          hours: HOURS,
+          address: ADDRESS,
+          delivery: '<b>guaranteed</b> tomorrow',
+          returns: '',
+          privacy: '',
+          terms: '',
+        },
+      });
+      record(
+        'markup in the policy text is refused rather than stored and rendered later',
+        markupRefused.status === 303 &&
+          (markupRefused.location ?? '').includes('notice=invalid') &&
+          (await storedContact())['policy.delivery'] === DELIVERY,
+        `status ${markupRefused.status} → ${markupRefused.location ?? ''}`,
+      );
+
+      const publicContact = await call(base, '/contact');
+      const deliveryPolicy = await call(base, '/policies/delivery');
+      const unwrittenPolicy = await call(base, '/policies/privacy');
+      const unknownPolicy = await call(base, '/policies/shipping');
+      record(
+        'the contact page prints the published phone, hours and address, with a tap-to-call link',
+        publicContact.status === 200 &&
+          publicContact.body.includes(PHONE) &&
+          publicContact.body.includes('tel:+8801712345678') &&
+          publicContact.body.includes(HOURS) &&
+          publicContact.body.includes('Dhanmondi, Dhaka'),
+        `status ${publicContact.status}`,
+      );
+      record(
+        'a written policy page prints the owner text, an unwritten one states the gap, and an unknown slug is 404',
+        deliveryPolicy.status === 200 &&
+          deliveryPolicy.body.includes(DELIVERY) &&
+          unwrittenPolicy.status === 200 &&
+          unwrittenPolicy.body.includes('has not published this text yet') &&
+          unknownPolicy.status === 404,
+        `delivery ${deliveryPolicy.status}, unwritten ${unwrittenPolicy.status}, unknown ${unknownPolicy.status}`,
+      );
+
+      const homeWithHelp = await call(base, '/');
+      record(
+        'the footer links contact and only the policy pages the owner has written',
+        homeWithHelp.status === 200 &&
+          homeWithHelp.body.includes('href="/contact"') &&
+          homeWithHelp.body.includes('href="/policies/delivery"') &&
+          !homeWithHelp.body.includes('href="/policies/privacy"'),
+        `status ${homeWithHelp.status}, privacy linked: ${homeWithHelp.body.includes('href="/policies/privacy"')}`,
+      );
+
       // The refusals above happened over real HTTP, through the real guards, inside real transactions
       // that threw. This is the end-to-end regression assertion for the defect where a denial written
       // in the failing transaction was rolled back by the refusal itself.
@@ -1819,6 +1967,7 @@ async function main(): Promise<void> {
               '/admin/customers',
               '/admin/audit',
               '/admin/owners',
+              '/admin/settings/contact',
             ];
             for (const route of overflowRoutes) {
               await browser.navigate(route);
@@ -2015,6 +2164,64 @@ async function main(): Promise<void> {
               JSON.stringify(actionPlacement),
             );
             await browser.screenshot('/tmp/qb-admin-order-detail-desktop.png');
+
+            // ---- Phase 51: the contact screen and the page a customer reads ----
+            await browser.navigate('/admin/settings/contact');
+            const contactAdminUi = await browser.evaluate<{
+              title: string | null;
+              phone: string;
+              policies: number;
+              overflow: number;
+            }>(`(() => {
+              const phone = document.querySelector('input[name="phone"]');
+              return {
+                title: document.querySelector('h1')?.textContent?.trim() ?? null,
+                phone: phone instanceof HTMLInputElement ? phone.value : '',
+                policies: document.querySelectorAll('textarea[name="delivery"], textarea[name="returns"], textarea[name="privacy"], textarea[name="terms"]').length,
+                overflow: document.documentElement.scrollWidth - window.innerWidth,
+              };
+            })()`);
+            await browser.screenshot('/tmp/qb-admin-contact-settings.png');
+            record(
+              'the contact screen loads the saved phone and offers all four policy fields',
+              contactAdminUi.title === 'Contact and policies' &&
+                contactAdminUi.phone === '+880 1712-345678' &&
+                contactAdminUi.policies === 4 &&
+                contactAdminUi.overflow <= 1,
+              JSON.stringify(contactAdminUi),
+            );
+
+            await browser.navigate('/contact');
+            const contactPageUi = await browser.evaluate<{
+              phone: string | null;
+              tel: string | null;
+              hours: boolean;
+              helpColumn: boolean;
+              overflow: number;
+            }>(`(() => {
+              const phone = [...document.querySelectorAll('main a')].find((link) => (link.getAttribute('href') ?? '').startsWith('tel:'));
+              return {
+                phone: phone?.textContent?.trim() ?? null,
+                tel: phone?.getAttribute('href') ?? null,
+                hours: (document.body.textContent ?? '').includes('Every day, 10:00 to 21:00'),
+                helpColumn: [...document.querySelectorAll('footer nav')].some((nav) => (nav.getAttribute('aria-labelledby') ?? '') === 'footer-help'),
+                overflow: document.documentElement.scrollWidth - window.innerWidth,
+              };
+            })()`);
+            await browser.screenshot('/tmp/qb-storefront-contact.png');
+            await browser.viewport(390, 844);
+            await browser.screenshot('/tmp/qb-storefront-contact-mobile.png');
+            record(
+              'the contact page shows the saved number as a tap-to-call link and the footer offers help',
+              contactPageUi.phone === '+880 1712-345678' &&
+                contactPageUi.tel === 'tel:+8801712345678' &&
+                contactPageUi.hours === true &&
+                contactPageUi.helpColumn === true &&
+                contactPageUi.overflow <= 1,
+              JSON.stringify(contactPageUi),
+            );
+            await browser.viewport(1440, 900);
+            await browser.navigate('/admin/orders/' + secondCod.orderNumber);
 
             await browser.viewport(390, 844);
             await browser.navigate('/admin/orders/' + secondCod.orderNumber);

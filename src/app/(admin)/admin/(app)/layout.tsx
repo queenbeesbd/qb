@@ -10,6 +10,7 @@ import {
   COD_PATH,
   CUSTOMERS_PATH,
   ANNOUNCEMENT_SETTINGS_PATH,
+  CONTACT_SETTINGS_PATH,
   DELIVERY_SETTINGS_PATH,
   HERO_SETTINGS_PATH,
   INTEGRATIONS_PATH,
@@ -116,6 +117,13 @@ export default async function AdminShellLayout({ children }: { children: React.R
       labelKey: 'admin.nav.support',
       group: 'settings',
       icon: 'bell',
+    });
+    // The facts the shop publishes about itself - phone, hours, address - and its policy text.
+    items.push({
+      href: CONTACT_SETTINGS_PATH,
+      labelKey: 'admin.nav.contact',
+      group: 'settings',
+      icon: 'list',
     });
     // The homepage's first screen: the owner's own hero images and the order they run in.
     items.push({

@@ -5,8 +5,10 @@ import { withTransaction } from '@/db/client';
 import { VisitBeacon } from '@/features/analytics/VisitBeacon';
 import { CartProvider } from '@/features/cart/CartProvider';
 import { selectDepartments } from '@/features/catalog/departments';
+import type { TranslationKey } from '@/i18n/dictionaries';
 import { loadAnnouncement } from '@/server/settings/announcement';
 import { loadActiveOfferPopup } from '@/server/settings/offer-popup';
+import { loadStoreContact } from '@/server/settings/contact';
 import { getStorefrontCatalog } from '@/server/catalog/storefront';
 import { currentCustomerPrincipal } from '@/server/customer-auth/guard';
 import { Shell } from '../Shell';
@@ -52,10 +54,24 @@ export default async function StorefrontLayout({ children }: { children: React.R
     catalog.categories.length,
   );
 
-  const { saved, popup } = await withTransaction(async (tx) => ({
+  const { saved, popup, contact } = await withTransaction(async (tx) => ({
     saved: await loadAnnouncement(tx),
     popup: await loadActiveOfferPopup(tx),
+    contact: await loadStoreContact(tx),
   }));
+
+  /*
+   * The footer's help column. Contact always resolves because the page exists and states its own gaps;
+   * a policy page is offered only once the owner has written it, so the footer never links a promise the
+   * shop has not made.
+   */
+  const help: { href: string; labelKey: TranslationKey }[] = [
+    { href: '/contact', labelKey: 'footer.contact' },
+  ];
+  if (contact.delivery !== null) help.push({ href: '/policies/delivery', labelKey: 'footer.delivery' });
+  if (contact.returns !== null) help.push({ href: '/policies/returns', labelKey: 'footer.returns' });
+  if (contact.privacy !== null) help.push({ href: '/policies/privacy', labelKey: 'footer.privacy' });
+  if (contact.terms !== null) help.push({ href: '/policies/terms', labelKey: 'footer.terms' });
   const announcements: AnnouncementItem[] = activeAnnouncements().map((item) => ({
     id: item.id,
     variant: item.variant,
@@ -79,6 +95,7 @@ export default async function StorefrontLayout({ children }: { children: React.R
           principal === null ? null : { email: principal.email, displayName: principal.displayName }
         }
         announcements={announcements}
+        help={help}
       >
         {children}
       </Shell>
