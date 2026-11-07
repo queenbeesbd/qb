@@ -14,6 +14,18 @@ An entry may describe a deployment only once it has actually happened and been o
 
 ## [Unreleased]
 
+### Fixed - 2026-11-08: production was three migrations behind the deployed code
+`/admin/settings/delivery` failed with `column "conditional_enabled" does not exist` because the Neon
+production branch had 16 applied migrations while the deployed build expects 19. `0016_steadfast_consignments`,
+`0017_pricing_rules` and `0018_customer_email_change` were applied to production in order and recorded in
+`drizzle.__drizzle_migrations` with their real content hashes, so `db:migrate` will not replay them.
+Verified against the live database: 52 tables, 19 applied migrations, 15 `delivery_setting` columns, the
+new tables/indexes/checks present, the failing select and the district-override select both return, and
+anonymous admin routes answer 307 to sign-in instead of the error boundary. No code changed. Two owner
+actions remain: **production has no delivery configuration** (checkout refuses until Settings -> Delivery
+charges is filled in), and the database credential was serialised into Vercel runtime logs, so that role's
+password should be rotated.
+
 ### Added - 2026-11-08: customer email account security through Resend (ADR 0030)
 Customers can now recover a forgotten password by email, change their password from the account page,
 and change their registered address - without any email-verification step.

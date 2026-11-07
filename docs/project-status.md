@@ -545,3 +545,37 @@ covering every flow plus reuse, expiry, enumeration parity, throttling, CSRF ref
 revocation and admin isolation, and Chromium at 390px for the three new pages and the two account
 forms. `verify:admin`, `verify:browser`, `verify:storefront`, the db suite, real inboxes, real devices
 and screen readers were not exercised. Nothing is deployed.
+
+## Production migration catch-up (2026-11-08)
+
+`https://queenbees.vercel.app/admin/settings/delivery` rendered the admin error boundary. Vercel runtime
+logs gave the cause: `column "conditional_enabled" does not exist`, from the delivery page's own
+`loadDeliveryRates` select. Production was at **16 applied migrations** while the deployed code expects
+**19**, so the three migrations authored after the last release had never been applied:
+
+| Migration | Adds |
+| --- | --- |
+| `0016_steadfast_consignments` | `steadfast_consignment` |
+| `0017_pricing_rules` | eleven `delivery_setting` columns and their checks |
+| `0018_customer_email_change` | `customer_email_change`, the `email_change` revocation reason |
+
+All three were applied to Neon project `autumn-wave-01272789` (branch `production`, database
+`queenbees`) in order, each in its own transaction, and recorded in `drizzle.__drizzle_migrations` with
+the same content hashes the runner computes - so a later `db:migrate` sees them as applied instead of
+replaying them. Verified against the live database: **52 tables, 19 applied migrations**,
+`delivery_setting` has 15 columns, both new tables and their eight indexes exist, the pricing range
+checks are present, and the session check accepts `email_change`. The exact failing select and the
+district-override select both return cleanly now, and anonymous `/admin` and `/admin/settings/delivery`
+answer **307 to the sign-in page** rather than the error boundary. The storefront (`/`) and
+`/account/login` answer 200.
+
+**Two gaps found while checking, both owner actions:**
+
+1. **Delivery is unconfigured in production.** `delivery_setting` has no row and no district override is
+   active, so `quoteDelivery` refuses and checkout cannot place an order. The values are owner inputs and
+   were not invented; **Settings -> Delivery charges** must be filled in (default charge, then Dhaka and
+   Chattogram if wanted, then the optional pricing rules).
+2. **The database credential appears in Vercel runtime logs.** A Neon connection error serialised the
+   driver's client object, including the `queenbees_owner` connection string. The value is not repeated
+   here. Rotation of that role's password and a review of what error objects reach the platform log are
+   owner actions.
