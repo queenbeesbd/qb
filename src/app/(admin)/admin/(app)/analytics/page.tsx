@@ -14,7 +14,7 @@ export const dynamic = 'force-dynamic';
  * different view of those rows, not a new capability. The window comes from the query string and is
  * validated against a fixed set, so a crafted period cannot ask for an unbounded scan.
  *
- * The traffic figures are the shop's own first-party visit log (ADR 0025), read on the same window and
+ * The traffic figures are the shop's own first-party visit log (ADR 0027), read on the same window and
  * the same Dhaka calendar as the sales figures. They are a separate read because they are a separate
  * fact: a visit is not an order, and the two are never added together.
  */

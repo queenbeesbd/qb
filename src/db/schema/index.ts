@@ -15,7 +15,7 @@
  * - delivery (2)    default charge and active district overrides
  * - promotions (2)  owner-published codes and the orders that used them
  * - integrations (1) Telegram destinations an order notification is sent to
- * - analytics (2)   first-party visit sessions and their step log (ADR 0025)
+ * - analytics (2)   first-party visit sessions and their step log (ADR 0027)
  */
 
 export * from './values';

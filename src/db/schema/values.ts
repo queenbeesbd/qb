@@ -208,7 +208,7 @@ export const IDEMPOTENCY_PRINCIPAL = ['customer', 'staff', 'guest'] as const;
 export const SETTING_VALUE_TYPE = ['money_minor', 'integer', 'text', 'boolean'] as const;
 
 /**
- * First-party visit tracking (ADR 0025, owner-approved 2026-11-07).
+ * First-party visit tracking (ADR 0027, owner-approved 2026-11-07).
  *
  * The shop measures its own storefront: one row per browsing session and one row per step. There is
  * no third-party analytics product, no cross-site identifier and no stored IP address.

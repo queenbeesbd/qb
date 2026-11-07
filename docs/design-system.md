@@ -79,7 +79,7 @@ Rules that hold everywhere:
 
 ## Logo and favicon
 
-Status: the owner's `logo.jpeg` is the identity (2026-11-05), in the header **and** the browser tab. The drawn crown mark described below is retired from every surface; `logo.svg` and `logo-mark.svg` remain only as reference files.
+Status: the owner's `logo.jpeg` is the identity (2026-11-05), in the header, the **admin rail** and the browser tab. The drawn crown mark described below is retired from every surface; `logo.svg` and `logo-mark.svg` remain only as reference files.
 
 ### Concept
 
@@ -100,7 +100,7 @@ The three shapes map one-to-one onto the approved palette, which is what keeps t
 | Asset | Path | Use |
 | --- | --- | --- |
 | Horizontal lockup | `public/brand/logo.svg` | Retired from the header on 2026-11-05; the file remains for reference. |
-| Circular brand mark | `public/brand/logo-round-96.jpeg`, `logo-round-192.jpeg` | Header, 44-48px. Generated from the owner's `logo.jpeg` by `npm run assets:brand`; drawn in a circular box with `object-fit: cover`, so any square upload is centre-cropped to the circle. |
+| Circular brand mark | `public/brand/logo-round-96.jpeg`, `logo-round-192.jpeg` | Header 48px, admin rail 40px. Generated from the owner's `logo.jpeg` by `npm run assets:brand`; drawn in a circular box with `object-fit: cover`, so any square upload is centre-cropped to the circle. |
 | Standalone symbol | `public/brand/logo-mark.svg` | Retired with the drawn mark; kept for reference only. |
 | Favicon | `public/brand/favicon-32.png`, `favicon-192.png` | Browser tab, generated from `logo.jpeg`. **Round**, with a transparent outside, so it sits on a light or dark tab without a white square. |
 | Apple touch icon | `public/brand/apple-touch-icon.png` | 180x180 home-screen icon. Square and opaque because iOS applies its own rounded mask and flattens transparency. |
@@ -583,8 +583,9 @@ Three pieces, one vocabulary, and **no chart library**:
   line even when one label wraps. The number is tinted by the card's tone; the tone also supplies a 3px
   top rule and a 5% surface wash. Tone groups figures, it does not report status - `warning` is reserved
   for work waiting on the owner. The dashboard band is five columns at desktop, three from 721-1199px
-  and two on a phone (the odd fifth tile spans the phone row); analytics is six columns from 1440px,
-  three below that and two on a phone. Counts use `Intl.NumberFormat`; money uses `price()`. A figure
+  and two on a phone (the odd fifth tile spans the phone row); analytics is **three columns above 720px
+  and two on a phone**, so its six figures read as two rows of three rather than one row of six. Counts
+  use `Intl.NumberFormat`; money uses `price()`. A figure
   that cannot be computed reads an em dash and its note says why ("No paid order yet"); it never reads
   zero.
 - **`.chartGrid`** - the plot at roughly two-thirds width beside a ring at one-third, collapsing to one
@@ -975,8 +976,8 @@ absolute `https` URLs at save time. They open in a new tab with `rel="noopener n
 **Homepage order and headings.** Hero, Shop By Category, Shop By Brand, On Offer, Most Selling, Recently
 Added, More To Explore. Every section heading is centred and title-cased, with at most one link into its
 full listing beneath it. **Most Selling is derived from real `order_item` units** - cancelled orders
-excluded, recency given priority - and it states its gap in words rather than inventing a ranking when the
-shop has sold nothing.
+excluded, recency given priority - and it is **omitted entirely when the shop has sold nothing** (owner
+direction, 2026-11-07), rather than drawing a heading over an empty shelf.
 
 ## Storefront discovery (2026-11-02)
 

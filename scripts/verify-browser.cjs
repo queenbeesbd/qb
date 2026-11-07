@@ -936,9 +936,22 @@ async function main() {
       'Recently Added',
       'More To Explore',
     ];
+    /*
+     * Most Selling is omitted entirely when the shop has sold nothing (owner direction, 2026-11-07). It
+     * is the one section allowed to be absent; every other section must be present, so a missing
+     * section still fails the comparison rather than being filtered out of the expectation.
+     */
+    const optionalSections = new Set(['best-selling-title']);
+    const expectedDrawnOrder = expectedOrder.filter(
+      (id) => !optionalSections.has(id) || homepage.order.includes(id),
+    );
+    const expectedDrawnTexts = expectedTexts.filter(
+      (_, index) =>
+        !optionalSections.has(expectedOrder[index]) || homepage.order.includes(expectedOrder[index]),
+    );
     record('27. homepage sections follow the owner order, headings are centred, and cards carry add-to-cart',
-      JSON.stringify(homepage.order) === JSON.stringify(expectedOrder) &&
-      JSON.stringify(homepage.texts) === JSON.stringify(expectedTexts) &&
+      JSON.stringify(homepage.order) === JSON.stringify(expectedDrawnOrder) &&
+      JSON.stringify(homepage.texts) === JSON.stringify(expectedDrawnTexts) &&
       homepage.allCentred && homepage.cards > 0 && homepage.buyButtons === homepage.cards &&
       homepage.frame !== null && Math.abs(homepage.frame - 0.8) < 0.01 && homepage.pageOverflow <= 1,
       homepage);

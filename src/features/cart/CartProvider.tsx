@@ -82,7 +82,7 @@ export function CartProvider({
   const addItem = useCallback((productId: string, quantity = 1) => {
     addLine(productId, quantity);
     setLastAddedId(productId);
-    // The cart is the funnel's middle step, and it happens without a navigation (ADR 0025).
+    // The cart is the funnel's middle step, and it happens without a navigation (ADR 0027).
     trackVisit('cart_add', typeof window === 'undefined' ? '/' : window.location.pathname);
   }, []);
 

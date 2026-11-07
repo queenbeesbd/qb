@@ -124,7 +124,11 @@ export function ProductCard({
           <p className={styles.availability}>{t('product.availability.unknown')}</p>
         )}
 
-        {addToCart && <AddToCartButton product={product} />}
+        {addToCart && (
+          <div className={styles.buyRow}>
+            <AddToCartButton product={product} />
+          </div>
+        )}
       </div>
     </article>
   );

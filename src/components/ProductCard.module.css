@@ -197,11 +197,19 @@
  *
  * An outlined control rather than a filled one: a grid of filled purple buttons reads as a wall of
  * calls to action, and the card's subject is the product. It is a full-width 40px target so a thumb
- * hits it, and it sits at the bottom of the card body so the price baselines above it still line up
- * across a row.
+ * hits it.
+ *
+ * The row is anchored to the card's floor, not to the last line of text. A card with a saving pill is
+ * one line taller than a card without one, so a button that simply followed the content sat higher on
+ * the undiscounted card and the row read as misaligned. The auto margin absorbs whatever the card's
+ * own content does not use; the padding keeps the 8px gap the button used to carry.
  */
+.buyRow {
+  margin-top: auto;
+  padding-top: var(--space-2);
+}
+
 .buy {
-  margin-top: var(--space-2);
   display: inline-flex;
   align-items: center;
   justify-content: center;

@@ -48,7 +48,9 @@ decisions, so they are recorded here rather than as a silent edit.
    excludes cancelled orders, yields to Recently Added (recency cannot be filtered without becoming a
    false claim), breaks ties by product id, and states its gap in words when the shop has sold nothing.
    This is the only wording on the page that implies trade, so it may never be fed by a list the owner
-   curated or by a fixture.
+   curated or by a fixture. **Superseded in part (2026-11-07):** the owner asked for the section to be
+   **omitted entirely** when the shop has sold nothing, rather than drawing a heading and a note. The
+   ranking rule is unchanged.
 
 6. **Homepage cards carry an Add to cart control.** Outlined, 40px, full width. Out of stock and unknown
    availability are **disabled and labelled**, never hidden - availability is the only ordering gate

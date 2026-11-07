@@ -88,7 +88,7 @@ const STATUS_TONES: Record<string, ChartTone> = {
  * payment (completed), the pipeline by the day the customer placed the order. They are never summed,
  * because "orders placed" and "orders paid" are different facts about different moments.
  *
- * Traffic is the shop's own first-party visit log (ADR 0025), read on the same window and the same
+ * Traffic is the shop's own first-party visit log (ADR 0027), read on the same window and the same
  * Dhaka calendar. It is a separate block because it is a separate fact: a visit is not an order, and
  * the two are never added together. Every figure names what it counts - a session, not a person.
  */

@@ -82,7 +82,7 @@ export default async function StorefrontLayout({ children }: { children: React.R
       >
         {children}
       </Shell>
-      {/* One first-party step per navigation (ADR 0025). It renders nothing and never blocks. */}
+      {/* One first-party step per navigation (ADR 0027). It renders nothing and never blocks. */}
       <VisitBeacon />
       {popup !== null && (
         <OfferPopup

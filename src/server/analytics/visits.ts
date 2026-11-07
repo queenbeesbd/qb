@@ -1,5 +1,5 @@
 /**
- * First-party visit tracking - ADR 0025, owner-approved 2026-11-07.
+ * First-party visit tracking - ADR 0027, owner-approved 2026-11-07.
  *
  * The shop measures its own storefront. There is **no third-party analytics product**, no cross-site
  * identifier, no stored IP address and no fingerprint: a session is a random 128-bit id in a
@@ -29,6 +29,14 @@ export const VISIT_COOKIE = 'qb_visit';
 export const VISIT_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 365;
 /** "Live now" is a five-minute window, stated on the screen rather than implied. */
 export const LIVE_WINDOW_MINUTES = 5;
+/**
+ * How long a visit row is kept.
+ *
+ * The analytics screen offers 7, 30 and 90 days, so 90 days is the longest window any figure can read.
+ * A session is deleted once its last request is older than this, and its events cascade with it, so the
+ * counter and the log are always the same age. The owner chose the window on 2026-11-07 (ADR 0027 D7).
+ */
+export const VISIT_RETENTION_DAYS = 90;
 
 const STORE_TIME_ZONE = 'Asia/Dhaka';
 
@@ -124,6 +132,24 @@ export async function markOrderPlaced(tx: Transaction, sessionId: string | null)
     .set({ placedOrder: true, lastSeenAt: sql`now()` })
     .where(sql`${visitSession.id} = ${sessionId}`);
   await tx.insert(visitEvent).values({ sessionId, kind: 'order_placed', path: '/checkout' });
+}
+
+/**
+ * Deletes sessions whose last request is older than the retention window.
+ *
+ * Returns the number of sessions removed. Events cascade from the foreign key, so one statement bounds
+ * both tables and a session's counter can never outlive its log. Called after the response from the
+ * tracking route (best effort, at most once an hour per instance) and by `npm run visits:prune`.
+ */
+export async function pruneVisitLog(
+  tx: Transaction,
+  days: number = VISIT_RETENTION_DAYS,
+): Promise<number> {
+  const removed = await tx
+    .delete(visitSession)
+    .where(sql`${visitSession.lastSeenAt} < now() - make_interval(days => ${days})`)
+    .returning({ id: visitSession.id });
+  return removed.length;
 }
 
 export type VisitDayPoint = {

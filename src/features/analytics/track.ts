@@ -1,5 +1,5 @@
 /**
- * The storefront's own visit beacon - ADR 0025.
+ * The storefront's own visit beacon - ADR 0027.
  *
  * One small same-origin POST per step. It carries a path and a step name and nothing else: no
  * identifier, no referrer, no screen size, no timing. The session id lives in an httpOnly cookie the

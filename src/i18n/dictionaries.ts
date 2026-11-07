@@ -65,9 +65,6 @@ export const dictionary = {
   'home.browseBy': 'Browse',
   'home.brandTitle': 'Shop By Brand',
   'home.bestSellingTitle': 'Most Selling',
-  'home.bestSellingEmptyTitle': 'Nothing sold yet',
-  'home.bestSellingEmptyBody':
-    'This row ranks products by the units the shop has actually sold. It stays empty until the first order counts.',
   'home.brandsAll': 'All brands',
   'home.newArrivalsTitle': 'New arrivals',
   'home.newArrivalsAll': 'See everything',

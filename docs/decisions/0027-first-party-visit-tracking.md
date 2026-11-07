@@ -70,11 +70,20 @@ A request whose user agent matches a bot, crawler, link-preview or headless patt
 and writes nothing. The figures are the shop's own readers. This is a heuristic, and the screen does
 not claim otherwise.
 
-### D7 - Retention is the owner's, and no automatic deletion exists yet
+### D7 - A visit row is kept for 90 days, and the sweep rides on traffic
 
-The screen reads at most the 90-day window it offers. Rows are kept until they are pruned; **no
-scheduler deletes them**, and adding one is a separate decision. This is a recorded gap, not an
-oversight: an automatic deletion policy is a business choice about how much history the owner wants.
+The screen reads at most the 90-day window it offers, so 90 days is the longest period any figure can
+read. On 2026-11-07 the owner chose that window as the retention period: a session whose last request
+is older than 90 days is deleted, and its events cascade with it, so the counter and the log are always
+the same age.
+
+There is no scheduler. The sweep runs in `POST /api/track` **after the response has been sent**, at most
+once an hour per server instance, and `npm run visits:prune` is the explicit run. A shop with no traffic
+has no new rows to prune, so the sweep does not need a timer of its own. A failed sweep is swallowed: a
+page view that was accepted must not fail because a delete did.
+
+The window is a business choice, not a legal opinion: it is the owner's answer to "how much history do
+I want", and changing it is a new owner decision.
 
 ## Consequences
 

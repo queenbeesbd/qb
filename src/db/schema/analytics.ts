@@ -14,7 +14,7 @@ import {
 import { VISIT_DEVICES, VISIT_EVENT_KINDS, colIn } from './values';
 
 /**
- * First-party visit tracking - ADR 0025, owner-approved 2026-11-07.
+ * First-party visit tracking - ADR 0027, owner-approved 2026-11-07.
  *
  * The shop measures its own storefront. There is **no third-party analytics product**, no cross-site
  * identifier, no stored IP address and no fingerprint: a session is a random 128-bit id in a

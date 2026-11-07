@@ -1,5 +1,5 @@
 /**
- * POST /api/track - one storefront step, recorded first-party (ADR 0025).
+ * POST /api/track - one storefront step, recorded first-party (ADR 0027).
  *
  * Public by design: a visitor is not signed in. The request is same-origin checked, the body is
  * validated to a known step and a path, and the session id comes from an httpOnly cookie the server
@@ -11,6 +11,7 @@
  */
 
 import { cookies } from 'next/headers';
+import { after } from 'next/server';
 
 import { withTransaction } from '@/db/client';
 import { CART_COOKIE_NAME, parseCartIds } from '@/features/cart/cart-cookie';
@@ -21,6 +22,7 @@ import {
   isBotUserAgent,
   isVisitSessionId,
   normalisePath,
+  pruneVisitLog,
   recordVisit,
   type VisitEventKind,
 } from '@/server/analytics/visits';
@@ -31,6 +33,23 @@ export const dynamic = 'force-dynamic';
 
 /** The steps a browser may report. `order_placed` is written by the order transaction, not here. */
 const CLIENT_KINDS: readonly VisitEventKind[] = ['page_view', 'cart_add', 'checkout_start'];
+
+/**
+ * The retention sweep rides on traffic instead of a scheduler.
+ *
+ * At most once an hour per server instance, after the response has been sent, the route deletes
+ * sessions older than `VISIT_RETENTION_DAYS`. A shop with no traffic has no new rows to prune, so the
+ * sweep needs no timer of its own; `npm run visits:prune` is the explicit run. A failed sweep is
+ * swallowed: a page view that was accepted must not fail because a delete did.
+ */
+const PRUNE_INTERVAL_MS = 60 * 60 * 1000;
+let lastPruneAt = 0;
+
+function pruneIsDue(now: number): boolean {
+  if (now - lastPruneAt < PRUNE_INTERVAL_MS) return false;
+  lastPruneAt = now;
+  return true;
+}
 
 function noContent(): Response {
   return new Response(null, { status: 204, headers: { 'cache-control': 'no-store' } });
@@ -78,6 +97,16 @@ export async function POST(request: Request): Promise<Response> {
       sameSite: 'lax',
       path: '/',
       maxAge: VISIT_COOKIE_MAX_AGE_SECONDS,
+    });
+  }
+
+  if (pruneIsDue(Date.now())) {
+    after(async () => {
+      try {
+        await withTransaction((tx) => pruneVisitLog(tx));
+      } catch {
+        // A failed sweep must never fail a page view.
+      }
     });
   }
 

@@ -73,11 +73,21 @@
 .brandMark {
   display: grid;
   place-items: center;
-  width: 36px;
-  height: 36px;
+  width: 40px;
+  height: 40px;
   flex: none;
   border-radius: 50%;
-  background: var(--admin-lavender-soft);
+  overflow: hidden;
+  background: var(--admin-surface);
+  border: 1px solid var(--admin-line);
+}
+
+.brandMark img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
 }
 
 .brandText {
@@ -3449,14 +3459,15 @@ html[dir='rtl'] .switchOn .switchKnob::after {
   gap: var(--space-3);
 }
 
+/*
+ * Six figures read as two rows of three, never one row of six.
+ *
+ * At six columns each card was ~150px wide on a 1440px screen: the label wrapped to two lines, the note
+ * to three, and the icon plate took a third of the reading column. Three columns give each figure the
+ * width its sentence needs, and the band still fits above the fold.
+ */
 .kpiGridSix {
-  grid-template-columns: repeat(6, minmax(0, 1fr));
-}
-
-@media (max-width: 1439px) {
-  .kpiGridSix {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 @media (max-width: 1199px) {
@@ -4966,7 +4977,7 @@ a.rankName:hover {
   color: var(--admin-subtle);
 }
 
-/* ---- Traffic (ADR 0025) -------------------------------------------------- */
+/* ---- Traffic (ADR 0027) -------------------------------------------------- */
 
 .kpiGridFour {
   grid-template-columns: repeat(4, minmax(0, 1fr));

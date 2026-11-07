@@ -597,7 +597,10 @@ the money figures, a visit-to-order funnel, and the most viewed pages. Every fig
 counts, and the block closes with the privacy position: a random session id in an `HttpOnly` cookie,
 the path without its query string, a coarse device class - no IP address, no fingerprint, no
 third-party script. Crawlers and link previews are not recorded. A session is never linked to a
-customer or an order.
+customer or an order. **A visit row is kept for 90 days and then deleted** (owner decision, 2026-11-07):
+the sweep runs in the tracking route after the response, at most once an hour per instance, and
+`npm run visits:prune` is the explicit run. The window is the longest period the screen offers, so a
+figure can never read a row the sweep would have removed.
 
 **States.** Empty is designed: the revenue figure draws a sentence rather than a line at zero, the ring
 says no orders were placed, and the money panel reads "Not available" for an average with nothing to

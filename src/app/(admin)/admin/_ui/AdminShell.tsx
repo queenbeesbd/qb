@@ -198,7 +198,7 @@ export function AdminShell({
           <div className={styles.drawerHeader}>
             <Link href="/admin" className={styles.brand}>
               <span className={styles.brandMark} aria-hidden="true">
-                <AdminMark />
+                <AdminBrandMark />
               </span>
               <span className={styles.brandText}>
                 <span className={styles.brandName}>QueenBee&apos;s</span>
@@ -220,7 +220,7 @@ export function AdminShell({
             <div className={styles.topbarInner}>
               <Link href="/admin" className={`${styles.brand} ${styles.mobileBrand}`} aria-label={t('admin.nav.overview')}>
                 <span className={styles.brandMark} aria-hidden="true">
-                  <AdminMark />
+                  <AdminBrandMark />
                 </span>
               </Link>
               <nav className={styles.breadcrumb} aria-label={t('admin.breadcrumbLabel')}>
@@ -357,14 +357,22 @@ export function AdminShell({
   );
 }
 
-/** The three-petal crown from the storefront mark, drawn small for the rail. */
-function AdminMark() {
+/**
+ * The owner's own logo, in the same circular box the storefront header draws.
+ *
+ * The rail carried a hand-drawn crown until 2026-11-07 - the last surface still showing the retired
+ * mark. The real logo is the identity everywhere: a square upload centre-cropped to a circle, so the
+ * rail and the storefront cannot drift apart. The accessible name is on the link, not the image.
+ */
+function AdminBrandMark() {
   return (
-    <svg width="28" height="28" viewBox="0 0 40 40" aria-hidden="true" focusable="false">
-      <path d="M20 6c3 5 4.6 9 4.6 13.4 0 3.6-1.5 6.4-4.6 6.4s-4.6-2.8-4.6-6.4C15.4 15 17 11 20 6Z" fill="#C8B6FF" />
-      <path d="M8.4 14.6c4.9 1 8.4 3.4 9.6 6.8 1.1 3.3-.4 5.8-3.4 6.6-2.9.9-5.3-.9-5.4-4.4-.1-3.2 1.4-6.4 2.9-7.9Z" fill="#F6B3CC" />
-      <path d="M31.6 14.6c-4.9 1-8.4 3.4-9.6 6.8-1.1 3.3.4 5.8 3.4 6.6 2.9.9 5.3-.9 5.4-4.4.1-3.2-1.4-6.4-2.9-7.9Z" fill="#56358C" />
-      <rect x="10" y="28" width="20" height="4" rx="2" fill="#F6B3CC" opacity="0.55" />
-    </svg>
+    <img
+      src="/brand/logo-round-192.jpeg"
+      srcSet="/brand/logo-round-96.jpeg 96w, /brand/logo-round-192.jpeg 192w"
+      sizes="40px"
+      alt=""
+      width={40}
+      height={40}
+    />
   );
 }

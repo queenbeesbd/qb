@@ -14,6 +14,36 @@ An entry may describe a deployment only once it has actually happened and been o
 
 ## [Unreleased]
 
+### Added - 2026-11-07: visit rows are deleted after 90 days
+The Traffic block reads at most 90 days, so the owner chose that window as the retention period. A
+session whose last request is older than 90 days is deleted and its events cascade with it, so the
+counter and the log are always the same age. There is no scheduler: the sweep runs in `POST /api/track`
+after the response, at most once an hour per instance, and `npm run visits:prune` is the explicit run.
+A failed sweep never fails a page view. `tests/db/visits.test.ts` proves the delete, the cascade and
+the survival of a session inside the window.
+
+### Changed - 2026-11-07: the admin rail carries the real logo
+The rail drew a hand-drawn crown - the last surface still showing the retired mark - while the
+storefront and the account pages already used the owner's own `logo-round-192.jpeg`. The rail now draws
+the same circular mark at 40px, centre-cropped with `object-fit: cover`, so the two surfaces cannot
+drift apart.
+
+### Changed - 2026-11-07: Most Selling is omitted until the shop has sold something
+The section used to draw a heading and a "Nothing sold yet" note. A heading over an empty shelf is a
+promise the shop cannot keep, so the section is now absent until `order_item` units exist; the two
+dictionary keys that only the empty note used were removed.
+
+### Fixed - 2026-11-07: every card's Add to cart sits on the card floor
+A card with a saving pill is one line taller than a card without one, so a button that followed the
+content sat higher on the undiscounted card and a mixed row read as misaligned. The control is now
+anchored to the card's floor with an auto margin, which absorbs whatever the card's own content does
+not use; the 8px gap is kept as padding.
+
+### Changed - 2026-11-07: the analytics figures read as two rows of three
+Six KPI cards in one row were ~150px wide on a 1440px screen: labels wrapped to two lines, notes to
+three, and the icon plate took a third of the reading column. The band is now three columns above
+720px and two on a phone, so the six figures read as two rows of three with room for their sentences.
+
 ### Added - 2026-11-07: first-party visit tracking and a Traffic block on analytics
 The owner asked for visits, live readers, carts left behind and a visualisation of the visit path. That
 is an explicit approval for a tracker, which is the condition the old "no traffic figure" rule set, so

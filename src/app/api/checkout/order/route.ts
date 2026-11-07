@@ -76,7 +76,7 @@ export async function POST(request: Request): Promise<Response> {
   /*
    * The visit session that placed this order, if the browser carried one. It is a boolean on the
    * session row, never a link to the order: the analytics surface must not become a second customer
-   * record (ADR 0025).
+   * record (ADR 0027).
    */
   const visitCookie = (await cookies()).get(VISIT_COOKIE)?.value ?? null;
   const visitSessionId = isVisitSessionId(visitCookie) ? visitCookie : null;

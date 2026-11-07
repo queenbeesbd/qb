@@ -125,23 +125,19 @@ export function HomeView({
           {/*
             Most Selling is a fact about the shop's own order lines, never a curation: the section is
             drawn from `home-selection.ts`'s best-seller selection, which counts real ordered units.
-            A shop that has not sold anything yet says so instead of showing a made-up ranking.
+            A shop that has not sold anything yet omits the section entirely (owner direction,
+            2026-11-07): a heading over an empty shelf is a promise the shop cannot keep.
           */}
-          <section className={styles.section} aria-labelledby="best-selling-title">
-            <SectionHeader id="best-selling-title" title={t('home.bestSellingTitle')} />
-            {bestSellers.length > 0 ? (
+          {bestSellers.length > 0 && (
+            <section className={styles.section} aria-labelledby="best-selling-title">
+              <SectionHeader id="best-selling-title" title={t('home.bestSellingTitle')} />
               <Carousel label={t('home.bestSellingTitle')} size="product">
                 {bestSellers.map((product) => (
                   <ProductCard key={product.id} product={product} addToCart />
                 ))}
               </Carousel>
-            ) : (
-              <EmptyNote
-                title={t('home.bestSellingEmptyTitle')}
-                body={t('home.bestSellingEmptyBody')}
-              />
-            )}
-          </section>
+            </section>
+          )}
 
           {/*
             New arrivals. Ordered by the stored creation timestamp, and omitted entirely when the
