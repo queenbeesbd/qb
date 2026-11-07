@@ -14,6 +14,28 @@ An entry may describe a deployment only once it has actually happened and been o
 
 ## [Unreleased]
 
+### Added - 2026-11-07: dispatch slip (Phase 52)
+A COD dispatch had nothing to hand to the courier. `/admin/orders/[orderNumber]/slip`, behind
+`order.read`, prints the reference, recipient, phone, composed address, the customer's note, the frozen
+line items with quantities, and **Amount to collect** - with subtotal, discount (only when the frozen
+amounts imply one) and delivery above it. It is presentation only: no state change, event or audit row,
+and no internal id, customer email, account state, payment state or courier cost. The address lives
+outside the admin `(app)` group, so the rail and tab bar are not part of the document.
+
+The order detail's **Print slip** control opens it in a new tab; the slip prints only when its own button
+is clicked. One stylesheet serves A4 and an 80mm roll: at `max-width: 30rem` in print the unit-price
+column is dropped and the headers shrink, so quantity and amount fit the roll. There is no shop contact
+block because no shop phone or address is stored; the screen states that gap.
+
+Verified: typecheck, lint (0 errors), `check:i18n` (1,557 keys), `check:catalog`, unit **218/218**,
+`build`, and `verify:admin` **214/215** (the remaining check is the documented "no CSP is claimed"
+assertion). The new checks cover the slip over HTTP (owner 200 with recipient/address/amount, limited
+`order.read` principal 200, anonymous 307 to `/admin/login`, missing order 404, no customer email, no
+payment or cost state), `window.print` never called on load and called once on click, the screen wrapper
+hidden and the price column dropped at 80mm but not A4, no horizontal overflow at either width, and
+Chromium rendering **one A4 page** and a **1-3 page 80mm roll**. Real printers, real iOS/Android and
+screen readers were not used; nothing is deployed.
+
 ### Added - 2026-11-07: visit rows are deleted after 90 days
 The Traffic block reads at most 90 days, so the owner chose that window as the retention period. A
 session whose last request is older than 90 days is deleted and its events cascade with it, so the

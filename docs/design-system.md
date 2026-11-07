@@ -534,6 +534,41 @@ controls in the record, because inspecting one line belongs beside that line.
 `scripts/verify-admin.ts` asserts the band precedes the money facts on a pending order and is absent on a
 settled one.
 
+### The dispatch slip (Phase 52)
+
+`/admin/orders/[orderNumber]/slip` is the paper that travels with a COD parcel. It is **a document, not a
+screen**: it lives outside the `(app)` route group, so the rail, the tab bar and the page chrome are not
+part of the markup and nothing has to be hidden with print CSS for the paper to be clean. The order
+detail's **Print slip** control opens it in a new tab, and the slip's own button prints on click; nothing
+prints on load.
+
+| Part | Contract |
+| --- | --- |
+| Header | the shop's name and "Dispatch slip" - no logo, no promotion |
+| Facts | reference in tabular mono, when it was placed (Dhaka time), and the stored order status |
+| Deliver to | name, phone, the composed address with the delivery area, and the customer's note when one exists |
+| Lines | item, variant, quantity, unit price, line amount - read from the order's frozen snapshot |
+| Totals | subtotal, discount only when the frozen amounts imply one, delivery, and **Amount to collect** |
+
+Four rules:
+
+1. **Presentation only.** The page reads one order and writes nothing: no state change, no event, no
+   audit row. It prints no internal id, no customer email or account state, and no payment or courier
+   cost - a slip states what to hand over and what to collect.
+2. **Two paper sizes, one stylesheet.** `@page { margin: 8mm }` leaves ~194mm on A4 and ~64mm on an 80mm
+   roll. Under `@media print and (max-width: 30rem)` the **unit-price column is dropped** (it is the one
+   a courier does not need), the column headers lose their tracking and shrink, and the totals run full
+   width, so quantity and amount still fit on the roll without a second document.
+3. **Screen-only chrome.** The controls and the gap note sit in one wrapper hidden at print time; the
+   sheet keeps its card frame on screen and none of it on paper.
+4. **No invented shop block.** Settings holds no shop phone or address, so the slip carries none; the
+   screen states that gap instead of filling it with a placeholder.
+
+`scripts/verify-admin.ts` asserts the slip's content over HTTP, that an anonymous request is sent to
+sign-in and a missing order is 404, that `window.print` is never called on load and is called on click,
+that the screen wrapper and price column behave as above at A4 and 80mm widths, and that Chromium renders
+the page to **one A4 page** and a short 80mm roll.
+
 ### Components
 
 `AdminShell` (rail, bottom tab bar, More sheet, account menu, skip link), `PageHeader`, `Notice` (one polite/alert region

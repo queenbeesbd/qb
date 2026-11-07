@@ -310,9 +310,19 @@ export function AdminOrderDetailView({
         title={order.orderNumber}
         description={t('admin.cod.placedAt', { time: dateTime.format(new Date(order.placedAt)) })}
         actions={
-          <Link className={[styles.button, styles.buttonSecondary].join(' ')} href={returnTo.href}>
-            {t(returnTo.labelKey)}
-          </Link>
+          <>
+            <Link
+              className={[styles.button, styles.buttonSecondary].join(' ')}
+              href={'/admin/orders/' + order.orderNumber + '/slip'}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              {t('admin.order.printSlip')}
+            </Link>
+            <Link className={[styles.button, styles.buttonSecondary].join(' ')} href={returnTo.href}>
+              {t(returnTo.labelKey)}
+            </Link>
+          </>
         }
       />
 

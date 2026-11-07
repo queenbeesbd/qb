@@ -235,7 +235,17 @@ panel) and the PDP renders one.
 
 ---
 
-## Phase 52 - Dispatch paperwork
+## Phase 52 - Dispatch paperwork (implemented 2026-11-07, not deployed)
+
+**Status: implemented.** `/admin/orders/[orderNumber]/slip` exists, behind `order.read`, outside the
+admin `(app)` group so the document carries no shell; the order detail's **Print slip** control opens it
+in a new tab; the slip prints only on click. Evidence: `CHANGELOG.md` (Phase 52), the
+`docs/project-status.md` entry of the same date and `docs/design-system.md` ("The dispatch slip").
+
+**The shop contact block is omitted**, and the screen says so: **Phase 51 (support and policy surfaces) is
+not implemented** - the owner has not supplied a phone number, hours or a shop address, and Settings still
+holds only the two support links - so a slip may not carry a placeholder. No contact setting was invented
+to fill the gap.
 
 **Why.** AUD-11. A COD dispatch is a physical hand-off and the owner currently prints nothing.
 

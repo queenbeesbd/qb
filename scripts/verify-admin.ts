@@ -369,6 +369,12 @@ type AdminBrowser = {
   key(key: string): Promise<void>;
   waitFor(expression: string, timeoutMs?: number): Promise<boolean>;
   screenshot(path: string): Promise<void>;
+  /** Switches the media type the renderer honours, which is how a print stylesheet is exercised. */
+  printMedia(media: 'screen' | 'print'): Promise<void>;
+  /** Renders the current page to a PDF at the given paper size (inches) and returns the bytes. */
+  pdf(widthInches: number, heightInches: number): Promise<Buffer | null>;
+  /** Adds a script that runs before every document, used to observe `window.print` calls. */
+  initScript(expression: string): Promise<void>;
   close(): Promise<void>;
 };
 
@@ -539,6 +545,24 @@ async function openChromium(base: string): Promise<AdminBrowser | null> {
       await new Promise<void>((resolve) => setTimeout(resolve, 120));
     },
     waitFor,
+    async printMedia(media) {
+      await send('Emulation.setEmulatedMedia', { media });
+    },
+    async pdf(widthInches, heightInches) {
+      const result = await send<{ data?: string }>('Page.printToPDF', {
+        printBackground: true,
+        paperWidth: widthInches,
+        paperHeight: heightInches,
+        marginTop: 0,
+        marginBottom: 0,
+        marginLeft: 0,
+        marginRight: 0,
+      });
+      return result.data === undefined ? null : Buffer.from(result.data, 'base64');
+    },
+    async initScript(expression) {
+      await send('Page.addScriptToEvaluateOnNewDocument', { source: expression });
+    },
     async screenshot(path) {
       const result = await send<{ data?: string }>('Page.captureScreenshot', {
         format: 'png',
@@ -1200,6 +1224,49 @@ async function main(): Promise<void> {
         `detail ${limitedOrderDetail.status}, list ${limitedOrderList.status}, email withheld: ${!limitedOrderDetail.body.includes(buyerEmail)}`,
       );
 
+      // ---- Phase 52: the dispatch slip over HTTP ----
+      //
+      // The slip is a second view of one order, not a new capability: it requires exactly `order.read`,
+      // carries no profile data, and is a 404 for a reference that names nothing. It writes nothing, so
+      // the checks below are about what the paper would say and who may read it.
+      const slip = await call(base, '/admin/orders/' + codSeed.orderNumber + '/slip', { jar: ownerJar });
+      const anonymousSlip = await call(base, '/admin/orders/' + codSeed.orderNumber + '/slip');
+      const missingSlip = await call(base, '/admin/orders/QBDEC0FFEE0000000/slip', { jar: ownerJar });
+      const limitedSlip = await call(base, '/admin/orders/' + codSeed.orderNumber + '/slip', {
+        jar: limitedJar,
+      });
+      record(
+        'the dispatch slip prints the recipient, the phone, the address and the amount to collect',
+        slip.status === 200 &&
+          slip.body.includes(codSeed.orderNumber) &&
+          slip.body.includes('COD Buyer') &&
+          slip.body.includes('01712345678') &&
+          slip.body.includes('House 1, Road 2') &&
+          slip.body.includes('Dhanmondi') &&
+          slip.body.includes('Amount to collect') &&
+          slip.body.includes('Tk 100'),
+        `status ${slip.status}, reference/contact/amount present: ${slip.body.includes('Amount to collect')}`,
+      );
+      record(
+        'the slip refuses an anonymous request, a missing order and any customer profile data',
+        anonymousSlip.status === 307 &&
+          (anonymousSlip.location ?? '').startsWith('/admin/login') &&
+          missingSlip.status === 404 &&
+          limitedSlip.status === 200 &&
+          buyerEmail !== '' &&
+          !slip.body.includes(buyerEmail) &&
+          !limitedSlip.body.includes(buyerEmail),
+        `anonymous ${anonymousSlip.status} → ${anonymousSlip.location ?? ''}, missing ${missingSlip.status}, email withheld: ${!slip.body.includes(buyerEmail)}`,
+      );
+      record(
+        'the slip prints no payment or cost state and no internal order identity',
+        slip.status === 200 &&
+          !slip.body.includes('cod_pending_approval') &&
+          !slip.body.includes('Additional courier') &&
+          !slip.body.includes('paymentState'),
+        `status ${slip.status}`,
+      );
+
       // The refusals above happened over real HTTP, through the real guards, inside real transactions
       // that threw. This is the end-to-end regression assertion for the defect where a denial written
       // in the failing transaction was rolled back by the refusal itself.
@@ -1803,6 +1870,124 @@ async function main(): Promise<void> {
                 orderDetailUi.overflow <= 1,
               JSON.stringify(orderDetailUi),
             );
+
+            // ---- Phase 52: the dispatch slip, on screen and on both paper sizes ----
+            //
+            // The slip must be readable as a document (screen), and must reduce to the stored facts on
+            // paper. `window.print` is stubbed before the document loads, so "prints on click, never on
+            // load" is observed rather than assumed. Paper is emulated twice: A4 (one page) and an 80mm
+            // roll, where the unit-price column drops so the reference, quantity and amount still fit.
+            await browser.initScript(
+              'window.__printCalls = 0; window.print = function () { window.__printCalls += 1; };',
+            );
+            await browser.printMedia('screen');
+            await browser.viewport(1440, 1000);
+            await browser.navigate('/admin/orders/' + secondCod.orderNumber + '/slip');
+            const slipScreen = await browser.evaluate<{
+              text: boolean;
+              printButton: boolean;
+              chrome: boolean;
+              autoPrinted: number;
+              overflow: number;
+            }>(`(() => {
+              const text = document.body.textContent ?? '';
+              const button = document.querySelector('main button');
+              const toolbar = document.querySelector('main > div');
+              return {
+                text:
+                  text.includes(${JSON.stringify(secondCod.orderNumber)}) &&
+                  text.includes('UI COD Buyer') &&
+                  text.includes('01712345678') &&
+                  text.includes('House 9, Road 4') &&
+                  text.includes('Verify Product') &&
+                  text.includes('Amount to collect') &&
+                  text.includes('Tk 500'),
+                printButton: (button?.textContent ?? '').trim() === 'Print this slip',
+                chrome: toolbar !== null && getComputedStyle(toolbar).display !== 'none',
+                autoPrinted: window.__printCalls ?? -1,
+                overflow: document.documentElement.scrollWidth - window.innerWidth,
+              };
+            })()`);
+            record(
+              'the dispatch slip states the reference, recipient, address, lines and amount, and does not print on load',
+              slipScreen.text === true &&
+                slipScreen.printButton === true &&
+                slipScreen.chrome === true &&
+                slipScreen.autoPrinted === 0 &&
+                slipScreen.overflow <= 1,
+              JSON.stringify(slipScreen),
+            );
+            await browser.screenshot('/tmp/qb-admin-slip-screen.png');
+            await browser.click('main button');
+            const printedOnClick = await browser.evaluate<number>('window.__printCalls ?? -1');
+            record(
+              'the slip prints when its button is clicked',
+              printedOnClick === 1,
+              `print calls after click: ${printedOnClick}`,
+            );
+
+            const readSlipPaper = () =>
+              browser.evaluate<{
+                toolbarHidden: boolean;
+                priceColumn: string | null;
+                text: boolean;
+                overflow: number;
+              }>(`(() => {
+                const toolbar = document.querySelector('main > div');
+                const header = [...document.querySelectorAll('table thead th')].find(
+                  (cell) => (cell.textContent ?? '').trim() === 'Price',
+                );
+                const text = document.body.textContent ?? '';
+                return {
+                  toolbarHidden: toolbar !== null && getComputedStyle(toolbar).display === 'none',
+                  priceColumn: header === null ? null : getComputedStyle(header).display,
+                  text: text.includes('House 9, Road 4') && text.includes('Tk 500'),
+                  overflow: document.documentElement.scrollWidth - window.innerWidth,
+                };
+              })()`);
+
+            await browser.printMedia('print');
+            // A4 minus the 8mm print margin on each side is ~194mm, which is 733 CSS pixels at 96dpi.
+            await browser.viewport(733, 1000);
+            const paperA4 = await readSlipPaper();
+            await browser.screenshot('/tmp/qb-admin-slip-a4-print.png');
+            // An 80mm roll minus the same margins leaves ~64mm, or 242 CSS pixels.
+            await browser.viewport(242, 1000);
+            const paperRoll = await readSlipPaper();
+            await browser.screenshot('/tmp/qb-admin-slip-roll-print.png');
+            record(
+              'the print stylesheet removes the screen controls and keeps the address and amount at A4 and 80mm',
+              paperA4.toolbarHidden === true &&
+                paperA4.priceColumn === 'table-cell' &&
+                paperA4.text === true &&
+                paperA4.overflow <= 1 &&
+                paperRoll.toolbarHidden === true &&
+                paperRoll.priceColumn === 'none' &&
+                paperRoll.text === true &&
+                paperRoll.overflow <= 1,
+              JSON.stringify({ paperA4, paperRoll }),
+            );
+
+            const pageCount = (bytes: Buffer | null): number =>
+              bytes === null ? -1 : (bytes.toString('latin1').match(/\/Type\s*\/Page(?![s])/g) ?? []).length;
+            const a4Pdf = await browser.pdf(8.27, 11.69);
+            const rollPdf = await browser.pdf(3.15, 7.87);
+            record(
+              'the slip renders to one A4 page and to a short 80mm roll',
+              a4Pdf !== null &&
+                a4Pdf.length > 5000 &&
+                pageCount(a4Pdf) === 1 &&
+                rollPdf !== null &&
+                rollPdf.length > 5000 &&
+                pageCount(rollPdf) >= 1 &&
+                pageCount(rollPdf) <= 3,
+              `A4: ${a4Pdf?.length ?? 0} bytes, ${pageCount(a4Pdf)} page(s); 80mm: ${rollPdf?.length ?? 0} bytes, ${pageCount(rollPdf)} page(s)`,
+            );
+            await browser.printMedia('screen');
+            await browser.viewport(1440, 900);
+            // Back to the record: the checks below are about the order page, not the slip.
+            await browser.navigate('/admin/orders/' + secondCod.orderNumber);
+
             const actionPlacement = await browser.evaluate<{
               band: string | null;
               beforeMoney: boolean;

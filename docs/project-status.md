@@ -397,3 +397,29 @@ database instead.
 
 The deploy sequence this exposed - code first, migration never - is now written into
 `docs/database.md` (Rollout sequencing).
+
+## Dispatch slip (2026-11-07)
+
+Implemented locally, not deployed. `/admin/orders/[orderNumber]/slip` is the paper a COD parcel travels
+with: reference, recipient, phone, the composed address with its delivery area, the customer's note, the
+frozen lines with quantities, and **Amount to collect** with subtotal, implied discount and delivery above
+it. It requires exactly `order.read` (a limited principal with that permission reads it; the customer
+email, account state, order id, payment state and courier costs are never printed), a missing order is a
+404, an anonymous request is sent to `/admin/login`, and the page writes nothing - no state change, no
+event, no audit row. The order detail gained a **Print slip** control that opens it in a new tab.
+
+The route lives in a `(print)` group under `/admin`, outside the `(app)` shell, so the rail and tab bar are
+not part of the document. One stylesheet serves A4 and an 80mm roll: `@page { margin: 8mm }`, and under
+`@media print and (max-width: 30rem)` the unit-price column is dropped and the headers shrink so quantity
+and amount fit 64mm of content. The screen's controls and its gap note are hidden on paper. **There is no
+shop contact block:** no shop phone or address is stored anywhere, so the screen states that gap rather
+than printing a placeholder. No schema change, no migration, no new permission.
+
+Verified with typecheck, lint (0 errors, 2 pre-existing warnings), `check:i18n` (1,557 keys),
+`check:catalog`, unit **218/218**, `build`, and `verify:admin` **214/215** - the one failure is the
+documented "no CSP is claimed" assertion. The suite's new checks: the slip over HTTP (content, limited
+`order.read` access, anonymous 307 to sign-in, missing 404, no email/payment/cost state), `window.print`
+never called on load and called once on click, the screen wrapper hidden and the price column dropped at
+80mm but kept at A4, no horizontal overflow at either width, and Chromium rendering **one A4 page** and a
+**1-3 page 80mm roll**. `npm run verify:storefront` was not re-run for this change; real printers, real
+iOS Safari, Android Chrome and screen readers were not used.
