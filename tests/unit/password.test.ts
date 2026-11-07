@@ -2,12 +2,17 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
 import {
+  customerPasswordPolicyError,
   hashPassword,
   needsRehash,
   passwordPolicyError,
   verifyPassword,
 } from '../../src/server/auth/password';
-import { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH } from '../../src/lib/password-policy';
+import {
+  CUSTOMER_PASSWORD_MIN_LENGTH,
+  PASSWORD_MAX_LENGTH,
+  PASSWORD_MIN_LENGTH,
+} from '../../src/lib/password-policy';
 
 describe('staff password hashing', () => {
   it('accepts the correct password and rejects a wrong one', async () => {
@@ -126,5 +131,54 @@ describe('stored-hash parser hardening (F10)', () => {
 
   it('still verifies a real hash produced by this module', async () => {
     assert.equal(await verifyPassword(password, await hashPassword(password)), true);
+  });
+});
+
+/**
+ * The customer rule (2026-11-08): eight characters, and at least one letter or special character.
+ *
+ * The staff rule above is deliberately untouched - an administrative credential still needs twelve -
+ * so both policies are asserted here side by side, which is also the guard against one drifting into
+ * the other by accident.
+ */
+describe('customer password policy', () => {
+  it('accepts eight characters when they include a letter', () => {
+    assert.equal(CUSTOMER_PASSWORD_MIN_LENGTH, 8);
+    assert.equal(customerPasswordPolicyError('abcdefgh'), null);
+    assert.equal(customerPasswordPolicyError('abc12345'), null);
+    assert.equal(customerPasswordPolicyError('a1!2#4%6'), null);
+  });
+
+  it('accepts eight characters when the non-digit is a symbol', () => {
+    assert.equal(customerPasswordPolicyError('1234!678'), null);
+    assert.equal(customerPasswordPolicyError('1111!222'), null);
+    assert.equal(customerPasswordPolicyError('1111 222'), 'needs_letter_or_symbol', 'whitespace is not a symbol');
+  });
+
+  it('refuses anything shorter than eight', () => {
+    assert.equal(customerPasswordPolicyError('abcdefg'), 'too_short');
+    assert.equal(customerPasswordPolicyError('1234567'), 'too_short');
+    assert.equal(customerPasswordPolicyError(''), 'too_short');
+  });
+
+  it('refuses a digits-only password of any length', () => {
+    assert.equal(customerPasswordPolicyError('12345678'), 'needs_letter_or_symbol');
+    assert.equal(customerPasswordPolicyError('01712345678'), 'needs_letter_or_symbol');
+  });
+
+  it('counts a Bengali letter as a letter', () => {
+    assert.equal(customerPasswordPolicyError('পাসওয়ার্ড'), null);
+    assert.equal(customerPasswordPolicyError('১২৩৪৫৬৭৮'), 'needs_letter_or_symbol');
+  });
+
+  it('keeps the upper bound that makes hashing cost finite', () => {
+    assert.equal(customerPasswordPolicyError('a'.repeat(PASSWORD_MAX_LENGTH)), null);
+    assert.equal(customerPasswordPolicyError('a'.repeat(PASSWORD_MAX_LENGTH + 1)), 'too_long');
+  });
+
+  it('is a different rule from the staff policy', () => {
+    // Eight letters pass for a customer and remain too short for an owner or staff account.
+    assert.equal(customerPasswordPolicyError('abcdefgh'), null);
+    assert.equal(passwordPolicyError('abcdefgh'), 'too_short');
   });
 });

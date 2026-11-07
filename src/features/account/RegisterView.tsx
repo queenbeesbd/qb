@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useTranslation } from '@/i18n/useTranslation';
-import { PASSWORD_MIN_LENGTH } from '@/lib/password-policy';
+import { CUSTOMER_PASSWORD_MIN_LENGTH } from '@/lib/password-policy';
 import styles from '@/app/account.module.css';
 import { AuthShell } from './AuthShell';
 
@@ -28,7 +28,7 @@ export function RegisterView({
       case 'invalid_email':
         return t('account.errors.invalidEmail');
       case 'weak_password':
-        return t('account.errors.weakPassword', { min: PASSWORD_MIN_LENGTH });
+        return t('account.errors.weakPassword', { min: CUSTOMER_PASSWORD_MIN_LENGTH });
       case 'mismatch':
         return t('account.errors.passwordMismatch');
       case 'email_taken':
@@ -96,7 +96,7 @@ export function RegisterView({
               name="password"
               autoComplete="new-password"
               required
-              minLength={PASSWORD_MIN_LENGTH}
+              minLength={CUSTOMER_PASSWORD_MIN_LENGTH}
               placeholder="••••••••"
             />
           </label>
@@ -111,7 +111,7 @@ export function RegisterView({
             />
           </label>
         </div>
-        <p className={styles.fieldHint}>{t('account.passwordHelp', { min: PASSWORD_MIN_LENGTH })}</p>
+        <p className={styles.fieldHint}>{t('account.passwordHelp', { min: CUSTOMER_PASSWORD_MIN_LENGTH })}</p>
         <button type="submit" className={styles.primaryAction}>
           {t('account.registerSubmit')}
         </button>

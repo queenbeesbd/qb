@@ -13,7 +13,7 @@
 import { randomBytes, scrypt, timingSafeEqual, type ScryptOptions } from 'node:crypto';
 import { promisify } from 'node:util';
 
-import { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH } from '@/lib/password-policy';
+import { CUSTOMER_PASSWORD_MIN_LENGTH, PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH } from '@/lib/password-policy';
 
 /**
  * `promisify` narrows to the three-argument overload, which drops the options object that carries the
@@ -172,6 +172,21 @@ function decodeBase64Url(value: string, bytes: number): Buffer | null {
  * property that actually resists offline guessing. The maximum exists because scrypt cost grows with
  * input size and an unbounded body is a cheap denial-of-service vector.
  */
+/**
+ * The customer rule: eight characters, and at least one character that is a letter or a symbol.
+ *
+ * A digits-only string of any length is refused, because a phone number or a date is the most likely
+ * weak password a customer types. Letters are checked with the Unicode property so a Bangla password
+ * satisfies the rule exactly as an English one does.
+ */
+export function customerPasswordPolicyError(plain: string): string | null {
+  const length = [...plain.normalize('NFC')].length;
+  if (length < CUSTOMER_PASSWORD_MIN_LENGTH) return 'too_short';
+  if (length > PASSWORD_MAX_LENGTH) return 'too_long';
+  if (!/[\p{L}\p{S}\p{P}]/u.test(plain.normalize('NFC'))) return 'needs_letter_or_symbol';
+  return null;
+}
+
 export function passwordPolicyError(plain: string): string | null {
   const length = [...plain.normalize('NFC')].length;
   if (length < PASSWORD_MIN_LENGTH) return 'too_short';

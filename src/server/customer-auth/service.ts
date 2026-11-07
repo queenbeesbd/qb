@@ -30,7 +30,7 @@ import type { Transaction } from '@/db/client';
 import { customer, customerCredential } from '@/db/schema';
 import { recordAudit } from '../auth/audit';
 import { ConflictError, ValidationError } from '../authz/authorize';
-import { hashPassword, passwordPolicyError, verifyPassword } from '../auth/password';
+import { customerPasswordPolicyError, hashPassword, verifyPassword } from '../auth/password';
 import type { SessionContext } from '../auth/session';
 import {
   clearThrottle,
@@ -113,7 +113,7 @@ export async function registerCustomer(
   if (email === null) return { ok: false, failure: 'invalid_email' };
 
   const password = parsePassword(input.password);
-  if (password === null || passwordPolicyError(password) !== null) {
+  if (password === null || customerPasswordPolicyError(password) !== null) {
     return { ok: false, failure: 'weak_password' };
   }
 

@@ -14,6 +14,16 @@ An entry may describe a deployment only once it has actually happened and been o
 
 ## [Unreleased]
 
+### Changed - 2026-11-08: customer passwords may be 8 characters, with one character rule
+The customer minimum drops from 12 to **8**, and a password must now contain **at least one letter or
+special character** - a digits-only password such as a phone number is refused. The rule lives in
+`customerPasswordPolicyError` (`src/server/auth/password.ts`) and is used by registration, the mailed
+recovery reset, the owner-issued one-time code and the account-page change; the forms set `minlength=8`
+and state the character rule. **Owner and staff credentials keep the 12-character, length-only floor**,
+so the administrative surface is unchanged. Seven characters, or eight digits alone, are refused on
+every customer path (verified over HTTP alongside the form markup), and the shipped accounts keep their
+existing hashes - the rule applies at the next password set, never retroactively.
+
 ### Fixed - 2026-11-08: two misaligned rows
 The checkout bKash block was a wrapping flex row, so the copy button floated against the label line
 while the number sat below it and the caution line started with a gap. It is now a two-column grid: the

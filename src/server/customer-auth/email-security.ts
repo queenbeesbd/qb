@@ -27,7 +27,7 @@ import { sql } from 'drizzle-orm';
 import type { Transaction } from '@/db/client';
 import { accountRecoveryToken, customer, customerCredential, customerEmailChange } from '@/db/schema';
 import { recordAudit } from '../auth/audit';
-import { hashPassword, passwordPolicyError, verifyPassword } from '../auth/password';
+import { customerPasswordPolicyError, hashPassword, verifyPassword } from '../auth/password';
 import type { SessionContext } from '../auth/session';
 import {
   clearThrottle,
@@ -150,7 +150,7 @@ export async function resetCustomerPasswordWithToken(
   if (!looksLikeToken(rawToken)) return { ok: false, failure: 'invalid_token' };
 
   const password = parsePassword(input.password);
-  if (password === null || passwordPolicyError(password) !== null) {
+  if (password === null || customerPasswordPolicyError(password) !== null) {
     return { ok: false, failure: 'weak_password' };
   }
 
@@ -272,7 +272,7 @@ export async function changeCustomerPassword(
     return { ok: false, failure: 'wrong_password' };
   }
 
-  if (next === null || passwordPolicyError(next) !== null) return { ok: false, failure: 'weak_password' };
+  if (next === null || customerPasswordPolicyError(next) !== null) return { ok: false, failure: 'weak_password' };
 
   const now = new Date();
   const secretHash = await hashPassword(next);

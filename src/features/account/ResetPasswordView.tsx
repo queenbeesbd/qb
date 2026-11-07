@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 
-import { PASSWORD_MIN_LENGTH } from '@/lib/password-policy';
+import { CUSTOMER_PASSWORD_MIN_LENGTH } from '@/lib/password-policy';
 import { useTranslation } from '@/i18n/useTranslation';
 import styles from '@/app/account.module.css';
 import { AuthShell } from './AuthShell';
@@ -46,7 +46,7 @@ export function ResetPasswordView({
     >
       {notice !== null && (
         <p className={styles.notice} role="alert">
-          {t(ERROR_KEYS[notice], { min: PASSWORD_MIN_LENGTH })}
+          {t(ERROR_KEYS[notice], { min: CUSTOMER_PASSWORD_MIN_LENGTH })}
         </p>
       )}
 
@@ -66,7 +66,7 @@ export function ResetPasswordView({
                 name="password"
                 autoComplete="new-password"
                 required
-                minLength={PASSWORD_MIN_LENGTH}
+                minLength={CUSTOMER_PASSWORD_MIN_LENGTH}
                 placeholder="••••••••"
               />
             </label>
@@ -81,7 +81,7 @@ export function ResetPasswordView({
               />
             </label>
           </div>
-          <p className={styles.fieldHint}>{t('account.passwordHelp', { min: PASSWORD_MIN_LENGTH })}</p>
+          <p className={styles.fieldHint}>{t('account.passwordHelp', { min: CUSTOMER_PASSWORD_MIN_LENGTH })}</p>
           <button type="submit" className={styles.primaryAction}>
             {t('account.resetSubmit')}
           </button>

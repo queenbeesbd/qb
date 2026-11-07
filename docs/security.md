@@ -160,7 +160,7 @@ Direction approved in `docs/decisions/0004-independent-platform-direction.md`; a
 ### Sessions and credentials
 
 - Staff sessions use httpOnly, `Secure`, `SameSite` cookies with server-side session records and a bounded lifetime.
-- Passwords are hashed with a current adaptive algorithm. **Owner** account recovery uses single-use, expiring tokens. **Customer recovery has two routes since ADR 0030:** a self-service link mailed through Resend (256-bit token, stored as a SHA-256 digest, single-use, one hour) and the owner-operated one-time code (ADR 0019) for a customer who cannot reach the inbox.
+- Passwords are hashed with a current adaptive algorithm. **Customer passwords are 8+ characters with at least one letter or special character**; **owner and staff credentials keep a 12-character floor** (`src/lib/password-policy.ts`, `src/server/auth/password.ts`). **Owner** account recovery uses single-use, expiring tokens. **Customer recovery has two routes since ADR 0030:** a self-service link mailed through Resend (256-bit token, stored as a SHA-256 digest, single-use, one hour) and the owner-operated one-time code (ADR 0019) for a customer who cannot reach the inbox.
 - Secrets live in server-side environment variables only. They never appear in `NEXT_PUBLIC_*`, the client bundle, logs, documentation or committed files.
 - A documented rotation procedure exists for every provider secret.
 

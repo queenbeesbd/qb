@@ -33,7 +33,7 @@ import { sql } from 'drizzle-orm';
 import type { Transaction } from '@/db/client';
 import { accountRecoveryToken, customer, customerCredential } from '@/db/schema';
 import { recordAudit } from '../auth/audit';
-import { hashPassword, passwordPolicyError, verifyPassword } from '../auth/password';
+import { customerPasswordPolicyError, hashPassword, verifyPassword } from '../auth/password';
 import type { SessionContext } from '../auth/session';
 import { throttleState, recordFailedAttempt } from '../auth/throttle';
 import { createOpaqueToken, looksLikeToken, sha256Hex } from '../auth/tokens';
@@ -174,7 +174,7 @@ export async function redeemCustomerRecovery(
   // cannot be turned into a query or a throttle write.
   if (!looksLikeToken(input.rawToken)) return { ok: false, failure: 'invalid_token' };
 
-  if (passwordPolicyError(input.password) !== null) return { ok: false, failure: 'weak_password' };
+  if (customerPasswordPolicyError(input.password) !== null) return { ok: false, failure: 'weak_password' };
 
   const source = sha256Hex(`recovery-source:${input.context.ipHash ?? 'unknown'}`);
   const state = await throttleState(tx, CUSTOMER_RECOVERY_REDEEM_THROTTLE, source);

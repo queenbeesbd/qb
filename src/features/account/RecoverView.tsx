@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 
+import { CUSTOMER_PASSWORD_MIN_LENGTH } from '@/lib/password-policy';
 import { useTranslation } from '@/i18n/useTranslation';
 import styles from '@/app/account.module.css';
 import { ContactLink } from '@/components/ContactLink';
@@ -27,7 +28,7 @@ export function RecoverView({
 
   const noticeText =
     notice === 'weak'
-      ? t('account.errors.weakPassword', { min: 12 })
+      ? t('account.errors.weakPassword', { min: CUSTOMER_PASSWORD_MIN_LENGTH })
       : notice === 'throttled'
         ? t('account.errors.throttled')
         : notice === 'invalid'
@@ -80,11 +81,14 @@ export function RecoverView({
             name="password"
             autoComplete="new-password"
             required
-            minLength={12}
+            minLength={CUSTOMER_PASSWORD_MIN_LENGTH}
             maxLength={200}
             placeholder="••••••••"
           />
         </label>
+        <p className={styles.fieldHint}>
+          {t('account.passwordHelp', { min: CUSTOMER_PASSWORD_MIN_LENGTH })}
+        </p>
         <button type="submit" className={styles.primaryAction}>
           {t('account.recoverSubmit')}
         </button>

@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 
-import { PASSWORD_MIN_LENGTH } from '@/lib/password-policy';
+import { CUSTOMER_PASSWORD_MIN_LENGTH } from '@/lib/password-policy';
 import type { TranslationKey } from '@/i18n/dictionaries';
 import { useTranslation } from '@/i18n/useTranslation';
 import { CheckIcon } from '@/components/icons';
@@ -112,7 +112,7 @@ export function AccountView({
           role={noticeEntry.error ? 'alert' : 'status'}
           style={{ marginBottom: '1rem' }}
         >
-          {t(noticeEntry.key, { min: PASSWORD_MIN_LENGTH })}
+          {t(noticeEntry.key, { min: CUSTOMER_PASSWORD_MIN_LENGTH })}
         </p>
       )}
 
@@ -182,7 +182,7 @@ export function AccountView({
                       name="newPassword"
                       autoComplete="new-password"
                       required
-                      minLength={PASSWORD_MIN_LENGTH}
+                      minLength={CUSTOMER_PASSWORD_MIN_LENGTH}
                       placeholder="••••••••"
                     />
                   </label>
@@ -198,7 +198,7 @@ export function AccountView({
                   </label>
                 </div>
                 <p className={styles.fieldHint}>
-                  {t('account.passwordHelp', { min: PASSWORD_MIN_LENGTH })}
+                  {t('account.passwordHelp', { min: CUSTOMER_PASSWORD_MIN_LENGTH })}
                 </p>
                 <button type="submit" className={styles.secondaryButton}>
                   {t('account.changePasswordSubmit')}

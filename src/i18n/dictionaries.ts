@@ -1678,7 +1678,8 @@ export const dictionary = {
   'account.loginSubmit': 'Sign in',
   'account.password': 'Password',
   'account.confirmPassword': 'Repeat the password',
-  'account.passwordHelp': 'At least {min} characters.',
+  'account.passwordHelp':
+    'At least {min} characters, including at least one letter or special character.',
   'account.registerTitle': 'Create an account',
   'account.registerBody':
     'Create an account with an email and password. No verification email is sent.',
@@ -1711,7 +1712,8 @@ export const dictionary = {
   'account.errors.invalid': 'The email or password did not match.',
   'account.errors.throttled': 'Too many attempts. Please try again in a few minutes.',
   'account.errors.invalidEmail': 'Enter a valid email address.',
-  'account.errors.weakPassword': 'The password must be at least {min} characters.',
+  'account.errors.weakPassword':
+    'The password must be at least {min} characters and include a letter or special character.',
   'account.errors.passwordMismatch': 'The two passwords did not match.',
   'account.errors.emailTaken': 'An account with that email already exists.',
   'account.errors.invalidName': 'The name must be 80 characters or fewer.',
@@ -1761,7 +1763,8 @@ export const dictionary = {
   'account.login.emailChanged': 'Email address changed. Sign in with the new address.',
   'account.notice.passwordChanged': 'Password changed. Other devices are signed out.',
   'account.notice.wrongPassword': 'The current password did not match.',
-  'account.notice.weakPassword': 'The new password must be at least {min} characters.',
+  'account.notice.weakPassword':
+    'The new password must be at least {min} characters and include a letter or special character.',
   'account.notice.passwordMismatch': 'The two passwords did not match.',
   'account.notice.passwordUnavailable':
     'The password could not be changed. Sign in again and try once more.',
