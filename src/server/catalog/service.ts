@@ -1091,7 +1091,7 @@ export async function getProductForAdmin(tx: Transaction, productId: unknown): P
  * Every product gets exactly one variant, flagged `is_default`. That is not a variant system: the
  * schema puts the price on the variant, and the storefront's contract has one price per product, so a
  * single default variant is the honest representation of "one product, one price". Variant combinations
- * remain deferred (`docs/admin-dashboard.md`, Later).
+ * remain deferred (`docs/qbpanel-dashboard.md`, Later).
  */
 export async function createProduct(
   tx: Transaction,

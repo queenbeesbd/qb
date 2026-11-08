@@ -49,7 +49,25 @@ const nextConfig: NextConfig = {
     formats: ['image/webp'],
   },
   async headers() {
-    return [{ source: '/:path*', headers: securityHeaders }];
+    return [
+      { source: '/:path*', headers: securityHeaders },
+      /**
+       * The owner's panel is never indexed, and this header travels with the response itself.
+       *
+       * It covers the panel pages, the print view and the panel's API routes, so even a redirect or
+       * a JSON error cannot be crawled into a search result. The path is not listed in `robots.txt`
+       * on purpose: a `Disallow` line there would advertise the path to anyone who reads it, and a
+       * crawler cannot index what it is never told exists and cannot authenticate to reach.
+       */
+      {
+        source: '/qbpanel/:path*',
+        headers: [{ key: 'X-Robots-Tag', value: 'noindex, nofollow, noarchive, nosnippet' }],
+      },
+      {
+        source: '/api/qbpanel/:path*',
+        headers: [{ key: 'X-Robots-Tag', value: 'noindex, nofollow, noarchive, nosnippet' }],
+      },
+    ];
   },
   /**
    * The harness rewrites `.pi/fabric/mesh/state.json` continuously. Turbopack watches every file

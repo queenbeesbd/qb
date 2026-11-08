@@ -20,7 +20,7 @@ Owner-approved 2026-10-11. Full reasoning in `docs/decisions/0004-independent-pl
 | S4 | Explicit server-side authority for prices, discounts, inventory and order creation | Approved; **implemented for order creation and pricing (Phase 15, local)** - prices and totals are resolved server-side. Inventory authority is **not exercised** (ADR 0013) |
 | S5 | Infrastructure and architecture chosen for this project's needs, not Zatiq's implementation | Approved; **stack selection settled** (D1/D2/D3, ADRs 0005-0006; D14/D18, ADR 0007) |
 | S6 | No dependency on Zatiq's private API, internal endpoints, cookies, tenant identifiers or undocumented integrations | Approved; nothing in the repo depends on them |
-| S7 | Vendor-specific features QueenBee's does not need are not reproduced | Approved; exclusions listed in `docs/admin-dashboard.md` |
+| S7 | Vendor-specific features QueenBee's does not need are not reproduced | Approved; exclusions listed in `docs/qbpanel-dashboard.md` |
 | S8 | The existing Next.js + TypeScript storefront remains the frontend foundation | Approved; unchanged |
 | S9 | No new backend stack is selected without a documented technical evaluation and owner approval | Approved; evaluation drafted in `docs/platform-architecture.md` |
 
@@ -86,8 +86,8 @@ and are implemented locally - **not deployed** - with the evidence named for eac
 | C7 | The customer can find an order afterwards | Done | `/account/orders` lists the customer's own orders; the detail shows items, subtotal, delivery area and charge, total, and what happens next, read from stored state |
 | C8 | Another customer's order is never disclosed | Done | Every customer read filters on the session's `customer_id`; a foreign order number is a 404, not a 403 |
 | C9 | The owner can review and decide an order | Done | COD queue plus the Phase 20 order detail; approve/reject are guarded, reasoned, audited, idempotent and permission-checked server-side per request |
-| C10 | The owner can find an order later | Done | `/admin/orders`: search by number/name/phone, status filter, pagination with an exact total; a capped list states what it is not showing |
-| C11 | No invented operational states | Done | Every transition is one the state model already defined; reconciliation (`cod_reconciled`) is still written by nothing and nothing applies a failed-delivery charge. See `docs/admin-dashboard.md` |
+| C10 | The owner can find an order later | Done | `/qbpanel/orders`: search by number/name/phone, status filter, pagination with an exact total; a capped list states what it is not showing |
+| C11 | No invented operational states | Done | Every transition is one the state model already defined; reconciliation (`cod_reconciled`) is still written by nothing and nothing applies a failed-delivery charge. See `docs/qbpanel-dashboard.md` |
 | C13 | Dispatch only after approval | Done | `dispatchOrder` guards on `cod_approved` (or a verified legacy payment); a test asserts a pending COD order is refused and writes no event |
 | C14 | Cancellation only before dispatch | Done | `cancelOrderBeforeDispatch` guards on `pending`/`confirmed`/`processing`; after dispatch the case is a return. Reason required and audited |
 | C15 | A failed delivery returns the goods | Done | `cod_state = cod_failed` plus one `customer_return` per line; the order is not called `returned` until the parcel is physically back |
@@ -148,7 +148,7 @@ These are now QueenBee's own build obligations, not vendor capabilities to disco
 | Availability | **Owner-controlled `In Stock` / `Out of Stock` (D19, approved in ADR 0009; scope in ADR 0010).** An out-of-stock product **cannot be ordered** - the server-side orderability check refuses it. Presented as a state - never a countdown, a restock date or an arrival promise, because no restock data is verified. **Implemented in Phase 13 as a bare toggle**: no deduction, no reservation and no inventory movement, so it does **not** prevent overselling, and whether the approved quantity model becomes the allocation backstop was **open** - now **settled in ADR 0013**: availability is the **only** ordering gate, no reservation, allocation or deduction is written, and **overselling is accepted** |
 | Inventory | SKU/option mapping, live stock, reservation policy, stale-cart recovery. **Not a launch requirement (ADR 0013):** the balance, ledger and reservation tables are implemented and **unused**, and overselling is accepted |
 | Customers | Profile with order history and minimal personal data. **The owner may ban an account after a confirmed fake order (D20, approved in ADR 0009)**, enforced server-side by revoking sessions and refusing new orders and checkout. A ban is **not** the review flag, and does **not** cancel, refund or delete anything |
-| Admin | **QueenBee's own admin dashboard is the system of record.** Scope and launch-critical split in `docs/admin-dashboard.md`. **Owner role only at launch (D10, approved in ADR 0009):** multiple owners are permitted and each has full access, but there are no staff or support roles and no general permission-management system in the launch surface |
+| Admin | **QueenBee's own admin dashboard is the system of record.** Scope and launch-critical split in `docs/qbpanel-dashboard.md`. **Owner role only at launch (D10, approved in ADR 0009):** multiple owners are permitted and each has full access, but there are no staff or support roles and no general permission-management system in the launch surface |
 | Imagery | Written confirmation of photography rights, or replacement assets |
 | Support | Verified contact channels, order notifications, failure handling |
 | Operations | Redacted logs, monitoring, backups with a tested restore, rollback |

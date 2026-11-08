@@ -4,7 +4,7 @@
 - **Clarifies:** ADR 0004 (independent platform direction). ADR 0004 settled *who owns the platform*;
   this ADR settles *what the platform is*.
 - **Related:** `docs/requirements.md`, `docs/platform-architecture.md`, `docs/data-model.md`,
-  `docs/admin-dashboard.md`, `docs/security.md`.
+  `docs/qbpanel-dashboard.md`, `docs/security.md`.
 
 ## Context
 

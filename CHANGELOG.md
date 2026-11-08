@@ -14,6 +14,42 @@ An entry may describe a deployment only once it has actually happened and been o
 
 ## [Unreleased]
 
+### Changed - 2026-11-09: the panel moves to `/qbpanel`, its session lasts, and it ships as an app
+Owner instruction, recorded in [ADR 0031](docs/decisions/0031-panel-path-persistent-session-and-app.md).
+
+**The path.** The administrative tree is now `/qbpanel/...` and its mutations `/api/qbpanel/...`;
+`/admin` and `/api/admin` are not aliased and answer 404. `ADMIN_ROOT`, `LOGIN_PATH`, `REDEEM_PATH`,
+`ADMIN_PATH_PATTERN` and every navigation constant in `src/server/auth/constants.ts` carry the new
+path, so the post-sign-in return-path allowlist moved with it. Nothing else about authorization
+changed: every page still checks its own permission, every mutation its own session, origin and CSRF
+token.
+
+**Nothing may index it.** `next.config.ts` sets `X-Robots-Tag: noindex, nofollow, noarchive,
+nosnippet` on `/qbpanel/:path*` and `/api/qbpanel/:path*`, and `src/app/robots.ts` answers
+`Disallow: /` for every user agent. The path is deliberately **not** named in `robots.txt` - a
+`Disallow` line would publish it - and page metadata already carried `robots: { index: false }`.
+
+**The session.** `SESSION_ABSOLUTE_MS` is a year and `SESSION_IDLE_MS` 30 days (Phase 12 had 8 hours
+and 30 minutes). The row still carries both limits, still clamps the idle limit inside the ceiling,
+and sign-out, a password change and owner revocation still end a session immediately. This is the
+change that stops the panel asking for a password every time it is opened.
+
+**The app.** `android-app/` is a Capacitor project (`bd.queenbees.panel`) whose WebView loads
+`<deployment>/qbpanel`; it holds no business logic, credential or copy of the store. Launcher icons
+and every splash density/orientation are generated from the owner's `logo.jpeg` by
+`android-app/scripts/build-icons.mjs`. A built debug APK is committed at `app/dist/queenbees-panel-debug.apk`
+so the owner can install it; release signing needs the owner's own keystore, which is gitignored.
+
+**Verification actually run:** `typecheck`, `lint` (0 errors, 18 warnings), unit suite **271/271**,
+`build`, and a served production build probed over HTTP - `/qbpanel` 307 to `/qbpanel/login`,
+`/admin` 404, `/qbpanel/login` 200 with the `X-Robots-Tag` header, `robots.txt` `Disallow: /`, and a
+cross-origin `POST /api/qbpanel/session/login` refused with 403. The APK was built with JDK 21 and
+Android SDK 35 (`BUILD SUCCESSFUL`) and inspected with `aapt2 dump badging` (package
+`bd.queenbees.panel`, minSdk 23, targetSdk 35, INTERNET only, the owner's icon in every density).
+**Not verified:** installation on a real Android device, a real WebView's cookie persistence across
+restarts, `verify:admin`, `verify:storefront`, `verify:browser` and the db suite. A deploy must apply
+no migration - the schema is unchanged - but the panel URL in any bookmark is now dead.
+
 ### Removed - 2026-11-08: the owner-issued one-time code recovery
 The account page's quiet "Password" card (the sign-out note, the code link and the contact line) is
 gone, and the Phase 23 owner-issued one-time code is removed entirely: `/account/recover`, its

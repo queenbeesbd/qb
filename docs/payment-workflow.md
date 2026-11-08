@@ -4,7 +4,7 @@ Status: **rewritten 2026-10-17 for the COD-only release (ADR 0015)**. Supersedes
 financial service verification design of 2026-10-11/2026-10-16, which is retained below from §2 onward
 as **historical design**, not as behaviour. Companion documents: `docs/decisions/0015-cod-only-release.md`
 (this release), `docs/decisions/0014-phase-16-checkout-payment-and-delivery-decisions.md` (the COD
-decisions and the deferred items), `docs/security.md`, `docs/admin-dashboard.md`, and
+decisions and the deferred items), `docs/security.md`, `docs/qbpanel-dashboard.md`, and
 `docs/implementation-plan.md` (Phase 17).
 
 > **Read this first.** This release accepts **Cash on Delivery only**. There is **no** prepaid method, no
@@ -39,7 +39,7 @@ QueenBee's accepts **one** method: **Cash on Delivery**. Ordering still requires
 
 ### The owner journey
 
-1. The order appears in **`/admin/orders-cod`**, oldest first, with the total and the delivery contact.
+1. The order appears in **`/qbpanel/orders-cod`**, oldest first, with the total and the delivery contact.
 2. The owner **calls the customer**. Nothing is automatic: no message is sent and no state changes on its
    own.
 3. The owner **approves** - `cod_approved`, order `confirmed`, one `cod_approved` event and one
@@ -48,7 +48,7 @@ QueenBee's accepts **one** method: **Cash on Delivery**. Ordering still requires
 4. Both transitions are guarded in the SQL `WHERE` clause on prior state, so a double click or two racing
    requests produce exactly one decision; the loser reads a conflict. The order leaves the queue.
 5. **No decision bans a customer.** A ban is a separate, reasoned, audited owner action on
-   `/admin/customers`, which revokes live sessions and refuses future orders inside the order transaction
+   `/qbpanel/customers`, which revokes live sessions and refuses future orders inside the order transaction
    (D20).
 
 ### What is deliberately not modelled yet
@@ -237,7 +237,7 @@ The submission endpoint validates, at the server boundary:
 
 ## 7. Admin verification queue
 
-Detailed module scope is in `docs/admin-dashboard.md`. Requirements:
+Detailed module scope is in `docs/qbpanel-dashboard.md`. Requirements:
 
 - A queue of orders in `awaiting_verification`, oldest first, with the age of each clearly shown.
 - Each row shows: order reference, order total, claimed amount, method, transaction reference, sender number (if given), and time since submission.

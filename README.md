@@ -22,9 +22,9 @@ nothing is paid in the browser.
   server-side and snapshotted on the order. Guest checkout is an owner switch.
 - Cart state is ids and quantities in `localStorage`; prices, names and availability are always re-read.
 
-**Admin panel** (`/admin`, owner-only - [ADR 0009](docs/decisions/0009-owner-decisions-availability-bans-and-owner-accounts.md)):
+**Admin panel** (`/qbpanel`, owner-only - [ADR 0009](docs/decisions/0009-owner-decisions-availability-bans-and-owner-accounts.md)):
 
-- Overview with the COD worklist, refused actions and catalog counts; `/admin/analytics` for the last
+- Overview with the COD worklist, refused actions and catalog counts; `/qbpanel/analytics` for the last
   7 / 30 / 90 days, derived from the shop's own rows.
 - Orders: the COD queue, the recallable order list, one order in full with its event history; approve,
   cancel, dispatch, deliver, record a failed delivery, receive the return, mark Payment Received (which
@@ -61,9 +61,9 @@ npm run db:seed                # permission catalogue + owner role
 npm run db:seed:catalog        # optional: the 22-product fixture seed
 
 npm run staff:bootstrap -- you@example.test "Owner"   # prints a one-time token
-# open http://localhost:3000/admin/redeem, paste the token, choose a password
+# open http://localhost:3000/qbpanel/redeem, paste the token, choose a password
 
-npm run dev                    # http://localhost:3000  (admin at /admin)
+npm run dev                    # http://localhost:3000  (admin at /qbpanel)
 ```
 
 The production build is what the project verifies: `npm run build` then `npm run start`. Both read
@@ -72,7 +72,7 @@ environment. `QUEENBEES_ENV` guards the database target: a loopback host is refu
 so a local demo runs as `QUEENBEES_ENV=development`.
 
 **A demo owner account exists in this local database** (`demo@queenbees.test`) - its password was set
-through `/admin/redeem` and is not recorded in the repository, because a working credential does not
+through `/qbpanel/redeem` and is not recorded in the repository, because a working credential does not
 belong in a committed file. To work on a fresh database, use `staff:bootstrap` above. Accounts are only
 created from the host shell or by an owner; there is no web setup screen and no second provisioning
 channel.
@@ -89,13 +89,13 @@ channel.
 | `/checkout` | Delivery contact and area, promo code, Cash on Delivery |
 | `/account`, `/account/login`, `/account/register`, `/account/recover` | Customer session and the owner-issued reset |
 | `/account/orders`, `/orders/[orderNumber]` | The customer's own order list, and the receipt for one order. The receipt is the canonical route for **both** viewers: a guest reaches it by its own number, a customer through the list, and another customer's number is a 404. `/account/orders/[orderNumber]` redirects to it. |
-| `/admin` | Overview: COD worklist, refused actions, catalog counts |
-| `/admin/orders-cod`, `/admin/orders`, `/admin/orders/[orderNumber]` | The COD queue, order history, one order in full |
-| `/admin/catalog`, `/admin/catalog/new`, `/admin/catalog/[productId]` | Products: list and full-height editor |
-| `/admin/categories`, `/admin/promo-codes`, `/admin/customers` | Taxonomy, codes and the customer list |
-| `/admin/analytics`, `/admin/audit`, `/admin/owners` | Derived figures, the audit trail, owner accounts |
-| `/admin/settings/{delivery,announcement,other,integrations}` | Delivery charges, announcement bar, checkout switches, integrations |
-| `/api/...` | Every mutation: checkout, account, and the `/api/admin/*` routes behind a session and a permission |
+| `/qbpanel` | Overview: COD worklist, refused actions, catalog counts |
+| `/qbpanel/orders-cod`, `/qbpanel/orders`, `/qbpanel/orders/[orderNumber]` | The COD queue, order history, one order in full |
+| `/qbpanel/catalog`, `/qbpanel/catalog/new`, `/qbpanel/catalog/[productId]` | Products: list and full-height editor |
+| `/qbpanel/categories`, `/qbpanel/promo-codes`, `/qbpanel/customers` | Taxonomy, codes and the customer list |
+| `/qbpanel/analytics`, `/qbpanel/audit`, `/qbpanel/owners` | Derived figures, the audit trail, owner accounts |
+| `/qbpanel/settings/{delivery,announcement,other,integrations}` | Delivery charges, announcement bar, checkout switches, integrations |
+| `/api/...` | Every mutation: checkout, account, and the `/api/qbpanel/*` routes behind a session and a permission |
 
 The admin surface uses **one control scale** (40px / 34px, and 40px for both on a phone) and the
 storefront **never lets a phone zoom the page** - see [design system](docs/design-system.md).
@@ -106,7 +106,7 @@ storefront **never lets a phone zoom the page** - see [design system](docs/desig
 src/
   app/
     (storefront)/        public routes and their layouts
-    (admin)/admin/       owner routes: (app) shell and (auth) login/redeem
+    (admin)/qbpanel/     owner routes: (app) shell and (auth) login/redeem
     api/                 route handlers - every write goes through one
     globals.css          design tokens; Shell.tsx / providers.tsx wrap both surfaces
   components/            header, footer, tab bar, cards, photo, stepper, icons, ticker
@@ -120,7 +120,11 @@ scripts/                 migration, seed, import, purge, integrity and verificat
 drizzle/                 reviewed SQL migrations (0000-0015)
 docs/                    architecture, data model, security, plan, status, ADRs
 public/                  brand assets and the catalog image variants
+android-app/             the owner's Android app (Capacitor shell around /qbpanel), its APK in dist/
 ```
+
+`android-app/` is **not** `app/` on purpose: Next.js resolves a root-level `app/` directory as its own
+route directory ahead of `src/app/`, which would replace this whole application with an empty tree.
 
 `src/server/` and `src/db/` are server-only: a client component importing one fails the build, and
 `npm run check:secrets` verifies the shipped bundle holds no server path or credential. Views depend on
@@ -193,6 +197,6 @@ replacement for now is a set of task-specific CDP probes, which is weaker than a
 - [Data model](docs/data-model.md) - tables, constraints, state machines, transactions
 - [Security](docs/security.md) - authorization matrix and threat model
 - [Design system](docs/design-system.md) - tokens, control scales, surfaces, phone rules
-- [Admin dashboard](docs/admin-dashboard.md), [payment workflow](docs/payment-workflow.md)
+- [Admin dashboard](docs/qbpanel-dashboard.md), [payment workflow](docs/payment-workflow.md)
 - [Implementation plan](docs/implementation-plan.md) and [verified status](docs/project-status.md)
 - [Decisions](docs/decisions/), [agent rules](AGENTS.md)

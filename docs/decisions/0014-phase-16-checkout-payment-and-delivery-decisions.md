@@ -389,7 +389,7 @@ writer may be added before that predicate exists.
 
 The following are corrected in this change (documentation only; no code, schema or migration):
 
-1. **`docs/payment-workflow.md` and `docs/admin-dashboard.md` refer to `order.payment_status` and
+1. **`docs/payment-workflow.md` and `docs/qbpanel-dashboard.md` refer to `order.payment_status` and
    `order.refund_status`.** Neither exists. The implemented names are `order.payment_state` and the
    separate `refund` table with `refund.state`. Corrected to the implemented names.
 2. **`docs/payment-workflow.md` lists the `cod_*` values inside the payment enum.** They live in

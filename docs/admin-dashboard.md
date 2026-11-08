@@ -7,7 +7,7 @@
 > counterparty**, and since ADR 0015 this release takes payment as **cash on delivery only** - no store
 > bKash/Nagad account is configured or reconciled here.
 
-Status: proposal, 2026-10-11; **reconciled 2026-10-16 against ADRs 0013 and 0014, 2026-10-17 against ADR 0015 (COD-only), updated 2026-10-19 when Phase 18 was implemented locally, and 2026-10-20 for ADR 0016 delivery charges**. Direction approved in `docs/decisions/0004-independent-platform-direction.md`; architecture in `docs/platform-architecture.md`. The owner/admin authentication, catalog, availability, COD queue, customer moderation, **the Phase 18 application shell and dashboard**, and **the Phase 19 delivery-charge settings** are **implemented (Phases 12-19, local only)**. Dispatch, cash-reconciliation, analytics and the other depth modules below are **not built**.
+Status: proposal, 2026-10-11; **reconciled 2026-10-16 against ADRs 0013 and 0014, 2026-10-17 against ADR 0015 (COD-only), updated 2026-10-19 when Phase 18 was implemented locally, and 2026-10-20 for ADR 0016 delivery charges**. Direction approved in `docs/decisions/0004-independent-platform-direction.md`; architecture in `docs/platform-architecture.md`. The owner/qbpanel authentication, catalog, availability, COD queue, customer moderation, **the Phase 18 application shell and dashboard**, and **the Phase 19 delivery-charge settings** are **implemented (Phases 12-19, local only)**. Dispatch, cash-reconciliation, analytics and the other depth modules below are **not built**.
 
 > **Reconciliation note (2026-10-16).** Three premises here are superseded:
 > 1. **No reservation and no stock release.** Under **ADR 0013** availability is the only ordering gate and no reservation is written, so any text below about a held reservation, releasing stock through the ledger, or low-stock alerts describes **unused design**.
@@ -42,7 +42,7 @@ These are required for the store to trade. Without them, orders cannot be fulfil
 | --- | --- |
 | **Products** | Create, edit, unpublish; brand, category, bilingual name and description; images; price and comparison price; SKU; and the **availability state - In Stock / Out of Stock (D19, approved in ADR 0009)**, which is what the owner operates and what the storefront shows. An out-of-stock product cannot be ordered. The availability control is presented as a state, never as a quantity countdown, a restock date or an arrival promise. **Implemented in Phase 13.** Imagery is uploaded from the browser or chosen from the server-controlled inventory; the server reads its dimensions and content type from the bytes. **Not yet built:** variant editing (one default variant per product), curation, and bulk operations |
 | **Categories** | Create and edit; bilingual names; display order; visibility; optional image; and **one level of subcategory** (Phase 31, owner-authorized 2026-11-06). **Implemented in Phase 13** (names, descriptions, order, visibility), Phase 36 (images, editor) and Phase 31 (parent picker, list grouping, storefront hierarchy). Archiving is **refused while products or subcategories still reference the category**, rather than cascading |
-| **Brands** | List with search and pagination; a full editor at `/admin/catalog/brands/new` and `/admin/catalog/brands/[brandId]` for the names, slug and mark, uploaded locally or chosen from the shop inventory. **Implemented 2026-11-06**; no delete/archive surface |
+| **Brands** | List with search and pagination; a full editor at `/qbpanel/catalog/brands/new` and `/qbpanel/catalog/brands/[brandId]` for the names, slug and mark, uploaded locally or chosen from the shop inventory. **Implemented 2026-11-06**; no delete/archive surface |
 | **Orders** | List with filters; itemized detail with frozen line prices; status transitions with history; payment status; shipping details; cancellation |
 | **Payments** | **Cash on Delivery only (ADR 0015).** The COD confirmation queue with approve/cancel, guarded transitions and an audit trail. The manual prepaid queue, its recipient configuration and its `payment.*` permissions were **removed in Phase 17** |
 | **Customers** | Profile with order history; minimal personal data; **ban after a confirmed fake order (D20, approved in ADR 0009)**, which revokes the account's sessions and refuses new orders and checkout. The review flag is a separate, non-blocking finding and is never presented as a ban |
@@ -84,7 +84,7 @@ verification queue, the payment-recipient configuration screen and every `paymen
 **removed from the application in Phase 17**. There is no prepaid queue in this dashboard, and no screen
 should suggest one.
 
-### The COD queue (`/admin/orders-cod`)
+### The COD queue (`/qbpanel/orders-cod`)
 
 - Orders in `cod_state = 'cod_pending_approval'` **and** `status = 'pending'`, oldest first. Age is the
   sort order because a waiting COD order is a customer who has not been called.
@@ -108,7 +108,7 @@ should suggest one.
 
 ### The product editor (Phase 35)
 
-`/admin/catalog/new` and `/admin/catalog/[productId]` are their own routes. The list no longer hosts a
+`/qbpanel/catalog/new` and `/qbpanel/catalog/[productId]` are their own routes. The list no longer hosts a
 form, so a filtered, paginated list and a full-height editor stop sharing a URL - and a refresh cannot
 lose whichever one the owner was in. `?new=1` and `?edit=<id>` are gone rather than kept as aliases.
 
@@ -187,14 +187,14 @@ the shape the storefront uses, an optional choice from the server's inventory, a
 explicit checkbox. **The image saves with the record** - the forms are `multipart/form-data`, the server
 stores the file, and the row and its image are written in one transaction.
 
-- **Category:** `/admin/categories/new` and `/admin/categories/[categoryId]` now lead with the
+- **Category:** `/qbpanel/categories/new` and `/qbpanel/categories/[categoryId]` now lead with the
   **Category photo** card, then names, the one-line label, descriptions and placement. The old
-  edit-only image section and `/api/admin/catalog/category-image` were removed.
-- **Brand:** `/admin/catalog/brands/new` and `/admin/catalog/brands/[brandId]` are the new
+  edit-only image section and `/api/qbpanel/catalog/category-image` were removed.
+- **Brand:** `/qbpanel/catalog/brands/new` and `/qbpanel/catalog/brands/[brandId]` are the new
   **BrandForm** - name English/Bangla, slug, and the brand mark in the same media control, with a
   circular preview and the real product count. `updateBrand` audits `catalog.brand_updated`; the list
   gained a **New brand** action, and the inline brand form on the product list is now a link to it.
-  `/api/admin/catalog/brand-image` was removed.
+  `/api/qbpanel/catalog/brand-image` was removed.
 - A refusal returns to the editor that produced it and renders a notice; an unreadable file is
   `imageInvalid` and nothing is saved.
 
@@ -227,7 +227,7 @@ one vocabulary, defined once and consumed everywhere:
 | Date range | `_ui/ListFilters.tsx` | two `type="date"` inputs, applied in SQL, half-open `[from, to+1 day)` |
 | Active filters | `ActiveFilters` | a chip per filter in force, each with its own remove link |
 | Footer | `_ui/Pagination.tsx` | the **only** count on the page, the page-size control and the pager |
-| Query state | `src/lib/admin-query.ts` | pure, unit-tested parsing and URL building |
+| Query state | `src/lib/qbpanel-query.ts` | pure, unit-tested parsing and URL building |
 
 **Rules that hold everywhere:** filtering is done in SQL by the server, never in the browser over one
 page; every piece of list state is in the URL, so a filtered list is linkable and survives a reload;
@@ -245,20 +245,20 @@ because it is long-lived and read in longer sittings.
 The queue is a **worklist**; an order also needs a **record**. Both now exist, and neither duplicates the
 other's policy:
 
-- **`/admin/orders`** (requires `order.read`): every order the store has taken, newest first, with
+- **`/qbpanel/orders`** (requires `order.read`): every order the store has taken, newest first, with
   server-side search over the order number, recipient name and phone, a status filter over the eight
   states the model actually uses, a **server-side date range** over `placed_at` (Phase 30), a page-size
   control, and pagination with an exact total so a list can never silently truncate. Each row also shows
   the snapshotted delivery charge as a sub-line of the total and the number of recorded lines. Rows link
   to the detail.
-- **`/admin/orders/[orderNumber]`** (requires `order.read`): the reference and placement time, the
+- **`/qbpanel/orders/[orderNumber]`** (requires `order.read`): the reference and placement time, the
   customer and the delivery contact with a `tel:` link, the delivery area and full address, the recorded
   lines at their saved unit prices, the **delivery-charge snapshot** the order stored, the order and COD
   states, a cancelled order's reason, the **order event log**, and the **audit trail for that order** -
   the last of these only for a principal holding `audit.read`. A reference that names no order is a
   **404**, not a 403, so the page cannot be used to probe for order numbers.
 - **The decision controls on the detail page are the queue's own guarded forms** (the same
-  `/api/admin/orders-cod` route, the same service, the same audit). A decided order shows its decision
+  `/api/qbpanel/orders-cod` route, the same service, the same audit). A decided order shows its decision
   and no second form.
 - **The customer's account email is not sent to the browser** unless the viewer holds `customer.read`.
   Reading an order and reading a customer are different permissions, and a client component's props are
@@ -273,7 +273,7 @@ under the page header**, before the money facts and the record - the owner opens
 the record is what they check before acting. The band states the step, why it is offered and the order
 total; a settled order shows **no band at all** rather than an empty panel. Each control appears **only
 while its transition is legal**, and every one posts to a single guarded endpoint
-(`/api/admin/orders/transition`) that calls a service which re-checks the action's own permission and the
+(`/api/qbpanel/orders/transition`) that calls a service which re-checks the action's own permission and the
 order's current state.
 
 | Control | Appears when | Records |
@@ -446,7 +446,7 @@ themes/builder/app/marketplace/vendor links, a "new order" button (orders come f
 subscription/renewal/upgrade prompts. See the rule in `AGENTS.md`.
 
 **Verification (2026-11-06, local):** typecheck, lint (0 errors), `check:i18n`, unit **212/212**,
-`tests/db/admin-orders.test.ts` **12/12** (including the guest recent-order case), `build`,
+`tests/db/qbpanel-orders.test.ts` **12/12** (including the guest recent-order case), `build`,
 `verify:admin` **203/206** (the three pre-existing failures: category-visibility hydration race,
 Telegram removal-dialog flake, absent CSP; the new overview-composition check passes), and Chromium at 1280 and 390 (five tiles, three closing
 panels, six quick actions, zero horizontal overflow; 2-column KPI grid with the fifth tile full width
@@ -458,8 +458,8 @@ on the phone).
 | --- | --- | --- |
 | The overview is a grid of **counts**, including catalog totals that do not change daily | `admin/(app)/page.tsx`, `OverviewView.tsx` | It answers "how much is there", not "what needs me now". The owner's first question in the morning is which calls to make |
 | The COD queue is a **wide table** with two free-text forms per row and a required reason for approval | `admin/(app)/orders-cod/CodView.tsx` | The approve path is the most frequent action and it demands a 10-character reason typed into every row |
-| Catalog and categories are **separate pages** with their own notice vocabularies and inline forms | `admin/(app)/catalog`, `categories`, and `api/admin/catalog/*` | The owner edits a product's price and availability in one place and its category in another; there is no shared "saved / refused" feedback pattern |
-| Availability is a **binary control inside a form**, but it is the single most often changed field | `api/admin/catalog/availability/route.ts` | It is a state toggle promoted to a form post; it deserves a first-class control with optimistic feedback and audit confirmation |
+| Catalog and categories are **separate pages** with their own notice vocabularies and inline forms | `admin/(app)/catalog`, `categories`, and `api/qbpanel/catalog/*` | The owner edits a product's price and availability in one place and its category in another; there is no shared "saved / refused" feedback pattern |
+| Availability is a **binary control inside a form**, but it is the single most often changed field | `api/qbpanel/catalog/availability/route.ts` | It is a state toggle promoted to a form post; it deserves a first-class control with optimistic feedback and audit confirmation |
 | Empty states are one sentence, loading states are absent (server-rendered), errors arrive as `?notice=` codes | all admin routes | A refusal is invisible once the redirect lands unless the notice maps to copy; a slow query shows nothing at all |
 | Customers are a list with a suspension form per row | `admin/(app)/customers/CustomersView.tsx` | Banning is destructive and irreversible from the UI; it needs a confirmation step with the reason visible, not a text field in a table row |
 | Navigation is flat and permission-filtered at the layout | `admin/(app)/layout.tsx` | Correct, and worth keeping: one level, no nesting, no role-based menu logic beyond `hasPermission` |
@@ -574,7 +574,7 @@ library, an animation library, and any dashboard metric that cannot be reconcile
 The direction below was a brief; this is what shipped. It is recorded here so the next change starts from
 the real surface rather than from the plan.
 
-**Two screens, one loader.** `/admin` (last 30 days) and `/admin/analytics` (7 / 30 / 90 days) both read
+**Two screens, one loader.** `/qbpanel` (last 30 days) and `/qbpanel/analytics` (7 / 30 / 90 days) both read
 `src/server/analytics/read.ts`, so the same thirty days cannot be reported two ways.
 
 | Question | Shipped as | Note |

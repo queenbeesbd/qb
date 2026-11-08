@@ -65,7 +65,7 @@ export const viewport: Viewport = {
  *
  * It carries only what both surfaces need: the fonts, the stylesheet, the language attribute and the
  * locale provider. Page chrome belongs to a surface, so the storefront's header, footer and cart
- * provider live in `(storefront)/layout.tsx` and the admin shell in `(admin)/admin/(app)/layout.tsx`.
+ * provider live in `(storefront)/layout.tsx` and the admin shell in `(admin)/qbpanel/(app)/layout.tsx`.
  * Rendering storefront chrome here would put a cart on every admin page - and, as the build caught,
  * render the header above the provider it depends on.
  *

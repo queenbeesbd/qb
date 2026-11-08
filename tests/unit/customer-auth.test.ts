@@ -70,10 +70,10 @@ describe('customer return paths', () => {
       'https://evil.example/checkout',
       '//evil.example/checkout',
       '/products',
-      '/admin',
+      '/qbpanel',
       'checkout',
-      '/checkout/../admin',
-      '/account/../admin',
+      '/checkout/../qbpanel',
+      '/account/../qbpanel',
       '',
     ]) {
       assert.equal(safeCustomerNext(value), '/account', value);

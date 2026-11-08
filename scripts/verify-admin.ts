@@ -56,7 +56,7 @@ import { OWNER_ROLE, PERMISSIONS } from '../src/server/authz/permissions';
 import { listAssetKeys } from '../src/server/catalog/assets';
 import { checkOrderability } from '../src/server/catalog/orderability';
 import { resetServerEnvCache } from '../src/server/env';
-import { revenueSummary } from '../src/server/orders/admin-read';
+import { revenueSummary } from '../src/server/orders/qbpanel-read';
 
 const OWNER_EMAIL = 'owner@verify.test';
 const OWNER_PASSWORD = 'verify-owner-password-1';
@@ -692,7 +692,7 @@ async function main(): Promise<void> {
 
     console.log('\nunauthenticated access');
     {
-      for (const path of ['/admin', '/admin/catalog', '/admin/categories', '/admin/owners', '/admin/audit', '/admin/forbidden']) {
+      for (const path of ['/qbpanel', '/qbpanel/catalog', '/qbpanel/categories', '/qbpanel/owners', '/qbpanel/audit', '/qbpanel/forbidden']) {
         const response = await call(base, path);
         record(
           `GET ${path} without a session redirects to sign-in`,
@@ -707,14 +707,14 @@ async function main(): Promise<void> {
       }
 
       for (const [path, form] of [
-        ['/api/admin/owners', { email: 'x@y.test', displayName: 'X' }],
-        ['/api/admin/owners/status', { staffUserId: '1', operation: 'disable' }],
-        ['/api/admin/owners/credential', { staffUserId: '1' }],
-        ['/api/admin/catalog/product', { operation: 'create', nameEn: 'X' }],
-        ['/api/admin/catalog/availability', { productId: '1', availability: 'in_stock' }],
-        ['/api/admin/catalog/category', { operation: 'create', nameEn: 'X' }],
-        ['/api/admin/catalog/image', { operation: 'attach', productId: '1', key: 'x' }],
-        ['/api/admin/integrations/telegram', { operation: 'remove', recipientId: '1' }],
+        ['/api/qbpanel/owners', { email: 'x@y.test', displayName: 'X' }],
+        ['/api/qbpanel/owners/status', { staffUserId: '1', operation: 'disable' }],
+        ['/api/qbpanel/owners/credential', { staffUserId: '1' }],
+        ['/api/qbpanel/catalog/product', { operation: 'create', nameEn: 'X' }],
+        ['/api/qbpanel/catalog/availability', { productId: '1', availability: 'in_stock' }],
+        ['/api/qbpanel/catalog/category', { operation: 'create', nameEn: 'X' }],
+        ['/api/qbpanel/catalog/image', { operation: 'attach', productId: '1', key: 'x' }],
+        ['/api/qbpanel/integrations/telegram', { operation: 'remove', recipientId: '1' }],
       ] as [string, Record<string, string>][]) {
         const response = await call(base, path, { method: 'POST', form });
         record(`POST ${path} without a session is refused`, response.status === 401, `status ${response.status}`);
@@ -724,10 +724,10 @@ async function main(): Promise<void> {
       // session to revoke, so the route clears any stale cookie and returns the visitor to sign-in.
       // The security property is that it performs no state change and discloses nothing - which the
       // authenticated sign-out below proves is what actually requires a session and a CSRF token.
-      const anonymousLogout = await call(base, '/api/admin/session/logout', { method: 'POST', form: {} });
+      const anonymousLogout = await call(base, '/api/qbpanel/session/logout', { method: 'POST', form: {} });
       record(
-        'POST /api/admin/session/logout without a session revokes nothing and returns to sign-in',
-        anonymousLogout.status === 303 && (anonymousLogout.location ?? '').startsWith('/admin/login'),
+        'POST /api/qbpanel/session/logout without a session revokes nothing and returns to sign-in',
+        anonymousLogout.status === 303 && (anonymousLogout.location ?? '').startsWith('/qbpanel/login'),
         `status ${anonymousLogout.status} → ${anonymousLogout.location ?? ''}`,
       );
     }
@@ -736,7 +736,7 @@ async function main(): Promise<void> {
     {
       const ownerJar = new Jar();
 
-      const crossSite = await call(base, '/api/admin/session/login', {
+      const crossSite = await call(base, '/api/qbpanel/session/login', {
         method: 'POST',
         jar: ownerJar,
         form: { email: OWNER_EMAIL, password: OWNER_PASSWORD },
@@ -744,12 +744,12 @@ async function main(): Promise<void> {
       });
       record('a cross-origin sign-in is refused', crossSite.status === 403, `status ${crossSite.status}`);
 
-      const wrongPassword = await call(base, '/api/admin/session/login', {
+      const wrongPassword = await call(base, '/api/qbpanel/session/login', {
         method: 'POST',
         jar: ownerJar,
         form: { email: OWNER_EMAIL, password: 'wrong-password' },
       });
-      const unknownAccount = await call(base, '/api/admin/session/login', {
+      const unknownAccount = await call(base, '/api/qbpanel/session/login', {
         method: 'POST',
         jar: ownerJar,
         form: { email: 'nobody@verify.test', password: 'wrong-password' },
@@ -767,7 +767,7 @@ async function main(): Promise<void> {
         wrongPassword.location ?? '',
       );
 
-      const success = await call(base, '/api/admin/session/login', {
+      const success = await call(base, '/api/qbpanel/session/login', {
         method: 'POST',
         jar: ownerJar,
         form: { email: OWNER_EMAIL, password: OWNER_PASSWORD },
@@ -789,8 +789,8 @@ async function main(): Promise<void> {
         success.location ?? '',
       );
 
-      const overview = await call(base, '/admin', { jar: ownerJar });
-      record('GET /admin with a session renders the shell', overview.status === 200 && overview.body.includes('Verify Owner'), `status ${overview.status}`);
+      const overview = await call(base, '/qbpanel', { jar: ownerJar });
+      record('GET /qbpanel with a session renders the shell', overview.status === 200 && overview.body.includes('Verify Owner'), `status ${overview.status}`);
       record('the admin response is never cached', (overview.cacheControl ?? '').includes('no-store'), overview.cacheControl ?? '');
       record(
         'the raw session token never appears in the page',
@@ -799,7 +799,7 @@ async function main(): Promise<void> {
       );
       record('the admin page is marked noindex', /noindex/i.test(overview.body), 'robots directive present');
 
-      const audit = await call(base, '/admin/audit', { jar: ownerJar });
+      const audit = await call(base, '/qbpanel/audit', { jar: ownerJar });
       record('the owner can read the audit trail', audit.status === 200, `status ${audit.status}`);
       record(
         'the audit trail records the sign-in without a password or a token',
@@ -813,21 +813,21 @@ async function main(): Promise<void> {
       const csrf = csrfFrom(overview.body);
       record('the page carries a session-bound CSRF token', /^[0-9a-f]{64}$/.test(csrf), 'token rendered');
 
-      const noCsrf = await call(base, '/api/admin/owners', {
+      const noCsrf = await call(base, '/api/qbpanel/owners', {
         method: 'POST',
         jar: ownerJar,
         form: { email: NEW_OWNER_EMAIL, displayName: 'Newcomer' },
       });
       record('a state-changing request without a CSRF token is refused', noCsrf.status === 403, `status ${noCsrf.status}`);
 
-      const wrongCsrf = await call(base, '/api/admin/owners', {
+      const wrongCsrf = await call(base, '/api/qbpanel/owners', {
         method: 'POST',
         jar: ownerJar,
         form: { csrf: 'f'.repeat(64), email: NEW_OWNER_EMAIL, displayName: 'Newcomer' },
       });
       record('a state-changing request with a wrong CSRF token is refused', wrongCsrf.status === 403, `status ${wrongCsrf.status}`);
 
-      const crossSiteMutation = await call(base, '/api/admin/owners', {
+      const crossSiteMutation = await call(base, '/api/qbpanel/owners', {
         method: 'POST',
         jar: ownerJar,
         form: { csrf, email: NEW_OWNER_EMAIL, displayName: 'Newcomer' },
@@ -835,7 +835,7 @@ async function main(): Promise<void> {
       });
       record('a valid CSRF token from a cross-site origin is still refused', crossSiteMutation.status === 403, `status ${crossSiteMutation.status}`);
 
-      const created = await call(base, '/api/admin/owners', {
+      const created = await call(base, '/api/qbpanel/owners', {
         method: 'POST',
         jar: ownerJar,
         form: { csrf, email: NEW_OWNER_EMAIL, displayName: 'Newcomer' },
@@ -868,7 +868,7 @@ async function main(): Promise<void> {
 
       // Signing in with the new account's address must fail while it has no credential, so account
       // creation alone cannot grant access.
-      const unredeemed = await call(base, '/api/admin/session/login', {
+      const unredeemed = await call(base, '/api/qbpanel/session/login', {
         method: 'POST',
         jar: new Jar(),
         form: { email: NEW_OWNER_EMAIL, password: 'any-password-1' },
@@ -879,7 +879,7 @@ async function main(): Promise<void> {
         `status ${unredeemed.status} → ${unredeemed.location ?? ''}`,
       );
 
-      const ownersPage = await call(base, '/admin/owners', { jar: ownerJar });
+      const ownersPage = await call(base, '/qbpanel/owners', { jar: ownerJar });
       const issuedToken = /[A-Za-z0-9_-]{43}/.exec(ownersPage.body.replace(/[\s\S]*qb_admin_flash/, ''))?.[0] ?? '';
       record('the one-time token is shown once on the owners screen', ownersPage.status === 200 && issuedToken.length === 43, `token length ${issuedToken.length}`);
       record(
@@ -890,44 +890,44 @@ async function main(): Promise<void> {
 
       // The staff and role surface the owner ruled out of launch (D10, ADR 0009) must be gone, not merely
       // unlinked: a retired route that still answers would still be an administrative surface.
-      const retiredPage = await call(base, '/admin/staff', { jar: ownerJar });
+      const retiredPage = await call(base, '/qbpanel/staff', { jar: ownerJar });
       record('the retired staff page no longer exists', retiredPage.status === 404, `status ${retiredPage.status}`);
-      for (const retiredApi of ['/api/admin/staff', '/api/admin/staff/role', '/api/admin/staff/status', '/api/admin/staff/credential']) {
+      for (const retiredApi of ['/api/qbpanel/staff', '/api/qbpanel/staff/role', '/api/qbpanel/staff/status', '/api/qbpanel/staff/credential']) {
         const response = await call(base, retiredApi, { method: 'POST', jar: ownerJar, form: { csrf } });
         record(`the retired endpoint ${retiredApi} no longer exists`, response.status === 404, `status ${response.status}`);
       }
 
       const limitedJar = new Jar();
-      const limitedSignIn = await call(base, '/api/admin/session/login', {
+      const limitedSignIn = await call(base, '/api/qbpanel/session/login', {
         method: 'POST',
         jar: limitedJar,
         form: { email: LIMITED_EMAIL, password: LIMITED_PASSWORD },
       });
       record('the limited principal can sign in', limitedSignIn.status === 303, `status ${limitedSignIn.status}`);
 
-      const limitedOverview = await call(base, '/admin', { jar: limitedJar });
+      const limitedOverview = await call(base, '/qbpanel', { jar: limitedJar });
       const limitedCsrf = csrfFrom(limitedOverview.body);
       record(
         'the navigation reflects the limited principal’s own permissions',
-        limitedOverview.body.includes('href="/admin/owners"') &&
-          !limitedOverview.body.includes('href="/admin/catalog"') &&
-          !limitedOverview.body.includes('href="/admin/audit"'),
+        limitedOverview.body.includes('href="/qbpanel/owners"') &&
+          !limitedOverview.body.includes('href="/qbpanel/catalog"') &&
+          !limitedOverview.body.includes('href="/qbpanel/audit"'),
         'owners link shown (staff.read held); catalog and audit links hidden',
       );
       record(
         'the retired staff and role screen is absent from the launch navigation',
-        !overview.body.includes('/admin/staff') && !limitedOverview.body.includes('/admin/staff'),
+        !overview.body.includes('/qbpanel/staff') && !limitedOverview.body.includes('/qbpanel/staff'),
         'no staff link in either principal’s navigation',
       );
 
-      const limitedAudit = await call(base, '/admin/audit', { jar: limitedJar });
+      const limitedAudit = await call(base, '/qbpanel/audit', { jar: limitedJar });
       record(
         'the limited principal is refused the audit page, by direct request',
-        limitedAudit.status === 307 || limitedAudit.location === '/admin/forbidden',
+        limitedAudit.status === 307 || limitedAudit.location === '/qbpanel/forbidden',
         `status ${limitedAudit.status} → ${limitedAudit.location ?? ''}`,
       );
 
-      const limitedCreate = await call(base, '/api/admin/owners', {
+      const limitedCreate = await call(base, '/api/qbpanel/owners', {
         method: 'POST',
         jar: limitedJar,
         form: { csrf: limitedCsrf, email: 'sneaky@verify.test', displayName: 'Sneaky' },
@@ -939,7 +939,7 @@ async function main(): Promise<void> {
         `status ${limitedCreate.status} → ${limitedCreate.location ?? ''}, account created: ${sneakyExists}`,
       );
 
-      const limitedDisableOwner = await call(base, '/api/admin/owners/status', {
+      const limitedDisableOwner = await call(base, '/api/qbpanel/owners/status', {
         method: 'POST',
         jar: limitedJar,
         form: { csrf: limitedCsrf, staffUserId: String(limited.ownerId), operation: 'disable' },
@@ -951,7 +951,7 @@ async function main(): Promise<void> {
         `status ${limitedDisableOwner.status} → ${limitedDisableOwner.location ?? ''}, owner status: ${ownerStatusAfter}`,
       );
 
-      const limitedCatalogWrite = await call(base, '/api/admin/catalog/product', {
+      const limitedCatalogWrite = await call(base, '/api/qbpanel/catalog/product', {
         method: 'POST',
         jar: limitedJar,
         form: {
@@ -971,7 +971,7 @@ async function main(): Promise<void> {
         `status ${limitedCatalogWrite.status} → ${limitedCatalogWrite.location ?? ''}`,
       );
 
-      const limitedCatalogRead = await call(base, '/api/admin/catalog', { jar: limitedJar });
+      const limitedCatalogRead = await call(base, '/api/qbpanel/catalog', { jar: limitedJar });
       record(
         'the limited principal is refused the catalog read API',
         limitedCatalogRead.status === 403,
@@ -984,11 +984,11 @@ async function main(): Promise<void> {
       // queue, the payment-recipient configuration screen and their API routes were removed rather
       // than hidden. A retired route must 404: an unlinked page that still answered would still be an
       // administrative surface.
-      for (const retired of ['/admin/payments', '/admin/payments/recipients']) {
+      for (const retired of ['/qbpanel/payments', '/qbpanel/payments/recipients']) {
         const page = await call(base, retired, { jar: ownerJar });
         record(`the retired prepaid page ${retired} no longer exists`, page.status === 404, `status ${page.status}`);
       }
-      for (const retiredApi of ['/api/admin/payments', '/api/admin/payment-recipients']) {
+      for (const retiredApi of ['/api/qbpanel/payments', '/api/qbpanel/payment-recipients']) {
         const response = await call(base, retiredApi, { method: 'POST', jar: ownerJar, form: { csrf } });
         record(
           `the retired prepaid endpoint ${retiredApi} no longer exists`,
@@ -998,7 +998,7 @@ async function main(): Promise<void> {
       }
       record(
         'the owner navigation links the COD worklist and no prepaid verification screen',
-        overview.body.includes('href="/admin/orders-cod"') && !overview.body.includes('/admin/payments'),
+        overview.body.includes('href="/qbpanel/orders-cod"') && !overview.body.includes('/qbpanel/payments'),
         'COD link shown; no payment-verification link',
       );
       record(
@@ -1045,16 +1045,16 @@ async function main(): Promise<void> {
         return { customerId, orderId, orderNumber };
       });
 
-      const codPage = await call(base, '/admin/orders-cod', { jar: ownerJar });
+      const codPage = await call(base, '/qbpanel/orders-cod', { jar: ownerJar });
       record(
         'the owner sees a pending COD order in the COD worklist with a decision form',
         codPage.status === 200 &&
           codPage.body.includes(codSeed.orderNumber) &&
-          codPage.body.includes('/api/admin/orders-cod'),
+          codPage.body.includes('/api/qbpanel/orders-cod'),
         `status ${codPage.status}, order shown: ${codPage.body.includes(codSeed.orderNumber)}`,
       );
 
-      const limitedCod = await call(base, '/api/admin/orders-cod', {
+      const limitedCod = await call(base, '/api/qbpanel/orders-cod', {
         method: 'POST',
         jar: limitedJar,
         form: {
@@ -1078,7 +1078,7 @@ async function main(): Promise<void> {
         `status ${limitedCod.status} → ${limitedCod.location ?? ''}, cod_state ${codAfterLimited[0]?.codState}`,
       );
 
-      const approvedCod = await call(base, '/api/admin/orders-cod', {
+      const approvedCod = await call(base, '/api/qbpanel/orders-cod', {
         method: 'POST',
         jar: ownerJar,
         form: {
@@ -1126,7 +1126,7 @@ async function main(): Promise<void> {
         `${codDenials.length} denial record(s)`,
       );
 
-      const codRepeat = await call(base, '/api/admin/orders-cod', {
+      const codRepeat = await call(base, '/api/qbpanel/orders-cod', {
         method: 'POST',
         jar: ownerJar,
         form: {
@@ -1154,7 +1154,7 @@ async function main(): Promise<void> {
       //
       // The queue is a worklist; the order detail is the record. Both are served pages, so the checks
       // below are about what a permitted and an unpermitted session actually receive.
-      const orderDetail = await call(base, '/admin/orders/' + codSeed.orderNumber, { jar: ownerJar });
+      const orderDetail = await call(base, '/qbpanel/orders/' + codSeed.orderNumber, { jar: ownerJar });
       record(
         'the owner opens one order and sees its reference, items, totals and contact',
         orderDetail.status === 200 &&
@@ -1172,26 +1172,26 @@ async function main(): Promise<void> {
         `status ${orderDetail.status}, decision form present: ${orderDetail.body.includes('name="decision" value="approve"')}`,
       );
 
-      const missingOrder = await call(base, '/admin/orders/QBDEC0FFEE0000000', { jar: ownerJar });
+      const missingOrder = await call(base, '/qbpanel/orders/QBDEC0FFEE0000000', { jar: ownerJar });
       record(
         'an order reference that names no order is a 404, not a forbidden page',
         missingOrder.status === 404,
         `status ${missingOrder.status}`,
       );
 
-      const orderList = await call(base, '/admin/orders', { jar: ownerJar });
+      const orderList = await call(base, '/qbpanel/orders', { jar: ownerJar });
       record(
         'the order history lists the order and links to its detail',
         orderList.status === 200 &&
           orderList.body.includes(codSeed.orderNumber) &&
-          orderList.body.includes('/admin/orders/' + codSeed.orderNumber),
+          orderList.body.includes('/qbpanel/orders/' + codSeed.orderNumber),
         `status ${orderList.status}`,
       );
 
-      const orderSearch = await call(base, '/admin/orders?q=' + encodeURIComponent(codSeed.orderNumber), {
+      const orderSearch = await call(base, '/qbpanel/orders?q=' + encodeURIComponent(codSeed.orderNumber), {
         jar: ownerJar,
       });
-      const noMatch = await call(base, '/admin/orders?q=QBNOSUCHORDER00000', { jar: ownerJar });
+      const noMatch = await call(base, '/qbpanel/orders?q=QBNOSUCHORDER00000', { jar: ownerJar });
       record(
         'order search narrows to the matching order, and a non-matching search says so',
         orderSearch.status === 200 &&
@@ -1209,8 +1209,8 @@ async function main(): Promise<void> {
         tx.select({ email: customer.email }).from(customer).where(sql`${customer.id} = ${codSeed.customerId}`),
       );
       const buyerEmail = buyerRow[0]?.email ?? '';
-      const limitedOrderDetail = await call(base, '/admin/orders/' + codSeed.orderNumber, { jar: limitedJar });
-      const limitedOrderList = await call(base, '/admin/orders', { jar: limitedJar });
+      const limitedOrderDetail = await call(base, '/qbpanel/orders/' + codSeed.orderNumber, { jar: limitedJar });
+      const limitedOrderList = await call(base, '/qbpanel/orders', { jar: limitedJar });
       record(
         'a principal with order.read but without customer.read sees the order and not the customer email',
         limitedOrderDetail.status === 200 &&
@@ -1226,10 +1226,10 @@ async function main(): Promise<void> {
       // The slip is a second view of one order, not a new capability: it requires exactly `order.read`,
       // carries no profile data, and is a 404 for a reference that names nothing. It writes nothing, so
       // the checks below are about what the paper would say and who may read it.
-      const slip = await call(base, '/admin/orders/' + codSeed.orderNumber + '/slip', { jar: ownerJar });
-      const anonymousSlip = await call(base, '/admin/orders/' + codSeed.orderNumber + '/slip');
-      const missingSlip = await call(base, '/admin/orders/QBDEC0FFEE0000000/slip', { jar: ownerJar });
-      const limitedSlip = await call(base, '/admin/orders/' + codSeed.orderNumber + '/slip', {
+      const slip = await call(base, '/qbpanel/orders/' + codSeed.orderNumber + '/slip', { jar: ownerJar });
+      const anonymousSlip = await call(base, '/qbpanel/orders/' + codSeed.orderNumber + '/slip');
+      const missingSlip = await call(base, '/qbpanel/orders/QBDEC0FFEE0000000/slip', { jar: ownerJar });
+      const limitedSlip = await call(base, '/qbpanel/orders/' + codSeed.orderNumber + '/slip', {
         jar: limitedJar,
       });
       record(
@@ -1247,7 +1247,7 @@ async function main(): Promise<void> {
       record(
         'the slip refuses an anonymous request, a missing order and any customer profile data',
         anonymousSlip.status === 307 &&
-          (anonymousSlip.location ?? '').startsWith('/admin/login') &&
+          (anonymousSlip.location ?? '').startsWith('/qbpanel/login') &&
           missingSlip.status === 404 &&
           limitedSlip.status === 200 &&
           buyerEmail !== '' &&
@@ -1269,7 +1269,7 @@ async function main(): Promise<void> {
       // The storefront used to tell customers to contact a shop that published no route. These checks
       // exercise the write, the refusal, and what a customer actually receives afterwards - including
       // that the footer offers only the policy pages the owner has written.
-      const contactScreen = await call(base, '/admin/settings/contact', { jar: ownerJar });
+      const contactScreen = await call(base, '/qbpanel/settings/contact', { jar: ownerJar });
       const contactCsrf = csrfFrom(contactScreen.body);
       record(
         'the contact settings screen offers the owner its fields behind settings.write',
@@ -1285,7 +1285,7 @@ async function main(): Promise<void> {
       const HOURS = 'Every day, 10:00 to 21:00';
       const ADDRESS = 'House 12, Road 5\nDhanmondi, Dhaka';
       const DELIVERY = 'Orders travel by courier. The owner calls before dispatch.';
-      const contactSave = await call(base, '/api/admin/settings/contact', {
+      const contactSave = await call(base, '/api/qbpanel/settings/contact', {
         method: 'POST',
         jar: ownerJar,
         form: {
@@ -1333,7 +1333,7 @@ async function main(): Promise<void> {
         `${contactAudit.length} audit record(s), phone saved: ${savedContact['contact.phone'] === PHONE}`,
       );
 
-      const badPhone = await call(base, '/api/admin/settings/contact', {
+      const badPhone = await call(base, '/api/qbpanel/settings/contact', {
         method: 'POST',
         jar: ownerJar,
         form: {
@@ -1357,7 +1357,7 @@ async function main(): Promise<void> {
         `status ${badPhone.status} → ${badPhone.location ?? ''}, phone unchanged: ${afterBadPhone['contact.phone'] === PHONE}`,
       );
 
-      const markupRefused = await call(base, '/api/admin/settings/contact', {
+      const markupRefused = await call(base, '/api/qbpanel/settings/contact', {
         method: 'POST',
         jar: ownerJar,
         form: {
@@ -1459,7 +1459,7 @@ async function main(): Promise<void> {
 
       // The owner cannot disable their own account: otherwise the actor locks themselves out, and the
       // only recovery is the host shell.
-      const selfDisable = await call(base, '/api/admin/owners/status', {
+      const selfDisable = await call(base, '/api/qbpanel/owners/status', {
         method: 'POST',
         jar: ownerJar,
         form: { csrf, staffUserId: String(limited.ownerId), operation: 'disable' },
@@ -1475,7 +1475,7 @@ async function main(): Promise<void> {
         `status ${selfDisable.status} → ${selfDisable.location ?? ''}, owner active`,
       );
 
-      const disableOther = await call(base, '/api/admin/owners/status', {
+      const disableOther = await call(base, '/api/qbpanel/owners/status', {
         method: 'POST',
         jar: ownerJar,
         form: { csrf, staffUserId: String(newOwnerId), operation: 'disable' },
@@ -1486,7 +1486,7 @@ async function main(): Promise<void> {
         `status ${disableOther.status} → ${disableOther.location ?? ''}`,
       );
 
-      const reEnable = await call(base, '/api/admin/owners/status', {
+      const reEnable = await call(base, '/api/qbpanel/owners/status', {
         method: 'POST',
         jar: ownerJar,
         form: { csrf, staffUserId: String(newOwnerId), operation: 'enable' },
@@ -1499,7 +1499,7 @@ async function main(): Promise<void> {
 
       console.log('\ncatalog management');
 
-      const categoryCreated = await call(base, '/api/admin/catalog/category', {
+      const categoryCreated = await call(base, '/api/qbpanel/catalog/category', {
         method: 'POST',
         jar: ownerJar,
         form: {
@@ -1518,13 +1518,13 @@ async function main(): Promise<void> {
         `status ${categoryCreated.status} → ${categoryCreated.location ?? ''}, id ${categoryId ?? 'missing'}`,
       );
 
-      const brandCreated = await call(base, '/api/admin/catalog/brand', {
+      const brandCreated = await call(base, '/api/qbpanel/catalog/brand', {
         method: 'POST',
         jar: ownerJar,
         form: {
           csrf,
           operation: 'create',
-          returnTo: '/admin/catalog/brands/new',
+          returnTo: '/qbpanel/catalog/brands/new',
           nameBn: 'যাচাই ব্র্যান্ড',
           nameEn: 'Verify Brand',
           slug: VERIFY_BRAND_SLUG,
@@ -1537,7 +1537,7 @@ async function main(): Promise<void> {
         `status ${brandCreated.status} → ${brandCreated.location ?? ''}, id ${brandId ?? 'missing'}`,
       );
 
-      const productCreated = await call(base, '/api/admin/catalog/product', {
+      const productCreated = await call(base, '/api/qbpanel/catalog/product', {
         method: 'POST',
         jar: ownerJar,
         form: {
@@ -1571,7 +1571,7 @@ async function main(): Promise<void> {
         'the authoritative check accepts it',
       );
 
-      const toggled = await call(base, '/api/admin/catalog/availability', {
+      const toggled = await call(base, '/api/qbpanel/catalog/availability', {
         method: 'POST',
         jar: ownerJar,
         form: { csrf, productId: String(productId), availability: 'out_of_stock' },
@@ -1600,7 +1600,7 @@ async function main(): Promise<void> {
         `${availabilityAudit.length} audit record(s), actor ${availabilityAudit[0]?.actor ?? 'none'}`,
       );
 
-      const badAvailability = await call(base, '/api/admin/catalog/availability', {
+      const badAvailability = await call(base, '/api/qbpanel/catalog/availability', {
         method: 'POST',
         jar: ownerJar,
         form: { csrf, productId: String(productId), availability: 'unknown' },
@@ -1615,7 +1615,7 @@ async function main(): Promise<void> {
 
       // A price submitted to the availability endpoint has nowhere to go: the update object is built from
       // the validated availability value alone.
-      const priceAttack = await call(base, '/api/admin/catalog/availability', {
+      const priceAttack = await call(base, '/api/qbpanel/catalog/availability', {
         method: 'POST',
         jar: ownerJar,
         form: { csrf, productId: String(productId), availability: 'in_stock', price: '1', priceMinor: '1' },
@@ -1628,7 +1628,7 @@ async function main(): Promise<void> {
 
       const assetKeys = await listAssetKeys();
       const assetKey = assetKeys[0] ?? '';
-      const imageAttached = await call(base, '/api/admin/catalog/image', {
+      const imageAttached = await call(base, '/api/qbpanel/catalog/image', {
         method: 'POST',
         jar: ownerJar,
         form: { csrf, operation: 'attach', productId: String(productId), key: assetKey, altEn: 'A verified image' },
@@ -1646,7 +1646,7 @@ async function main(): Promise<void> {
       );
 
       for (const badKey of ['../public/catalog/x', '/etc/passwd', 'http://example.test/x', 'no-such-asset']) {
-        const traversal = await call(base, '/api/admin/catalog/image', {
+        const traversal = await call(base, '/api/qbpanel/catalog/image', {
           method: 'POST',
           jar: ownerJar,
           form: { csrf, operation: 'attach', productId: String(productId), key: badKey, altEn: 'x' },
@@ -1659,7 +1659,7 @@ async function main(): Promise<void> {
         );
       }
 
-      const archiveInUse = await call(base, '/api/admin/catalog/category', {
+      const archiveInUse = await call(base, '/api/qbpanel/catalog/category', {
         method: 'POST',
         jar: ownerJar,
         form: { csrf, operation: 'archive', categoryId: String(categoryId) },
@@ -1670,7 +1670,7 @@ async function main(): Promise<void> {
         `status ${archiveInUse.status} → ${archiveInUse.location ?? ''}`,
       );
 
-      const readApi = await call(base, '/api/admin/catalog', { jar: ownerJar });
+      const readApi = await call(base, '/api/qbpanel/catalog', { jar: ownerJar });
       record(
         'the catalog read API returns the database catalog with integer-poisha pricing',
         readApi.status === 200 &&
@@ -1759,9 +1759,9 @@ async function main(): Promise<void> {
           try {
             await browser.cookie(SESSION_COOKIE, ownerJar.get(SESSION_COOKIE) ?? '');
             await browser.viewport(1440, 900);
-            await browser.navigate('/admin');
+            await browser.navigate('/qbpanel');
             await browser.evaluate("localStorage.setItem('queenbees.locale.v1','en')");
-            await browser.navigate('/admin');
+            await browser.navigate('/qbpanel');
 
             const desktop = await browser.evaluate<{ nav: boolean; groups: string[]; h1: string | null; card: boolean; tel: boolean; overflow: number }>(`(() => {
               const nav = document.querySelector('nav[aria-label]');
@@ -1830,13 +1830,13 @@ async function main(): Promise<void> {
              */
             const heightSweep: Array<{ route: string; heights: number[] }> = [];
             for (const route of [
-              '/admin',
-              '/admin/orders-cod',
-              '/admin/catalog',
-              '/admin/settings/delivery',
-              '/admin/settings/other',
-              '/admin/settings/hero',
-              '/admin/settings/integrations/telegram',
+              '/qbpanel',
+              '/qbpanel/orders-cod',
+              '/qbpanel/catalog',
+              '/qbpanel/settings/delivery',
+              '/qbpanel/settings/other',
+              '/qbpanel/settings/hero',
+              '/qbpanel/settings/integrations/telegram',
             ]) {
               await browser.navigate(route);
               const heights = await browser.evaluate<number[]>(`(() => [...document.querySelectorAll(
@@ -1855,7 +1855,7 @@ async function main(): Promise<void> {
               ),
             );
 
-            await browser.navigate('/admin');
+            await browser.navigate('/qbpanel');
             const decision = await browser.evaluate<{
               approve: number | null;
               reject: number | null;
@@ -1885,7 +1885,7 @@ async function main(): Promise<void> {
             await browser.screenshot('/tmp/qb-admin-dashboard-desktop.png');
 
             await browser.viewport(390, 844);
-            await browser.navigate('/admin');
+            await browser.navigate('/qbpanel');
             const mobileNav = await browser.evaluate<{
               railHidden: boolean;
               barVisible: boolean;
@@ -1956,15 +1956,15 @@ async function main(): Promise<void> {
             const overflowAt360: string[] = [];
             await browser.viewport(360, 800);
             const overflowRoutes = [
-              '/admin',
-              '/admin/orders-cod',
-              '/admin/orders',
-              '/admin/orders/' + codSeed.orderNumber,
-              '/admin/catalog',
-              '/admin/customers',
-              '/admin/audit',
-              '/admin/owners',
-              '/admin/settings/contact',
+              '/qbpanel',
+              '/qbpanel/orders-cod',
+              '/qbpanel/orders',
+              '/qbpanel/orders/' + codSeed.orderNumber,
+              '/qbpanel/catalog',
+              '/qbpanel/customers',
+              '/qbpanel/audit',
+              '/qbpanel/owners',
+              '/qbpanel/settings/contact',
             ];
             for (const route of overflowRoutes) {
               await browser.navigate(route);
@@ -1980,12 +1980,12 @@ async function main(): Promise<void> {
             );
 
             await browser.viewport(390, 844);
-            await browser.navigate('/admin/orders-cod');
+            await browser.navigate('/qbpanel/orders-cod');
             await browser.screenshot('/tmp/qb-admin-cod-mobile.png');
 
             // ---- Phase 20: the order detail and history in a real browser ----
             await browser.viewport(1440, 900);
-            await browser.navigate('/admin/orders/' + secondCod.orderNumber);
+            await browser.navigate('/qbpanel/orders/' + secondCod.orderNumber);
             const orderDetailUi = await browser.evaluate<{
               heading: string | null;
               tel: string | null;
@@ -2028,7 +2028,7 @@ async function main(): Promise<void> {
             );
             await browser.printMedia('screen');
             await browser.viewport(1440, 1000);
-            await browser.navigate('/admin/orders/' + secondCod.orderNumber + '/slip');
+            await browser.navigate('/qbpanel/orders/' + secondCod.orderNumber + '/slip');
             const slipScreen = await browser.evaluate<{
               text: boolean;
               printButton: boolean;
@@ -2132,7 +2132,7 @@ async function main(): Promise<void> {
             await browser.printMedia('screen');
             await browser.viewport(1440, 900);
             // Back to the record: the checks below are about the order page, not the slip.
-            await browser.navigate('/admin/orders/' + secondCod.orderNumber);
+            await browser.navigate('/qbpanel/orders/' + secondCod.orderNumber);
 
             const actionPlacement = await browser.evaluate<{
               band: string | null;
@@ -2163,7 +2163,7 @@ async function main(): Promise<void> {
             await browser.screenshot('/tmp/qb-admin-order-detail-desktop.png');
 
             // ---- Phase 51: the contact screen and the page a customer reads ----
-            await browser.navigate('/admin/settings/contact');
+            await browser.navigate('/qbpanel/settings/contact');
             const contactAdminUi = await browser.evaluate<{
               title: string | null;
               phone: string;
@@ -2218,10 +2218,10 @@ async function main(): Promise<void> {
               JSON.stringify(contactPageUi),
             );
             await browser.viewport(1440, 900);
-            await browser.navigate('/admin/orders/' + secondCod.orderNumber);
+            await browser.navigate('/qbpanel/orders/' + secondCod.orderNumber);
 
             await browser.viewport(390, 844);
-            await browser.navigate('/admin/orders/' + secondCod.orderNumber);
+            await browser.navigate('/qbpanel/orders/' + secondCod.orderNumber);
             await browser.screenshot('/tmp/qb-admin-order-detail-mobile.png');
             const detailMobile = await browser.evaluate<{ overflow: number }>(
               '({ overflow: document.documentElement.scrollWidth - window.innerWidth })',
@@ -2239,9 +2239,9 @@ async function main(): Promise<void> {
             // records the dispatch, and the page that comes back offers the next legal step instead of the
             // one just taken.
             await browser.viewport(1440, 900);
-            await browser.navigate('/admin/orders');
+            await browser.navigate('/qbpanel/orders');
             const historyUi = await browser.evaluate<{ link: boolean; search: boolean; filters: boolean }>(`(() => ({
-              link: document.querySelector('a[href*="/admin/orders/' + ${JSON.stringify(secondCod.orderNumber)} + '"]') !== null,
+              link: document.querySelector('a[href*="/qbpanel/orders/' + ${JSON.stringify(secondCod.orderNumber)} + '"]') !== null,
               search: document.querySelector('form[role="search"] input[name="q"]') !== null,
               filters: [...document.querySelectorAll('[role="group"] a')].length >= 4,
             }))()`);
@@ -2253,7 +2253,7 @@ async function main(): Promise<void> {
             await browser.screenshot('/tmp/qb-admin-orders-history.png');
 
             await browser.viewport(1440, 900);
-            await browser.navigate('/admin/orders-cod');
+            await browser.navigate('/qbpanel/orders-cod');
             await browser.click('article form + form button[type="submit"]');
             const dialog = await browser.evaluate<{ open: boolean; required: boolean; focus: string | null; order: boolean }>(`(() => {
               const d = document.querySelector('[role="dialog"][aria-modal="true"]');
@@ -2297,7 +2297,7 @@ async function main(): Promise<void> {
             // owner actually uses reaches that service: dispatch appears only now that the order is approved,
             // one click records it, and the page that comes back offers the next legal step instead of the
             // one just taken.
-            await browser.navigate('/admin/orders/' + secondCod.orderNumber);
+            await browser.navigate('/qbpanel/orders/' + secondCod.orderNumber);
             const dispatchForm = 'form:has(input[name="action"][value="dispatch"])';
             const deliverForm = 'form:has(input[name="action"][value="delivered"])';
             const paidForm = 'form:has(input[name="action"][value="paid"])';
@@ -2379,7 +2379,7 @@ async function main(): Promise<void> {
 
             // Re-submitting the same form cannot record a second receipt or count the order twice.
             await browser.evaluate(`(() => {
-              const form = document.querySelector('form[action="/api/admin/orders/transition"]');
+              const form = document.querySelector('form[action="/api/qbpanel/orders/transition"]');
               if (form === null) return false;
               form.requestSubmit();
               return true;
@@ -2400,7 +2400,7 @@ async function main(): Promise<void> {
               `payment ${revenueAfter.customerPaymentMinor} -> ${revenueRepeated.customerPaymentMinor}, ${eventsAfterRepeat.length} money events`,
             );
 
-            await browser.navigate('/admin');
+            await browser.navigate('/qbpanel');
             const revenueUi = await browser.evaluate<{
               shown: string | null;
               labels: boolean;
@@ -2429,10 +2429,10 @@ async function main(): Promise<void> {
             // The order is already completed, so a cost is recorded directly through the cost route -
             // the same form the order detail posts. What matters is that it lands, is auditable, and
             // leaves the customer's charged total exactly as it was.
-            await browser.navigate('/admin/orders/' + secondCod.orderNumber);
+            await browser.navigate('/qbpanel/orders/' + secondCod.orderNumber);
             const settledBand = await browser.evaluate<{ band: boolean; transitions: number }>(`(() => ({
               band: document.querySelector('section[aria-labelledby="order-action-title"]') !== null,
-              transitions: document.querySelectorAll('form[action="/api/admin/orders/transition"]').length,
+              transitions: document.querySelectorAll('form[action="/api/qbpanel/orders/transition"]').length,
             }))()`);
             record(
               'a settled order shows no action band and no transition form',
@@ -2465,7 +2465,7 @@ async function main(): Promise<void> {
             await browser.evaluate(`(() => {
               const form = document.createElement('form');
               form.method = 'post';
-              form.action = '/api/admin/orders/cost';
+              form.action = '/api/qbpanel/orders/cost';
               const fields = {
                 csrf: ${JSON.stringify(costCsrf)},
                 operation: 'record',
@@ -2539,7 +2539,7 @@ async function main(): Promise<void> {
               `costs ${revenueAfter.additionalCostsMinor} -> ${revenueWithCost.additionalCostsMinor}, payment unchanged ${revenueWithCost.customerPaymentMinor}, net ${revenueWithCost.estimatedNetProceedsMinor}`,
             );
 
-            await browser.navigate('/admin/orders/' + secondCod.orderNumber);
+            await browser.navigate('/qbpanel/orders/' + secondCod.orderNumber);
             const costUi = await browser.evaluate<{ listed: boolean; voidable: boolean }>(`(() => {
               const text = document.body.textContent ?? '';
               return {
@@ -2554,7 +2554,7 @@ async function main(): Promise<void> {
             );
             await browser.screenshot('/tmp/qb-admin-order-costs.png');
 
-            await browser.navigate('/admin/catalog');
+            await browser.navigate('/qbpanel/catalog');
             const catalogUi = await browser.evaluate<{ switches: number; search: boolean; create: boolean }>(`(() => ({
               switches: document.querySelectorAll('button[role="switch"][aria-checked]').length,
               search: document.querySelector('form[role="search"] input[name="q"]') !== null,
@@ -2578,7 +2578,7 @@ async function main(): Promise<void> {
              */
             console.log('\nproduct editor (Phase 35)');
 
-            await browser.navigate('/admin/catalog/new');
+            await browser.navigate('/qbpanel/catalog/new');
             const editorShell = await browser.evaluate<{
               heading: string;
               sections: string[];
@@ -2763,7 +2763,7 @@ async function main(): Promise<void> {
             const blockedUi = await browser.evaluate<{ alerted: string; focused: string; stillHere: boolean }>(`(() => ({
               alerted: document.querySelector('[role="alert"]')?.textContent ?? '',
               focused: document.activeElement?.getAttribute('name') ?? '',
-              stillHere: location.pathname === '/admin/catalog/new',
+              stillHere: location.pathname === '/qbpanel/catalog/new',
             }))()`);
             record(
               'submitting an incomplete form states which fields are missing and focuses the first one',
@@ -2787,7 +2787,7 @@ async function main(): Promise<void> {
             );
 
             await browser.click('main form > header button[type="submit"]');
-            await browser.waitFor("location.pathname.startsWith('/admin/catalog/') && location.pathname !== '/admin/catalog/new'");
+            await browser.waitFor("location.pathname.startsWith('/qbpanel/catalog/') && location.pathname !== '/qbpanel/catalog/new'");
             const afterCreate = await browser.evaluate<{ path: string; notice: string; gallery: boolean; media: boolean }>(`(() => ({
               path: location.pathname,
               notice: document.body.textContent?.includes('Product created') ? 'created' : 'none',
@@ -2796,7 +2796,7 @@ async function main(): Promise<void> {
             }))()`);
             record(
               'saving the new product opens its edit screen, where images can be attached',
-              /^\/admin\/catalog\/\d+$/.test(afterCreate.path) &&
+              /^\/qbpanel\/catalog\/\d+$/.test(afterCreate.path) &&
                 afterCreate.notice === 'created' &&
                 afterCreate.media === true,
               JSON.stringify(afterCreate),
@@ -2808,7 +2808,7 @@ async function main(): Promise<void> {
              * These assert the shared upload affordance is present on both create routes; the actual
              * multipart save is exercised by the database tests and the dev-server walk-through.
              */
-            await browser.navigate('/admin/categories/new');
+            await browser.navigate('/qbpanel/categories/new');
             const categoryEditorMedia = await browser.evaluate<{
               file: boolean;
               existing: boolean;
@@ -2818,7 +2818,7 @@ async function main(): Promise<void> {
               existing: document.querySelector('select[name="imageKey"]') !== null,
               preview: document.querySelector('[class*="catalogImagePreview"]') !== null,
             }))()`);
-            await browser.navigate('/admin/catalog/brands/new');
+            await browser.navigate('/qbpanel/catalog/brands/new');
             const brandEditorMedia = await browser.evaluate<{
               file: boolean;
               existing: boolean;
@@ -2842,7 +2842,7 @@ async function main(): Promise<void> {
               JSON.stringify({ categoryEditorMedia, brandEditorMedia }),
             );
 
-            await browser.navigate('/admin/settings/offer-popup');
+            await browser.navigate('/qbpanel/settings/offer-popup');
             const popupEditor = await browser.evaluate<{
               heading: string;
               file: boolean;
@@ -2886,7 +2886,7 @@ async function main(): Promise<void> {
             const editorFindings: string[] = [];
             for (const width of editorWidths) {
               await browser.viewport(width, 900);
-              for (const route of ['/admin/catalog/new', afterCreate.path]) {
+              for (const route of ['/qbpanel/catalog/new', afterCreate.path]) {
                 await browser.navigate(route);
                 const measured = await browser.evaluate<{ overflow: number; columns: number; previewFirst: boolean }>(`(() => {
                   const cols = document.querySelector('main form > div');
@@ -2916,7 +2916,7 @@ async function main(): Promise<void> {
             );
 
             await browser.viewport(390, 844);
-            await browser.navigate('/admin/catalog/new');
+            await browser.navigate('/qbpanel/catalog/new');
             await browser.screenshot('/tmp/qb-admin-product-new-mobile.png');
             await browser.viewport(1440, 900);
 
@@ -3028,7 +3028,7 @@ async function main(): Promise<void> {
              * button, value control and date input on these five routes resolves to 40px or 34px, and
              * every page exposes exactly one list toolbar.
              */
-            const listRoutes = ['/admin/orders', '/admin/orders-cod', '/admin/catalog', '/admin/categories', '/admin/customers'];
+            const listRoutes = ['/qbpanel/orders', '/qbpanel/orders-cod', '/qbpanel/catalog', '/qbpanel/categories', '/qbpanel/customers'];
             const toolbarSweep: Array<{ route: string; toolbars: number; heights: number[] }> = [];
             for (const route of listRoutes) {
               await browser.navigate(route);
@@ -3059,7 +3059,7 @@ async function main(): Promise<void> {
              * term that matches nothing states the gap and offers the way back rather than an empty
              * table. This is the case a client-only filter gets wrong, because it filters one page.
              */
-            await browser.navigate('/admin/orders?q=' + encodeURIComponent('List Buyer 7'));
+            await browser.navigate('/qbpanel/orders?q=' + encodeURIComponent('List Buyer 7'));
             const searchUi = await browser.evaluate<{
               url: string;
               rows: number;
@@ -3083,7 +3083,7 @@ async function main(): Promise<void> {
               JSON.stringify(searchUi),
             );
 
-            await browser.navigate('/admin/orders?q=' + encodeURIComponent('no-such-order-zzz'));
+            await browser.navigate('/qbpanel/orders?q=' + encodeURIComponent('no-such-order-zzz'));
             const noResults = await browser.evaluate<{ empty: boolean; clear: boolean; url: string }>(`(() => ({
               empty: /No orders match/i.test(document.body.textContent || ''),
               clear: [...document.querySelectorAll('main a')].some((a) => /clear/i.test(a.textContent || '')),
@@ -3100,7 +3100,7 @@ async function main(): Promise<void> {
              * the filter chip row names what is in force - so a narrowed list can never be mistaken
              * for the whole list.
              */
-            await browser.navigate('/admin/orders?filter=pending&q=' + encodeURIComponent('List Buyer 7'));
+            await browser.navigate('/qbpanel/orders?filter=pending&q=' + encodeURIComponent('List Buyer 7'));
             const combined = await browser.evaluate<{ rows: number; chips: number; url: string; q: string }>(`(() => ({
               rows: document.querySelectorAll('[data-admin-list] > li').length,
               chips: document.querySelectorAll('[data-admin-filter-chip]').length,
@@ -3119,7 +3119,7 @@ async function main(): Promise<void> {
             );
 
             // Clearing the chips restores the whole list: the count goes back up and no chip remains.
-            await browser.navigate('/admin/orders');
+            await browser.navigate('/qbpanel/orders');
             const cleared = await browser.evaluate<{ rows: number; chips: number; url: string }>(`(() => ({
               rows: document.querySelectorAll('[data-admin-list] > li').length,
               chips: document.querySelectorAll('[data-admin-filter-chip]').length,
@@ -3139,7 +3139,7 @@ async function main(): Promise<void> {
             const today = new Date();
             const isoDay = (date: Date): string =>
               `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-            await browser.navigate(`/admin/orders?from=${isoDay(today)}&to=${isoDay(today)}&size=100`);
+            await browser.navigate(`/qbpanel/orders?from=${isoDay(today)}&to=${isoDay(today)}&size=100`);
             const ranged = await browser.evaluate<{ text: string; rows: number; url: string; from: string }>(`(() => ({
               text: document.querySelector('[data-admin-list]')?.textContent ?? '',
               rows: document.querySelectorAll('[data-admin-list] > li').length,
@@ -3161,7 +3161,7 @@ async function main(): Promise<void> {
              * Pagination: a page size change is a link, so it survives reload, and it returns to
              * page 1 rather than leaving the owner on a page that may no longer exist.
              */
-            await browser.navigate('/admin/orders?size=10');
+            await browser.navigate('/qbpanel/orders?size=10');
             const pageOne = await browser.evaluate<{ rows: number; url: string; hasNext: boolean }>(`(() => ({
               rows: document.querySelectorAll('[data-admin-list] > li').length,
               url: location.search,
@@ -3178,7 +3178,7 @@ async function main(): Promise<void> {
               return list?.querySelector(':scope > li')?.textContent ?? '';
             })()`);
 
-            await browser.navigate('/admin/orders?size=10&page=2');
+            await browser.navigate('/qbpanel/orders?size=10&page=2');
             const pageTwo = await browser.evaluate<{ rows: number; first: string; pageLabel: string }>(`(() => ({
               rows: document.querySelectorAll('[data-admin-list] > li').length,
               first: document.querySelector('[data-admin-list] > li')?.textContent ?? '',
@@ -3194,7 +3194,7 @@ async function main(): Promise<void> {
               JSON.stringify({ rows: pageTwo.rows, label: pageTwo.pageLabel, differs: pageTwo.first !== firstRowOnPageOne }),
             );
 
-            await browser.navigate('/admin/orders?page=9999&size=10');
+            await browser.navigate('/qbpanel/orders?page=9999&size=10');
             const outOfRange = await browser.evaluate<{ rows: number; text: string }>(`(() => ({
               rows: document.querySelectorAll('[data-admin-list] > li').length,
               text: document.body.textContent ?? '',
@@ -3205,7 +3205,7 @@ async function main(): Promise<void> {
               JSON.stringify({ rows: outOfRange.rows }),
             );
 
-            await browser.navigate('/admin/orders?q=&filter=all&from=2026-02-31&size=7');
+            await browser.navigate('/qbpanel/orders?q=&filter=all&from=2026-02-31&size=7');
             const invalidParams = await browser.evaluate<{ status: string; rows: number; from: string }>(`(() => ({
               status: document.querySelector('h1')?.textContent ?? '',
               rows: document.querySelectorAll('[data-admin-list] > li').length,
@@ -3222,7 +3222,7 @@ async function main(): Promise<void> {
              * real total and offer the page-size control, and the catalog page must contain exactly
              * the requested number of product rows.
              */
-            await browser.navigate('/admin/catalog?size=10');
+            await browser.navigate('/qbpanel/catalog?size=10');
             const catalogPage = await browser.evaluate<{ rows: number; sizeLinks: number; total: boolean }>(`(() => ({
               rows: document.querySelectorAll('[data-admin-list] > li').length,
               sizeLinks: document.querySelectorAll('main [role="group"] a[aria-current="true"]').length,
@@ -3235,7 +3235,7 @@ async function main(): Promise<void> {
             );
             await browser.screenshot('/tmp/qb-admin-catalog-paged.png');
 
-            await browser.navigate('/admin/categories?size=10');
+            await browser.navigate('/qbpanel/categories?size=10');
             const categoriesPage = await browser.evaluate<{ search: boolean; total: boolean; filter: boolean }>(`(() => ({
               search: document.querySelector('form[role="search"] input[name="q"]') !== null,
               total: /showing \\d+ of \\d+/i.test(document.body.textContent || ''),
@@ -3248,13 +3248,13 @@ async function main(): Promise<void> {
             );
 
             // Search and the visibility filter are applied together by the server, not in the browser.
-            await browser.navigate('/admin/categories?q=' + encodeURIComponent('Verify Category'));
+            await browser.navigate('/qbpanel/categories?q=' + encodeURIComponent('Verify Category'));
             const categorySearch = await browser.evaluate<{ rows: number; text: string; url: string }>(`(() => ({
               rows: document.querySelectorAll('[data-admin-list] > li').length,
               text: document.querySelector('[data-admin-list]')?.textContent ?? '',
               url: location.search,
             }))()`);
-            await browser.navigate('/admin/categories?q=' + encodeURIComponent('Verify Category') + '&visibility=hidden');
+            await browser.navigate('/qbpanel/categories?q=' + encodeURIComponent('Verify Category') + '&visibility=hidden');
             const categoryHidden = await browser.evaluate<{ rows: number; empty: boolean }>(`(() => ({
               rows: document.querySelectorAll('[data-admin-list] > li').length,
               empty: /No categories match/i.test(document.body.textContent || ''),
@@ -3318,7 +3318,7 @@ async function main(): Promise<void> {
              * value and the asserted value are the same one.
              */
             const setVisibility = async (desired: boolean): Promise<boolean> => {
-              await browser.navigate(`/admin/categories/${verifyCategoryId}`);
+              await browser.navigate(`/qbpanel/categories/${verifyCategoryId}`);
               /*
                * The **checkbox** specifically. This form also carries a hidden input of the same name
                * (the explicit false the pair needs) and it comes first in document order, so a bare
@@ -3340,13 +3340,13 @@ async function main(): Promise<void> {
 
             // The seeded row's own state is the baseline: the pair is asserted as a transition in both
             // directions rather than against an assumed starting value.
-            await browser.navigate(`/admin/categories/${verifyCategoryId}`);
+            await browser.navigate(`/qbpanel/categories/${verifyCategoryId}`);
             const editorVisible = await browser.evaluate<boolean>(
               `document.querySelector('input[type="checkbox"][name="isVisible"]')?.checked === true`,
             );
             const submitEditor = async (): Promise<void> => {
               await browser.evaluate(
-                `document.querySelector('form[action="/api/admin/catalog/category"]')?.requestSubmit()`,
+                `document.querySelector('form[action="/api/qbpanel/catalog/category"]')?.requestSubmit()`,
               );
             };
 
@@ -3377,7 +3377,7 @@ async function main(): Promise<void> {
              * the archive-refusal test created, so it could not demonstrate that the *child* is what
              * blocks the archive.
              */
-            await call(base, '/api/admin/catalog/category', {
+            await call(base, '/api/qbpanel/catalog/category', {
               method: 'POST',
               jar: ownerJar,
               form: {
@@ -3397,7 +3397,7 @@ async function main(): Promise<void> {
             );
             const subParentId = parentRows[0]?.id ?? 0;
 
-            await browser.navigate('/admin/categories/new');
+            await browser.navigate('/qbpanel/categories/new');
             await browser.type('#nameEn', 'Verify Child Category');
             await browser.type('#nameBn', 'যাচাই উপবিভাগ');
             const parentSelected = await browser.evaluate<boolean>(`(() => {
@@ -3408,10 +3408,10 @@ async function main(): Promise<void> {
               return select.value === '${subParentId}';
             })()`);
             await browser.evaluate(
-              `document.querySelector('form[action="/api/admin/catalog/category"]')?.requestSubmit()`,
+              `document.querySelector('form[action="/api/qbpanel/catalog/category"]')?.requestSubmit()`,
             );
             const childCreated = await browser.waitFor(
-              "location.pathname.startsWith('/admin/categories/') && location.pathname !== '/admin/categories/new'",
+              "location.pathname.startsWith('/qbpanel/categories/') && location.pathname !== '/qbpanel/categories/new'",
             );
             const childRow = await withTransaction((tx) =>
               tx
@@ -3427,7 +3427,7 @@ async function main(): Promise<void> {
               JSON.stringify({ parentSelected, childCreated, parentId: childRow[0]?.parentId ?? null }),
             );
 
-            await browser.navigate(`/admin/categories/${subParentId}`);
+            await browser.navigate(`/qbpanel/categories/${subParentId}`);
             const parentState = await browser.evaluate<{ usage: string; locked: boolean }>(`(() => ({
               usage: document.querySelector('[class*="categoryUsage"]')?.textContent ?? '',
               locked: document.querySelector('select[name="parentId"]') === null,
@@ -3438,7 +3438,7 @@ async function main(): Promise<void> {
               JSON.stringify(parentState),
             );
 
-            await browser.navigate('/admin/categories?q=' + encodeURIComponent('Verify Child'));
+            await browser.navigate('/qbpanel/categories?q=' + encodeURIComponent('Verify Child'));
             const childList = await browser.evaluate<string>(
               `document.querySelector('[data-admin-list]')?.textContent ?? ''`,
             );
@@ -3449,7 +3449,7 @@ async function main(): Promise<void> {
               childList.slice(0, 160),
             );
 
-            const archiveParentWhileChildLives = await call(base, '/api/admin/catalog/category', {
+            const archiveParentWhileChildLives = await call(base, '/api/qbpanel/catalog/category', {
               method: 'POST',
               jar: ownerJar,
               form: { csrf, operation: 'archive', categoryId: String(subParentId) },
@@ -3461,12 +3461,12 @@ async function main(): Promise<void> {
             );
 
             const childId = childRow[0]?.id ?? 0;
-            await call(base, '/api/admin/catalog/category', {
+            await call(base, '/api/qbpanel/catalog/category', {
               method: 'POST',
               jar: ownerJar,
               form: { csrf, operation: 'archive', categoryId: String(childId) },
             });
-            const archiveParentAfterChild = await call(base, '/api/admin/catalog/category', {
+            const archiveParentAfterChild = await call(base, '/api/qbpanel/catalog/category', {
               method: 'POST',
               jar: ownerJar,
               form: { csrf, operation: 'archive', categoryId: String(subParentId) },
@@ -3477,7 +3477,7 @@ async function main(): Promise<void> {
               `${archiveParentAfterChild.status} → ${archiveParentAfterChild.location ?? ''}`,
             );
 
-            await browser.navigate('/admin/audit?size=10');
+            await browser.navigate('/qbpanel/audit?size=10');
             const auditPage = await browser.evaluate<{ rows: number; total: boolean; size: boolean }>(`(() => ({
               rows: document.querySelectorAll('[data-admin-table] tbody tr').length,
               total: /showing \\d+ of \\d+/i.test(document.body.textContent || ''),
@@ -3494,15 +3494,15 @@ async function main(): Promise<void> {
              * Row actions still work. The row links to the order detail, which is the only place an
              * action is offered; the permission boundary itself is proven over HTTP above.
              */
-            await browser.navigate('/admin/orders?size=10');
+            await browser.navigate('/qbpanel/orders?size=10');
             const rowLink = await browser.evaluate<string | null>(
-              `(() => document.querySelector('[data-admin-list] > li a[href^="/admin/orders/"]')?.getAttribute('href') ?? null)()`,
+              `(() => document.querySelector('[data-admin-list] > li a[href^="/qbpanel/orders/"]')?.getAttribute('href') ?? null)()`,
             );
             if (rowLink === null) fail('the order list has no row link');
             await browser.navigate(rowLink);
             const openedOrder = await browser.evaluate<{ heading: string; reason: boolean }>(`(() => ({
               heading: document.querySelector('h1')?.textContent?.trim() ?? '',
-              reason: document.querySelector('form[action="/api/admin/orders-cod"] [name="reason"]') !== null,
+              reason: document.querySelector('form[action="/api/qbpanel/orders-cod"] [name="reason"]') !== null,
             }))()`);
             record(
               'a list row opens its order, which still carries the guarded decision control',
@@ -3519,7 +3519,7 @@ async function main(): Promise<void> {
             const overflowFindings: string[] = [];
             for (const width of widths) {
               await browser.viewport(width, 900);
-              for (const route of [...listRoutes, '/admin/audit']) {
+              for (const route of [...listRoutes, '/qbpanel/audit']) {
                 await browser.navigate(route);
                 const measured = await browser.evaluate<{ overflow: number; scrolls: boolean }>(`(() => {
                   const wrap = document.querySelector('main div');
@@ -3533,7 +3533,7 @@ async function main(): Promise<void> {
                   };
                 })()`);
                 if (measured.overflow > 1) overflowFindings.push(`${route} @${width}px: ${measured.overflow}px`);
-                if (route === '/admin/audit' && width <= 390 && measured.scrolls !== true) {
+                if (route === '/qbpanel/audit' && width <= 390 && measured.scrolls !== true) {
                   overflowFindings.push(`${route} @${width}px: the table does not scroll inside its container`);
                 }
               }
@@ -3545,19 +3545,19 @@ async function main(): Promise<void> {
             );
 
             await browser.viewport(390, 844);
-            await browser.navigate('/admin/orders');
+            await browser.navigate('/qbpanel/orders');
             await browser.screenshot('/tmp/qb-admin-orders-mobile.png');
-            await browser.navigate('/admin/customers');
+            await browser.navigate('/qbpanel/customers');
             await browser.screenshot('/tmp/qb-admin-customers-mobile.png');
             await browser.viewport(1440, 900);
-            await browser.navigate('/admin/orders');
+            await browser.navigate('/qbpanel/orders');
             await browser.screenshot('/tmp/qb-admin-orders-desktop.png');
 
             /*
              * The footer is the only place a list states its size, so it gets its own capture scrolled
              * into view: a footer below the fold is a footer nobody read while approving this change.
              */
-            await browser.navigate('/admin/orders?size=10');
+            await browser.navigate('/qbpanel/orders?size=10');
             const footer = await browser.evaluate<{
               countLeft: number;
               groupLeft: number;
@@ -3594,14 +3594,14 @@ async function main(): Promise<void> {
             await browser.evaluate('window.scrollTo(0, document.body.scrollHeight)');
             await browser.screenshot('/tmp/qb-admin-orders-footer.png');
 
-            await browser.navigate('/admin/customers');
+            await browser.navigate('/qbpanel/customers');
             await browser.screenshot('/tmp/qb-admin-customers-desktop.png');
 
             /*
              * English only. The interface has one language (Phase 28); a list that leaked a second
              * one would be a regression this phase must not introduce.
              */
-            await browser.navigate('/admin/orders');
+            await browser.navigate('/qbpanel/orders');
             const language = await browser.evaluate<{ lang: string; bengali: boolean }>(`(() => ({
               lang: document.documentElement.lang,
               bengali: /[\\u0980-\\u09FF]/.test(document.body.textContent || ''),
@@ -3612,7 +3612,7 @@ async function main(): Promise<void> {
               JSON.stringify(language),
             );
 
-            await browser.navigate(`/admin/customers/${secondCod.customerId}`);
+            await browser.navigate(`/qbpanel/customers/${secondCod.customerId}`);
             const detailUi = await browser.evaluate<{ heading: string | null; order: boolean; suspend: boolean }>(`(() => ({
               heading: document.querySelector('h1')?.textContent?.trim(),
               order: document.body.textContent?.includes(${JSON.stringify(secondCod.orderNumber)}),
@@ -3642,13 +3642,13 @@ async function main(): Promise<void> {
              * leaves the policy **off**, which is the state the storefront assertion further down
              * assumes.
              */
-            await browser.navigate('/admin/settings/other');
+            await browser.navigate('/qbpanel/settings/other');
             const otherUi = await browser.evaluate<{
               title: string | null;
               hasSwitch: boolean;
               savedState: string;
             }>(`(() => {
-              const form = document.querySelector('form[action="/api/admin/settings/checkout"]');
+              const form = document.querySelector('form[action="/api/qbpanel/settings/checkout"]');
               return {
                 title: document.querySelector('h1')?.textContent?.trim() ?? null,
                 hasSwitch:
@@ -3675,15 +3675,15 @@ async function main(): Promise<void> {
             // The owner's action: tick the box, press Save.
             await browser.click('input[name="guestOrders"]');
             await browser.evaluate(
-              `document.querySelector('form[action="/api/admin/settings/checkout"]')?.requestSubmit()`,
+              `document.querySelector('form[action="/api/qbpanel/settings/checkout"]')?.requestSubmit()`,
             );
             await browser.waitFor(
-              "location.pathname === '/admin/settings/other' && location.search.includes('notice=saved')",
+              "location.pathname === '/qbpanel/settings/other' && location.search.includes('notice=saved')",
             );
             const enabledPolicy = await storedGuestPolicy();
             const anonymousCheckout = await call(base, '/checkout');
             const enabledUi = await browser.evaluate<string>(
-              `document.querySelector('form[action="/api/admin/settings/checkout"]')?.textContent ?? ''`,
+              `document.querySelector('form[action="/api/qbpanel/settings/checkout"]')?.textContent ?? ''`,
             );
             record(
               'ticking the switch stores true and lets an anonymous visitor reach checkout',
@@ -3696,10 +3696,10 @@ async function main(): Promise<void> {
             // And back off: the setting, not the panel's wording, is what a visitor is answered with.
             await browser.click('input[name="guestOrders"]');
             await browser.evaluate(
-              `document.querySelector('form[action="/api/admin/settings/checkout"]')?.requestSubmit()`,
+              `document.querySelector('form[action="/api/qbpanel/settings/checkout"]')?.requestSubmit()`,
             );
             await browser.waitFor(
-              "location.pathname === '/admin/settings/other' && location.search.includes('notice=saved')",
+              "location.pathname === '/qbpanel/settings/other' && location.search.includes('notice=saved')",
             );
             const disabledPolicy = await storedGuestPolicy();
             const refusedCheckout = await call(base, '/checkout');
@@ -3750,7 +3750,7 @@ async function main(): Promise<void> {
             const SECOND_CHAT = '987654322';
 
             const addDestination = async (label: string, chatId: string): Promise<boolean> => {
-              await browser.navigate('/admin/settings/integrations/telegram');
+              await browser.navigate('/qbpanel/settings/integrations/telegram');
               await browser.type('#telegramLabel', label);
               await browser.type('#telegramChatId', chatId);
               await browser.evaluate(
@@ -3894,7 +3894,7 @@ async function main(): Promise<void> {
             );
 
             // ---- Phase 19: delivery charges, configured through the real UI ----
-            await browser.navigate('/admin/settings/delivery');
+            await browser.navigate('/qbpanel/settings/delivery');
             const deliveryUi = await browser.evaluate<{
               title: string | null;
               areas: string[];
@@ -3905,7 +3905,7 @@ async function main(): Promise<void> {
               return {
                 title: document.querySelector('h1')?.textContent?.trim() ?? null,
                 areas: ['Dhaka', 'Chattogram', 'Other districts'].filter((area) => text.includes(area)),
-                inputs: document.querySelectorAll('form[action="/api/admin/delivery"] input[name="amount"]').length,
+                inputs: document.querySelectorAll('form[action="/api/qbpanel/delivery"] input[name="amount"]').length,
                 missing: text.includes('No default delivery charge is configured'),
               };
             })()`);
@@ -3919,7 +3919,7 @@ async function main(): Promise<void> {
             );
 
             await browser.evaluate(`(() => {
-              const form = document.querySelector('form[action="/api/admin/delivery"]');
+              const form = document.querySelector('form[action="/api/qbpanel/delivery"]');
               const input = form?.querySelector('input[name="amount"]');
               if (!(input instanceof HTMLInputElement)) return false;
               input.value = '85';
@@ -3927,7 +3927,7 @@ async function main(): Promise<void> {
               return true;
             })()`);
             await browser.waitFor(
-              "location.pathname === '/admin/settings/delivery' && location.search.includes('notice=defaultSaved')",
+              "location.pathname === '/qbpanel/settings/delivery' && location.search.includes('notice=defaultSaved')",
             );
             const defaultAfter = await withTransaction((tx) =>
               tx.select({ defaultMinor: deliverySetting.defaultMinor }).from(deliverySetting).limit(1),
@@ -3944,7 +3944,7 @@ async function main(): Promise<void> {
              * wording. The round trip matters more than the form: what the owner saves must reach the
              * storefront, and clearing the message must remove the bar rather than leave a blank strip.
              */
-            await browser.navigate('/admin/settings/announcement');
+            await browser.navigate('/qbpanel/settings/announcement');
             const announcementUi = await browser.evaluate<{
               title: string | null;
               hasTextarea: boolean;
@@ -3953,7 +3953,7 @@ async function main(): Promise<void> {
               previewCopy: boolean;
             }>(`(() => {
               const heading = document.querySelector('h1')?.textContent?.trim() ?? null;
-              const card = document.querySelector('form[action="/api/admin/announcement"]');
+              const card = document.querySelector('form[action="/api/qbpanel/announcement"]');
               return {
                 title: heading,
                 hasTextarea: card !== null && card.querySelector('textarea[name="message"]') !== null,
@@ -3974,7 +3974,7 @@ async function main(): Promise<void> {
 
             const ANNOUNCEMENT_TEXT = 'Order now for delivery before the weekend.';
             await browser.evaluate(`(() => {
-              const form = document.querySelector('form[action="/api/admin/announcement"]');
+              const form = document.querySelector('form[action="/api/qbpanel/announcement"]');
               const textarea = form?.querySelector('textarea[name="message"]');
               const toggle = form?.querySelector('input[name="visible"]');
               if (!(textarea instanceof HTMLTextAreaElement) || !(toggle instanceof HTMLInputElement)) return false;
@@ -3984,7 +3984,7 @@ async function main(): Promise<void> {
               return true;
             })()`);
             await browser.waitFor(
-              "location.pathname === '/admin/settings/announcement' && location.search.includes('notice=saved')",
+              "location.pathname === '/qbpanel/settings/announcement' && location.search.includes('notice=saved')",
             );
             const storefrontWithMessage = await call(base, '/');
             const savedRows = await withTransaction((tx) =>
@@ -4003,9 +4003,9 @@ async function main(): Promise<void> {
               JSON.stringify(savedRows.map((row) => row.key)),
             );
 
-            await browser.navigate('/admin/settings/announcement');
+            await browser.navigate('/qbpanel/settings/announcement');
             await browser.evaluate(`(() => {
-              const form = document.querySelector('form[action="/api/admin/announcement"]');
+              const form = document.querySelector('form[action="/api/qbpanel/announcement"]');
               const textarea = form?.querySelector('textarea[name="message"]');
               const toggle = form?.querySelector('input[name="visible"]');
               if (!(textarea instanceof HTMLTextAreaElement) || !(toggle instanceof HTMLInputElement)) return false;
@@ -4015,7 +4015,7 @@ async function main(): Promise<void> {
               return true;
             })()`);
             await browser.waitFor(
-              "location.pathname === '/admin/settings/announcement' && location.search.includes('notice=saved')",
+              "location.pathname === '/qbpanel/settings/announcement' && location.search.includes('notice=saved')",
             );
             const storefrontCleared = await call(base, '/');
             record(
@@ -4033,7 +4033,7 @@ async function main(): Promise<void> {
              * `el.value = x` would leave a controlled preview untouched and let this assertion pass
              * against a preview that never updates.
              */
-            await browser.navigate('/admin/settings/announcement');
+            await browser.navigate('/qbpanel/settings/announcement');
             await browser.type('textarea[name="message"]', 'Eid orders close on Friday.');
             const previewHidden = await browser.evaluate<{ text: string; count: string }>(`(() => ({
               text: document.querySelector('figure')?.textContent ?? '',
@@ -4068,10 +4068,10 @@ async function main(): Promise<void> {
             );
 
             // The delivery checks that follow operate on the delivery page, so return to it.
-            await browser.navigate('/admin/settings/delivery');
+            await browser.navigate('/qbpanel/settings/delivery');
 
             await browser.evaluate(`(() => {
-              const form = [...document.querySelectorAll('form[action="/api/admin/delivery"]')]
+              const form = [...document.querySelectorAll('form[action="/api/qbpanel/delivery"]')]
                 .find((candidate) => candidate.querySelector('input[name="districtCode"]')?.value === 'dhaka');
               const input = form?.querySelector('input[name="amount"]');
               if (!(input instanceof HTMLInputElement)) return false;
@@ -4080,7 +4080,7 @@ async function main(): Promise<void> {
               return true;
             })()`);
             await browser.waitFor(
-              "location.pathname === '/admin/settings/delivery' && location.search.includes('notice=districtSaved')",
+              "location.pathname === '/qbpanel/settings/delivery' && location.search.includes('notice=districtSaved')",
             );
             const dhakaAfter = await withTransaction((tx) =>
               tx
@@ -4101,17 +4101,17 @@ async function main(): Promise<void> {
       }
 
       console.log('\nsession revocation and replay');
-      const logout = await call(base, '/api/admin/session/logout', { method: 'POST', jar: ownerJar, form: { csrf } });
+      const logout = await call(base, '/api/qbpanel/session/logout', { method: 'POST', jar: ownerJar, form: { csrf } });
       record('sign-out succeeds', logout.status === 303, `status ${logout.status} → ${logout.location}`);
 
-      const replayed = await call(base, '/admin', { jar: ownerJar });
+      const replayed = await call(base, '/qbpanel', { jar: ownerJar });
       record(
         'the revoked session cannot be replayed',
-        replayed.status === 307 || (replayed.location ?? '').includes('/admin/login'),
+        replayed.status === 307 || (replayed.location ?? '').includes('/qbpanel/login'),
         `status ${replayed.status} → ${replayed.location ?? ''}`,
       );
 
-      const replayMutation = await call(base, '/api/admin/owners', {
+      const replayMutation = await call(base, '/api/qbpanel/owners', {
         method: 'POST',
         jar: ownerJar,
         form: { csrf, email: 'replay@verify.test', displayName: 'Replay' },
@@ -4151,9 +4151,9 @@ async function main(): Promise<void> {
         );
         record(
           'the admin tree does not leak into the storefront',
-          !home.body.includes('/admin/catalog') &&
-            !home.body.includes('/admin/owners') &&
-            !home.body.includes('/admin/staff'),
+          !home.body.includes('/qbpanel/catalog') &&
+            !home.body.includes('/qbpanel/owners') &&
+            !home.body.includes('/qbpanel/staff'),
           'no admin links in public HTML',
         );
       }

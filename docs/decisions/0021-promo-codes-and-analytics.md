@@ -122,8 +122,8 @@ pricer (`resolveOrderLines`), so the discount that is quoted is the discount tha
 ## Consequences
 
 - **Schema 43 -> 45 tables**, plus `order.discount_minor` and a widened immutability trigger.
-- New admin surfaces: `/admin/analytics`, `/admin/promo-codes`, `/admin/promo-codes/new`,
-  `/admin/promo-codes/[id]`, and one mutation endpoint `/api/admin/promo-codes`.
+- New admin surfaces: `/qbpanel/analytics`, `/qbpanel/promo-codes`, `/qbpanel/promo-codes/new`,
+  `/qbpanel/promo-codes/[id]`, and one mutation endpoint `/api/qbpanel/promo-codes`.
 - One new customer-facing endpoint, `POST /api/checkout/promo`, which writes nothing and requires a
   customer session and CSRF.
 - The dashboard is reorganised around the shop's last thirty days, with the COD worklist immediately

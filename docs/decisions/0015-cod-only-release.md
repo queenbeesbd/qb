@@ -50,8 +50,8 @@ the claim write inside order creation, `decideVerification`, the verification/du
 the `payment.verify`, `payment.reject` and `payment.flag_false` permissions and their audit codes; and
 every prepaid translation key.
 
-The retired paths **404** rather than redirect: `/admin/payments`, `/admin/payments/recipients`,
-`/api/admin/payments` and `/api/admin/payment-recipients`.
+The retired paths **404** rather than redirect: `/qbpanel/payments`, `/qbpanel/payments/recipients`,
+`/api/qbpanel/payments` and `/api/qbpanel/payment-recipients`.
 
 ### 3. The schema stays as designed; no destructive migration
 

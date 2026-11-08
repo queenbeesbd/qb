@@ -73,7 +73,7 @@ account and issuing either supersedes the other.
 ### 8. Administration is untouched
 
 No admin route, session, password or permission was modified. The owner still signs in with email and
-password and no verification step, and a customer cookie cannot reach `/admin`.
+password and no verification step, and a customer cookie cannot reach `/qbpanel`.
 
 ### 9. Configuration lives in the environment
 

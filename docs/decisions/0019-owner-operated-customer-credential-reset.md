@@ -21,7 +21,7 @@ and session revocation. This ADR records actually building it.
 | Step | Who | Where |
 | --- | --- | --- |
 | Verify the customer | Owner, manually | Their existing phone call |
-| Issue a one-time code | Owner | Customer detail screen, `POST /api/admin/customers/recovery` |
+| Issue a one-time code | Owner | Customer detail screen, `POST /api/qbpanel/customers/recovery` |
 | Read the code out | Owner | During that call, from the one render that shows it |
 | Enter the code and a new password | Customer | `/account/recover`, `POST /api/account/recover` |
 
@@ -87,14 +87,14 @@ Every failure - expired, used, superseded, unknown, malformed - returns **one** 
 
 ### 8. Delivered through the flash cookie, cleared by a route
 
-The code is shown once via the existing httpOnly, `/admin`-scoped, 2-minute flash cookie. It never travels
+The code is shown once via the existing httpOnly, `/qbpanel`-scoped, 2-minute flash cookie. It never travels
 in a URL, a client bundle, an RSC payload or a log.
 
 **A defect was found and fixed while verifying this.** The cookie was documented as "read once, then
 gone" but was only ever *read*: every reload of the owners screen re-displayed the token for its whole
 lifetime. And a page render **cannot** clear a cookie - this version of Next.js permits `.set`/`.delete`
 only in a Server Function or a Route Handler, and calling `delete` in a page threw a 500. The fix is a
-route, `POST /api/admin/customers/recovery/dismiss`, which overwrites the cookie empty **carrying the same
+route, `POST /api/qbpanel/customers/recovery/dismiss`, which overwrites the cookie empty **carrying the same
 `path`** it was set with (a bare `delete(name)` targets the default path and leaves the real cookie in
 place). The chromium check that proves a reload shows nothing is what caught both halves.
 

@@ -4,7 +4,7 @@ import { after, before, describe, it } from 'node:test';
 import { withTransaction } from '../../src/db/client';
 import { seedOrder, SKIP_REASON, startMigratedDatabase, toolingAvailable, type DbFixture } from './helpers';
 import { countCodApprovalQueue, decideCod, listCodApprovalQueue } from '../../src/server/orders/manage';
-import { codDecidedToday, codQueue } from '../../src/server/orders/admin-read';
+import { codDecidedToday, codQueue } from '../../src/server/orders/qbpanel-read';
 import { ConflictError, ValidationError } from '../../src/server/authz/authorize';
 
 /**

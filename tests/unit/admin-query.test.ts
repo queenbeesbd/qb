@@ -8,7 +8,7 @@ import {
   readDateInput,
   readPageNumber,
   readPageSize,
-} from '../../src/lib/admin-query';
+} from '../../src/lib/qbpanel-query';
 
 /**
  * The admin list query state (Phase 30).
@@ -92,16 +92,16 @@ describe('admin list query state', () => {
   });
 
   it('builds a clean path when nothing is set, and drops empty values', () => {
-    assert.equal(buildQueryHref('/admin/orders', { q: '', filter: '', page: null, size: undefined }), '/admin/orders');
-    assert.equal(buildQueryHref('/admin/orders', { q: 'a b', filter: 'pending', page: 2 }), '/admin/orders?q=a+b&filter=pending&page=2');
-    assert.equal(buildQueryHref('/admin/audit', { size: 50 }), '/admin/audit?size=50');
+    assert.equal(buildQueryHref('/qbpanel/orders', { q: '', filter: '', page: null, size: undefined }), '/qbpanel/orders');
+    assert.equal(buildQueryHref('/qbpanel/orders', { q: 'a b', filter: 'pending', page: 2 }), '/qbpanel/orders?q=a+b&filter=pending&page=2');
+    assert.equal(buildQueryHref('/qbpanel/audit', { size: 50 }), '/qbpanel/audit?size=50');
   });
 
   it('produces one identical string for equivalent states', () => {
     // Callers pass `''` for "no filter", which is why the unfiltered list is one canonical path.
     assert.equal(
-      buildQueryHref('/admin/orders', { q: '', filter: '', page: null }),
-      buildQueryHref('/admin/orders', {}),
+      buildQueryHref('/qbpanel/orders', { q: '', filter: '', page: null }),
+      buildQueryHref('/qbpanel/orders', {}),
     );
   });
 });

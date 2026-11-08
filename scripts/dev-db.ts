@@ -168,7 +168,7 @@ function report(): void {
   console.log('  npm run db:migrate         # schema');
   console.log('  npm run db:seed            # permission catalogue and the owner role');
   console.log('  npm run db:seed:catalog    # the 22-product catalog');
-  console.log('  npm run staff:bootstrap -- you@example.test "Owner"   # prints a one-time token; redeem at /admin/redeem');
+  console.log('  npm run staff:bootstrap -- you@example.test "Owner"   # prints a one-time token; redeem at /qbpanel/redeem');
   console.log('  npm run dev');
 }
 

@@ -20,7 +20,7 @@
 
 Related: `docs/platform-architecture.md` (boundaries, decision register) ·
 `docs/payment-workflow.md` (D9 and D11 policy) · `docs/security.md` (authorization matrix and threat
-model) · `docs/admin-dashboard.md` (operational surfaces) · `docs/migration-plan.md` (import rules) ·
+model) · `docs/qbpanel-dashboard.md` (operational surfaces) · `docs/migration-plan.md` (import rules) ·
 `docs/decisions/0005-neon-postgresql-and-vercel-hosting.md` and
 `docs/decisions/0006-neon-object-storage.md`.
 
@@ -2241,7 +2241,7 @@ customer file is ever stored.
 ### 14.2 Upload flow (admin-only)
 
 ```
-1. Browser requests an upload slot:  POST /admin/media/upload-init
+1. Browser requests an upload slot:  POST /qbpanel/media/upload-init
    - Server authenticates, requires catalog.write, validates the DECLARED metadata
      (content type in an allowlist, declared size <= bound, product exists)
    - Server generates the object key from an opaque id: products/<uuid>/<derivative>.<ext>
@@ -2249,7 +2249,7 @@ customer file is ever stored.
    - Server mints a SHORT-LIVED presigned PUT scoped to exactly that key
      - minted ONLY after validation (ADR 0006)
 2. Browser uploads bytes directly to storage with that presigned URL.
-3. Browser reports completion:  POST /admin/media/upload-complete
+3. Browser reports completion:  POST /qbpanel/media/upload-complete
    - Server HEADs the object: actual size, actual content type
    - Server decodes the object AS AN IMAGE to confirm it really is one
      (magic bytes / decode, not the declared type, not the extension)
@@ -2389,7 +2389,7 @@ checkout must not be silently reintroduced.
 below are retained as the record of what was considered. The decision is: email and password with
 **scrypt** hashing, **opaque 256-bit session tokens stored only as a SHA-256 hash**, httpOnly
 `SameSite=Lax` cookies with idle and absolute expiry, account- and source-keyed throttling,
-customer-scoped CSRF, and **strict separation from owner/admin credentials, sessions and
+customer-scoped CSRF, and **strict separation from owner/qbpanel credentials, sessions and
 permissions**. **Email is the sole registration and sign-in identifier**; a phone number stays optional
 contact. **Email verification is deferred**, and **there is no self-service password recovery at
 launch** - any reset is an owner-operated process with one-time credentials, audit logging and session
@@ -2625,7 +2625,7 @@ genuine late payment is never silently discarded.
 | ~~D10~~ | Which roles may verify payments, approve COD and complete refunds | **Settled (ADR 0009):** owner role only, multiple owners permitted, no staff or support roles and no permission-management system in the launch surface |
 | ~~D13~~ | Staff authentication approach | **Settled (ADR 0009):** first-party email and password; Resend verification and Google sign-in deferred |
 | D14 | ORM / query layer (Prisma vs Drizzle) | Determines the migration tool, not the schema. Deferred to Phase 11 |
-| D15 | Single Next.js app vs split storefront/admin | The boundary diagram (PA section 2) is logical either way |
+| D15 | Single Next.js app vs split storefront/qbpanel | The boundary diagram (PA section 2) is logical either way |
 | D16 | Background job mechanism | The expiry sweep (12.3) is written to be scheduler-agnostic. **Expiry is deferred and not a launch priority (ADR 0014), so D16 does not block Phase 16** |
 | ~~D17~~ | **Customer authentication provider** (section 15.4) | **Settled (ADR 0012, 2026-10-15):** first-party customer sessions - email and password, scrypt, opaque hashed session tokens, httpOnly cookies with idle and absolute expiry, throttling, customer-scoped CSRF, **no self-service recovery**. **No longer blocks checkout** |
 | - | Shipping charges and zone structure | **Confirmed requirement (ADR 0014 decision 10).** A flat `store_setting` exists; **per-area charges need a new table (migration)**, and the amounts, the areas and the matching/fallback policy are unapproved owner inputs |

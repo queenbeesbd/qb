@@ -170,7 +170,7 @@ per database, so a migration that is applied locally is not applied anywhere els
 
 That sequence was skipped once and cost a live screen: migration `0015_free_thunderbolt` (the
 `visit_session` / `visit_event` tables, ADR 0027) was deployed in code on 2026-11-06 but not applied to
-the production database, so `/admin/analytics` failed with `relation "visit_session" does not exist`
+the production database, so `/qbpanel/analytics` failed with `relation "visit_session" does not exist`
 while every other admin page loaded, and order creation refused at the visit-log update. It was applied
 on 2026-11-07. Recorded in `docs/project-status.md`.
 
@@ -255,7 +255,7 @@ npm run dev:db            # start (or report) the cluster on 127.0.0.1:55432
 npm run db:migrate
 npm run db:seed           # permission catalogue and the owner role
 npm run db:seed:catalog   # the 22-product catalog
-npm run staff:bootstrap -- you@example.test "Owner"   # one-time token, redeemed at /admin/redeem
+npm run staff:bootstrap -- you@example.test "Owner"   # one-time token, redeemed at /qbpanel/redeem
 npm run dev
 
 npm run dev:db -- --stop  # stop it; the data directory is kept, nothing is deleted

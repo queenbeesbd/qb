@@ -41,7 +41,9 @@
     "assets:brand": "tsx scripts/build-brand-assets.ts",
     "assets:upload:catalog": "tsx scripts/upload-catalog-assets.ts",
     "assets:optimize": "tsx scripts/optimize-catalog-assets.ts",
-    "assets:logos": "tsx scripts/trim-brand-logos.ts"
+    "assets:logos": "tsx scripts/trim-brand-logos.ts",
+    "app:icons": "node android-app/scripts/build-icons.mjs",
+    "app:apk": "cd android-app && npm run apk:debug"
   },
   "dependencies": {
     "@neondatabase/serverless": "1.2.0",

@@ -151,7 +151,7 @@ export function csrfTokenMatches(expected: string, submitted: FormDataEntryValue
 /**
  * Resolves a post-login return path.
  *
- * Only a same-origin, relative `/admin/...` path is accepted. Absolute URLs, protocol-relative
+ * Only a same-origin, relative `/qbpanel/...` path is accepted. Absolute URLs, protocol-relative
  * `//host` forms, backslash tricks, encoded separators and any path outside the admin tree resolve
  * to the admin root, so the login form cannot become an open redirect or an exfiltration vector.
  */

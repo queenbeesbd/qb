@@ -24,7 +24,7 @@ import { after } from 'next/server';
 
 import { withTransaction } from '@/db/client';
 import { VISIT_COOKIE, isVisitSessionId, markOrderPlaced } from '@/server/analytics/visits';
-import { deny, redirectTo } from '@/app/api/admin/responses';
+import { deny, redirectTo } from '@/app/api/qbpanel/responses';
 import { orderReceiptPath } from '@/lib/order-paths';
 import { readCheckoutSubmission } from '@/server/checkout/submission';
 import { CHECKOUT_PATH } from '@/server/customer-auth/constants';

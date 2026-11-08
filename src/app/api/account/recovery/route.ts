@@ -13,7 +13,7 @@
 import { after } from 'next/server';
 
 import { withTransaction } from '@/db/client';
-import { deny, redirectTo } from '@/app/api/admin/responses';
+import { deny, redirectTo } from '@/app/api/qbpanel/responses';
 import { isSameOrigin } from '@/server/auth/request-guards';
 import { sessionContextFrom } from '@/server/auth/session';
 import { CUSTOMER_FORGOT_PATH } from '@/server/customer-auth/constants';

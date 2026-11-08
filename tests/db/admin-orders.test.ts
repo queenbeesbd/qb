@@ -14,10 +14,10 @@ import {
   adminOrderDetail,
   listOrdersForAdmin,
   ORDER_PAGE_SIZE,
-} from '../../src/server/orders/admin-order';
+} from '../../src/server/orders/qbpanel-order';
 import { decideCod } from '../../src/server/orders/manage';
-import { dateRangeBounds } from '../../src/lib/admin-query';
-import { codDecidedToday, customers, customerDetail, recentOrders } from '../../src/server/orders/admin-read';
+import { dateRangeBounds } from '../../src/lib/qbpanel-query';
+import { codDecidedToday, customers, customerDetail, recentOrders } from '../../src/server/orders/qbpanel-read';
 
 /**
  * The owner's order detail and order history (Phase 20).

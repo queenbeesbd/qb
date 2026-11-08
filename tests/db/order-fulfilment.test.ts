@@ -15,8 +15,8 @@ import {
   recordParcelReceived,
 } from '../../src/server/orders/fulfilment';
 import { AuthorizationError, ConflictError, ValidationError } from '../../src/server/authz/authorize';
-import { adminOrderDetail } from '../../src/server/orders/admin-order';
-import { revenueSummary } from '../../src/server/orders/admin-read';
+import { adminOrderDetail } from '../../src/server/orders/qbpanel-order';
+import { revenueSummary } from '../../src/server/orders/qbpanel-read';
 
 /**
  * The owner's post-approval COD operations (Phase 20).

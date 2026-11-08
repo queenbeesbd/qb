@@ -8,7 +8,7 @@
  *
  * - `httpOnly`, so no client script can read it and it cannot reach a bundle;
  * - never in the URL, so it cannot leak through history, a referrer header or a shared link;
- * - `path=/admin`, so it is not even sent to storefront requests;
+ * - `path=/qbpanel`, so it is not even sent to storefront requests;
  * - a two-minute lifetime, so the exposure window is a single read;
  * - it holds only the token and its expiry, never a password.
  *
@@ -51,7 +51,7 @@ export async function setIssuedTokenFlash(flash: IssuedTokenFlash): Promise<void
     httpOnly: true,
     secure: cookiesMustBeSecure(),
     sameSite: 'lax',
-    path: '/admin',
+    path: '/qbpanel',
     maxAge: FLASH_MAX_AGE_SECONDS,
   });
 }
@@ -71,7 +71,7 @@ export async function clearIssuedTokenFlash(): Promise<void> {
     httpOnly: true,
     secure: cookiesMustBeSecure(),
     sameSite: 'lax',
-    path: '/admin',
+    path: '/qbpanel',
     maxAge: 0,
   });
 }

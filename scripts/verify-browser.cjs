@@ -1618,7 +1618,7 @@ async function main() {
     // 45i - an unavailable product offers no add control at all, so no false success is possible.
     // Availability is the owner's state; the product page states it and removes the button.
     const outOfStock = await evaluate(client, `(async () => {
-      const response = await fetch('/api/admin/catalog');
+      const response = await fetch('/api/qbpanel/catalog');
       return { exists: response.status !== 404 };
     })()`);
     await nav(client, samplePath);

@@ -19,7 +19,7 @@ and none may be added without an owner decision. Charts are hand-drawn SVG ([ADR
 | Surface | Routes | Rendering | Session |
 | --- | --- | --- | --- |
 | Storefront | `/`, `/products`, `/categories`, `/cart`, `/checkout`, `/account` | Server Components, `force-dynamic` (the catalog is live) | none, or the customer session cookie |
-| Admin | `/admin/**` | Server Components reading the owner session, one permission check per page and per mutation | httpOnly owner session cookie |
+| Admin | `/qbpanel/**` | Server Components reading the owner session, one permission check per page and per mutation | httpOnly owner session cookie |
 | API | `/api/**` | Route handlers only, every write goes through one | same cookies, plus CSRF for customer posts |
 
 Every route is rendered on demand; the only prerendered output is the generated `/_not-found` and error
@@ -103,8 +103,8 @@ reservation, deduction or movement is written**, so overselling is accepted by d
 ### Admin write path
 
 ```text
-/admin/** page  -> resolve session -> requirePermission(page permission)
-/api/admin/**   -> same-origin -> session -> CSRF -> requirePermission -> service (re-checks) -> audit
+/qbpanel/** page  -> resolve session -> requirePermission(page permission)
+/api/qbpanel/**   -> same-origin -> session -> CSRF -> requirePermission -> service (re-checks) -> audit
 ```
 
 Authorization is checked twice on purpose, and the second check is what makes a caller that forgets the

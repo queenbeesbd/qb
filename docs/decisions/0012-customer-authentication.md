@@ -15,7 +15,7 @@ in or register before placing an order, and the cart is preserved with the custo
 checkout. Guest checkout must not be silently reintroduced, and no anonymous order-lookup surface is
 acceptable.
 
-Phase 12 implemented authentication for the **owner/admin** interface only, and ADR 0009 section 5
+Phase 12 implemented authentication for the **owner/qbpanel** interface only, and ADR 0009 section 5
 records that customer registration, login, recovery, checkout and payment remain governed by **D17** and
 are not implied by that work. Phase 10 designed the customer identity, credential, session, recovery
 and throttle tables (`docs/data-model.md` 4.1-4.5) and the authentication architecture (section 15),
@@ -40,8 +40,8 @@ the owner, and settled as D17.**
 - **Account- and source-keyed throttling** on authentication (and the other writing endpoints).
 - **Customer-scoped CSRF protection**: a per-session token verified server-side plus a same-origin
   check on state-changing routes. `SameSite=Lax` is a mitigation, not the whole control.
-- **Strict separation between customer permissions and owner/admin permissions.** Customer identity,
-  credentials, sessions and authorization are distinct from the owner/admin ones, and the two session
+- **Strict separation between customer permissions and owner/qbpanel permissions.** Customer identity,
+  credentials, sessions and authorization are distinct from the owner/qbpanel ones, and the two session
   stores stay separate so no customer-scoped query can reach an owner row.
 
 **No external authentication provider and no new authentication dependency** is introduced. A hosted
@@ -88,10 +88,10 @@ The ban is distinct from the customer review flag, which blocks nothing.
 
 ### 5. Owner and customer credentials stay separate
 
-Owner/admin authentication (ADR 0009, D22) and customer authentication are **separate stories with the
+Owner/qbpanel authentication (ADR 0009, D22) and customer authentication are **separate stories with the
 same shape**. They share the established implementation patterns - scrypt, opaque hashed session tokens,
 httpOnly cookies, throttling, per-actor authorization - but they do not share credentials, sessions,
-permission checks or audit actor types. "Customer" is never an owner/admin actor, and an owner account
+permission checks or audit actor types. "Customer" is never an owner/qbpanel actor, and an owner account
 is never a customer account.
 
 ## Consequences

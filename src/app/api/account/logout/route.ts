@@ -10,7 +10,7 @@ import { withTransaction } from '@/db/client';
 import { clearCustomerSessionCookie, guardCustomerMutation } from '@/server/customer-auth/guard';
 import { signOutCustomer } from '@/server/customer-auth/service';
 import { ACCOUNT_ROOT } from '@/server/customer-auth/constants';
-import { deny, redirectTo } from '@/app/api/admin/responses';
+import { deny, redirectTo } from '@/app/api/qbpanel/responses';
 
 export const dynamic = 'force-dynamic';
 

@@ -8,7 +8,7 @@ Status: Phases 0-8 complete (2026-10-11). **Phase 9 is complete: every blocking 
 
 **Roadmap revision (2026-10-17, Phase 17, ADR 0015):** the owner has made **Cash on Delivery the only payment method** for this release. The manual bKash/Nagad flow is **removed from the application** and the roadmap is rebased accordingly: **Phase 17** is this COD-only transition and audit (complete locally), **Phase 18** was the admin dashboard UX redesign (now complete locally), **Phase 19** is operational readiness and storefront completion, **Phase 20** is deployment, and an **automated gateway is a future item with no selected provider**. Sections describing earlier phases are kept as history; where they describe prepaid work as pending, that work is **superseded, not outstanding**.
 
-Supporting documents: `docs/platform-architecture.md` (architecture and the decision register in section 11), `docs/payment-workflow.md` (COD workflow; the manual prepaid design is retained as superseded history), `docs/admin-dashboard.md` (dashboard scope, analytics and the Phase 18 design brief), `docs/migration-plan.md` (catalog migration), `docs/security.md` (security requirements), `docs/backend-capability-audit.md` (Phase 7 reference findings).
+Supporting documents: `docs/platform-architecture.md` (architecture and the decision register in section 11), `docs/payment-workflow.md` (COD workflow; the manual prepaid design is retained as superseded history), `docs/qbpanel-dashboard.md` (dashboard scope, analytics and the Phase 18 design brief), `docs/migration-plan.md` (catalog migration), `docs/security.md` (security requirements), `docs/backend-capability-audit.md` (Phase 7 reference findings).
 
 ## Phase 0 - audit and foundation (complete)
 
@@ -231,7 +231,7 @@ A documentation and planning phase. The owner confirmed that QueenBee's is built
 | --- | --- |
 | Approved direction decision | `docs/decisions/0004-independent-platform-direction.md` |
 | Architecture proposal with evaluated options | `docs/platform-architecture.md` |
-| Admin dashboard scope and analytics design | `docs/admin-dashboard.md` |
+| Admin dashboard scope and analytics design | `docs/qbpanel-dashboard.md` |
 | Catalog migration workflow | `docs/migration-plan.md` |
 | Revised requirements, security requirements and roadmap | `docs/requirements.md`, `docs/security.md`, this document |
 | Permanent project rules | `AGENTS.md` |
@@ -287,7 +287,7 @@ These fix the **schema and transaction shape** and the **order state machine**, 
   - **D1 Database:** **Neon PostgreSQL**, initial plan **Free**, upgrade to a paid plan (~$15/mo) when justified by measured usage or operational need.
   - **D2 Hosting:** **Vercel**, initial plan **Hobby (free)**, upgrade to **Pro** (~$20/mo) when required.
   - **Cost policy:** keep initial costs as close to zero as reasonably possible; do not upgrade pre-emptively; recheck provider pricing and plan terms before implementation and before any upgrade recommendation. The $15 and $20 figures are the owner's intended future budget, not guaranteed permanent prices.
-- **Deliverables produced:** an evidence-based proposal for every blocking decision in `docs/platform-architecture.md` section 11, with verified pricing, alternatives, lock-in and recovery implications; the manual payment workflow design in `docs/payment-workflow.md`; payment controls added to `docs/security.md`; the verification queue specified in `docs/admin-dashboard.md`.
+- **Deliverables produced:** an evidence-based proposal for every blocking decision in `docs/platform-architecture.md` section 11, with verified pricing, alternatives, lock-in and recovery implications; the manual payment workflow design in `docs/payment-workflow.md`; payment controls added to `docs/security.md`; the verification queue specified in `docs/qbpanel-dashboard.md`.
 - **Owner questions:** none outstanding. The four questions that blocked Phase 10 were answered on 2026-10-11 and are recorded in the gate above.
 - **Dependencies:** the owner's own business knowledge, merchant arrangements and policy decisions. No credentials are needed for the approval itself.
 - **Acceptance:** every decision in the register is recorded as approved, deferred with a stated reason, or explicitly blocking. **Met** - D1, D2, D3, D7, D8, D9, D11 and D12 are approved, and the rest are deferred with reasons.
@@ -301,8 +301,8 @@ These fix the **schema and transaction shape** and the **order state machine**, 
 - **Status:** **complete as a design.** The deliverables below are documented, reviewed and internally consistent. **No implementation was performed and none is authorized by this phase.**
 - **Deliverables produced:**
   - **`docs/data-model.md`** - the existing-system baseline and its discrepancies; 13 schema conventions; a Mermaid ER diagram; **35 tables** specified column by column with primary keys, foreign keys, nullability, unique and `CHECK` constraints, indexes, authorization boundaries, retention rules and allowed transitions; **eight separate state machines**; the transaction, concurrency and locking design; the authorization matrix; the image-storage and upload architecture; the authentication architecture; and migration, rollback and operational safety.
-  - **`docs/security.md`** - an authorization matrix for guest/customer/support/admin/owner and a 16-part threat model, each entry with scenario, impact, control, detection, verification method and residual risk.
-  - **Corrected contradictions** across `docs/payment-workflow.md`, `docs/platform-architecture.md` and `docs/admin-dashboard.md`, recorded in the change log in `docs/data-model.md` section 1.4.
+  - **`docs/security.md`** - an authorization matrix for guest/customer/support/qbpanel/owner and a 16-part threat model, each entry with scenario, impact, control, detection, verification method and residual risk.
+  - **Corrected contradictions** across `docs/payment-workflow.md`, `docs/platform-architecture.md` and `docs/qbpanel-dashboard.md`, recorded in the change log in `docs/data-model.md` section 1.4.
 - **Dependencies:** Phase 9, complete. Phase 10 was explicitly authorized by the owner for architecture, schema design, security analysis and documentation only.
 - **Acceptance:** every entity and transition is specified; server authority is explicit per field; no client-authoritative value remains; the schema and state machines are consistent with the approved D9 rules and the decided D11 model. **Met** - acceptance criteria A1-A13 in `docs/data-model.md` section 17.5 are satisfied.
 - **Verification gate:** cross-checked against D9 and D11; the one-active-claim-per-unit bound, the no-auto-expiry-of-a-submitted-claim rule, the refund/stock separation, and the COD state separation are each reflected in both the schema and the state machines. **A14 is deliberately unmet:** the concurrency guarantees are reasoned and structurally constrained but **not executed**, because no database exists. Claiming otherwise would be unverified.
@@ -353,8 +353,8 @@ These fix the **schema and transaction shape** and the **order state machine**, 
   - **Product imagery from existing local assets only.** The key is validated against a server-controlled inventory derived from `public/catalog`, and `content_type`, `width`, `height` and `byte_size` are read from the **file bytes** (JPEG/WebP header parsers, no new dependency). Nothing about an image comes from the request except the key and the alt text.
   - **Owner-account management**, replacing the staff and role screen: create an owner (the role is forced, never chosen), issue a single-use credential token, enable or disable an account, with the last-active-owner guard enforced under a row lock.
   - **The authoritative orderability check** (`src/server/catalog/orderability.ts`), which refuses an unpublished, archived or out-of-stock product from database state alone.
-  - **A database-backed read layer** (`src/server/catalog/read.ts`) and an authenticated read API (`GET /api/admin/catalog`).
-  - **Documentation:** ADR 0010, plus updates to `docs/data-model.md` 5.2, `docs/database.md`, `docs/security.md`, `docs/admin-dashboard.md`, `docs/catalog.md` and `docs/requirements.md`.
+  - **A database-backed read layer** (`src/server/catalog/read.ts`) and an authenticated read API (`GET /api/qbpanel/catalog`).
+  - **Documentation:** ADR 0010, plus updates to `docs/data-model.md` 5.2, `docs/database.md`, `docs/security.md`, `docs/qbpanel-dashboard.md`, `docs/catalog.md` and `docs/requirements.md`.
 - **Migration `0003`** (`drizzle/0003_product_availability.sql`) is **purely additive**: the column, its `CHECK` constraint and one partial index. No table was dropped or rewritten and the inventory tables are untouched.
 - **Dependencies:** Phase 12 (complete locally).
 - **Prerequisites, each resolved before implementation:** (a) **ADR 0009 section 1** - the availability model - **closed in ADR 0010** as a bare owner toggle, with the oversell risk recorded; (b) the **role-management follow-up** - the Phase 12 staff and role screen, its navigation entry and its four API routes were **removed**, and the retired paths now 404; (c) **image storage** - upload and object storage remain deferred, so imagery is association-only.
@@ -431,9 +431,9 @@ not a speculative abstraction built in advance.
   - **Cash on Delivery is the only active payment method.** `createOrder` no longer accepts a payment
     method; it writes `cod` / `not_applicable` / `cod_pending_approval` with no expiry. Checkout submits
     no method field, so no page or request can choose a prepaid method.
-  - **Removed:** the bKash/Nagad checkout branch and claim fields; `/admin/payments` (verification
-    queue), `/admin/payments/recipients` (recipient configuration), `/api/admin/payments` and
-    `/api/admin/payment-recipients`; the payment-recipient service and validation modules;
+  - **Removed:** the bKash/Nagad checkout branch and claim fields; `/qbpanel/payments` (verification
+    queue), `/qbpanel/payments/recipients` (recipient configuration), `/api/qbpanel/payments` and
+    `/api/qbpanel/payment-recipients`; the payment-recipient service and validation modules;
     `decideVerification` and the prepaid queue reads; the `payment.verify`, `payment.reject`,
     `payment.flag_false` and `payment.recipient_manage` permissions; their audit action codes; the
     prepaid translation keys; and the tests and verification checks that exercised them. Retired paths
@@ -444,7 +444,7 @@ not a speculative abstraction built in advance.
     because they hold claim history and audit references (ADR 0015 section 3).
   - **Documentation reset:** requirements, roadmap, payment workflow, data model, security, dashboard and
     status documents reconciled to the COD-only product; contradictions about prepaid support removed.
-  - **Dashboard preparation:** a design brief and prioritised feature list in `docs/admin-dashboard.md`,
+  - **Dashboard preparation:** a design brief and prioritised feature list in `docs/qbpanel-dashboard.md`,
     grounded in the codebase audit rather than in a mockup.
 - **Verification (executed 2026-10-17, disposable local clusters and a real production build):** see
   `docs/project-status.md` for the exact counts - unit and database suites, `verify:admin` (including
@@ -463,7 +463,7 @@ not a speculative abstraction built in advance.
 
 - **Objective:** redesign the owner panel for the work the owner actually does every day - COD decisions,
   catalog and availability maintenance, order and customer lookup - using the existing design system and
-  the brief in `docs/admin-dashboard.md`.
+  the brief in `docs/qbpanel-dashboard.md`.
 - **Prerequisites:** Phase 17 verified (done); an owner decision on the dashboard's daily priority order
   if it differs from the brief; explicit authorization to begin.
 - **Scope (from the brief):** an operational overview that answers "what needs me now"; one unified order
@@ -580,12 +580,12 @@ every order. No price was guessed.
 
 Delivered:
 
-1. **Order detail** (`/admin/orders/[orderNumber]`, requires `order.read`): reference and placement time,
+1. **Order detail** (`/qbpanel/orders/[orderNumber]`, requires `order.read`): reference and placement time,
    customer and delivery contact with a `tel:` link, the delivery area and address, the recorded lines
    with their saved unit prices, the delivery-charge snapshot, the order and COD states, the order event
    log, and - only with `audit.read` - the audit trail. The approve/reject controls are the same guarded
    forms the queue posts to, so there is one implementation of a decision.
-2. **Order history** (`/admin/orders`): server-side search (number, name, phone), status filter, and
+2. **Order history** (`/qbpanel/orders`): server-side search (number, name, phone), status filter, and
    pagination with an exact total. The queue and the customer list are paginated the same way, and a
    capped customer order list now says how many orders exist beyond it.
 3. **Storefront availability**: an Out of Stock card badge, a product page that states its state instead
@@ -666,7 +666,7 @@ order; the order completes and the dashboard's figures update.
 | `order_additional_cost` table, immutability + no-delete triggers | **migration `0005`** (additive; schema 42 → **43** tables) |
 | Record / void costs, parse amounts | `src/server/orders/costs.ts` |
 | Costs saved atomically with receipt and completion | `markPaymentReceived` |
-| Cost route | `POST /api/admin/orders/cost` |
+| Cost route | `POST /api/qbpanel/orders/cost` |
 | Permission | `order.cost_record` (privileged) |
 | Audit actions | `order.cost_recorded`, `order.cost_voided` |
 | Dashboard figures | `revenueSummary` → four separate amounts |
@@ -718,8 +718,8 @@ permanently locked out and the owner had no remedy. ADR 0012 named the alternati
 | Piece | Where |
 | --- | --- |
 | Issue + redeem, digest-only, atomic | `src/server/customer-auth/recovery.ts` |
-| Owner route | `POST /api/admin/customers/recovery` |
-| Flash dismissal | `POST /api/admin/customers/recovery/dismiss` |
+| Owner route | `POST /api/qbpanel/customers/recovery` |
+| Flash dismissal | `POST /api/qbpanel/customers/recovery/dismiss` |
 | Customer redemption | `/account/recover` + `POST /api/account/recover` |
 | Permission | `customer.credential_reset` (**privileged**) |
 | Audit | `customer.credential_reset_issued`, `customer.recovery_refused`, `customer.credential_reset_redeemed` |
@@ -850,7 +850,7 @@ labelled required note), `verify:storefront` **101/101** + **27/27** HTTP, unit 
 **241/241**, `typecheck`, `eslint` 0 errors, `check:i18n` (849 keys), `check:catalog`, `check:secrets`,
 `next build`. Screenshots inspected: dashboard, delivery settings, order operations.
 
-**Not done, and why:** the 8 status tabs on `/admin/orders` are kept - collapsing them changes which
+**Not done, and why:** the 8 status tabs on `/qbpanel/orders` are kept - collapsing them changes which
 filters an owner can reach, and no evidence says which two they use; the `?notice=` parameter still
 survives a reload, because clearing it in the client would race the existing navigation assertions; the
 recovery screen still has no contact route, because the store's phone number is owner-supplied data that
@@ -956,16 +956,16 @@ totals or audit contract changed, and there is **no schema change and no migrati
 
 | Surface | What changed |
 | --- | --- |
-| `/admin/orders` | server-side **date range** (`from`/`to`), page-size control, delivery sub-line and line count per row, active-filter chips |
-| `/admin/orders-cod` | **both tabs now paginate** (the waiting queue used to render every waiting order at once), page-size control |
-| `/admin/catalog` | **pagination with an exact total** (the footer previously reported only the rows on screen), page-size control |
-| `/admin/categories` | **search, a visibility filter and pagination** - the list previously had none of the three |
-| `/admin/customers` | page-size control; the footer is the single count |
-| `/admin/audit` | **pagination with a real page size and an exact total**, replacing a fixed 100-row slice |
+| `/qbpanel/orders` | server-side **date range** (`from`/`to`), page-size control, delivery sub-line and line count per row, active-filter chips |
+| `/qbpanel/orders-cod` | **both tabs now paginate** (the waiting queue used to render every waiting order at once), page-size control |
+| `/qbpanel/catalog` | **pagination with an exact total** (the footer previously reported only the rows on screen), page-size control |
+| `/qbpanel/categories` | **search, a visibility filter and pagination** - the list previously had none of the three |
+| `/qbpanel/customers` | page-size control; the footer is the single count |
+| `/qbpanel/audit` | **pagination with a real page size and an exact total**, replacing a fixed 100-row slice |
 
 **The shared pieces** are `ListToolbar`, `ListSearch` and `FilterTabs` (`_ui/ListToolbar.tsx`),
 `DateRangeFilter` and `ActiveFilters` (`_ui/ListFilters.tsx`), a rewritten `Pagination` with the page-size
-control, and the pure query-state helpers in `src/lib/admin-query.ts`. Every list is filtered **in SQL**,
+control, and the pure query-state helpers in `src/lib/qbpanel-query.ts`. Every list is filtered **in SQL**,
 every state is in the URL, and every filter change drops the page number so a narrowed list starts at
 page 1. Invalid parameters are clamped rather than refused: `?page=9999` resolves to the last page, an
 undocumented page size falls back to the list default, and `2026-02-31` is ignored rather than rolling
@@ -1023,7 +1023,7 @@ failures on untouched surfaces (8/32 product-page image and price, 20 gallery do
 
 **The owner asked for the new-product screen to be rebuilt to match the reference, and it is.** The form
 used to be a fieldset stack on the catalog list behind `?new=1`; it is now its own route,
-`/admin/catalog/new`, with the edit form at `/admin/catalog/[productId]`. The list no longer hosts a form
+`/qbpanel/catalog/new`, with the edit form at `/qbpanel/catalog/[productId]`. The list no longer hosts a form
 at all, so a filtered, paginated list and a full-height editor stop sharing a URL.
 
 **Owner decisions taken before the build** (asked, not assumed):
@@ -1195,7 +1195,7 @@ beside it. The queue is no longer the first thing on the page - the owner asked 
 first - but it is still above every table, and an empty queue is now one strip rather than a large empty
 panel.
 
-**What analytics is.** `/admin/analytics` with a 7/30/90-day window: revenue, orders, items, customers,
+**What analytics is.** `/qbpanel/analytics` with a 7/30/90-day window: revenue, orders, items, customers,
 average order and discounts; the revenue series with its peak day; the fulfilment mix; what sold; the
 money split (customer payments, the delivery fee inside them, recorded extra courier costs, estimated
 net); and promo usage. Every figure is an aggregate over order rows computed on read. **The screen states
@@ -1237,15 +1237,15 @@ readers remain unverified, and the new pages have been exercised in headless Chr
 per-customer limits, free-delivery codes, stacking, referral attribution, and any third-party analytics.
 
 **Phase 36 (category editor parity) is implemented locally and is not deployed.** The category screens
-are three routes - the list (`/admin/categories`), the create editor (`/admin/categories/new`) and the
-edit editor (`/admin/categories/[categoryId]`) - and `?new=1` / `?edit=` are gone rather than kept as
+are three routes - the list (`/qbpanel/categories`), the create editor (`/qbpanel/categories/new`) and the
+edit editor (`/qbpanel/categories/[categoryId]`) - and `?new=1` / `?edit=` are gone rather than kept as
 dead aliases. The editor uses the shell the product and promo editors established: one sticky action
 bar, a readiness sentence that names the empty fields, the shared two-column layout from 1080px,
 explicit validation in words instead of native bubbles, and a preview of the address the category will
 have. The right column also carries the two **derived** counts an archive is refused on - live products
 and live subcategories - and the list shows the subcategory count per row, so the owner sees what is in
 the way before pressing Archive. A refused create or edit returns to the editor that produced it
-(`returnTo`, allowlisted to `/admin/categories`, `/admin/categories/new` and `/admin/categories/[id]`)
+(`returnTo`, allowlisted to `/qbpanel/categories`, `/qbpanel/categories/new` and `/qbpanel/categories/[id]`)
 with a notice code, so typing survives a refusal. **Deliberately not built:** a parent picker or any
 subcategory management - that is a decision about depth the owner has not taken, and `parent_id` is read
 only to count. **Schema unchanged: 45 tables, no migration.** Two defects were fixed on the way: a
@@ -1263,7 +1263,7 @@ refusal returning a notice code instead of a 500.
 
 **Not verified:** the editor's *client-side* layer - the readiness summary, the blocked-submit alert and
 live state - because the shared dev server on port 3000 is serving a stale **production** `.next`
-directory, so **no page in the app hydrates** in this environment (`/admin/catalog/new`, which predates
+directory, so **no page in the app hydrates** in this environment (`/qbpanel/catalog/new`, which predates
 this phase, behaves the same). Routes, redirects, rendered markup and saved rows were verified; the
 interactive layer needs the dev server restarted after removing `.next`. Headless Chromium only.
 
@@ -1297,7 +1297,7 @@ supplies padding but no vertical rhythm, so the status row met the note and the 
 flush against the fields above them - and use `formCard`, the same fix the owner's Settings -> Other report
 produced.
 `verify:admin` now drives the delivered round trip (add, pause, resume, remove, an already-gone removal,
-the empty state), sweeps `/admin/settings/integrations/telegram` for control heights, and refuses an
+the empty state), sweeps `/qbpanel/settings/integrations/telegram` for control heights, and refuses an
 anonymous removal: **200/200**.
 **Delivery charges are configured (2026-10-23).** The owner supplied the three amounts and they are saved
 through the real screen: **Dhaka Tk 100, Chattogram Tk 60, other districts Tk 120**. Read back from the
@@ -1326,7 +1326,7 @@ click-through of the guest form (stale `.next`, no hydration on this dev server)
 
 **Phase 40 - the ban control was verified, not rebuilt (2026-10-23).** The previous entry here claimed the
 owner-facing ban control did not exist. **That was wrong**, and checking before building is why nothing was
-duplicated: `/api/admin/customers` has called `suspendCustomer` since Phase 18, the customers list and the
+duplicated: `/api/qbpanel/customers` has called `suspendCustomer` since Phase 18, the customers list and the
 customer detail screen both carry a reason-requiring confirmation dialog (10-500 characters), the route is
 gated on `customer.suspend`, and the audit action is `customer.banned`. What was missing was **evidence**,
 not code - so the phase exercised it end to end against a throwaway customer: register, ban with a reason,
@@ -1708,8 +1708,8 @@ settings screen where the owner enters the courier's secrets.
 - **`src/server/integrations/steadfast-booking.ts`** - booking in its own transaction with a
   transaction-scoped advisory lock, refused/failed attempts audited in a separate transaction, and a
   status refresh that writes only the mirror.
-- **`POST /api/admin/orders-cod`** books after the approval commits and states the outcome on the queue
-  (`approvedBooked` / `approvedBookingFailed`). **`POST /api/admin/orders/consignment`** offers the retry
+- **`POST /api/qbpanel/orders-cod`** books after the approval commits and states the outcome on the queue
+  (`approvedBooked` / `approvedBookingFailed`). **`POST /api/qbpanel/orders/consignment`** offers the retry
   (`send`, `cod.approve`) and `refresh` (`order.read`).
 - **Settings -> Integrations -> SteadFast** - masked keys, the default-off switch, **Test connection** and
   a confirmed removal. The integrations hub lists it beside Telegram.
@@ -1825,7 +1825,7 @@ name-change form, no admin mail surface, no owner notification for these actions
 | `npm test` | 264/264, including 13 email client/template cases |
 | `npm run build` | success |
 | `db:migrate` / `db:validate` | `0018_customer_email_change` applied; 52 tables, 194 checks |
-| Stub-Resend HTTP flow | 59 checks: no mail on registration, recovery delivery and token contents, reset + reuse + expiry, unknown-address parity, password change refusals (wrong, mismatch, weak, no CSRF) and session replacement, address change refused for taken/same, confirmation not applied on open, previous-address notice, used and expired links refused, five-per-hour recovery cap, owner sign-in and admin access unaffected, customer cookie refused by `/admin` |
+| Stub-Resend HTTP flow | 59 checks: no mail on registration, recovery delivery and token contents, reset + reuse + expiry, unknown-address parity, password change refusals (wrong, mismatch, weak, no CSRF) and session replacement, address change refused for taken/same, confirmation not applied on open, previous-address notice, used and expired links refused, five-per-hour recovery cap, owner sign-in and admin access unaffected, customer cookie refused by `/qbpanel` |
 | Chromium, 390px | forgot-password, reset and confirm pages render; sign-in links the new flow; account page shows both forms with CSRF; no horizontal overflow |
 
 **Limits.** `verify:admin`, `verify:browser`, `verify:storefront` and the db suite were not re-run; no

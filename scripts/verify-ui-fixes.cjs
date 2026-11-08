@@ -140,7 +140,7 @@ async function main() {
     await client.send('Emulation.setFocusEmulationEnabled', { enabled: true });
 
     await viewport(client, 390, 844);
-    await nav(client, '/admin/login');
+    await nav(client, '/qbpanel/login');
     await evalIn(client, `(() => {
       const set = (id, value) => {
         const el = document.getElementById(id);
@@ -153,9 +153,9 @@ async function main() {
     })()`);
     for (let i = 0; i < 100; i++) {
       await sleep(100);
-      if ((await evalIn(client, 'location.pathname')) !== '/admin/login') break;
+      if ((await evalIn(client, 'location.pathname')) !== '/qbpanel/login') break;
     }
-    if ((await evalIn(client, 'location.pathname')) === '/admin/login') {
+    if ((await evalIn(client, 'location.pathname')) === '/qbpanel/login') {
       throw new Error('admin sign-in failed: check QUEENBEES_ADMIN_EMAIL / QUEENBEES_ADMIN_PASSWORD');
     }
 
@@ -174,8 +174,8 @@ async function main() {
         return { fieldBottom: Math.round(field.bottom), barTop: Math.round(barTop) };
       })()`);
     };
-    const deliveryFocus = await clearance('/admin/settings/delivery', '#delivery-default-amount');
-    const descriptionFocus = await clearance('/admin/catalog/new', '#descriptionEn');
+    const deliveryFocus = await clearance('/qbpanel/settings/delivery', '#delivery-default-amount');
+    const descriptionFocus = await clearance('/qbpanel/catalog/new', '#descriptionEn');
     record('UI-01 focused admin fields clear the fixed bottom navigation',
       deliveryFocus.fieldBottom < deliveryFocus.barTop && descriptionFocus.fieldBottom < descriptionFocus.barTop,
       { deliveryFocus, descriptionFocus });
@@ -183,7 +183,7 @@ async function main() {
     /*
      * UI-02 - the promo editor uses the shared admin control: 40px and 16px on a phone.
      */
-    await nav(client, '/admin/promo-codes/new');
+    await nav(client, '/qbpanel/promo-codes/new');
     const promoControls = await evalIn(client, `[...document.querySelectorAll('form input:not([type=hidden]), form select')]
       .map((el) => ({ name: el.getAttribute('name'), height: Math.round(el.getBoundingClientRect().height), font: getComputedStyle(el).fontSize }))`);
     record('UI-02 promo inputs and selects are 40px/16px shared controls',
@@ -206,7 +206,7 @@ async function main() {
       };
     })()`);
     record('UI-03 an invalid promo submission shows a named summary, marks fields and focuses the first',
-      promoInvalid.path === '/admin/promo-codes/new' && promoInvalid.items >= 2 &&
+      promoInvalid.path === '/qbpanel/promo-codes/new' && promoInvalid.items >= 2 &&
       promoInvalid.invalid.includes('code') && promoInvalid.focused === 'code',
       promoInvalid);
 
@@ -214,7 +214,7 @@ async function main() {
      * UI-04 - the money fields fit a 320px screen without widening the document.
      */
     await viewport(client, 320, 800);
-    await nav(client, '/admin/catalog/new');
+    await nav(client, '/qbpanel/catalog/new');
     const narrowMoney = await evalIn(client, `(() => {
       const price = document.querySelector('input[name="price"]');
       const wrapper = price.closest('div');
@@ -234,14 +234,14 @@ async function main() {
      * UI-05 - the customer recovery panel separates its field group from its button.
      */
     await viewport(client, 390, 844);
-    await nav(client, '/admin/customers');
+    await nav(client, '/qbpanel/customers');
     const customerHref = await evalIn(client, `(() => {
-      const link = [...document.querySelectorAll('main a[href^="/admin/customers/"]')]
+      const link = [...document.querySelectorAll('main a[href^="/qbpanel/customers/"]')]
         .map((a) => a.getAttribute('href'))
         .find((href) => {
           // No regex here on purpose: a slash escape inside this template literal would collapse the
           // regex delimiter and break the whole probe.
-          const id = href.slice('/admin/customers/'.length);
+          const id = href.slice('/qbpanel/customers/'.length);
           return id !== '' && String(Number(id)) === id;
         });
       return link || null;
@@ -251,7 +251,7 @@ async function main() {
     } else {
       await nav(client, customerHref);
       const recovery = await evalIn(client, `(() => {
-        const form = document.querySelector('form[action="/api/admin/customers/recovery"]');
+        const form = document.querySelector('form[action="/api/qbpanel/customers/recovery"]');
         if (!form) return { missing: true };
         const field = form.querySelector('textarea');
         const button = form.querySelector('button[type="submit"]');
@@ -270,7 +270,7 @@ async function main() {
      * UI-06 - all three analytics period labels are readable at 320px.
      */
     await viewport(client, 320, 800);
-    await nav(client, '/admin/analytics');
+    await nav(client, '/qbpanel/analytics');
     const periodTabs = await evalIn(client, `(() => {
       const nav = [...document.querySelectorAll('nav[aria-label]')].find((n) => /last 90 days/i.test(n.textContent));
       const links = [...nav.querySelectorAll('a')].map((a) => {
@@ -289,14 +289,14 @@ async function main() {
      * UI-07 - the mobile brand and every product title are 40px targets.
      */
     await viewport(client, 390, 844);
-    await nav(client, '/admin');
+    await nav(client, '/qbpanel');
     const brandTarget = await evalIn(client, `(() => {
       const link = document.querySelector('header a[aria-label]');
       const r = link.getBoundingClientRect();
       return { width: Math.round(r.width), height: Math.round(r.height) };
     })()`);
-    await nav(client, '/admin/catalog');
-    const titleTargets = await evalIn(client, `[...document.querySelectorAll('main a[href^="/admin/catalog/"]')]
+    await nav(client, '/qbpanel/catalog');
+    const titleTargets = await evalIn(client, `[...document.querySelectorAll('main a[href^="/qbpanel/catalog/"]')]
       .filter((a) => a.getBoundingClientRect().height > 0)
       .slice(0, 8)
       .map((a) => Math.round(a.getBoundingClientRect().height))`);
@@ -308,7 +308,7 @@ async function main() {
     /*
      * UI-08 - the audit table says that it scrolls, and is reachable by keyboard.
      */
-    await nav(client, '/admin/audit');
+    await nav(client, '/qbpanel/audit');
     const auditRegion = await evalIn(client, `(() => {
       const region = document.querySelector('[data-table-scroller]');
       if (!region) return { missing: true };

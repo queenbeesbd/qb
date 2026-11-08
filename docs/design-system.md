@@ -327,7 +327,7 @@ The owner panel is the same design system in a different mode: **Operate**, not 
 storefront earns attention; the panel removes obstacles from a task the owner repeats every day.
 
 **Direction C, "soft counter" (2026-11-07).** The panel was rebuilt on a new visual system chosen from
-four rendered directions on the `experiment/admin-redesign-v2` branch. Its world is the shop seen from
+four rendered directions on the `experiment/qbpanel-redesign-v2` branch. Its world is the shop seen from
 behind the counter: a **white rail** with a lavender active pill, a **lavender-tinted canvas**, a
 **paper-white card** at 20px with one soft shadow, and the storefront's own lavender and blush spent
 only where they carry meaning - the current destination, the queue that waits on a person, and the
@@ -536,7 +536,7 @@ settled one.
 
 ### The dispatch slip (Phase 52)
 
-`/admin/orders/[orderNumber]/slip` is the paper that travels with a COD parcel. It is **a document, not a
+`/qbpanel/orders/[orderNumber]/slip` is the paper that travels with a COD parcel. It is **a document, not a
 screen**: it lives outside the `(app)` route group, so the rail, the tab bar and the page chrome are not
 part of the markup and nothing has to be hidden with print CSS for the paper to be clean. The order
 detail's **Print slip** control opens it in a new tab, and the slip's own button prints on click; nothing
@@ -598,8 +598,8 @@ per page), `SubmitButton` (pending state from `useFormStatus`), `ConfirmSubmit` 
 with focus trap, Escape and focus restoration), `StatusPill`, `EmptyState`, `AvailabilitySwitch`,
 `CodOrderCard`, and the Phase 30 list primitives: `ListToolbar`, `ListSearch`, `FilterTabs`,
 `DateRangeFilter`, `ActiveFilters`, `Pagination`. All are small local components under
-`src/app/(admin)/admin/_ui`; styling stays in `admin.module.css` on the tokens above, and the pure query
-helpers live in `src/lib/admin-query.ts` so they are unit-testable without a cluster.
+`src/app/(admin)/qbpanel/_ui`; styling stays in `admin.module.css` on the tokens above, and the pure query
+helpers live in `src/lib/qbpanel-query.ts` so they are unit-testable without a cluster.
 
 ### Motion
 
@@ -866,8 +866,8 @@ explicit `height: var(--admin-control)` and `line-height: 1.25`; a textarea keep
 **Row actions were not controls.** `Edit` / `Archive` / `View` measured **21px** tall (24px wide) beside a
 40px availability switch - the smallest things to hit on a phone, in the worst thumb zone. They now take
 `--admin-control-sm` (34px desktop, 40px phone) with horizontal padding, and a panel's "View all" takes 40px
-on a phone. Measured after the change on a 390px viewport: **every** visible control on `/admin`,
-`/admin/catalog` and `/admin/categories` is 40px (7, 88 and 39 elements).
+on a phone. Measured after the change on a 390px viewport: **every** visible control on `/qbpanel`,
+`/qbpanel/catalog` and `/qbpanel/categories` is 40px (7, 88 and 39 elements).
 
 **Grouping.** The page gap was 32px while a panel's own padding was 24px, so a panel boundary read like a
 paragraph break. The gap is **48px** on desktop (32px on a phone), which separates blocks without shrinking
@@ -949,12 +949,12 @@ Measured at 1440 and 390: switch row -> readout **16px**, readout -> action row 
 overflowing its viewport, and the only controls are the 40px Save button plus the 18px box inside a 99px
 (1440) / 133px (390) label that is the real target.
 
-*Checked across the group:* `/admin/settings/delivery`, `announcement`, `integrations` and the Telegram
+*Checked across the group:* `/qbpanel/settings/delivery`, `announcement`, `integrations` and the Telegram
 screen report 0 overflow and 0 misaligned rows at both widths. The announcement screen's eight "overflowing"
 elements are its ticker track, which is wider than the viewport by design and clipped by its container.
 
 *Unverified:* real iOS Safari and Android Chrome; no rendered-behaviour suite covers the Settings group at
-all (`verify:admin` never visited `/admin/settings/other`, and `verify:storefront` has no guest check), so
+all (`verify:admin` never visited `/qbpanel/settings/other`, and `verify:storefront` has no guest check), so
 this defect shipped through both.
 
 
@@ -979,7 +979,7 @@ cookie-less request and one carrying a dead `qb_customer_session` value return *
 with `action="/api/checkout/order"` in the body; with the policy off, the cookie-less request still
 redirects (the existing `verify:admin` check).
 
-**The same missing gap, one screen along.** `/admin/settings/integrations/telegram` had the identical
+**The same missing gap, one screen along.** `/qbpanel/settings/integrations/telegram` had the identical
 defect, because it also used `.panel` as a **form** container: the bot card's status row and its note met at
 **0px**, and the Add and Save buttons sat flush against the hint text and the input above them. All three
 cards now use `formCard`. Measured at 1440 and 390: status row -> note **16px**, field grid -> action row
@@ -1090,11 +1090,11 @@ tiles are generated at the same two widths as product photography (600 and 1050)
 names it in `<title>` and the icon is at least 96px; a brand that cannot prove itself keeps
 `logo_key = null` and the tile draws its first letter as a monogram. A wrong mark on a right name is worse than no mark.
 
-**The owner can replace a brand mark.** `/admin/catalog/brands` lists the brands with the logo each one
-shows, and `/admin/catalog/brands/new` / `/admin/catalog/brands/[brandId]` are the brand editor: name,
+**The owner can replace a brand mark.** `/qbpanel/catalog/brands` lists the brands with the logo each one
+shows, and `/qbpanel/catalog/brands/new` / `/qbpanel/catalog/brands/[brandId]` are the brand editor: name,
 slug and mark in one form (`BrandForm`, the same shell as the category editor). The mark is uploaded
 from the browser or chosen from the shop's own inventory through the shared `CatalogImageField`; the
-write route is `POST /api/admin/catalog/brand`, gated on `catalog.write`, with a `returnTo` allowlisted
+write route is `POST /api/qbpanel/catalog/brand`, gated on `catalog.write`, with a `returnTo` allowlisted
 to the editor's own shape and the refusal returned to the editor that produced it. Name changes are
 audited as `catalog.brand_updated`, a mark as `catalog.brand_image_updated`.
 

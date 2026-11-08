@@ -148,14 +148,14 @@ initials, which the brand index states in words. The build command prints the br
 verify rather than filling the gap.
 
 **Both families are editable from the admin, with a local upload or the shop's own inventory.** The
-category editor (`/admin/categories/new`, `/admin/categories/[categoryId]`) and the brand editor
-(`/admin/catalog/brands/new`, `/admin/catalog/brands/[brandId]`) each carry the same `CatalogImageField`
+category editor (`/qbpanel/categories/new`, `/qbpanel/categories/[categoryId]`) and the brand editor
+(`/qbpanel/catalog/brands/new`, `/qbpanel/catalog/brands/[brandId]`) each carry the same `CatalogImageField`
 as the product editor: a drop zone, a browser-prepared upload, a preview, and an optional choice from
 `public/catalog` (`brand-logo-*` first for a brand). The file is posted with the record's own form; the
 server re-encodes it to a square (`saveUpload(..., 'square')`), then writes the row and its image in one
 transaction. A brand with no logo falls back to its initials; a category with no photograph draws its
-icon. The old image-only routes (`/api/admin/catalog/category-image`,
-`/api/admin/catalog/brand-image`) were removed in the cutover rather than left as a second path.
+icon. The old image-only routes (`/api/qbpanel/catalog/category-image`,
+`/api/qbpanel/catalog/brand-image`) were removed in the cutover rather than left as a second path.
 
 **The asset pipeline is still the bulk path.** `npm run assets:discovery` and `npm run assets:upload`
 remain how the imported photography arrives; the editor's upload is for the owner's own new file.
@@ -208,11 +208,11 @@ byte size are produced from the decoded bytes - the browser supplies no path, UR
 
 | Surface | Output (WebP only) | Route |
 | --- | --- | --- |
-| Product | 320x427, 600x800 and 1050x1400 | `POST /api/admin/catalog/product` (`images` field) |
-| Category | 320, 600 and 1050 squares | `POST /api/admin/catalog/category` (`image` field) |
-| Brand | 320, 600 and 1050 squares | `POST /api/admin/catalog/brand` (`image` field) |
-| Hero | 800x450 and 1600x900 | `POST /api/admin/hero` (`operation=upload`) |
-| Offer popup | square (320/600/1050) or wide (800/1600) | `POST /api/admin/settings/offer-popup` (`image` field) |
+| Product | 320x427, 600x800 and 1050x1400 | `POST /api/qbpanel/catalog/product` (`images` field) |
+| Category | 320, 600 and 1050 squares | `POST /api/qbpanel/catalog/category` (`image` field) |
+| Brand | 320, 600 and 1050 squares | `POST /api/qbpanel/catalog/brand` (`image` field) |
+| Hero | 800x450 and 1600x900 | `POST /api/qbpanel/hero` (`operation=upload`) |
+| Offer popup | square (320/600/1050) or wide (800/1600) | `POST /api/qbpanel/settings/offer-popup` (`image` field) |
 
 **Why three widths.** The storefront picks by rendered size: a 116px circle downloads 320, a product card
 downloads 600, and only the detail photograph asks for 1050. `npm run assets:optimize` re-encodes the whole

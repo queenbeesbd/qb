@@ -10,7 +10,7 @@ Status: 2026-10-15. Direction approved in `docs/decisions/0004-independent-platf
 > "Merchant" below refers only to the **payment counterparty** (the store's own bKash/Nagad account)
 > or to **Zatiq Easy**, the third-party multi-tenant platform audited in Phase 7.
 
-Companion documents: `docs/architecture.md` (implemented storefront boundaries), `docs/admin-dashboard.md` (dashboard scope and analytics), `docs/security.md` (controls), `docs/migration-plan.md` (data migration), `docs/implementation-plan.md` (roadmap).
+Companion documents: `docs/architecture.md` (implemented storefront boundaries), `docs/qbpanel-dashboard.md` (dashboard scope and analytics), `docs/security.md` (controls), `docs/migration-plan.md` (data migration), `docs/implementation-plan.md` (roadmap).
 
 ## 1. What must exist
 
@@ -152,7 +152,7 @@ Two distinct concerns that must not be conflated:
 
 | Concern | Who | Approach |
 | --- | --- | --- |
-| **Staff/admin auth** | QueenBee's employees | Credential login with strong password hashing, server-side sessions in httpOnly cookies, role-based permissions, account recovery, audit logging |
+| **Staff/qbpanel auth** | QueenBee's employees | Credential login with strong password hashing, server-side sessions in httpOnly cookies, role-based permissions, account recovery, audit logging |
 | **Customer auth** | Shoppers | **Required before ordering (D12).** Guests may browse and build a cart; login or registration is required to place an order. The cart is preserved across authentication and the customer returns to checkout |
 
 Options for staff auth:
@@ -165,7 +165,7 @@ Options for staff auth:
 
 **Recommendation:** first-party sessions backed by the database, so staff identity and audit live in the same system as orders. A hosted provider is acceptable if the owner prefers lower build cost, but it must be recorded as a deliberate lock-in decision.
 
-**Customer accounts (D12, approved; D17 settled in ADR 0012).** Because ordering requires an account, customer authentication is a launch requirement rather than an optional later addition. **D17 is settled: first-party customer sessions** - email and password registration and sign-in, **scrypt** hashing (never plaintext), opaque 256-bit session tokens stored only as a **SHA-256 hash**, httpOnly `SameSite=Lax` cookies with idle and absolute expiry, account- and source-keyed throttling, customer-scoped CSRF, and **strict separation from owner/admin credentials, sessions and permissions**. **Email is the sole registration and sign-in identifier**; a phone number stays optional contact information. **Email verification is deferred** and **no external provider, mail service, OAuth client or SMS gateway is authorized**. **There is no self-service password recovery at launch** - a documented limitation, not a hidden gap; any operational reset is an **owner-operated process** with one-time credentials, audit logging and session revocation. Object-level authorization ensures one customer cannot reach another's orders or profile. Session and cart interplay matters: a guest's cart must survive the authentication redirect, and the customer must land back at checkout rather than on a generic home page.
+**Customer accounts (D12, approved; D17 settled in ADR 0012).** Because ordering requires an account, customer authentication is a launch requirement rather than an optional later addition. **D17 is settled: first-party customer sessions** - email and password registration and sign-in, **scrypt** hashing (never plaintext), opaque 256-bit session tokens stored only as a **SHA-256 hash**, httpOnly `SameSite=Lax` cookies with idle and absolute expiry, account- and source-keyed throttling, customer-scoped CSRF, and **strict separation from owner/qbpanel credentials, sessions and permissions**. **Email is the sole registration and sign-in identifier**; a phone number stays optional contact information. **Email verification is deferred** and **no external provider, mail service, OAuth client or SMS gateway is authorized**. **There is no self-service password recovery at launch** - a documented limitation, not a hidden gap; any operational reset is an **owner-operated process** with one-time credentials, audit logging and session revocation. Object-level authorization ensures one customer cannot reach another's orders or profile. Session and cart interplay matters: a guest's cart must survive the authentication redirect, and the customer must land back at checkout rather than on a generic home page.
 
 Regardless of choice: **administrative credentials never reach the browser bundle**, and admin routes are protected by server-side authorization checks, not by hiding UI.
 
@@ -398,7 +398,7 @@ Analytics is **derived from QueenBee's own database**, not from a third-party an
 - Charts read from a small set of typed endpoints with explicit date-range parameters.
 - Missing or partial data is surfaced as such - never interpolated into a confident-looking line.
 
-Design detail, chart inventory and the questions each chart answers are in `docs/admin-dashboard.md`.
+Design detail, chart inventory and the questions each chart answers are in `docs/qbpanel-dashboard.md`.
 
 ## 10. Background work, backups, observability
 
@@ -430,9 +430,9 @@ Phase 9 has converted the proposals into owner decisions. **D1, D2, D3, D7, D8, 
 | D12 | Checkout model | **Account required.** Guests may browse and build a cart; login or registration is required before placing an order, with the cart preserved and the customer returned to checkout | **APPROVED** | Settled |
 | D13 | Staff authentication | **Email and password, first-party** - hashed credentials, server-side sessions in httpOnly cookies, owner-issued credential recovery because no mail provider is authorized. **Resend email verification and Google sign-in are deferred** until the client confirms them | **APPROVED in shape** (ADR 0009) | Settled |
 | D14 | ORM / query layer | **Drizzle ORM + drizzle-kit**, pinned to stable `0.45.x`; owned SQL migrations because the schema's safety is its partial unique indexes, CHECK constraints, triggers and grants. Prisma's larger ecosystem is a recorded trade-off | **APPROVED** (ADR 0007) | Settled |
-| D15 | Single app vs split storefront/admin | **Single Next.js app** with route groups initially | **Recommended, awaiting approval** | No |
+| D15 | Single app vs split storefront/qbpanel | **Single Next.js app** with route groups initially | **Recommended, awaiting approval** | No |
 | D16 | Background jobs | **Deferred, and not blocking Phase 16.** The design was a database-backed job table plus a scheduled task; **no scheduler or expiry job is added now (ADR 0014 decision 11)**, because the 24-hour unpaid-order expiry is not a launch priority | **Recommended, awaiting approval** | No |
-| D17 | Customer authentication provider | **APPROVED (ADR 0012).** First-party database sessions: email and password (**scrypt**, never plaintext), opaque 256-bit session tokens stored only as a **SHA-256 hash**, httpOnly `SameSite=Lax` cookies with idle and absolute expiry, account- and source-keyed throttling, customer-scoped CSRF, and strict separation from owner/admin credentials, sessions and permissions. **Email is the sole registration and sign-in identifier**; phone stays optional contact. Email verification deferred; **no external provider, mail service, OAuth or SMS authorized**. **No self-service password recovery at launch** - an owner-operated reset with one-time credentials, audit logging and session revocation. Schema in `docs/data-model.md` sections 4 and 15 | **APPROVED** (ADR 0012) | Settled |
+| D17 | Customer authentication provider | **APPROVED (ADR 0012).** First-party database sessions: email and password (**scrypt**, never plaintext), opaque 256-bit session tokens stored only as a **SHA-256 hash**, httpOnly `SameSite=Lax` cookies with idle and absolute expiry, account- and source-keyed throttling, customer-scoped CSRF, and strict separation from owner/qbpanel credentials, sessions and permissions. **Email is the sole registration and sign-in identifier**; phone stays optional contact. Email verification deferred; **no external provider, mail service, OAuth or SMS authorized**. **No self-service password recovery at launch** - an owner-operated reset with one-time credentials, audit logging and session revocation. Schema in `docs/data-model.md` sections 4 and 15 | **APPROVED** (ADR 0012) | Settled |
 | D18 | Database driver | **`@neondatabase/serverless` `Pool` over WebSockets** for the deployed runtime, because the intended claim-allocation transaction is interactive and Neon's HTTP driver is documented as non-interactive only. (**At launch the order path allocates nothing - ADR 0013 - but the interactive transaction remains the design for claim submission and the order lifecycle.**) `pg` (node-postgres) locally and in tests. Selected behind one server-only module | **APPROVED** (ADR 0007) | Settled |
 | D19 | Product availability | **Owner-controlled `In Stock` / `Out of Stock`, and the only ordering gate.** An out-of-stock product cannot be ordered. Not a quantity countdown, not derived, and no restock or arrival promise. **ADR 0010:** a **bare owner toggle** in Phase 13, not connected to the quantity ledger. **ADR 0013 closes the ordering question: option (a)** - order creation writes no reservation, allocation, deduction or automatic availability change; separate valid submissions may create separate orders; idempotency prevents duplicate processing of a submission, not reservation; **overselling is not prevented and is accepted**; the D11 inventory tables remain implemented and unused | **APPROVED** (ADR 0009; scope ADR 0010, ordering gate ADR 0013) | Settled |
 | D20 | Customer ban after a confirmed fake order | **APPROVED** (ADR 0009). A ban requires a **confirmed** finding with an audited reason and actor, and is enforced server-side: sessions revoked, new orders and checkout refused. **Distinct from the review flag**, which does not block. A ban does not cancel, refund or delete anything | **APPROVED** | No |
@@ -492,7 +492,7 @@ These fixed the **schema and transaction shape** (expiry duration and allocation
 
 ### D11 detail (approved)
 
-Full policy wording is in `docs/payment-workflow.md` section 13.10; the queue and expiry implications are in `docs/admin-dashboard.md`.
+Full policy wording is in `docs/payment-workflow.md` section 13.10; the queue and expiry implications are in `docs/qbpanel-dashboard.md`.
 
 **D11 - Inventory reservation and release.** **Approved; superseded in effect for launch by ADR 0013.** The owner's payment-priority rule is recorded: the **first submitted payment claim** orders the verification queue. The implemented bound is **at most one active submitted claim per order**. With no unit reserved there is no allocation, no preemption and no release to perform, and **overselling is accepted rather than prevented**; the reservation tables remain implemented and unused. The invariant that still binds is that a **submitted claim is never released by a timer**.
 

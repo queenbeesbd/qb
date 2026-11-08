@@ -10,7 +10,7 @@
  * Why this exists rather than a web setup screen: a reachable "create the first admin" route is a
  * backdoor, and a default password is a credential in the repository. Provisioning therefore happens
  * from a shell on the host, with the database credential the operator already holds, and the password
- * itself is chosen by the account's owner at `/admin/redeem` - never typed into this process, never
+ * itself is chosen by the account's owner at `/qbpanel/redeem` - never typed into this process, never
  * passed as an argument, never echoed.
  *
  * The credential token is printed **once**, to stdout, because only its SHA-256 digest is stored. If
@@ -123,7 +123,7 @@ async function bootstrap(): Promise<void> {
   if ('conflict' in result) {
     fail(
       'a staff account already exists. Bootstrap runs exactly once; issue a credential token from\n' +
-        '  /admin/owners instead. If every owner account is lost, that is a restore decision, not a\n' +
+        '  /qbpanel/owners instead. If every owner account is lost, that is a restore decision, not a\n' +
         '  second bootstrap.',
     );
   }
@@ -138,7 +138,7 @@ async function bootstrap(): Promise<void> {
   console.log(`    ${result.token}`);
   console.log('');
   console.log(
-    `  Redeem it at /admin/redeem within ${Math.round(RECOVERY_TOKEN_MS / 60000)} minutes: paste it into the token`,
+    `  Redeem it at /qbpanel/redeem within ${Math.round(RECOVERY_TOKEN_MS / 60000)} minutes: paste it into the token`,
   );
   console.log('  field and choose the password there. The token is deliberately not accepted from the URL,');
   console.log('  so it stays out of browser history, referrer headers and proxy logs.');

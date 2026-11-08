@@ -17,8 +17,8 @@ import {
   voidAdditionalCost,
 } from '../../src/server/orders/costs';
 import { AuthorizationError, ConflictError, ValidationError } from '../../src/server/authz/authorize';
-import { adminOrderDetail } from '../../src/server/orders/admin-order';
-import { revenueSummary } from '../../src/server/orders/admin-read';
+import { adminOrderDetail } from '../../src/server/orders/qbpanel-order';
+import { revenueSummary } from '../../src/server/orders/qbpanel-read';
 
 /**
  * Additional courier costs and the money figures derived from them (Phase 22).

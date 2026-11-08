@@ -66,7 +66,7 @@ confirmed finding, an audited reason and an actor, exactly like the existing cus
 | --- | --- | --- |
 | Purpose | Record a concern for review | Withdraw the customer's ability to transact |
 | Blocks the customer? | **No** - explicitly does not, by itself, block or close the account (`docs/payment-workflow.md` 13.3) | **Yes**, within the boundary below |
-| Set by | Owner/admin, audited | Owner/admin, audited, after a **confirmed** fake order |
+| Set by | Owner/qbpanel, audited | Owner/qbpanel, audited, after a **confirmed** fake order |
 | Reversible? | Yes, with an audited reason | Yes, by the owner, with an audited reason |
 
 **The enforcement boundary - what a ban must actually prevent.** A ban that only changes a label is

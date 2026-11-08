@@ -16,7 +16,7 @@ import { registerCustomer } from '@/server/customer-auth/service';
 import { createCustomerSession } from '@/server/customer-auth/session';
 import { isSameOrigin } from '@/server/auth/request-guards';
 import { sessionContextFrom } from '@/server/auth/session';
-import { deny, redirectTo } from '@/app/api/admin/responses';
+import { deny, redirectTo } from '@/app/api/qbpanel/responses';
 
 export const dynamic = 'force-dynamic';
 

@@ -86,7 +86,7 @@ merely specified.
 **Verified** on the served build: 8 headers present; **24 of 26** scripts carried the nonce and the two
 that did not were loaded by `strict-dynamic`; nonces differed between two requests; the `x-nonce`
 request header did not appear in the rendered HTML; **zero console errors and zero CSP violations**
-across `/`, `/products`, a product page, `/cart`, `/checkout`, `/admin/login` and six admin screens;
+across `/`, `/products`, a product page, `/cart`, `/checkout`, `/qbpanel/login` and six admin screens;
 24/24 images loaded after scrolling; and a real state-changing admin POST (availability toggle) succeeded
 under `form-action 'self'`.
 
@@ -171,16 +171,16 @@ Direction approved in `docs/decisions/0004-independent-platform-direction.md`; a
 - **Sessions.** Opaque **256-bit random tokens**, stored only as a **SHA-256 hash**; delivered in an httpOnly, `Secure`, `SameSite=Lax` cookie; a **sliding idle limit inside an absolute ceiling**, both enforced server-side; the session id is **rotated at login**, so a fixation attempt fails.
 - **Throttling.** Login and registration are limited **by account and by source**, using a shared datastore counter, because serverless functions have no shared memory.
 - **CSRF.** A per-session token verified server-side plus a same-origin check on every state-changing route; `SameSite=Lax` is a mitigation, not the whole control.
-- **Authorization.** A customer's orders and profile are reached only through the customer's own session; another customer's resource returns **404, not 403**. Customer permissions are **strictly separate** from owner/admin permissions, and the two session stores are separate so no customer-scoped query can reach an owner row.
+- **Authorization.** A customer's orders and profile are reached only through the customer's own session; another customer's resource returns **404, not 403**. Customer permissions are **strictly separate** from owner/qbpanel permissions, and the two session stores are separate so no customer-scoped query can reach an owner row.
 - **Self-service recovery is the only customer route (ADR 0030; amended 2026-11-08).** A customer requests a link at `/account/forgot-password`; the answer is **identical** whether the address is registered, suspended, unknown, malformed, throttled or unmaillable, and requests are throttled by address and by source. The link carries a 256-bit token stored only as a SHA-256 digest, works once and expires in an hour; a dead token answers like any other, and a password change revokes every live session. The owner-issued one-time code was **removed** on 2026-11-08 along with its page, routes and permission. **Email verification is still not part of registration**, and no verification mail exists.
-- **The owner-operated customer reset (Phase 23).** `issueCustomerRecovery` in `src/server/customer-auth/recovery.ts`, reachable only from `POST /api/admin/customers/recovery` on the customer detail screen:
+- **The owner-operated customer reset (Phase 23).** `issueCustomerRecovery` in `src/server/customer-auth/recovery.ts`, reachable only from `POST /api/qbpanel/customers/recovery` on the customer detail screen:
   - **Authorized twice.** The route requires `customer.credential_reset` and the service re-checks it, so a caller that skips the route fails closed. The permission is **privileged**, so the database's own `role_permission_privileged_guard` refuses it on a non-owner-level role.
   - **The credential is 256 bits** from `crypto.randomBytes` (43 base64url characters) and is **stored only as a SHA-256 digest** in `account_recovery_token`. The plaintext exists in exactly one response and is never recoverable afterwards.
   - **30-minute expiry**, the same bound the owner surface uses, and **single use**, consumed by a guarded `UPDATE ... WHERE used_at IS NULL` so a replay loses the race. A **superseded** credential is refused because issuing marks the live row used, which the partial unique index `account_recovery_token_live_unique` requires.
   - **Issuing revokes every live customer session** (`admin_revoke`), so a session minted before the owner's action cannot outlive it.
   - **Redemption forces a new password.** The old digest is revoked and a new scrypt hash inserted in the same transaction, so there is no window where both work.
   - **A suspended or soft-deleted account is refused with one indistinguishable outcome**, so the route cannot be used to probe account state; the refusal names no suspension in the audit trail.
-  - **Delivered out of band only.** The code is shown once through the httpOnly, `/admin`-scoped flash cookie and cleared by `POST /api/admin/customers/recovery/dismiss`. It never appears in a URL, a client bundle, an RSC payload, a log or a list. A page render may not clear a cookie in this version of Next.js, which is why the dismissal is a route.
+  - **Delivered out of band only.** The code is shown once through the httpOnly, `/qbpanel`-scoped flash cookie and cleared by `POST /api/qbpanel/customers/recovery/dismiss`. It never appears in a URL, a client bundle, an RSC payload, a log or a list. A page render may not clear a cookie in this version of Next.js, which is why the dismissal is a route.
   - **Throttled by source** on redemption (10 per 15 minutes), with a generic failure for expired, used, superseded, unknown and malformed alike.
   - **Audited** as `customer.credential_reset_issued` (staff actor, required reason, session count), `customer.recovery_refused` and `customer.credential_reset_redeemed` (`system` actor - a customer is never an audit actor, D23). **No password, plaintext credential or digest is written to the audit trail.**
 - **Bans (D20).** A confirmed fake order can suspend the account. The ban **revokes active sessions** and **refuses new orders inside the order transaction** and checkout. It does not cancel, refund or delete an order, and it touches no payment, refund or reservation state.
@@ -435,7 +435,7 @@ reaches a client component**, because gating it in the view is gating the render
 | --- | --- |
 | Server-side authorization | Both new pages call `requireAdminPage` themselves (`order.read`); the audit block adds `audit.read` and the customer link `customer.read`. The decision forms post to the **existing** guarded route, which re-checks `cod.approve`/`order.cancel` in the service layer. No guard was weakened or bypassed |
 | Order enumeration | The detail answers **404** for a reference that names no order, so the page cannot be used to test which references exist. The reference is truncated to 64 characters before use |
-| Search and filtering | All new searches route through `likeTerm` (literal `%`, `_`, `\\`), so a search box cannot become a pattern. A `%` search matches nothing - asserted in `tests/db/admin-orders.test.ts` |
+| Search and filtering | All new searches route through `likeTerm` (literal `%`, `_`, `\\`), so a search box cannot become a pattern. A `%` search matches nothing - asserted in `tests/db/qbpanel-orders.test.ts` |
 | Unbounded reads | Every new list takes a clamped `limit`/`offset` (1..100, page size 25) and reports an exact total, so no page renders an unbounded table and no list truncates silently |
 | Unauthorized status filters | The status filter is validated against a closed set; anything else is treated as "all" rather than reaching SQL |
 | SQL injection | Every value is a bound parameter; the only interpolated SQL is the fixed predicate text |
@@ -489,7 +489,7 @@ collection, completion, pre-dispatch cancellation) through one endpoint.
   mints one replacement for the current browser; a confirmed address change revokes every session
   (`revoked_reason = 'email_change'`) because the login identifier moved.
 - **Administration untouched:** no admin session, credential, permission or route was modified, and a
-  customer cookie still cannot reach `/admin`.
+  customer cookie still cannot reach `/qbpanel`.
 
 ## Authorization matrix (Phase 10 design)
 
@@ -524,7 +524,7 @@ Two properties the implementation must keep, because each of them silently weake
    queried - so this is not a data leak - but the refusal stops being a refusal that a non-browser
    client can observe. The admin subtree therefore has **no route-level loading boundary**, and
    `npm run verify:admin` asserts that a principal lacking `audit.read` receives a **server-side
-   redirect** from `/admin/audit`, not a `200`.
+   redirect** from `/qbpanel/audit`, not a `200`.
 2. **A refused mutation is refused before the service is called.** Each route handler runs the guard
    first and returns without invoking the service, so a denial is never a partial action. Because a
    denial is presented as a redirect back to the page with a `denied` notice - the same `303` a
@@ -678,7 +678,7 @@ below is implemented**, and none has been tested. Residual risks are stated rath
 - **Residual.** A customer who shares their own order link exposes their own order; the page requires a
   session, so the link alone is not sufficient.
 
-### T3 Privilege escalation and unauthorized owner/admin actions
+### T3 Privilege escalation and unauthorized owner/qbpanel actions
 
 - **Scenario.** An authenticated principal calls an admin endpoint directly, edits their own role, or
   grants themselves a privileged capability such as `cod.approve`.

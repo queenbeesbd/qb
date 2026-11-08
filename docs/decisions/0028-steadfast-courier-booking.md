@@ -67,7 +67,7 @@ SteadFast Courier publishes a small JSON API (`docs` supplied by the owner, base
 
 ## Consequences
 
-- `/admin/orders-cod` states whether the approval was booked, and the order screen carries the
+- `/qbpanel/orders-cod` states whether the approval was booked, and the order screen carries the
   consignment, the courier's delivery status with the time it was read, a **Refresh status** action
   and **Send to SteadFast** for a retry.
 - One new table, `steadfast_consignment` (migration `0016`), so the schema is **51 tables**. It

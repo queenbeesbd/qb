@@ -12,7 +12,7 @@
 import { after } from 'next/server';
 
 import { withTransaction } from '@/db/client';
-import { deny, redirectTo } from '@/app/api/admin/responses';
+import { deny, redirectTo } from '@/app/api/qbpanel/responses';
 import { ACCOUNT_ROOT } from '@/server/customer-auth/constants';
 import { schedulePasswordChanged } from '@/server/customer-auth/email-delivery';
 import { changeCustomerPassword } from '@/server/customer-auth/email-security';

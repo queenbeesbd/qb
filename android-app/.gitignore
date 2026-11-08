@@ -1,0 +1,14 @@
+node_modules/
+# The SDK path is a fact about one machine, never about the project.
+android/local.properties
+android/.gradle/
+android/build/
+android/app/build/
+android/capacitor-cordova-android-plugins/build/
+android/.idea/
+*.iml
+# Keystores are never committed: a signing key in a public repository signs nothing safely.
+*.jks
+*.keystore
+keystore.properties
+# The built APK is committed deliberately at `dist/` so the owner can install it from the repo.

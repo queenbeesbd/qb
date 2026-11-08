@@ -18,7 +18,7 @@
  */
 
 import { withTransaction } from '@/db/client';
-import { deny, json } from '@/app/api/admin/responses';
+import { deny, json } from '@/app/api/qbpanel/responses';
 import { readCheckoutSubmission } from '@/server/checkout/submission';
 import { OrderRefusalError, resolveOrderLines } from '@/server/orders/create';
 import { parseCartLines } from '@/server/orders/validation';
