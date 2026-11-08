@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
 import {
+  divisionFromHeaders,
   deviceFromUserAgent,
   isBotUserAgent,
   isVisitSessionId,
@@ -51,6 +52,22 @@ describe('visit tracking helpers', () => {
     assert.equal(isBotUserAgent('Mozilla/5.0 HeadlessChrome/120'), true);
     assert.equal(isBotUserAgent('Mozilla/5.0 (iPhone; CPU iPhone OS 17_0) Safari/604.1'), false);
     assert.equal(isBotUserAgent(null), false);
+  });
+
+  it('turns the platform region into one of the eight divisions, and never guesses', () => {
+    // The ISO 3166-2:BD subdivisions are exactly the divisions.
+    assert.equal(divisionFromHeaders('BD', 'BD-C'), 'dhaka');
+    assert.equal(divisionFromHeaders('BD', 'BD-B'), 'chattogram');
+    assert.equal(divisionFromHeaders('BD', 'BD-H'), 'mymensingh');
+    // Some networks report only the letter.
+    assert.equal(divisionFromHeaders('bd', 'g'), 'sylhet');
+    // Outside the country is a real answer, not an error.
+    assert.equal(divisionFromHeaders('GB', 'ENG'), 'outside_bd');
+    // No country, an unknown subdivision, or no headers at all: "not known", never a default.
+    assert.equal(divisionFromHeaders(null, 'BD-C'), null);
+    assert.equal(divisionFromHeaders('', ''), null);
+    assert.equal(divisionFromHeaders('BD', 'BD-Z'), null);
+    assert.equal(divisionFromHeaders('BD', null), null);
   });
 
   it('accepts only a UUID-shaped session id', () => {

@@ -18,10 +18,13 @@ import { sql } from 'drizzle-orm';
 
 import type { Transaction } from '@/db/client';
 import { visitEvent, visitSession } from '@/db/schema';
-import type { VISIT_DEVICES, VISIT_EVENT_KINDS } from '@/db/schema';
+import type { VISIT_DEVICES, VISIT_EVENT_KINDS, VISIT_DIVISIONS } from '@/db/schema';
 
 export type VisitEventKind = (typeof VISIT_EVENT_KINDS)[number];
 export type VisitDevice = (typeof VISIT_DEVICES)[number];
+export type VisitDivision = (typeof VISIT_DIVISIONS)[number];
+/** A stored division, or null when the request could not be placed - the type the column has. */
+export type StoredDivision = VisitDivision | null;
 
 /** The first-party cookie that carries the session id. HttpOnly: no script needs to read it. */
 export const VISIT_COOKIE = 'qb_visit';
@@ -56,6 +59,53 @@ export function deviceFromUserAgent(userAgent: string | null): VisitDevice {
   return 'desktop';
 }
 
+/**
+ * Bangladeshi ISO 3166-2 subdivisions, which are exactly the eight divisions.
+ *
+ * The hosting platform resolves an address to a country and a subdivision before our code runs
+ * (`x-vercel-ip-country`, `x-vercel-ip-country-region`) and passes only those two strings. We map them
+ * to **one of eight words** and store that word: no address, no city, no coordinate and no
+ * fingerprint ever reaches the database, which is the same boundary ADR 0027 set for the rest of the
+ * log. A visitor is never asked for their location, and nothing on the storefront prompts for it.
+ */
+const DIVISION_BY_SUBDIVISION: Record<string, VisitDivision> = {
+  'BD-A': 'barishal',
+  'BD-B': 'chattogram',
+  'BD-C': 'dhaka',
+  'BD-D': 'khulna',
+  'BD-E': 'rajshahi',
+  'BD-F': 'rangpur',
+  'BD-G': 'sylhet',
+  'BD-H': 'mymensingh',
+  // Some networks report only the letter. Accept it: it is still one of the eight.
+  A: 'barishal',
+  B: 'chattogram',
+  C: 'dhaka',
+  D: 'khulna',
+  E: 'rajshahi',
+  F: 'rangpur',
+  G: 'sylhet',
+  H: 'mymensingh',
+};
+
+/**
+ * The division a request came from, or null when it cannot be stated.
+ *
+ * Deliberately total and cheap: a missing or unexpected header yields null ("not known"), never a
+ * guess and never a default, because a map that fills its gaps with Dhaka would be a lie told in a
+ * chart. `outside_bd` is a real answer for a reader abroad, not an error.
+ */
+export function divisionFromHeaders(
+  country: string | null | undefined,
+  region: string | null | undefined,
+): StoredDivision {
+  const countryCode = (country ?? '').trim().toUpperCase();
+  if (countryCode === '') return null;
+  if (countryCode !== 'BD') return 'outside_bd';
+  const key = (region ?? '').trim().toUpperCase();
+  return DIVISION_BY_SUBDIVISION[key] ?? null;
+}
+
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /** A cookie value is only a session id if it has the shape one is generated with. */
@@ -76,6 +126,8 @@ export type RecordVisitInput = {
   readonly path: string;
   readonly kind: VisitEventKind;
   readonly device: VisitDevice;
+  /** The division derived from the platform's IP region header, or null. */
+  readonly division: StoredDivision;
   /** True when the request carried a non-empty cart cookie. */
   readonly hasCart: boolean;
 };
@@ -96,6 +148,7 @@ export async function recordVisit(tx: Transaction, input: RecordVisitInput): Pro
     .values({
       ...(input.sessionId === null ? {} : { id: input.sessionId }),
       device: input.device,
+      division: input.division,
       entryPath: input.path,
       pageViews: isPageView ? 1 : 0,
       hasCart: input.hasCart,
@@ -108,6 +161,8 @@ export async function recordVisit(tx: Transaction, input: RecordVisitInput): Pro
         pageViews: sql`${visitSession.pageViews} + ${isPageView ? 1 : 0}`,
         hasCart: sql`${visitSession.hasCart} or ${input.hasCart}`,
         placedOrder: sql`${visitSession.placedOrder} or ${isOrder}`,
+        // A later step that happens to carry headers fills a gap; it never overwrites a known area.
+        division: sql`coalesce(${visitSession.division}, ${input.division})`,
       },
     })
     .returning({ id: visitSession.id });
@@ -163,6 +218,20 @@ export type VisitFunnelStep = {
   readonly sessions: number;
 };
 
+export type VisitDivisionSlice = {
+  /** The stored division, or `null` for visits that could not be placed. */
+  readonly division: StoredDivision;
+  readonly sessions: number;
+};
+
+export type VisitTotals = {
+  /** Every session still inside the retention window. A visit is a session, never a person. */
+  readonly allTime: number;
+  readonly today: number;
+  readonly last7: number;
+  readonly last30: number;
+};
+
 export type VisitAnalytics = {
   /** Sessions that started today, on the shop's own calendar. */
   readonly visitsToday: number;
@@ -177,6 +246,12 @@ export type VisitAnalytics = {
   readonly series: readonly VisitDayPoint[];
   readonly funnel: readonly VisitFunnelStep[];
   readonly topPaths: readonly { readonly path: string; readonly views: number }[];
+  /** Sessions over four fixed periods, so the screen can state "all time" beside "today". */
+  readonly totals: VisitTotals;
+  /** Where this window's sessions came from, largest first, unknown last. */
+  readonly divisions: readonly VisitDivisionSlice[];
+  /** Device classes in this window, largest first. */
+  readonly devices: readonly { readonly device: VisitDevice; readonly sessions: number }[];
 };
 
 /**
@@ -255,6 +330,36 @@ export async function loadVisitAnalytics(tx: Transaction, days: number): Promise
     limit 6
   `)) as unknown as { rows: { path: string; views: number }[] };
 
+  /*
+   * Four fixed periods, for the same reason the money screen has fixed windows: a query string must not
+   * be able to ask for an unbounded scan. "All time" is bounded by the 90-day retention the owner chose,
+   * so it is a count over the retained log, and the screen says so rather than implying a lifetime.
+   */
+  const totalsRow = (await tx.execute(sql`
+    select
+      count(*)::int as all_time,
+      count(*) filter (where first_seen_at >= now() - interval '1 day')::int as last_day,
+      count(*) filter (where first_seen_at >= now() - interval '7 days')::int as last_7,
+      count(*) filter (where first_seen_at >= now() - interval '30 days')::int as last_30
+    from visit_session
+  `)) as unknown as { rows: { all_time: number; last_day: number; last_7: number; last_30: number }[] };
+
+  const divisions = (await tx.execute(sql`
+    select division, count(*)::int as sessions
+    from visit_session
+    where first_seen_at >= now() - make_interval(days => ${days})
+    group by division
+    order by sessions desc, division asc nulls last
+  `)) as unknown as { rows: { division: StoredDivision; sessions: number }[] };
+
+  const devices = (await tx.execute(sql`
+    select device, count(*)::int as sessions
+    from visit_session
+    where first_seen_at >= now() - make_interval(days => ${days})
+    group by device
+    order by sessions desc, device asc
+  `)) as unknown as { rows: { device: VisitDevice; sessions: number }[] };
+
   const todayRow = today.rows[0] ?? { visits: 0, views: 0, live: 0 };
   const windowRow = window.rows[0] ?? { cart_sessions: 0, abandoned: 0, ordered: 0 };
   const funnelRow = funnel.rows[0] ?? { visits: 0, product: 0, cart: 0, checkout: 0, ordered: 0 };
@@ -279,5 +384,13 @@ export async function loadVisitAnalytics(tx: Transaction, days: number): Promise
       { key: 'order', sessions: Number(funnelRow.ordered ?? 0) },
     ],
     topPaths: paths.rows.map((row) => ({ path: row.path, views: Number(row.views ?? 0) })),
+    totals: {
+      allTime: Number(totalsRow.rows[0]?.all_time ?? 0),
+      today: Number(totalsRow.rows[0]?.last_day ?? 0),
+      last7: Number(totalsRow.rows[0]?.last_7 ?? 0),
+      last30: Number(totalsRow.rows[0]?.last_30 ?? 0),
+    },
+    divisions: divisions.rows.map((row) => ({ division: row.division, sessions: Number(row.sessions ?? 0) })),
+    devices: devices.rows.map((row) => ({ device: row.device, sessions: Number(row.sessions ?? 0) })),
   };
 }

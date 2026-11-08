@@ -19,6 +19,7 @@ import {
   VISIT_COOKIE,
   VISIT_COOKIE_MAX_AGE_SECONDS,
   deviceFromUserAgent,
+  divisionFromHeaders,
   isBotUserAgent,
   isVisitSessionId,
   normalisePath,
@@ -86,6 +87,12 @@ export async function POST(request: Request): Promise<Response> {
       path: normalisePath(rawPath),
       kind: kind as VisitEventKind,
       device: deviceFromUserAgent(userAgent),
+      // Only the platform's own country/region resolution, and only as one of eight words. No address,
+      // city or coordinate is read, stored or logged (ADR 0033); the storefront never asks for one.
+      division: divisionFromHeaders(
+        request.headers.get('x-vercel-ip-country'),
+        request.headers.get('x-vercel-ip-country-region'),
+      ),
       hasCart,
     }),
   );

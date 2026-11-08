@@ -1,28 +1,37 @@
-'use client';
+import type { Metadata } from 'next';
 
-import Link from 'next/link';
+import { NotFoundView } from '@/features/not-found/NotFoundView';
+import { loadNotFoundShelf } from '@/server/catalog/not-found';
 
-import { useTranslation } from '@/i18n/useTranslation';
-import styles from './status.module.css';
+export const metadata: Metadata = {
+  title: 'Page not found',
+  robots: { index: false, follow: false },
+};
+
+export const dynamic = 'force-dynamic';
 
 /**
- * The 404 for a URL that matches no route at all.
+ * The 404 for a URL that matches no route at all - `/anything-else`, which is what a mistyped or
+ * vanished link actually lands on.
  *
- * Deliberately self-contained: this boundary sits above both route groups, so it renders outside the
- * storefront layout - and therefore without the cart provider the storefront header needs. Adding
- * storefront chrome here would mean mounting the cart on a page that cannot use it. The storefront's
- * own 404 (`(storefront)/not-found.tsx`) is the one a customer sees for an unknown product or
- * category, and it does carry the full chrome.
+ * It renders **outside** both route groups, so it has no storefront header and no cart provider. It
+ * therefore draws its own mark (the `standalone` flag) instead of mounting chrome it cannot use, and
+ * it does not offer Add to cart: a card that needs a cart it does not have is a broken control, so the
+ * shelf links to the products instead and the real listing carries the buy action.
+ *
+ * The shelf is loaded here rather than inside the client view so the route stays a server component:
+ * the page's entire value is real catalogue data, and it is read through the same cached snapshot
+ * every storefront page uses. A failed read renders the page without a shelf, never an error.
  */
-export default function NotFound() {
-  const { t } = useTranslation();
+export default async function NotFound() {
+  const shelf = await loadNotFoundShelf();
   return (
-    <div className={styles.page}>
-      <h1>{t('notFound.title')}</h1>
-      <p>{t('notFound.body')}</p>
-      <Link className={styles.action} href="/">
-        {t('notFound.home')}
-      </Link>
-    </div>
+    <NotFoundView
+      products={shelf.products}
+      categories={shelf.categories}
+      inStockTotal={shelf.inStockTotal}
+      unavailable={shelf.unavailable}
+      standalone
+    />
   );
 }

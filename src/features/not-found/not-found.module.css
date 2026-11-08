@@ -1,0 +1,475 @@
+/**
+ * The 404 - the specimen catalogue (direction seed 492894841), with the shop's own palette and type.
+ *
+ * The sheet's geometry: a hero split in half by tone alone (no line), a loose mosaic of specimen tiles
+ * on the darker side, then the catalogue as a two-column menu with a photograph where a bullet would
+ * be, then a printed card on a coloured field. Colour comes from the brand's own tokens and the tiles
+ * are the colour, which is the direction's whole point: the ground stays neutral and the shelf is what
+ * is coloured.
+ */
+
+.page {
+  display: grid;
+  gap: 0;
+  /*
+   * The page sits inside the storefront's `main`, whose horizontal padding is `--gutter`. A section that
+   * must reach the screen edge cancels exactly that padding and nothing more - a wider negative margin
+   * was what made the first build scroll sideways.
+   */
+  --not-found-bleed: calc(-1 * var(--gutter));
+  /*
+   * Inside the storefront the page sits in `main`, whose horizontal padding is `--gutter`: the wrapper
+   * cancels exactly that so the tone halves reach the screen edge. The root 404 renders outside that
+   * layout and has no padding to cancel - doing it there was what made the page scroll sideways.
+   */
+  margin-inline: var(--not-found-bleed);
+}
+
+.page[data-standalone='true'] {
+  margin-inline: 0;
+}
+
+/* ---------------- Hero: split by tone, no line between the halves ---------------- */
+
+.hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  align-items: stretch;
+}
+
+.heroText {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  justify-content: center;
+  padding: clamp(28px, 4vw, 64px) var(--gutter);
+  background: var(--color-surface);
+}
+
+/* Two lines at every width: the sentence is 21 characters. */
+.title {
+  margin: 0;
+  font-size: clamp(2.5rem, 6.2vw, 4.5rem);
+  line-height: 1;
+  letter-spacing: -0.04em;
+  font-weight: 700;
+  color: var(--color-ink);
+  text-wrap: balance;
+}
+
+.lede {
+  margin: 0;
+  max-width: 44ch;
+  font-size: var(--text-lg);
+  line-height: 1.5;
+  color: var(--color-ink);
+}
+
+/* The one action: a real search, because it is the fastest way out of a wrong address. */
+.search {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--space-2);
+  width: 100%;
+  max-width: 30rem;
+}
+
+.searchInput {
+  min-height: 52px;
+  padding: 0 var(--space-4);
+  border: none;
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-sunken);
+  color: var(--color-ink);
+  font: inherit;
+  font-size: var(--text-base);
+}
+
+.searchInput::placeholder {
+  color: var(--color-ink-muted);
+}
+
+.searchButton {
+  min-height: 52px;
+  padding: 0 var(--space-5);
+  border: none;
+  border-radius: var(--radius-sm);
+  background: var(--color-button);
+  color: var(--color-button-ink);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 140ms ease, transform 120ms ease-out;
+}
+
+.searchButton:hover {
+  background: var(--color-button-hover);
+}
+
+.searchButton:active {
+  transform: scale(0.985);
+}
+
+/* The closing line of the text half: two stored counts, so the column is not a void. */
+.heroFacts {
+  margin: 0;
+  padding-top: var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--color-ink-muted);
+}
+
+/* The category index, folded into the text half so the hero closes on something real. */
+.heroCategories {
+  display: grid;
+  gap: var(--space-3);
+  padding-top: var(--space-4);
+}
+
+.heroCategoriesTitle {
+  margin: 0;
+  font-size: var(--text-md);
+  font-weight: 600;
+  color: var(--color-ink);
+}
+
+/* The specimen field: one tone step darker than the page, tiles flat and square-cornered. */
+.heroShelf {
+  padding: clamp(20px, 3vw, 40px) var(--gutter) clamp(20px, 3vw, 40px) clamp(20px, 3vw, 40px);
+  background: var(--color-surface-sunken);
+}
+
+.mosaic {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-auto-rows: minmax(0, 1fr);
+  gap: 10px;
+  height: 100%;
+  align-content: stretch;
+}
+
+.tile {
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background: var(--color-surface);
+  /* Three or four fields from the palette, in a steady rotation. */
+  border-radius: 0;
+}
+
+.tile:nth-child(3n + 1) {
+  background: var(--color-accent-soft);
+}
+
+.tile:nth-child(3n + 2) {
+  background: var(--color-action-soft);
+}
+
+.tile:nth-child(3n + 3) {
+  background: var(--color-surface);
+}
+
+/* One tile in seven is double size, which is what makes the mosaic read as a field guide. */
+.tileWide {
+  grid-column: span 2;
+  grid-row: span 2;
+}
+
+/* Studio photography on white: multiply drops the backdrop into the tile's own colour. */
+.tile img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  mix-blend-mode: multiply;
+}
+
+/* ---------------- Sections ---------------- */
+
+.section {
+  display: grid;
+  gap: var(--space-4);
+  /* The wrapper runs edge to edge for the two tone fields, so the reading column carries the margin. */
+  padding: clamp(48px, 7vw, 96px) var(--gutter) 0;
+}
+
+.sectionHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.sectionTitle {
+  margin: 0;
+  font-size: clamp(1.75rem, 3.4vw, 2.75rem);
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+  font-weight: 600;
+  color: var(--color-ink);
+}
+
+.sectionCount,
+.sectionNote {
+  margin: 0;
+  font-size: var(--text-base);
+  color: var(--color-ink-muted);
+}
+
+/* The catalogue as a menu: two columns, a photograph where a bullet would be. */
+.shelfList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2) clamp(24px, 4vw, 64px);
+}
+
+.shelfItem {
+  min-width: 0;
+}
+
+.shelfLink {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr);
+  gap: var(--space-4);
+  align-items: center;
+  padding: var(--space-3) var(--space-3) var(--space-3) 0;
+  color: inherit;
+  border-radius: var(--radius-sm);
+  transition: background-color 140ms ease;
+}
+
+.shelfLink:hover {
+  background: var(--color-surface-sunken);
+}
+
+.shelfPhoto {
+  display: block;
+  width: 64px;
+  height: 64px;
+  overflow: hidden;
+  background: var(--color-surface-sunken);
+}
+
+.shelfPhoto img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  mix-blend-mode: multiply;
+}
+
+.shelfBody {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.shelfLine {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.shelfName {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-weight: 600;
+  font-size: var(--text-md);
+  color: var(--color-ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.shelfPrice {
+  flex: 0 0 auto;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.shelfFact {
+  font-size: var(--text-sm);
+  color: var(--color-ink-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.categoryRow {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-3);
+}
+
+.categoryLink {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 var(--space-4);
+  border-radius: 0;
+  background: var(--color-action-soft);
+  color: var(--color-ink);
+  font-weight: 600;
+  font-size: var(--text-base);
+  transition: background-color 140ms ease;
+}
+
+.categoryLink:hover {
+  background: var(--color-action-soft);
+}
+
+/* ---------------- The reply card ---------------- */
+
+/* One card lying on the coloured field: centred, square-cornered, hanging past the section's edge. */
+.cta {
+  display: grid;
+  place-items: end center;
+  margin: clamp(56px, 8vw, 104px) 0 0;
+  padding: clamp(32px, 6vw, 72px) var(--gutter) 0;
+  background: var(--color-action-soft);
+}
+
+.ctaCard {
+  display: grid;
+  gap: var(--space-4);
+  justify-items: start;
+  width: min(100%, 34rem);
+  padding: clamp(24px, 4vw, 44px);
+  background: var(--color-surface);
+}
+
+.ctaTitle {
+  margin: 0;
+  font-size: clamp(1.5rem, 2.6vw, 2rem);
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+  font-weight: 600;
+}
+
+.ctaBody {
+  margin: 0;
+  max-width: 40ch;
+  color: var(--color-ink);
+  line-height: 1.5;
+}
+
+.ctaAction {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 56px;
+  padding: 0 var(--space-5);
+  background: var(--color-button);
+  color: var(--color-button-ink);
+  font-weight: 600;
+  transition: background-color 140ms ease;
+}
+
+.ctaAction:hover {
+  background: var(--color-button-hover);
+}
+
+.ctaNote {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--color-ink-muted);
+}
+
+/* ---------------- Entrance ---------------- */
+
+/*
+ * Nothing is hidden without JavaScript: `[data-reveal-item]` only becomes `pending` when the effect
+ * runs, so a failed script leaves the whole page visible.
+ */
+:global([data-reveal-item][data-reveal='pending']) {
+  opacity: 0;
+  transform: translateY(18px);
+}
+
+:global([data-reveal-item][data-reveal='shown']) {
+  opacity: 1;
+  transform: none;
+  transition: opacity 420ms ease, transform 420ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* ---------------- Phone: the split becomes a stack ---------------- */
+
+@media (max-width: 899px) {
+  .hero {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .heroText {
+    padding: clamp(24px, 6vw, 40px) var(--gutter);
+  }
+
+  .heroShelf {
+    padding: var(--space-4) var(--gutter) var(--space-5);
+  }
+
+  .mosaic {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .title {
+    font-size: clamp(2.25rem, 10.5vw, 3rem);
+  }
+
+  .shelfList {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .section {
+    padding-top: clamp(56px, 9vw, 72px);
+  }
+
+
+  .cta {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .ctaNote {
+    margin-bottom: 0;
+    font-size: var(--text-lg);
+  }
+}
+
+@media (max-width: 479px) {
+  .searchInput {
+    min-width: 0;
+  }
+
+  .searchButton {
+    padding: 0 var(--space-4);
+  }
+
+  .mosaic {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .tileWide {
+    grid-column: span 2;
+    grid-row: span 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :global([data-reveal-item][data-reveal='pending']),
+  :global([data-reveal-item][data-reveal='shown']) {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+}

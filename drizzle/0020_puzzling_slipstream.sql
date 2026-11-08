@@ -1,0 +1,2 @@
+ALTER TABLE "visit_session" ADD COLUMN "division" text;--> statement-breakpoint
+ALTER TABLE "visit_session" ADD CONSTRAINT "visit_session_division_valid" CHECK ("visit_session"."division" is null or "visit_session"."division" in ('dhaka', 'chattogram', 'khulna', 'rajshahi', 'sylhet', 'barishal', 'rangpur', 'mymensingh', 'outside_bd'));

@@ -86,6 +86,14 @@ export const DELIVERY_SETTINGS_PATH = '/qbpanel/settings/delivery';
 export const PROMO_CODES_PATH = '/qbpanel/promo-codes';
 /** The derived figures screen: revenue, orders and what is selling (Phase 38). */
 export const ANALYTICS_PATH = '/qbpanel/analytics';
+/**
+ * Traffic: the shop's own first-party visit log (ADR 0027), on its own screen since 2026-11-09.
+ *
+ * It is not a second view of the order rows - a visit is not an order - so it left the analytics page
+ * and sits beside it in the rail. Same permission (`order.read`): it is another reading of this shop's
+ * own activity, and administration is owner-only.
+ */
+export const TRAFFIC_PATH = '/qbpanel/traffic';
 export const ANNOUNCEMENT_SETTINGS_PATH = '/qbpanel/settings/announcement';
 export const SUPPORT_SETTINGS_PATH = '/qbpanel/settings/support';
 /** The shop's own phone, hours and address, and the policy text it publishes (Phase 51). */

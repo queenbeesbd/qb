@@ -20,6 +20,7 @@ import {
   ORDERS_PATH,
   OWNERS_PATH,
   PROMO_CODES_PATH,
+  TRAFFIC_PATH,
   SUPPORT_SETTINGS_PATH,
 } from '@/server/auth/constants';
 import { currentStaffPrincipal } from '@/server/auth/guard';
@@ -65,6 +66,8 @@ export default async function AdminShellLayout({ children }: { children: React.R
   ];
   if (hasPermission(principal, PERMISSIONS.orderRead)) {
     items.push({ href: ANALYTICS_PATH, labelKey: 'admin.nav.analytics', group: 'overview', icon: 'analytics' });
+    // Directly under Analitics in the same group: the shop's own readers, as a fact of their own.
+    items.push({ href: TRAFFIC_PATH, labelKey: 'admin.nav.traffic', group: 'overview', icon: 'overview' });
     items.push({
       href: COD_PATH,
       labelKey: 'admin.nav.cod',

@@ -585,13 +585,18 @@ the real surface rather than from the plan.
 | What sold? | Top products by units, with revenue beside it | Units first because that is what the shelf records; revenue is the second column |
 | What did it cost me? | Money panel: customer payments, the delivery fee inside them, extra courier costs, estimated net | The fee is subtracted exactly once; net is labelled an estimate |
 | Did a code work? | Promo panel: uses, distinct codes, money given away | Redemption rows, never a counter |
-| Who visits? | Traffic block: visits today, page views today, live sessions, carts left behind, a page-view chart, a visit-to-order funnel and the most viewed pages | The shop's own first-party visit log (ADR 0027). A visit is a session, not a person; "live" is five minutes; a cart left behind is not a lost sale |
+| Who visits? | **Its own screen since 2026-11-09** (`/qbpanel/traffic`, ADR 0033): sessions today / 7 days / 30 days / all time, live now, carts left behind, visits per day, the divisions readers came from, the device split, a visit-to-order funnel and the most-read pages | The shop's own first-party visit log (ADR 0027). A visit is a session, not a person; "live" is five minutes; a cart left behind is not a lost sale; the area is one of eight divisions derived from the network's region and never asked for |
 
 **Periods** are links, not a client control: `?period=7|30|90`, validated against the fixed set, so a
 crafted value cannot ask for an unbounded scan and the back button works.
 
-**Traffic (ADR 0027, 2026-11-07).** The screen carries a Traffic block read from `visit_session` and
-`visit_event`, written by `POST /api/track` from a storefront beacon. It states four figures (visits
+**Traffic is its own screen (ADR 0033, 2026-11-09; split out of this page).** `/qbpanel/traffic` reads
+`visit_session` and `visit_event`, written by `POST /api/track` from a storefront beacon. It states
+sessions today, over 7 days, over 30 days and across the retained log, live now, carts left behind, a
+visits-per-day chart on the Dhaka calendar, **the eight divisions readers came from** (derived from the
+platform's IP country/region header and stored as one of eight words - no address, city or coordinate,
+and the visitor is never asked), the phone/tablet/desktop split, a visit-to-order funnel and the
+most-read pages. This page keeps the money figures only; the two are never added together. It states four figures (visits
 today, page views today, live now, carts left behind), a page-view chart on the same Dhaka calendar as
 the money figures, a visit-to-order funnel, and the most viewed pages. Every figure names what it
 counts, and the block closes with the privacy position: a random session id in an `HttpOnly` cookie,

@@ -42,12 +42,21 @@ export const visitSession = pgTable(
     /** True once an order was placed from this session. Never a link to the order. */
     placedOrder: boolean('placed_order').notNull().default(false),
     device: text('device').notNull().default('desktop'),
+    /**
+     * The division this session came from, derived from the platform's IP region header (ADR 0033).
+     * Never an address, a city or a coordinate: one of `VISIT_DIVISIONS`, or null when unknown.
+     */
+    division: text('division'),
     entryPath: text('entry_path'),
   },
   (t) => [
     index('visit_session_first_seen_idx').on(t.firstSeenAt.desc()),
     index('visit_session_last_seen_idx').on(t.lastSeenAt.desc()),
     check('visit_session_device_valid', colIn('device', VISIT_DEVICES)),
+    check(
+      'visit_session_division_valid',
+      sql`${t.division} is null or ${t.division} in ('dhaka', 'chattogram', 'khulna', 'rajshahi', 'sylhet', 'barishal', 'rangpur', 'mymensingh', 'outside_bd')`,
+    ),
     check('visit_session_page_views_non_negative', sql`${t.pageViews} >= 0`),
     check(
       'visit_session_entry_path_len',

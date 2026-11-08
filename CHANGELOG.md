@@ -61,6 +61,42 @@ invalidate. None of the three touches the claim.
 **Not verified:** a second device, a real phone, and the repeat-delivery *price* end to end (the rate is
 unset in this environment, so the quote falls through rather than discounting). Nothing is deployed.
 
+### Added - 2026-11-09: traffic on its own screen, with the divisions, and a 404 that shows the shop
+Owner instruction, recorded in [ADR 0033](docs/decisions/0033-traffic-screen-and-visitor-area.md).
+
+**Traffic left the analytics page.** `/qbpanel/traffic` now carries the visit figures and
+`/qbpanel/analytics` keeps the money; the traffic block is removed from Analytics rather than duplicated,
+and both sit under Overview behind `order.read`. The new screen states sessions **today, 7 days, 30 days
+and all time** (all time is the retained 90-day log and says so), live now, carts left behind, a
+visits-per-day chart, **where the readers are**, the phone/tablet/desktop split, the visit-to-order
+funnel and the most-read pages.
+
+**The area is derived, never asked for.** `divisionFromHeaders` maps the platform's IP country and region
+(the ISO 3166-2:BD subdivisions *are* the eight divisions) to one of `dhaka`, `chattogram`, `khulna`,
+`rajshahi`, `sylhet`, `barishal`, `rangpur`, `mymensingh`, `outside_bd`, or `null`. No address, city,
+coordinate or fingerprint is read or stored, the storefront never prompts for location and
+`navigator.geolocation` is not used at all. A missing or unknown header is `null`, never a default, so a
+gap is counted as "could not be placed" rather than folded into Dhaka. **Migration `0020`** adds
+`visit_session.division` with a `CHECK` over those nine values - additive, **52 tables unchanged**.
+
+**The 404 is now a shop page.** Both 404s render one composition: the real in-stock shelf as a specimen
+mosaic (the dealt direction `specimen-catalogue`, seed 492894841, palette and type kept from the brand),
+the same products as a menu with their real price and pack, the category index, and a search field.
+`loadNotFoundShelf` reads the catalogue through the existing cached snapshot and never throws. No
+invented reviews, arrivals, counts or "popular" claims; the shelf links instead of adding to the cart,
+because the root 404 has no cart provider.
+
+**Verified:** `typecheck`, `lint` (0 errors), `check:i18n` (1,776 keys), unit **272/272** including the
+new division-mapping cases (eight subdivisions, the letter-only form, `outside_bd`, and the three
+"not known" cases), `db:migrate`, `db:validate`, `db:check`, `build`, `verify:admin` **218/218** with
+`/qbpanel/analytics` and `/qbpanel/traffic` added to its route sweep, and the design gate on the 404:
+**0 FAIL** at 1440 / 768 / 390 (`lint.mjs` 0 FAIL, 0 WARN; `inspect.mjs` 1 WARN - no video, defended).
+The traffic screen was reviewed from 1440 and 390 screenshots against `references/app-screens.md`, with a
+spread of sessions seeded into the local database. **Not verified:** the traffic screen has no automated
+browser check (it needs a session), `verify:storefront` was not re-run for the 404, and no real request
+carried a Vercel region header in this environment, so the division path is proven by unit test and by
+seeded rows rather than by a live visit. Nothing is deployed.
+
 ### Changed - 2026-11-09: the order page drops the cash-on-delivery process note
 Owner direction: *"hide this - Cash on delivery: the owner approves the order before dispatch, and
 courier cash is reconciled separately - from the order placed page."*

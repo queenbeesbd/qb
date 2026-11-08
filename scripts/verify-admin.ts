@@ -700,7 +700,7 @@ async function main(): Promise<void> {
 
     console.log('\nunauthenticated access');
     {
-      for (const path of ['/qbpanel', '/qbpanel/catalog', '/qbpanel/categories', '/qbpanel/owners', '/qbpanel/audit', '/qbpanel/forbidden']) {
+      for (const path of ['/qbpanel', '/qbpanel/analytics', '/qbpanel/traffic', '/qbpanel/catalog', '/qbpanel/categories', '/qbpanel/owners', '/qbpanel/audit', '/qbpanel/forbidden']) {
         const response = await call(base, path);
         record(
           `GET ${path} without a session redirects to sign-in`,
@@ -3609,11 +3609,23 @@ async function main(): Promise<void> {
              * English only. The interface has one language (Phase 28); a list that leaked a second
              * one would be a regression this phase must not introduce.
              */
+            /*
+             * Interface copy only. The first version scanned the whole body, which made the check fail
+             * the moment a line item carried its own Bengali product name - and that is **data**, which
+             * the shop is required to render (a product keeps `name_bn`, and customer-entered text may
+             * be Bengali). The assertion is now about the words we own: headings, table headers,
+             * labels, buttons, links and the filter row.
+             */
             await browser.navigate('/qbpanel/orders');
-            const language = await browser.evaluate<{ lang: string; bengali: boolean }>(`(() => ({
-              lang: document.documentElement.lang,
-              bengali: /[\\u0980-\\u09FF]/.test(document.body.textContent || ''),
-            }))()`);
+            const language = await browser.evaluate<{ lang: string; bengali: boolean }>(`(() => {
+              const chrome = document.querySelectorAll('h1, h2, h3, th, label, button, a, dt, dd, legend, caption');
+              const copy = [...chrome].map((node) => node.textContent || '').join(' ');
+              const status = document.querySelector('[role="status"]');
+              return {
+                lang: document.documentElement.lang,
+                bengali: /[\\u0980-\\u09FF]/.test(copy + ' ' + (status ? status.textContent || '' : '')),
+              };
+            })()`);
             record(
               'the list surfaces stay English only',
               language.lang === 'en' && language.bengali === false,

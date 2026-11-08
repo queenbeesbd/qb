@@ -1,0 +1,211 @@
+/**
+ * Traffic screen - the dealt app style: colour on the data, not on the chrome.
+ *
+ * One hue at full strength only on the live figure's dot and the chart line; its pale tint carries the
+ * live panel and the share bars. Everything else is ink, a tone step and space. No icons in tinted
+ * squares, no sparklines on a figure, no cards inside cards.
+ */
+
+/* Figures on one pitch: label, value, note - read down the column, never boxed. */
+.figures {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: var(--space-5);
+  padding: var(--space-5) 0 var(--space-6);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.figure {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+/* A reader is present: one small filled dot, which is all the colour this row needs. */
+.liveDot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-right: 6px;
+  border-radius: 50%;
+  background: var(--color-focus);
+  vertical-align: 1px;
+}
+
+.figureLabel {
+  display: flex;
+  align-items: center;
+  font-size: var(--text-xs);
+  color: var(--color-ink-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.figureValue {
+  font-size: 1.75rem;
+  line-height: 1.1;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  color: var(--color-ink);
+}
+
+.figureNote {
+  font-size: var(--text-xs);
+  line-height: 1.3;
+  color: var(--color-ink-muted);
+}
+
+/* Two share tables across, two below: rows align across the columns. */
+.split {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-5);
+  align-items: start;
+}
+
+.shareList,
+.funnelList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 2px;
+}
+
+/*
+ * A share row: the fill is the bar *behind* the text, its width the row's share of the largest row.
+ * 44px tall, 8px radius, no outline - the tone step is the whole separation.
+ */
+.shareRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-3);
+  position: relative;
+  min-height: 44px;
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-sm);
+}
+
+.shareTrack {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 100%;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.shareFill {
+  display: block;
+  height: 100%;
+  background: var(--color-action-soft);
+}
+
+.shareLabel,
+.shareValue {
+  position: relative;
+  font-size: var(--text-sm);
+  min-width: 0;
+}
+
+.shareLabel {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--color-ink);
+}
+
+.shareValue {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  color: var(--color-ink);
+}
+
+/* Visit to order: five rows, the same bar language as a share table, plus the share in percent. */
+.funnelRow {
+  display: grid;
+  grid-template-columns: 9.5rem minmax(0, 1fr) 4rem 3rem;
+  align-items: center;
+  gap: var(--space-3);
+  position: relative;
+  min-height: 44px;
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-sm);
+}
+
+.funnelLabel {
+  font-size: var(--text-sm);
+  color: var(--color-ink);
+}
+
+.funnelTrack {
+  position: absolute;
+  inset: 0 auto 0 9.5rem;
+  right: 7.5rem;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.funnelFill {
+  display: block;
+  height: 100%;
+  background: var(--color-action-soft);
+}
+
+.funnelValue,
+.funnelShare {
+  position: relative;
+  font-variant-numeric: tabular-nums;
+  font-size: var(--text-sm);
+}
+
+.funnelValue {
+  font-weight: 600;
+  text-align: end;
+}
+
+.funnelShare {
+  color: var(--color-ink-muted);
+  text-align: end;
+}
+
+@media (max-width: 1199px) {
+  .figures {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    row-gap: var(--space-4);
+  }
+}
+
+@media (max-width: 899px) {
+  .split {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 719px) {
+  .figures {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .figureValue {
+    font-size: 1.5rem;
+  }
+
+  /* The phone keeps the same rows; the funnel drops its percent column, which the count already says. */
+  .funnelRow {
+    grid-template-columns: minmax(0, 1fr) 3.5rem;
+    min-height: 40px;
+    padding: 0 var(--space-2);
+  }
+
+  .funnelTrack {
+    inset: 0 var(--space-2) 0 var(--space-2);
+    opacity: 0.55;
+  }
+
+  .funnelShare {
+    display: none;
+  }
+}

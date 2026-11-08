@@ -141,6 +141,13 @@
       "when": 1794173211260,
       "tag": "0019_pink_blonde_phantom",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1794174652277,
+      "tag": "0020_puzzling_slipstream",
+      "breakpoints": true
     }
   ]
 }

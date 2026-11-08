@@ -213,6 +213,25 @@ export const ORDER_EVENT_TYPE = [
 ] as const;
 
 export const ORDER_EVENT_ACTOR = ['customer', 'guest', 'staff', 'system'] as const;
+/**
+ * The coarse area a visit came from - the eight Bangladeshi divisions, or outside the country.
+ *
+ * Derived from the platform's IP **country and region** headers and stored as one of these values, so
+ * the log never holds an address, a city or a coordinate. Null means "not known": a local development
+ * machine, a network the platform cannot place, or a request that carried no headers at all.
+ */
+export const VISIT_DIVISIONS = [
+  'dhaka',
+  'chattogram',
+  'khulna',
+  'rajshahi',
+  'sylhet',
+  'barishal',
+  'rangpur',
+  'mymensingh',
+  'outside_bd',
+] as const;
+
 export const AUDIT_ACTOR = ['staff', 'system'] as const;
 export const FLAG_TYPE = ['review'] as const;
 export const FLAG_STATE = ['raised', 'cleared'] as const;
