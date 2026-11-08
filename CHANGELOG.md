@@ -14,6 +14,47 @@ An entry may describe a deployment only once it has actually happened and been o
 
 ## [Unreleased]
 
+### Changed - 2026-11-09: the order page drops the cash-on-delivery process note
+Owner direction: *"hide this - Cash on delivery: the owner approves the order before dispatch, and
+courier cash is reconciled separately - from the order placed page."*
+
+The sentence is gone. It described the shop's internal process on a page the customer reads, and the
+two facts they need were already there: the method and its payment state ("Cash on delivery" /
+"Awaiting approval"), and what happens next read from the stored order. `orders.codNote` is deleted
+from the dictionary rather than left unreferenced, and the legacy note for a historical non-COD order
+is untouched - it states that order's own payment method, not our process.
+
+Verified on a served build: a real guest COD order placed through `POST /api/checkout/order` renders
+`/orders/<number>?placed=1` with **0** occurrences of "reconciled separately" and still shows "Order
+placed", "Cash on delivery" and "Awaiting approval" (check the same order on the previous build: the
+sentence was present). `typecheck`, `lint` (0 errors), `check:i18n` (1,730 keys) pass.
+
+### Verified - 2026-11-09: the full admin and storefront suites against the renamed routes
+Both suites that hard-code the panel paths were run against the deployed code, and two harness
+defects they exposed were fixed rather than tolerated.
+
+| Suite | Result |
+| --- | --- |
+| `npm run verify:admin` | **218/218**, including every `/qbpanel` route, the permission sweep, the drawer, the order decisions and the control heights |
+| `npm run verify:storefront` | **91/97**, the six failures being the documented pre-existing ones: **8** and **32** (product-page image/price rules), **20** (gallery dots at 24px), **27d** (one section link), **36d** (this seed's five departments, the check wants ten) and **40b** (favicon ink) |
+
+**Two harness fixes, both corrections rather than relaxations.**
+
+- `verify:admin` asserted *"no CSP is claimed, because none is implemented"* - it passed only while a
+  control was missing, and `src/proxy.ts` has emitted a nonce-based policy for some time. The check now
+  asserts the policy is present with `script-src 'self' 'nonce-…'`, `'strict-dynamic'` and
+  `frame-ancestors 'none'`. `docs/security.md` had the same stale claim in three places and now states
+  the policy's real limit: `style-src` keeps `'unsafe-inline'` for React's style attributes.
+- **The catalogue snapshot survived a rebuild.** `unstable_cache` stores it under `.next/cache`, which
+  `next build` does not clear, so `verify:storefront` served the previous **`verify:admin`** cluster's
+  one-product catalogue while its own 22-product seed sat unused - the homepage rendered "Verify
+  Product" and the run failed at checks 1, 8 and 9. Both runners now clear `.next/cache` before they
+  serve and again when they finish, so no run can read another database's rows. With that fixed the
+  suite reached **91/97** instead of aborting at check 9.
+
+**Not run:** `verify:browser` directly (it was driven by `verify:storefront`), `verify:ui`, the db
+suite, and any real device.
+
 ### Changed - 2026-11-09: the panel moves to `/qbpanel`, its session lasts, and it ships as an app
 Owner instruction, recorded in [ADR 0031](docs/decisions/0031-panel-path-persistent-session-and-app.md).
 

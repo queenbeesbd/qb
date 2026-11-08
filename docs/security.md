@@ -462,9 +462,11 @@ collection, completion, pre-dispatch cancellation) through one endpoint.
 
 ### Deliberately not changed
 
-- **No CSP was added.** It needs a nonce or hash inventory for the Next runtime and the CSS Modules build,
-  and a policy that silently breaks the storefront would be worse than none. It remains an open
-  requirement, recorded rather than silently claimed.
+- **No CSP was added in this change** - one already exists. `src/proxy.ts` emits a nonce-based policy on
+  every document (row 1 of the table above), and `verify:admin` now asserts its presence along with
+  `frame-ancestors 'none'`. `style-src` keeps `'unsafe-inline'` deliberately, because React writes inline
+  `style` attributes and a nonce cannot authorise an attribute; that is the policy's stated limit, not a
+  missing control.
 - **No rate limiting was added.** The existing conventions are a database-backed login throttle and a
   bounded in-process denial log; inventing a second mechanism for the new read pages would be a control
   with no evidence behind it. The list bounds above are what stop a page from being a load amplifier.
@@ -846,12 +848,13 @@ below is implemented**, and none has been tested. Residual risks are stated rath
   stays plain text rendered through JSX escaping; no `dangerouslySetInnerHTML`; no unreviewed sanitizer.
   Filter and sort parameters are validated against an explicit allowlist - including `brand`, which the
   current client-side parser does not validate (discrepancy B4).
-- **Detection.** Error-rate monitoring; a content-security-policy violation report endpoint if a CSP is
-  adopted.
+- **Detection.** Error-rate monitoring. No CSP violation-report endpoint is configured: the policy blocks
+  by default, and a report collector would be a new unauthenticated write surface that nobody watches.
 - **Verification.** Injection tests against every filter and identifier; a test asserting that a script
   payload in product copy renders as text.
-- **Residual.** No CSP is currently configured, so XSS defence-in-depth is incomplete; adopting one is a
-  hardening task, not a claim made here.
+- **Residual.** The nonce-based CSP (`src/proxy.ts`) is the defence in depth, but `style-src` retains
+  `'unsafe-inline'` for React's style attributes, so injected CSS is not blocked. Script execution - the
+  interesting half - is.
 
 ### T14 Sensitive data exposure through logs, analytics, errors or public endpoints
 

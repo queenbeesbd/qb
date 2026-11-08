@@ -1766,8 +1766,6 @@ export const dictionary = {
   'orders.contactTitle': 'Delivery details',
   'orders.backToOrders': 'Back to your orders',
   'orders.deliveryPending': 'Arranged on confirmation',
-  'orders.codNote':
-    'Cash on delivery: the owner approves the order before dispatch, and courier cash is reconciled separately.',
   'orders.legacyPaymentNote':
     'This order predates cash on delivery being the only method.',
   'orders.guestTitle': 'Your order',

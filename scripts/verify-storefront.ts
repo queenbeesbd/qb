@@ -27,7 +27,7 @@
 
 import { spawn, type ChildProcess } from 'node:child_process';
 import { createServer } from 'node:net';
-import { existsSync } from 'node:fs';
+import { existsSync, rmSync } from 'node:fs';
 
 import { seedCatalog } from '../src/db/seed-catalog';
 import { runCustomerFlowChecks } from './customer-flow';
@@ -180,6 +180,16 @@ async function main(): Promise<void> {
     };
     delete childEnv.QUEENBEES_STOREFRONT_FIXTURE;
 
+    /*
+     * The storefront catalog snapshot is cached by `unstable_cache` under `.next/cache`, and that
+     * directory **survives a rebuild**. A previous run against a different database therefore leaves
+     * its snapshot behind, and this run's server would serve that catalog instead of the one seeded
+     * here - which is exactly what happened: the homepage rendered `verify:admin`'s single
+     * "Verify Product" while this cluster held the 22-product seed. The cache is a correct production
+     * feature; a runner that points at a different database must start from an empty one.
+     */
+    rmSync('.next/cache', { recursive: true, force: true });
+
     console.log('\nbuilding the production bundle (next build)');
     const buildCode = await run('npx', ['next', 'build'], childEnv);
     if (buildCode !== 0) throw new Error(`next build exited ${buildCode}`);
@@ -259,6 +269,8 @@ async function main(): Promise<void> {
   } finally {
     await stopServer(server);
     await fixture.close();
+    // Leave no snapshot of a deleted cluster behind for the next server this machine starts.
+    rmSync('.next/cache', { recursive: true, force: true });
   }
 }
 

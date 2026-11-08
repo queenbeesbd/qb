@@ -134,15 +134,18 @@ export function OrderDetailView({
             <dd>{t(paymentLabel(order.paymentMethod, order.paymentState, order.codState))}</dd>
           </div>
         </dl>
-        <p className={styles.muted}>
-          {order.paymentMethod === 'cod' ? (
-            t('orders.codNote')
-          ) : (
-            <>
-              {t('orders.legacyPaymentNote')} <ContactLink />
-            </>
-          )}
-        </p>
+        {/*
+          Owner direction, 2026-11-09: the cash-on-delivery sentence ("the owner approves the order
+          before dispatch, and courier cash is reconciled separately") is gone from the order page. It
+          described the shop's internal process on a page the customer reads, and the two facts that
+          matter to them are already stated above and in what happens next. The legacy note stays,
+          because it describes a historical order's own payment method rather than our process.
+        */}
+        {order.paymentMethod !== 'cod' && (
+          <p className={styles.muted}>
+            {t('orders.legacyPaymentNote')} <ContactLink />
+          </p>
+        )}
         {/*
           What happens next is read from the stored order state, never from a policy guess. There is no
           delivery deadline here because the store publishes none, and no cash-collection claim because

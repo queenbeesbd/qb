@@ -19,7 +19,7 @@
 
 import { spawn, type ChildProcess } from 'node:child_process';
 import { createServer } from 'node:net';
-import { existsSync, writeFileSync } from 'node:fs';
+import { existsSync, rmSync, writeFileSync } from 'node:fs';
 import { and, eq, sql } from 'drizzle-orm';
 
 import { closeDb, withTransaction } from '../src/db/client';
@@ -581,6 +581,14 @@ async function main(): Promise<void> {
   if (!existsSync('.next/BUILD_ID')) {
     fail('no production build found. Run "npm run build" first (this script serves the real build).');
   }
+
+  /*
+   * `.next/cache` survives a rebuild and holds the storefront catalog snapshot keyed by tag, not by
+   * database. Running against this cluster while another run's snapshot is still on disk makes the
+   * storefront checks read somebody else's catalog. Start from an empty cache and clear it again on
+   * the way out, so neither this run nor the next one is served another database's rows.
+   */
+  rmSync('.next/cache', { recursive: true, force: true });
 
   console.log('starting a disposable local PostgreSQL cluster');
   const cluster: LocalCluster = await startLocalCluster('queenbees_verify_admin');
@@ -4168,15 +4176,24 @@ async function main(): Promise<void> {
           response.headers.get('referrer-policy') === 'strict-origin-when-cross-origin',
           response.headers.get('referrer-policy') ?? '',
         );
+        // `src/proxy.ts` emits a nonce-based policy on every document, so the old assertion here -
+        // that no CSP is claimed because none is implemented - was pinning the absence of a control
+        // that now exists. It is replaced by the facts that matter: the policy is present, scripts
+        // are nonce-bound through `strict-dynamic`, and the document can never be framed.
+        const csp = response.headers.get('content-security-policy') ?? '';
         record(
-          'no CSP is claimed, because none is implemented',
-          response.headers.get('content-security-policy') === null,
-          'absent, and documented as an open requirement',
+          'a nonce-based CSP is emitted, with frame-ancestors none',
+          csp.includes("script-src 'self' 'nonce-") &&
+            csp.includes("'strict-dynamic'") &&
+            csp.includes("frame-ancestors 'none'"),
+          csp === '' ? 'absent' : csp.slice(0, 120),
         );
       }
     }
   } finally {
     await stop();
+    // The cluster is gone with this run; its catalog snapshot must not outlive it in `.next/cache`.
+    rmSync('.next/cache', { recursive: true, force: true });
   }
 
   const failures = results.filter((result) => !result.ok);
