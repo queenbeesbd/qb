@@ -14,6 +14,53 @@ An entry may describe a deployment only once it has actually happened and been o
 
 ## [Unreleased]
 
+### Added - 2026-11-09: a guest order can be claimed into an account
+Owner request, recorded in [ADR 0032](docs/decisions/0032-claiming-a-guest-order.md): *"suppose a guest
+ordered; this is his order placed summary. Now we should ask him if he wants to open or sign in to an
+account to track the order. If he then signs in or creates an account, the order becomes part of that
+user, and next time he buys he counts as a repeated customer."*
+
+- **The receipt asks.** A signed-out guest sees **Keep this order in an account** with **Sign in** and
+  **Create an account**, both returning to that receipt; a signed-in customer viewing a guest order sees
+  **This order is not in your account** and one button, **Add this order to my account**; a claim that
+  just happened is confirmed instead of being left to be inferred.
+- **The claim is explicit, never silent.** Signing in from the receipt returns the customer to it; it does
+  not take ownership on their behalf. `POST /api/account/orders/claim` requires the session and its CSRF
+  token, is same-origin checked, and answers with a redirect.
+- **The database enforces "once".** Migration `0019` narrows `order.customer_id`'s immutability to exactly
+  one transition - `null` -> a customer - and still refuses a move to another account or a cleared link
+  (`23514`). The claim locks the order row, updates only while `customer_id is null`, and writes one
+  `order_event` (`order_claimed`, actor `customer`, `event_key claim:<orderId>`). No audit row (D23), and
+  no amount, delivery split, discount snapshot or state column changes.
+- **The repeat-customer consequence is the point.** `isRepeatCustomer` reads `customer_id` and
+  `status = 'completed'`, so a claimed completed order makes the account returning for the *next*
+  delivery quote. The repeat rate itself is still owner-configured and off by default, and the interface
+  promises history, not a discount.
+- **`safeCustomerNext` gained one bounded entry** (`RECEIPT_PATH_PATTERN`, one order number), so the
+  sign-in and registration forms can return to a receipt without becoming a general redirect target.
+- **Schema:** one event-type value and one replaced trigger function. **52 tables unchanged**; `db:validate`
+  reports 195 checks and 12 triggers.
+
+**Verified:** `tests/db/order-claim.test.ts` **6/6** (link once; idempotent repeat; a second account
+refused; unknown and malformed numbers refused; the trigger refuses a move and a clear; a claimed
+completed order becomes a repeat fact; a claimed order is no longer readable by number alone),
+`tests/unit/customer-auth.test.ts` **12/12** (the receipt is an allowed return target; a lookalike is
+not), unit suite **272/272**, `typecheck`, `lint` (0 errors), `check:i18n` (1,738 keys), `db:migrate`,
+`db:validate`, `db:check`, `build`, and an HTTP walk-through on a served build: guest order -> register
+with `next` -> the receipt offers the claim -> claim -> `?claim=claimed` -> the order appears in
+`/account/orders` -> a third account gets **404** -> an anonymous visit gets **404**.
+`npm run verify:admin` **218/218**. `npm run verify:storefront` **91/97**, the six failures being the
+same documented pre-existing ones (8, 20, 27d, 32, 36d, 40b) - the claim added none. The suite stops at
+the browser step, so its HTTP customer-flow checks were run separately against the local development
+database: **25/28**, with all receipt, guest-order, order-not-found, guest-checkout and repeat-submission
+checks passing and the three failures explained by that database's own state - guest ordering is enabled
+there (so `/checkout` correctly does not redirect), a payment-instruction row exists, and a product set
+out of stock by the flow mid-run is read from the cached catalogue snapshot the flow does not
+invalidate. None of the three touches the claim.
+
+**Not verified:** a second device, a real phone, and the repeat-delivery *price* end to end (the rate is
+unset in this environment, so the quote falls through rather than discounting). Nothing is deployed.
+
 ### Changed - 2026-11-09: the order page drops the cash-on-delivery process note
 Owner direction: *"hide this - Cash on delivery: the owner approves the order before dispatch, and
 courier cash is reconciled separately - from the order placed page."*

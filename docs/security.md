@@ -680,6 +680,17 @@ below is implemented**, and none has been tested. Residual risks are stated rath
 - **Residual.** A customer who shares their own order link exposes their own order; the page requires a
   session, so the link alone is not sufficient.
 
+**Guest receipts and claiming (ADR 0032).** A guest order is readable by its number alone, deliberately:
+the receipt is the guest's only handle on it. That means the number is a bearer secret for **reading**
+that one order, and the claim makes it a bearer secret for **attaching** it to an account. The controls
+are the number's entropy (a random 8-byte hex reference, never a sequence), the fact that a signed-in
+customer sees only the same receipt an anonymous visitor with that number sees, and the database rule
+that a claim happens once (`null -> customer`, nothing else). A leaked number therefore lets its holder
+claim a guest order into their own account; the mitigation is ownership, not a second secret - the
+owner restores a mis-claimed order by support action, and an order that has been claimed can never be
+moved to a third account. The claim is same-origin and CSRF-checked by `guardCustomerMutation`, writes
+one `order_event` with the customer as actor, and touches no amount, no state column and no audit row.
+
 ### T3 Privilege escalation and unauthorized owner/qbpanel actions
 
 - **Scenario.** An authenticated principal calls an admin endpoint directly, edits their own role, or

@@ -21,6 +21,12 @@ export const dynamic = 'force-dynamic';
  * `customer_id is null`, so a customer's order number is a 404 for anyone without that customer's
  * session; `getCustomerOrderDetail` filters on the session's own id, so it cannot return a guest order
  * or another customer's. Neither read takes an order number alone.
+ *
+ * **A signed-in customer may see a guest order - to claim it, not to keep it (ADR 0032).** The order
+ * they just placed without an account is a 404 if this page only asked for their own rows, so the
+ * read falls back to the guest read and marks the order `claimable`. Seeing it grants nothing: the
+ * guest read is the same one an anonymous visitor with the number gets, and the claim itself is an
+ * explicit action that links the order to this account once.
  */
 export default async function OrderPage({
   params,
@@ -33,11 +39,19 @@ export default async function OrderPage({
   const query = await searchParams;
   const principal = await currentCustomerPrincipal();
 
-  const detail =
-    principal === null
-      ? await withTransaction((tx) => getGuestOrderDetail(tx, orderNumber))
-      : await withTransaction((tx) => getCustomerOrderDetail(tx, principal.customerId, orderNumber));
-  if (detail === null) notFound();
+  const resolved = await withTransaction(async (tx) => {
+    if (principal === null) {
+      const detail = await getGuestOrderDetail(tx, orderNumber);
+      return detail === null ? null : { detail, claimable: false };
+    }
+    const own = await getCustomerOrderDetail(tx, principal.customerId, orderNumber);
+    if (own !== null) return { detail: own, claimable: false };
+    const guest = await getGuestOrderDetail(tx, orderNumber);
+    return guest === null ? null : { detail: guest, claimable: true };
+  });
+  if (resolved === null) notFound();
+
+  const { detail, claimable } = resolved;
 
   const order: OrderDetail = {
     orderNumber: detail.orderNumber,
@@ -73,6 +87,9 @@ export default async function OrderPage({
       order={order}
       placed={query.placed === '1'}
       guest={principal === null}
+      claimable={claimable}
+      claimed={query.claim === 'claimed'}
+      csrfToken={principal?.csrfToken ?? null}
     />
   );
 }

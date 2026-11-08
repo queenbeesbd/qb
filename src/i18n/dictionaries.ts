@@ -1170,6 +1170,7 @@ export const dictionary = {
   'admin.order.decisionTitle': 'Needs your decision',
   'admin.order.decisionBody': 'Call the customer first, then accept or cancel the order.',
   'admin.order.event.order_placed': 'Order placed',
+  'admin.order.event.order_claimed': 'Guest order linked to a customer account',
   'admin.order.event.cod_approved': 'COD approved',
   'admin.order.event.order_cancelled': 'Order cancelled',
   'admin.order.event.order_shipped': 'Dispatched',
@@ -1764,6 +1765,16 @@ export const dictionary = {
   'orders.discount': 'Discount',
   'orders.itemsTitle': 'Items in this order',
   'orders.contactTitle': 'Delivery details',
+  'orders.claim.title': 'Keep this order in an account',
+  'orders.claim.body':
+    'You ordered without an account. Sign in or create one and this order joins your account history, where you can find it again.',
+  'orders.claim.claimableTitle': 'This order is not in your account',
+  'orders.claim.claimableBody':
+    'It was placed without an account. Add it and it appears in your order history.',
+  'orders.claim.action': 'Add this order to my account',
+  'orders.claim.doneTitle': 'This order is in your account now',
+  'orders.claim.doneBody': 'You will find it in your order history from now on.',
+  'orders.claim.viewOrders': 'See all your orders',
   'orders.backToOrders': 'Back to your orders',
   'orders.deliveryPending': 'Arranged on confirmation',
   'orders.legacyPaymentNote':

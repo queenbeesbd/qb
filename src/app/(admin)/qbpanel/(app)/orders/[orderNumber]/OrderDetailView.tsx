@@ -211,6 +211,7 @@ const EVENT_KEYS: Record<string, TranslationKey> = {
   cod_collected: 'admin.order.event.cod_collected',
   order_completed: 'admin.order.event.order_completed',
   order_cancelled: 'admin.order.event.order_cancelled',
+  order_claimed: 'admin.order.event.order_claimed',
 };
 
 const ACTOR_KEYS: Record<string, TranslationKey> = {

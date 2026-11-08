@@ -63,6 +63,9 @@ describe('customer return paths', () => {
     assert.equal(safeCustomerNext('/account'), '/account');
     assert.equal(safeCustomerNext('/account/orders'), '/account/orders');
     assert.equal(safeCustomerNext('/account/orders/QB1234'), '/account/orders/QB1234');
+    // The canonical receipt is a legitimate return target: it is where a guest is asked to sign in
+    // and where the claim is offered (ADR 0032).
+    assert.equal(safeCustomerNext('/orders/QB8F3B6EBD58560B23'), '/orders/QB8F3B6EBD58560B23');
   });
 
   it('refuses an absolute, protocol-relative or off-tree target', () => {
@@ -78,6 +81,14 @@ describe('customer return paths', () => {
     ]) {
       assert.equal(safeCustomerNext(value), '/account', value);
     }
+  });
+
+  it('refuses a receipt-shaped target that is not exactly one order number', () => {
+    for (const value of ['/orders/', '/orders/QB123/claim', '/orders/../account', '/orders/QB 123', '/orders/QB123/']) {
+      assert.equal(safeCustomerNext(value), '/account', value);
+    }
+    // The query is dropped rather than honoured, so the claim marker cannot be injected by a link.
+    assert.equal(safeCustomerNext('/orders/QB123?claim=claimed'), '/orders/QB123');
   });
 
   it('refuses backslash and encoded-separator tricks', () => {

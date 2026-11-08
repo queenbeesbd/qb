@@ -933,16 +933,28 @@ queue); `(status, placed_at DESC)`; partial `(expires_at) WHERE expires_at IS NO
 (the expiry sweep - **no sweep exists; the index is inert until expiry is scheduled**).
 
 **Authorization.** Read: the owning customer, scoped by `customer_id = session.customer_id` in the
-server layer on every request - never by trusting the URL. Staff read with `order.read`. Write:
+server layer on every request - never by trusting the URL - plus the guest receipt, which matches
+`customer_id is null` by order number alone (ADR 0024). Staff read with `order.read`. Write:
 state transitions only, each through its own guarded statement with a named permission
-(section 12 of `docs/security.md`). `total_minor`, `payment_method` and `customer_id` are immutable
-after insert.
+(section 12 of `docs/security.md`). `total_minor` and `payment_method` are immutable after insert.
+
+**`customer_id` is immutable after insert, with one exception (ADR 0032).** A guest order
+(`customer_id is null`) may be linked to exactly one account, once, by `claimGuestOrder`
+(`src/server/orders/claim.ts`, behind a customer session and CSRF). The guard trigger permits only
+`null -> a customer`: a link that moves to another account, or that is cleared, is still refused with
+`23514`. The claim writes one `order_event` (`order_claimed`, actor `customer`, `event_key
+claim:<orderId>`) and no audit row, because it is customer activity (D23) and no staff action. It
+changes no amount, no delivery split, no discount snapshot and no state column - so a claimed order's
+figures reconcile exactly as before, and a claimed *completed* order is what makes the account a
+returning customer for a later delivery quote (ADR 0029).
 
 **Retention.** Never deleted. This is a financial record.
 
 **Immutable-after-insert fields.** Enforced by a guard trigger (a `BEFORE UPDATE` trigger that raises
 when the old and new values differ), because PostgreSQL column-level immutability has no declarative
-form. The trigger is part of the migration, not application code.
+form. The trigger is part of the migration, not application code. The set is `order_number`,
+`currency`, `payment_method`, `items_subtotal_minor`, `total_minor`, `placed_at`, `discount_minor` and
+`customer_id` - the last with the single `null -> customer` transition ADR 0032 permits.
 
 ### 7.2 `order_contact`
 

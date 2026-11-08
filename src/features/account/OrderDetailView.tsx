@@ -86,6 +86,9 @@ export function OrderDetailView({
   order,
   placed,
   guest,
+  claimable = false,
+  claimed = false,
+  csrfToken = null,
 }: {
   order: OrderDetail;
   placed: boolean;
@@ -95,8 +98,17 @@ export function OrderDetailView({
    * shop publishes no self-service order lookup (an unanswered product question, OD-2).
    */
   guest: boolean;
+  /**
+   * Signed in, and this receipt belongs to no account yet (ADR 0032). The owner's request: ask the
+   * customer whether they want the order in an account, and let them attach it if they do.
+   */
+  claimable?: boolean;
+  /** The order was just claimed - say so once, instead of silently changing the page's owner. */
+  claimed?: boolean;
+  csrfToken?: string | null;
 }) {
   const { t, price } = useTranslation();
+  const receipt = `/orders/${order.orderNumber}`;
 
   return (
     <div className={styles.page}>
@@ -106,6 +118,59 @@ export function OrderDetailView({
         <section className={styles.placed} role="status">
           <h1>{t('orders.placedTitle')}</h1>
           <p>{t('orders.placedBody')}</p>
+        </section>
+      )}
+
+      {/*
+        ADR 0032. Three states, each a fact about this order's owner rather than a prompt:
+        a signed-out guest is asked once whether they want an account (and told what it does);
+        a signed-in customer is offered the claim for an order that is still a guest order;
+        and a completed claim is confirmed instead of being left to be inferred.
+        Nothing here promises a delivery price - the repeat-customer rule may be switched off by the
+        owner, so the copy speaks about history, not about money.
+      */}
+      {claimed && (
+        <section className={styles.card} role="status">
+          <h2>{t('orders.claim.doneTitle')}</h2>
+          <p className={styles.muted}>{t('orders.claim.doneBody')}</p>
+          <Link className={styles.primaryAction} href="/account/orders">
+            {t('orders.claim.viewOrders')}
+          </Link>
+        </section>
+      )}
+
+      {guest && (
+        <section className={styles.card} aria-labelledby="order-claim">
+          <h2 id="order-claim">{t('orders.claim.title')}</h2>
+          <p className={styles.muted}>{t('orders.claim.body')}</p>
+          <div className={styles.actions}>
+            <Link
+              className={styles.primaryAction}
+              href={`/account/login?next=${encodeURIComponent(receipt)}`}
+            >
+              {t('account.signIn')}
+            </Link>
+            <Link
+              className={styles.secondaryAction}
+              href={`/account/register?next=${encodeURIComponent(receipt)}`}
+            >
+              {t('account.register')}
+            </Link>
+          </div>
+        </section>
+      )}
+
+      {claimable && csrfToken !== null && (
+        <section className={styles.card} aria-labelledby="order-claim">
+          <h2 id="order-claim">{t('orders.claim.claimableTitle')}</h2>
+          <p className={styles.muted}>{t('orders.claim.claimableBody')}</p>
+          <form className={styles.inlineForm} method="post" action="/api/account/orders/claim">
+            <input type="hidden" name="csrf" value={csrfToken} />
+            <input type="hidden" name="orderNumber" value={order.orderNumber} />
+            <button type="submit" className={styles.primaryAction}>
+              {t('orders.claim.action')}
+            </button>
+          </form>
         </section>
       )}
 

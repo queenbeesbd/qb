@@ -120,3 +120,13 @@ export const CUSTOMER_EMAIL_CHANGE_THROTTLE: ThrottlePolicy = {
  * (the owner flow's `safeReturnPath` rule, applied to the customer surface).
  */
 export const CUSTOMER_PATH_PATTERN = /^\/account(?:\/[A-Za-z0-9-]+)*$/;
+
+/**
+ * The canonical receipt route - `/orders/<orderNumber>` (Phase 49, ADR 0032).
+ *
+ * It sits outside `/account` because a guest reads their receipt there too, but it is a legitimate
+ * place to return a customer after signing in: that is the page that offers to attach their guest
+ * order to the account they just created. Bounded to an order number's own character set and length,
+ * so it cannot become a general second allowlist.
+ */
+export const RECEIPT_PATH_PATTERN = /^\/orders\/[A-Za-z0-9-]{1,40}$/;

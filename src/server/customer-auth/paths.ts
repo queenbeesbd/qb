@@ -2,12 +2,18 @@
  * Customer return-path validation.
  *
  * Pure functions with no database and no request object, so the rule is unit-testable directly: only a
- * same-origin, relative path inside the customer tree - or the checkout page - may be used as a
- * post-authentication return target. Everything else resolves to the account root, so the sign-in form
- * cannot become an open redirect or an exfiltration vector.
+ * same-origin, relative path inside the customer tree - or the checkout page, or one order receipt -
+ * may be used as a post-authentication return target. Everything else resolves to the account root, so
+ * the sign-in form cannot become an open redirect or an exfiltration vector.
  */
 
-import { ACCOUNT_ROOT, CHECKOUT_PATH, CUSTOMER_LOGIN_PATH, CUSTOMER_PATH_PATTERN } from './constants';
+import {
+  ACCOUNT_ROOT,
+  CHECKOUT_PATH,
+  CUSTOMER_LOGIN_PATH,
+  CUSTOMER_PATH_PATTERN,
+  RECEIPT_PATH_PATTERN,
+} from './constants';
 
 export function safeCustomerNext(candidate: string | null | undefined): string {
   if (candidate === null || candidate === undefined || candidate === '') return ACCOUNT_ROOT;
@@ -20,6 +26,8 @@ export function safeCustomerNext(candidate: string | null | undefined): string {
   // Query and fragment are dropped: customer routes carry no state in the URL.
   const path = candidate.split('?')[0]?.split('#')[0] ?? '';
   if (path === CHECKOUT_PATH) return CHECKOUT_PATH;
+  // A guest who is asked to sign in from their receipt returns to it, so the claim is one tap away.
+  if (RECEIPT_PATH_PATTERN.test(path)) return path;
   if (CUSTOMER_PATH_PATTERN.test(path)) return path;
   return ACCOUNT_ROOT;
 }

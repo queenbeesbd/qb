@@ -204,6 +204,12 @@ export const ORDER_EVENT_TYPE = [
   'refund_processing',
   'refund_completed',
   'refund_failed',
+  /*
+   * A guest order was linked to a customer account after the fact (ADR 0032). This is the only event
+   * in the list that describes a change to the order's **owner** rather than its progress, which is
+   * why it exists at all: the claim is a real, recorded transition and not a silent backfill.
+   */
+  'order_claimed',
 ] as const;
 
 export const ORDER_EVENT_ACTOR = ['customer', 'guest', 'staff', 'system'] as const;
