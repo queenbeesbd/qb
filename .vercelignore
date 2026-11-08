@@ -25,6 +25,10 @@ public/catalog/*.webp
 .next/
 coverage/
 
+# The owner's Android app is a separate build artefact: it is a Capacitor shell around the deployed
+# panel, it is not served by this deployment, and it carries a 30 MB Gradle tree and an APK.
+android-app/
+
 # Documentation and the verification suites are not needed to serve the application.
 docs/
 tests/

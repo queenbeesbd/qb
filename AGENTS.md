@@ -280,6 +280,17 @@ no screen, notice or figure may imply a refund occurred.
 
 **Production deployment (owner-authorized, 2026-11-06).** `queenbees-storefront` on Vercel serves production from Neon project `autumn-wave-01272789` (branch `production`, database `queenbees`) and its object-storage bucket `queenbees-catalog`. The previous Neon project exhausted the Free plan's 5 GB public-transfer allowance; the site was rebuilt from the 29 Oct dump by owner decision, so products, categories and brands are present while orders/customers after 21 Oct were not carried over. Migrations 0013 and 0014 were applied (`db:validate`: 48 tables); **migration 0015 followed on 2026-11-07** (`visit_session` / `visit_event`, ADR 0027), taking production to 50 tables - the code had shipped before it, so `/qbpanel/analytics` failed and order creation refused until it was applied. **A deploy does not run migrations: apply pending ones with `db:status` / `db:migrate` before deploying** (`docs/database.md`, Rollout sequencing). **On 2026-11-08 the same failure recurred and was repaired:** the deployed code expected `0016_steadfast_consignments`, `0017_pricing_rules` and `0018_customer_email_change` while production sat at 16 applied migrations, so `/qbpanel/settings/delivery` died on `column "conditional_enabled" does not exist`. All three were applied to the production branch and recorded in `drizzle.__drizzle_migrations`, taking production to **19 migrations / 52 tables**. **Apply `db:status` before every deploy.** Production still has **no `delivery_setting` row and no district override**, so checkout refuses orders until the owner configures delivery charges in the admin panel. `DATABASE_URL` uses the **direct** endpoint because Neon's pooler did not apply the role's `search_path`. Credentials live in Vercel environment variables only - never in the repository. This note supersedes the older "no QueenBee's cloud resource exists" statements for the current production environment.
 
+**Deployed 2026-11-09 (owner-authorized, ADR 0031).** The panel moved to `/qbpanel` and the owner session
+lengthened; the production alias `https://queenbees.vercel.app` now serves it (deployment
+`dpl_4B5pc2fMzGF7BRPXZxJfRyfHb3L5`). **No migration was applied - none was added; production stays at 19
+migrations / 52 tables.** Observed after the deploy: `/` and `/products` 200, `/admin` and
+`/api/admin/...` 404, `/qbpanel` 307 to `/qbpanel/login`, `/qbpanel/login` 200 with `X-Robots-Tag` and
+`cache-control: private, no-store`, `robots.txt` `Disallow: /`, cross-origin `POST
+/api/qbpanel/session/login` 403. `android-app/dist/queenbees-panel-debug.apk` loads that same
+`/qbpanel`, so it works only against a deployment carrying this change. **An existing `/admin` bookmark
+is dead**, and a session minted before the change keeps its old 8-hour expiry, so the owner signs in
+once more per device.
+
 **Known exposure.** An untracked, gitignored `.env` file in the working tree holds a plaintext credential for the withdrawn `merchant.zatiqeasy.com` vendor. It is read by no code and is not committed. **Rotation and removal are owner actions** - do not read the value into output, and do not delete or rotate it on the owner's behalf.
 
 <!-- BEGIN:nextjs-agent-rules -->

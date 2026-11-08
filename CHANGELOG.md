@@ -47,8 +47,16 @@ cross-origin `POST /api/qbpanel/session/login` refused with 403. The APK was bui
 Android SDK 35 (`BUILD SUCCESSFUL`) and inspected with `aapt2 dump badging` (package
 `bd.queenbees.panel`, minSdk 23, targetSdk 35, INTERNET only, the owner's icon in every density).
 **Not verified:** installation on a real Android device, a real WebView's cookie persistence across
-restarts, `verify:admin`, `verify:storefront`, `verify:browser` and the db suite. A deploy must apply
-no migration - the schema is unchanged - but the panel URL in any bookmark is now dead.
+restarts, `verify:admin`, `verify:storefront`, `verify:browser` and the db suite.
+
+**Deployed to production, 2026-11-09** (`dpl_4B5pc2fMzGF7BRPXZxJfRyfHb3L5`, aliased to
+`https://queenbees.vercel.app`). No migration was applied because none was added - the schema is
+unchanged at 52 tables / 19 migrations. Observed on the alias afterwards: `/` and `/products` **200**,
+`/admin` and `/api/admin/...` **404**, `/qbpanel` **307** to `/qbpanel/login`, `/qbpanel/login` **200**
+with `X-Robots-Tag: noindex, nofollow, noarchive, nosnippet` and `cache-control: private, no-store`,
+`robots.txt` `Disallow: /`, and a cross-origin `POST /api/qbpanel/session/login` **403**. The panel URL
+in any existing bookmark is now dead, and a session minted before this change keeps its old 8-hour
+absolute expiry - the owner signs in once more on each device, then stays signed in.
 
 ### Removed - 2026-11-08: the owner-issued one-time code recovery
 The account page's quiet "Password" card (the sign-out note, the code link and the contact line) is
