@@ -724,3 +724,21 @@ with the hint instead of the field.
 placeholder, clicking it left it empty, Accept recorded `cod.approved` with reason `Confirmed by phone`,
 and a second order approved with a typed note recorded that note verbatim. `verify:admin`,
 `verify:browser` and the db suite were not re-run; nothing is deployed.
+
+## Hero banner descriptions are optional (2026-11-10)
+
+Owner direction: the homepage hero's per-image description was required and did not need to be.
+
+- **Migration `0022`** drops `NOT NULL` from `hero_image.alt_text` and changes its `CHECK` to
+  `NULL or char_length between 1 and 200`. Existing rows keep their text; **52 tables unchanged**,
+  `db:validate` reports 200 checks.
+- **Service**: `HeroImageRow.altText` is `string | null`, `parseAltText` maps blank to `null` and still
+  bounds a supplied description at `HERO_ALT_MAX`.
+- **Editor**: both description fields are labelled `Description Optional` and are no longer `required`;
+  a row without one reads "No description (decorative)".
+- **Storefront**: `HeroCarousel` renders `alt=""` for a null description rather than fabricating one.
+
+**Verified** on the served build against the dev cluster: the hero editor showed the optional labels,
+saving a blank description stored NULL and the row displayed the decorative label, the storefront banner
+rendered `alt=""`, and restoring the text brought the description back. `verify:admin`, `verify:browser`
+and the db suite were not re-run; nothing is deployed.

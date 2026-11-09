@@ -41,7 +41,8 @@ const HERO_LOCK_KEY = 815_245_671;
 export type HeroImageRow = {
   readonly id: number;
   readonly imageKey: string;
-  readonly altText: string;
+  /** `null` when the owner wrote none; the banner is then decorative (`alt=""`). */
+  readonly altText: string | null;
   readonly sortOrder: number;
 };
 
@@ -62,14 +63,20 @@ export async function listHeroImages(tx: Transaction): Promise<HeroImageRow[]> {
     .orderBy(heroImage.sortOrder, heroImage.id);
 }
 
-function parseAltText(value: unknown): string {
-  if (typeof value !== 'string') throw new ValidationError('a hero image needs a description');
+/**
+ * The banner's description is **optional** (owner direction, 2026-11-10): an owner who does not want to
+ * describe a picture is not blocked from adding it. Blank stores `null`, and the storefront then renders
+ * the image with `alt=""` - decorative - rather than inventing a description nobody wrote. A supplied
+ * description is still bounded, because it is read aloud.
+ */
+function parseAltText(value: unknown): string | null {
+  if (value === undefined || value === null) return null;
+  if (typeof value !== 'string') throw new ValidationError('the description must be text');
   const altText = value.trim();
-  if (altText.length === 0) throw new ValidationError('a hero image needs a description');
   if (altText.length > HERO_ALT_MAX) {
     throw new ValidationError(`a hero image description must be ${HERO_ALT_MAX} characters or fewer`);
   }
-  return altText;
+  return altText.length === 0 ? null : altText;
 }
 
 function parseImageKey(value: unknown): string {

@@ -18,7 +18,8 @@ export type HeroNotice = 'added' | 'updated' | 'removed' | 'reordered' | 'denied
 export type HeroImageRow = {
   id: number;
   imageKey: string;
-  altText: string;
+  /** Optional since 2026-11-10; `null` means the banner is decorative. */
+  altText: string | null;
   sortOrder: number;
 };
 
@@ -85,7 +86,8 @@ export function HeroSettingsView({
     setOrder(next);
   };
 
-  const nameOf = (image: HeroImageRow): string => image.altText;
+  // A move/remove control still needs a name; the key is the one fact every banner always has.
+  const nameOf = (image: HeroImageRow): string => image.altText ?? image.imageKey;
 
   return (
     <>
@@ -119,7 +121,7 @@ export function HeroSettingsView({
                   <div className={styles.galleryBody}>
                     <p className={styles.galleryName}>
                       <span className={styles.heroOrder}>{t('admin.hero.position', { position: index + 1 })}</span>{' '}
-                      {image.altText}
+                      {image.altText ?? t('admin.hero.altNone')}
                     </p>
                     <p className={styles.galleryMeta}>
                       <span className={styles.mono}>{image.imageKey}</span>
@@ -131,15 +133,15 @@ export function HeroSettingsView({
                       <input type="hidden" name="imageId" value={image.id} />
                       <div className={styles.field}>
                         <label className={styles.galleryAltLabel} htmlFor={`hero-alt-${image.id}`}>
-                          {t('admin.hero.altLabel')}
+                          {t('admin.hero.altLabel')} <em>{t('common.optional')}</em>
                         </label>
                         <input
                           className={styles.input}
                           id={`hero-alt-${image.id}`}
                           name="alt"
-                          defaultValue={image.altText}
+                          defaultValue={image.altText ?? ''}
                           maxLength={altMax}
-                          required
+                          placeholder={t('admin.hero.altPlaceholder')}
                         />
                       </div>
                       <div className={styles.galleryActions}>
@@ -249,15 +251,17 @@ export function HeroSettingsView({
                 <p className={styles.hint}>{t('admin.hero.uploadBody')}</p>
               </div>
               <div className={styles.field}>
-                <label htmlFor="hero-upload-alt">{t('admin.hero.altLabel')}</label>
+                <label htmlFor="hero-upload-alt">
+                  {t('admin.hero.altLabel')} <em>{t('common.optional')}</em>
+                </label>
                 <input
                   className={styles.input}
                   id="hero-upload-alt"
                   name="alt"
                   maxLength={altMax}
-                  required
                   placeholder={t('admin.hero.altPlaceholder')}
                 />
+                <p className={styles.hint}>{t('admin.hero.altHelp')}</p>
               </div>
               <div className={styles.formActions}>
                 <SubmitButton label={t('admin.hero.uploadSubmit')} pendingLabel={t('admin.common.working')} />

@@ -513,6 +513,9 @@ export const dictionary = {
   'admin.hero.maximum': 'The carousel already holds its maximum of {max} images. Remove one to add another.',
   'admin.hero.altLabel': 'Description',
   'admin.hero.altPlaceholder': 'What the image shows',
+  'admin.hero.altHelp':
+    'Optional. Read aloud by screen readers and shown if the image cannot load. Leave it blank and the banner is treated as decorative.',
+  'admin.hero.altNone': 'No description (decorative)',
   'admin.hero.saveAlt': 'Save description',
   'admin.hero.notice.added': 'Hero image added at the end of the carousel.',
   'admin.hero.notice.updated': 'Hero image description saved.',
@@ -520,7 +523,7 @@ export const dictionary = {
   'admin.hero.notice.reordered': 'Carousel order saved.',
   'admin.hero.notice.denied': 'Your account does not have permission for that action.',
   'admin.hero.notice.invalid':
-    'That change was refused. A hero image needs a description from the library, the carousel must keep at least one image, and it holds at most ten.',
+    'That change was refused. Check the image file and its description length, and remember the carousel must keep at least one image and holds at most ten.',
   'admin.hero.notice.conflict':
     'The carousel changed while this page was open, or that image is already in it. Reload and try again.',
 

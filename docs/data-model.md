@@ -696,12 +696,12 @@ dense manual position and two hard bounds, which a row can state and enforce.
 | --- | --- | --- | --- |
 | `id` | bigint identity | PK | |
 | `image_key` | text | NOT NULL | An asset key under `public/hero`, never a URL or a provider path |
-| `alt_text` | text | NOT NULL | The owner-written description announced for the banner (1-200 chars) |
+| `alt_text` | text | NULL | The owner-written description announced for the banner (1-200 chars). **Optional since 2026-11-10** (migration `0022`, owner direction): NULL means the owner wrote none and the storefront renders the banner with `alt=""` - decorative - never an invented description |
 | `sort_order` | integer | NOT NULL | Dense 0..n-1; the storefront renders ascending |
 | `created_at` / `updated_at` | timestamptz | NOT NULL | |
 
-**Constraints.** `UNIQUE (image_key)`; `CHECK` key format `^[a-z0-9]+(-[a-z0-9]+)*$`; alt length 1..200;
-sort order 0..9. The **1..10 bound** is enforced by the service, which takes a transaction advisory lock
+**Constraints.** `UNIQUE (image_key)`; `CHECK` key format `^[a-z0-9]+(-[a-z0-9]+)*$`; alt length NULL
+or 1..200; sort order 0..9. The **1..10 bound** is enforced by the service, which takes a transaction advisory lock
 before it counts and rewrites dense positions in the same transaction. The key is validated against the
 server's generated inventory (`public/hero`) and its dimensions are read from the bytes, so the database
 cannot name an image the shop cannot serve.

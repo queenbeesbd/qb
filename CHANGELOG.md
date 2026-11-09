@@ -14,6 +14,23 @@ An entry may describe a deployment only once it has actually happened and been o
 
 ## [Unreleased]
 
+### Changed - 2026-11-10: a hero banner's description is optional
+
+Owner request: *"in homepage hero section we have to add description for image required which is
+unnecessary - keep description but as optional, write in bracket or any other style that its optional."*
+
+- **`hero_image.alt_text` is nullable** (migration `0022`, additive; 52 tables unchanged) and the check
+  becomes NULL or 1–200 characters. Existing descriptions are kept.
+- **The editor labels the field** `Description Optional` (the same `<em>Optional</em>` style the product
+  form uses), and neither the upload field nor a row's field is `required` any more. A row with no
+  description says "No description (decorative)" instead of showing a blank line.
+- **The storefront renders `alt=""`** for a banner with no description: decorative, never an invented
+  description or a file name. A supplied description still bounds at 200 characters and is read aloud.
+
+**Verified:** `typecheck`, `lint` (0 errors), `check:i18n` (1,785 keys), unit **289/289**, `db:validate`
+(52 tables, 200 checks), `build`, and a Chromium walk-through saving a blank description and reading the
+storefront's rendered `alt`.
+
 ### Changed - 2026-11-10: the COD approval note is a placeholder, and the row lines up
 
 Owner feedback on the overview worklist: *"its not properly aligned ... the confirmed by phone writing

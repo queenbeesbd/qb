@@ -10,7 +10,11 @@ import styles from './HeroCarousel.module.css';
 export type HeroSlide = {
   readonly id: number;
   readonly imageKey: string;
-  readonly altText: string;
+  /**
+   * The owner's description, or `null` when they wrote none (optional since 2026-11-10). A slide with
+   * no description renders `alt=""`: decorative, not an invented description.
+   */
+  readonly altText: string | null;
 };
 
 /** How long a banner stays before the next one takes its place. */
@@ -135,7 +139,7 @@ export function HeroCarousel({ images }: { images: readonly HeroSlide[] }) {
                   src={sources.fallbackSrc}
                   srcSet={sources.webpSrcSet}
                   sizes="(max-width: 1440px) 100vw, 1440px"
-                  alt={image.altText}
+                  alt={image.altText ?? ''}
                   width={sources.width}
                   height={sources.height}
                   loading={index === 0 ? 'eager' : 'lazy'}

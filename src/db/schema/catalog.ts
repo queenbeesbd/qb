@@ -326,8 +326,12 @@ export const heroImage = pgTable(
   {
     id: bigint('id', { mode: 'number' }).generatedAlwaysAsIdentity().primaryKey(),
     imageKey: text('image_key').notNull(),
-    /** The description announced for the banner. A banner made of type has no text a reader can see. */
-    altText: text('alt_text').notNull(),
+    /**
+     * The description announced for the banner, or `null` when the owner supplied none (optional since
+     * 2026-11-10). A banner with no description is rendered with `alt=""`: decorative, which is the
+     * honest reading of "nobody wrote one" - never an invented description of the picture.
+     */
+    altText: text('alt_text'),
     /** Dense 0..n-1. The carousel renders ascending, so this is the owner's sequence. */
     sortOrder: integer('sort_order').notNull(),
     createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
@@ -337,7 +341,7 @@ export const heroImage = pgTable(
     uniqueIndex('hero_image_key_unique').on(t.imageKey),
     index('hero_image_sort_idx').on(t.sortOrder),
     check('hero_image_key_format', sql`${t.imageKey} ~ '^[a-z0-9]+(-[a-z0-9]+)*$'`),
-    check('hero_image_alt_len', sql`char_length(${t.altText}) between 1 and 200`),
+    check('hero_image_alt_len', sql`${t.altText} is null or char_length(${t.altText}) between 1 and 200`),
     check('hero_image_sort_order_range', sql`${t.sortOrder} >= 0 and ${t.sortOrder} < 10`),
   ],
 );
