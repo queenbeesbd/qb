@@ -7,10 +7,12 @@
  * advance, which orders may prepay in full for the gift, and where to send that money - and the owner
  * confirms the transfer on the phone, exactly as before.
  *
- * Values live in `store_setting`, so the number and the wording are data. Four keys:
+ * Values live in `store_setting`, so the number and the wording are data. Five keys, edited at
+ * **Settings -> Other settings -> Checkout instructions**:
  *
  * - `payment.instructions` - the owner's paragraphs, rendered one per line as plain text;
  * - `payment.bkash_number` - an 11-digit Bangladeshi mobile, shown with a copy button;
+ * - `payment.bkash_visible` - the owner's switch for drawing that number block at all;
  * - `payment.send_money_note` - the "Payment, not Send Money" caution;
  * - `payment.advance_threshold_minor` - the goods subtotal below which the delivery charge is payable
  *   in advance (default 500 BDT).
@@ -41,6 +43,8 @@ export const PAYMENT_INSTRUCTIONS_KEY = 'payment.instructions';
 export const PAYMENT_BKASH_NUMBER_KEY = 'payment.bkash_number';
 export const PAYMENT_SEND_MONEY_NOTE_KEY = 'payment.send_money_note';
 export const PAYMENT_ADVANCE_THRESHOLD_KEY = 'payment.advance_threshold_minor';
+/** Whether the advance-payment number block is drawn at checkout, independent of the number itself. */
+export const PAYMENT_BKASH_VISIBLE_KEY = 'payment.bkash_visible';
 
 /** Bounds are formatting limits, not policy. */
 export const PAYMENT_MAX = { instructions: 2000, note: 220 } as const;
@@ -50,6 +54,8 @@ export type PaymentInstructions = {
   readonly instructions: string;
   /** `null` when unpublished - no copy button is drawn for a number that does not exist. */
   readonly bkashNumber: string | null;
+  /** The owner's own switch: off hides the number block without deleting the stored number. */
+  readonly bkashVisible: boolean;
   readonly sendMoneyNote: string | null;
   /** Poisha. Below this goods subtotal the delivery charge is expected in advance. */
   readonly advanceThresholdMinor: number;
@@ -58,6 +64,7 @@ export type PaymentInstructions = {
 const DEFAULTS: PaymentInstructions = {
   instructions: DEFAULT_PAYMENT_INSTRUCTIONS,
   bkashNumber: DEFAULT_BKASH_NUMBER,
+  bkashVisible: true,
   sendMoneyNote: DEFAULT_SEND_MONEY_NOTE,
   advanceThresholdMinor: DEFAULT_ADVANCE_THRESHOLD_MINOR,
 };
@@ -94,6 +101,32 @@ export function parseBkashNumber(raw: unknown): string | null {
   return value;
 }
 
+/**
+ * The switch is two named states, never a truthy guess: the route resolves the checkbox to the literal
+ * `'true'` or `'false'` before it reaches here, so anything else is a malformed submission.
+ */
+export function parseBkashVisible(raw: unknown): boolean {
+  const value = text(raw).trim();
+  if (value === 'true') return true;
+  if (value === 'false') return false;
+  throw new ValidationError('the advance-payment number switch must be on or off');
+}
+
+/**
+ * `store_setting.value` is `jsonb`, so a stored switch comes back as a real boolean while a row written
+ * by an older path may still carry the string `"true"`/`"false"`. Both are read; anything else is the
+ * default rather than a guess, because a switch with an unreadable value must not turn something on.
+ */
+function storedSwitch(value: unknown, fallback: boolean): boolean {
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (trimmed === 'true') return true;
+    if (trimmed === 'false') return false;
+  }
+  return fallback;
+}
+
 export function parseAdvanceThreshold(raw: unknown): number {
   const value = text(raw).trim();
   if (value.length === 0) return DEFAULT_ADVANCE_THRESHOLD_MINOR;
@@ -102,13 +135,13 @@ export function parseAdvanceThreshold(raw: unknown): number {
   return amount;
 }
 
-/** Reads the four keys. A missing row is the default; a saved blank is an intentional absence. */
+/** Reads the five keys. A missing row is the default; a saved blank is an intentional absence. */
 export async function loadPaymentInstructions(tx: Transaction): Promise<PaymentInstructions> {
   const rows = await tx
     .select({ key: storeSetting.key, value: storeSetting.value })
     .from(storeSetting)
     .where(
-      sql`${storeSetting.key} in (${PAYMENT_INSTRUCTIONS_KEY}, ${PAYMENT_BKASH_NUMBER_KEY}, ${PAYMENT_SEND_MONEY_NOTE_KEY}, ${PAYMENT_ADVANCE_THRESHOLD_KEY})`,
+      sql`${storeSetting.key} in (${PAYMENT_INSTRUCTIONS_KEY}, ${PAYMENT_BKASH_NUMBER_KEY}, ${PAYMENT_BKASH_VISIBLE_KEY}, ${PAYMENT_SEND_MONEY_NOTE_KEY}, ${PAYMENT_ADVANCE_THRESHOLD_KEY})`,
     );
 
   const stored = new Map(rows.map((row) => [row.key, row.value]));
@@ -131,19 +164,23 @@ export async function loadPaymentInstructions(tx: Transaction): Promise<PaymentI
   return {
     instructions,
     bkashNumber: bkash.length === 0 ? null : bkash,
+    bkashVisible: stored.has(PAYMENT_BKASH_VISIBLE_KEY)
+      ? storedSwitch(stored.get(PAYMENT_BKASH_VISIBLE_KEY), DEFAULTS.bkashVisible)
+      : DEFAULTS.bkashVisible,
     sendMoneyNote: note.length === 0 ? null : note,
     advanceThresholdMinor:
       Number.isSafeInteger(threshold) && threshold > 0 ? threshold : DEFAULTS.advanceThresholdMinor,
   };
 }
 
-/** Saves the four values. The change and its audit record share the caller's transaction. */
+/** Saves the five values. The change and its audit record share the caller's transaction. */
 export async function savePaymentInstructions(
   tx: Transaction,
   actor: ActorContext,
   input: {
     readonly instructions: unknown;
     readonly bkashNumber: unknown;
+    readonly bkashVisible: unknown;
     readonly sendMoneyNote: unknown;
     readonly advanceThreshold: unknown;
   },
@@ -155,6 +192,7 @@ export async function savePaymentInstructions(
   const next: PaymentInstructions = {
     instructions: plainText(input.instructions, 'payment instructions', PAYMENT_MAX.instructions),
     bkashNumber: parseBkashNumber(input.bkashNumber),
+    bkashVisible: parseBkashVisible(input.bkashVisible),
     sendMoneyNote: note.length === 0 ? null : note,
     advanceThresholdMinor: parseAdvanceThreshold(input.advanceThreshold),
   };
@@ -162,6 +200,7 @@ export async function savePaymentInstructions(
   const values = [
     { key: PAYMENT_INSTRUCTIONS_KEY, value: next.instructions, valueType: 'text' },
     { key: PAYMENT_BKASH_NUMBER_KEY, value: next.bkashNumber ?? '', valueType: 'text' },
+    { key: PAYMENT_BKASH_VISIBLE_KEY, value: next.bkashVisible, valueType: 'boolean' },
     { key: PAYMENT_SEND_MONEY_NOTE_KEY, value: next.sendMoneyNote ?? '', valueType: 'text' },
     { key: PAYMENT_ADVANCE_THRESHOLD_KEY, value: next.advanceThresholdMinor, valueType: 'money_minor' },
   ];

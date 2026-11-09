@@ -596,3 +596,36 @@ but **`RESEND_API_KEY` and `EMAIL_FROM` are absent**, so `emailConfigured()` is 
 `sendEmail` returns `not_configured` without a request - which is why no confirmation mail arrived.
 Both values must come from the owner's Resend account (with a verified sender domain), and a new
 deployment is required before they take effect. A failed send now logs one line with the reason only.
+
+## Checkout copy trimmed and Checkout instructions moved (2026-11-09)
+
+Three statements the owner asked to remove are gone: the receipt's "Cash is paid to the courier on
+delivery — there is nothing to pay online." body under **Order placed**, and the checkout payment card's
+"needs the owner's approval before dispatch" and "only method in this release" lines. Each is removed
+from the dictionary as well as the view, so nothing re-renders them; the order's method line, its status
+and the status explanation still state the same facts.
+
+The owner's advance-payment copy is now its own topic: **Settings -> Other settings -> Checkout
+instructions**, with the number labelled **bKash Advance** on the checkout card. The block was already
+`store_setting` data (`payment.instructions`, `payment.bkash_number`, `payment.send_money_note`,
+`payment.advance_threshold_minor`); the editor moved off Contact and policies, `POST
+/api/qbpanel/settings/payment` now redirects to the Other settings page, and the audit action is
+unchanged (`settings.payment_instructions_updated`). One key was added: **`payment.bkash_visible`**
+(text `true`/`false`, value type `boolean`, default on), the owner's explicit show/hide for the number
+card. Off hides the card without deleting the number and still prints the paragraphs; a blank number
+with the switch on keeps the stated "not published" line.
+
+**No schema change and no migration** - `store_setting` is key/value, and the boolean value type was
+already in its check constraint.
+
+**Verification (2026-11-10, local, against the development cluster and a production build).**
+`typecheck` clean, `lint` 0 errors (18 pre-existing warnings), `check:i18n` 1,776 keys with every
+referenced key present, unit suite **273/273**, `build` success. A served build was then walked through
+over HTTP and in headless Chromium: the panel's Other settings page renders **Checkout instructions**
+with its own form beside the guest switch, Contact and policies renders no payment form; saving through
+that form redirects to `?notice=paymentSaved` and writes the rows; with the switch **off** the checkout
+payment card prints the saved paragraphs and no number or label, and with it **on** it prints
+**bKash Advance**, the stored number, the copy button and the caution; the removed approval and
+"only method" lines are absent; and a guest order placed through the rendered form lands on its receipt
+under **Order placed** with the removed "nothing to pay online" sentence absent. `verify:admin`,
+`verify:browser` and the db suite were not re-run for this change, and nothing is deployed.

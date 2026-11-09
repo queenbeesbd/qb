@@ -2,12 +2,11 @@ import { withTransaction } from '@/db/client';
 import { requireAdminPage } from '@/server/auth/guard';
 import { PERMISSIONS } from '@/server/authz/permissions';
 import { CONTACT_MAX, loadStoreContact } from '@/server/settings/contact';
-import { loadPaymentInstructions, PAYMENT_MAX } from '@/server/settings/payment';
 import { ContactSettingsView, type ContactNotice } from './ContactSettingsView';
 
 export const dynamic = 'force-dynamic';
 
-const NOTICES: readonly ContactNotice[] = ['saved', 'paymentSaved', 'denied', 'invalid'];
+const NOTICES: readonly ContactNotice[] = ['saved', 'denied', 'invalid'];
 
 function readNotice(value: string | string[] | undefined): ContactNotice | null {
   const candidate = Array.isArray(value) ? value[0] : value;
@@ -23,6 +22,10 @@ function readNotice(value: string | string[] | undefined): ContactNotice | null 
  * one means the shop publishes that fact nowhere, and the storefront states the gap rather than
  * inventing a placeholder. The write goes through `/api/qbpanel/settings/contact`, which re-checks the
  * permission and the field rules in the service.
+ *
+ * The checkout payment instructions used to share this page; they are **Settings -> Other settings ->
+ * Checkout instructions** now, because that copy belongs to checkout rather than to the shop's contact
+ * facts.
  */
 export default async function ContactSettingsPage({
   searchParams,
@@ -31,19 +34,14 @@ export default async function ContactSettingsPage({
 }) {
   const principal = await requireAdminPage(PERMISSIONS.settingsWrite);
   const params = await searchParams;
-  const { contact, payment } = await withTransaction(async (tx) => ({
-    contact: await loadStoreContact(tx),
-    payment: await loadPaymentInstructions(tx),
-  }));
+  const contact = await withTransaction((tx) => loadStoreContact(tx));
 
   return (
     <ContactSettingsView
       contact={contact}
-      payment={payment}
       notice={readNotice(params.notice)}
       csrfToken={principal.csrfToken}
       maxLengths={CONTACT_MAX}
-      paymentMaxLengths={PAYMENT_MAX}
     />
   );
 }

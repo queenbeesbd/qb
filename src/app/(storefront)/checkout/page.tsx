@@ -30,8 +30,9 @@ export const dynamic = 'force-dynamic';
  * **Cash on Delivery only (Phase 17).** Nothing on this page reads a payment-recipient configuration,
  * because there is no prepaid method to configure: the schema's recipient and claim tables stay as
  * implemented, unused design. The page does publish the owner's advance-payment **instructions**
- * (ADR 0029) - where to send a bKash payment and from which subtotal it is expected - but that is copy
- * the owner confirms on the phone, not a method the order records.
+ * (ADR 0029) - where to send a bKash advance and from which subtotal it is expected - but that is copy
+ * the owner confirms on the phone, not a method the order records. The owner decides whether the number
+ * block is drawn at all (`payment.bkash_visible`).
  *
  * The idempotency key is minted **once per page render** and carried in the form. A double submission of
  * the same rendered form is therefore the same submission and returns the original order, while a fresh
@@ -109,6 +110,7 @@ export default async function CheckoutPage({
       payment={{
         instructions: payment.instructions,
         bkashNumber: payment.bkashNumber,
+        bkashVisible: payment.bkashVisible,
         sendMoneyNote: payment.sendMoneyNote,
         advanceThresholdMinor: payment.advanceThresholdMinor,
       }}

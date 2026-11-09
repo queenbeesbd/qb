@@ -64,12 +64,17 @@ own share, bounded by what was applied.
 
 ### 6. Payment instructions are owner copy, not a payment method
 
-The checkout prints four owner-controlled values from `store_setting` - the paragraphs, the bKash
-number, the "Payment, not Send Money" caution, and the subtotal below which the delivery charge is
-expected in advance (default 500 BDT) - edited at **Settings -> Contact and policies** and audited as
-`settings.payment_instructions_updated`. The defaults are the owner's supplied Bangla copy, kept in
-`src/data/payment-instructions.ts` and rendered as plain paragraphs (a `<` or `>` is refused), with the
-number as a bold element and a copy button.
+The checkout prints five owner-controlled values from `store_setting` - the paragraphs, the bKash
+number, whether that number block is drawn at all, the "Payment, not Send Money" caution, and the
+subtotal below which the delivery charge is expected in advance (default 500 BDT). They were edited at
+**Settings -> Contact and policies** when this ADR was written; on **2026-11-09 the owner moved them to
+Settings -> Other settings -> Checkout instructions**, because the copy belongs to checkout rather than
+to the shop's contact facts. The save is audited as `settings.payment_instructions_updated` in both
+places. The defaults are the owner's supplied Bangla copy, kept in `src/data/payment-instructions.ts`
+and rendered as plain paragraphs (a `<` or `>` is refused), with the number labelled **bKash Advance**
+as a bold element and a copy button. `payment.bkash_visible` (default on) is an explicit show/hide
+switch for the number block: with it off the block is not drawn even though the number stays stored and
+the paragraphs are still printed. A stored blank number remains a gap the page states, never a guess.
 
 **Cash on Delivery remains the only method an order records.** Nothing in this change writes a payment
 method, a payment state, a claim or a verification, and the owner still confirms a transfer on the

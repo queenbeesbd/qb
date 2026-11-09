@@ -14,6 +14,33 @@ An entry may describe a deployment only once it has actually happened and been o
 
 ## [Unreleased]
 
+### Changed - 2026-11-09: checkout copy trimmed, and the advance instructions get their own topic
+
+Owner request: *"Cash is paid to the courier on delivery — there is nothing to pay online" remove this
+line; remove "A cash-on-delivery order needs the owner's approval before dispatch" and "Cash on delivery
+is the only method in this release. Nothing is paid online."; replace the advance-payment text with
+dynamic text from the backend panel ... this will go in other settings with topic name "Checkout
+instructions"; change bKash to bKash Advance at the number; make the number hideable from the backend.*
+
+- **Three statements leave the interface.** The receipt's "Order placed" block keeps its heading, the
+  checkout payment card no longer repeats the approval and "only method" notes. The facts they stated
+  are still recorded: the order's method line, its status, and the status explanation.
+- **The payment instructions move to Settings -> Other settings -> Checkout instructions**, its own
+  topic beside the guest-order switch. The values were always `store_setting` rows
+  (`payment.instructions`, `payment.bkash_number`, `payment.send_money_note`,
+  `payment.advance_threshold_minor`); the editor is the part that moved, and the storefront still prints
+  them verbatim. The save route redirects to the Other settings page with a fixed notice code, and the
+  Contact and policies page no longer carries the block.
+- **The number is labelled bKash Advance** on the checkout payment card and in the panel.
+- **The number block gains its own switch.** `payment.bkash_visible` (default on, value type `boolean`)
+  is the owner's explicit show/hide; off hides the card without deleting the number, and the
+  paragraphs are still printed. A stored blank number still renders the stated "not published" line
+  rather than a guess.
+- **No schema change and no migration** - `store_setting` already holds key/value rows.
+
+**Verified:** `typecheck`, `lint` (0 errors), `check:i18n` (1,776 keys), unit suite, `build`; see the
+verification section in `docs/project-status.md` for the exact evidence.
+
 ### Added - 2026-11-09: a guest order can be claimed into an account
 Owner request, recorded in [ADR 0032](docs/decisions/0032-claiming-a-guest-order.md): *"suppose a guest
 ordered; this is his order placed summary. Now we should ask him if he wants to open or sign in to an

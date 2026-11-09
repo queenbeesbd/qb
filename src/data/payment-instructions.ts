@@ -4,8 +4,9 @@
  * **These are owner records, not interface copy** (the same rule the catalog and the delivery-area list
  * follow): the shop writes the words its customers read about paying, and the checkout prints them
  * verbatim. They are stored in `store_setting` (`payment.instructions`, `payment.bkash_number`,
- * `payment.send_money_note`, `payment.advance_threshold_minor`) and edited at **Settings -> Contact and
- * policies**, so changing the number or the wording is a data edit, not a deploy.
+ * `payment.bkash_visible`, `payment.send_money_note`, `payment.advance_threshold_minor`) and edited at
+ * **Settings -> Other settings -> Checkout instructions**, so changing the number or the wording is a
+ * data edit, not a deploy.
  *
  * The values below are the **defaults used until the owner saves a value**, and they are exactly the
  * copy the owner supplied. The number is validated as an 11-digit Bangladeshi mobile before it is

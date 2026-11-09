@@ -137,6 +137,8 @@ export function CheckoutForm({
   payment: {
     instructions: string;
     bkashNumber: string | null;
+    /** The owner's switch: off draws no number block even when a number is stored. */
+    bkashVisible: boolean;
     sendMoneyNote: string | null;
     advanceThresholdMinor: number;
   };
@@ -457,32 +459,35 @@ export function CheckoutForm({
                 </div>
               )}
 
-              {payment.bkashNumber !== null ? (
-                <div className={styles.bkashCard}>
-                  <span className={styles.bkashLabel}>{t('checkout.payment.bkashLabel')}</span>
-                  <strong className={styles.bkashNumber}>{payment.bkashNumber}</strong>
-                  <button
-                    type="button"
-                    className={styles.bkashCopy}
-                    onClick={() => {
-                      void navigator.clipboard
-                        .writeText(payment.bkashNumber ?? '')
-                        .then(() => setBkashCopied(true))
-                        .catch(() => setBkashCopied(false));
-                    }}
-                  >
-                    {bkashCopied ? t('checkout.payment.copied') : t('checkout.payment.copy')}
-                  </button>
-                  {payment.sendMoneyNote !== null && (
-                    <p className={styles.paymentCaution}>{payment.sendMoneyNote}</p>
-                  )}
-                </div>
-              ) : (
-                <p className={styles.muted}>{t('checkout.payment.numberMissing')}</p>
-              )}
-
-              <p className={styles.muted}>{t('checkout.methodCodNote')}</p>
-              <p className={styles.muted}>{t('checkout.paymentMethodOnly')}</p>
+              {/*
+                The number block is hidden outright when the owner switches it off - that is the owner's
+                own decision, not a gap - and the "not published" line appears only while the block is
+                meant to be shown and no number has been stored.
+              */}
+              {payment.bkashVisible &&
+                (payment.bkashNumber !== null ? (
+                  <div className={styles.bkashCard}>
+                    <span className={styles.bkashLabel}>{t('checkout.payment.bkashLabel')}</span>
+                    <strong className={styles.bkashNumber}>{payment.bkashNumber}</strong>
+                    <button
+                      type="button"
+                      className={styles.bkashCopy}
+                      onClick={() => {
+                        void navigator.clipboard
+                          .writeText(payment.bkashNumber ?? '')
+                          .then(() => setBkashCopied(true))
+                          .catch(() => setBkashCopied(false));
+                      }}
+                    >
+                      {bkashCopied ? t('checkout.payment.copied') : t('checkout.payment.copy')}
+                    </button>
+                    {payment.sendMoneyNote !== null && (
+                      <p className={styles.paymentCaution}>{payment.sendMoneyNote}</p>
+                    )}
+                  </div>
+                ) : (
+                  <p className={styles.muted}>{t('checkout.payment.numberMissing')}</p>
+                ))}
             </section>
 
             <aside className={styles.summary} aria-labelledby="checkout-summary">

@@ -219,10 +219,7 @@ export const dictionary = {
   'checkout.field.deliveryNote': 'Delivery note',
   'checkout.paymentTitle': 'Payment method',
   'checkout.method.cod': 'Cash on delivery',
-  'checkout.methodCodNote': 'A cash-on-delivery order needs the owner’s approval before dispatch.',
-  'checkout.paymentMethodOnly':
-    'Cash on delivery is the only method in this release. Nothing is paid online.',
-  'checkout.payment.bkashLabel': 'bKash',
+  'checkout.payment.bkashLabel': 'bKash Advance',
   'checkout.payment.copy': 'Copy number',
   'checkout.payment.copied': 'Number copied',
   'checkout.payment.numberMissing':
@@ -431,21 +428,20 @@ export const dictionary = {
   'admin.contact.policyHelp':
     'Plain text. A blank line starts a new paragraph. Markup is refused rather than rendered.',
   'admin.contact.save': 'Save contact and policies',
-  'admin.payment.title': 'Payment instructions',
-  'admin.payment.body':
-    'What checkout tells a customer about paying. Cash on Delivery stays the method an order records; this block publishes the advance-payment terms, the bKash number and the gift note.',
   'admin.payment.instructionsLabel': 'Instructions',
   'admin.payment.instructionsHelp':
     'One paragraph per line, printed exactly as written. Plain text only - < and > are refused.',
-  'admin.payment.bkashLabel': 'bKash number',
+  'admin.payment.bkashLabel': 'bKash Advance number',
   'admin.payment.bkashHelp': 'An 11-digit Bangladeshi mobile. Leave blank to publish no advance-payment number.',
+  'admin.payment.visibleLabel': 'Show the number at checkout',
+  'admin.payment.visibleHelp':
+    'Off hides the number block on the payment card without deleting the number. The instructions above are still printed.',
   'admin.payment.thresholdLabel': 'Advance applies below',
   'admin.payment.thresholdHelp':
     'Orders whose goods subtotal is below this amount are told the delivery charge is payable in advance. The delivery charge itself is not part of the subtotal.',
   'admin.payment.noteLabel': 'Payment, not Send Money',
   'admin.payment.noteHelp': 'Shown under the number. Leave blank to omit the caution.',
-  'admin.payment.save': 'Save payment instructions',
-  'admin.contact.notice.paymentSaved': 'Payment instructions saved.',
+  'admin.payment.save': 'Save checkout instructions',
   'admin.contact.notice.saved': 'The contact facts and policy text are saved.',
   'admin.contact.notice.denied': 'Your account does not have permission to change the store settings.',
   'admin.contact.notice.invalid':
@@ -465,6 +461,9 @@ export const dictionary = {
   'admin.settings.other.checkoutTitle': 'Checkout',
   'admin.settings.other.checkoutBody':
     'One switch, and it changes who can buy. A mobile number is required either way.',
+  'admin.settings.other.instructionsTitle': 'Checkout instructions',
+  'admin.settings.other.instructionsBody':
+    'The words the payment card publishes: the advance-payment terms, the bKash Advance number and the gift note. Cash on Delivery stays the method an order records.',
   'admin.settings.other.guestLabel': 'Guests may order without an account',
   'admin.settings.other.guestHelp':
     'Off: a customer must sign in or register before checkout, and the cart survives the detour. On: anyone can order by giving a name, a mobile number and an address - no account, no password.',
@@ -476,7 +475,10 @@ export const dictionary = {
     'An account is required to order, as it has been until now. Existing guest orders are unaffected.',
   'admin.settings.other.save': 'Save checkout policy',
   'admin.settings.other.notice.saved': 'Checkout policy saved.',
+  'admin.settings.other.notice.paymentSaved': 'Checkout instructions saved.',
   'admin.settings.other.notice.denied': 'Your account does not have permission for that action.',
+  'admin.settings.other.notice.invalid':
+    'Nothing was saved: the bKash Advance number must be an 11-digit Bangladeshi mobile and the text must be plain, without < or >.',
 
   'admin.nav.storefront': 'Back to the storefront',
 
@@ -1800,8 +1802,6 @@ export const dictionary = {
   'orders.guestKeepLink':
     'This order was placed without an account, so this page’s address is the only way to see it again. Keep it.',
   'orders.placedTitle': 'Order placed',
-  'orders.placedBody':
-    'Your order is recorded. Cash is paid to the courier on delivery — there is nothing to pay online.',
   'orders.status.pending': 'Pending',
   'orders.status.confirmed': 'Confirmed',
   'orders.status.processing': 'Processing',

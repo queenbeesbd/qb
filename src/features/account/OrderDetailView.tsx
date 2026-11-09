@@ -117,7 +117,6 @@ export function OrderDetailView({
       {placed && (
         <section className={styles.placed} role="status">
           <h1>{t('orders.placedTitle')}</h1>
-          <p>{t('orders.placedBody')}</p>
         </section>
       )}
 
