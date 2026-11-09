@@ -10,7 +10,8 @@ import styles from './OfferPopup.module.css';
 export type OfferPopupImage = {
   readonly imageKey: string;
   readonly aspect: 'square' | 'wide';
-  readonly altText: string;
+  /** The owner's description, or null when they wrote none (optional since 2026-11-10). */
+  readonly altText: string | null;
   /** Changes when the owner saves a new popup, so a new offer opens again in the same session. */
   readonly campaign: string;
 };
@@ -117,7 +118,12 @@ export function OfferPopup({ imageKey, aspect, altText, campaign }: OfferPopupIm
       }}
     >
       <div className={styles.dialog} data-aspect={aspect}>
-        <div className={styles.card} role="dialog" aria-modal="true" aria-label={altText}>
+        {/*
+          The owner's description names the dialog when there is one. Without it the dialog still needs
+          an accessible name, and a plain "Offer" says what the surface is without describing a picture
+          nobody described.
+        */}
+        <div className={styles.card} role="dialog" aria-modal="true" aria-label={altText ?? t('popup.label')}>
           <img
             className={styles.image}
             src={sources.fallbackSrc}

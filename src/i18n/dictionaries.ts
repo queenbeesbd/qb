@@ -542,7 +542,7 @@ export const dictionary = {
   'admin.offerPopup.frameWide': 'This image will be shown as a wide banner (16:9).',
   'admin.offerPopup.altLabel': 'Description',
   'admin.offerPopup.altHelp':
-    'Read aloud by screen readers and shown if the image cannot load. State what the offer shows; it is not a slogan.',
+    'Optional. Read aloud by screen readers and shown if the image cannot load. State what the offer shows; it is not a slogan. Leave it blank and the popup uses a plain "Offer" label.',
   'admin.offerPopup.sectionDisplay': 'Display',
   'admin.offerPopup.sectionDisplayBody': 'Whether the offer opens on the storefront.',
   'admin.offerPopup.activeLabel': 'Show this offer when the storefront opens',
@@ -565,6 +565,7 @@ export const dictionary = {
     'The popup needs a description and a saved image. Nothing was changed.',
   'admin.offerPopup.notice.conflict': 'That change conflicts with the saved popup. Reload and try again.',
   'admin.offerPopup.notice.denied': 'Your account does not have permission to change the store settings.',
+  'popup.label': 'Offer',
   'popup.close': 'Close offer',
 
   'admin.session.signedInAs': 'Signed in as',

@@ -14,6 +14,21 @@ An entry may describe a deployment only once it has actually happened and been o
 
 ## [Unreleased]
 
+### Changed - 2026-11-10: the offer popup's description is optional too
+
+Follow-up to the hero change: *"same description issue in /qbpanel/settings/offer-popup fix this too."*
+
+- **`offer_popup.alt_text` is nullable** (migration `0023`, additive; 52 tables unchanged) and its check
+  becomes NULL or 1–200 characters. Existing descriptions are kept.
+- **The popup editor labels the field** `Description Optional` and no longer marks it required; the help
+  states what a blank one means.
+- **The storefront dialog** uses the owner's description as its accessible name when there is one, and
+  the generic `Offer` label when there is not. The image keeps `alt=""` (the dialog is the labelled
+  surface), so nothing is invented either way.
+
+**Verified:** `typecheck`, `lint` (0 errors), `check:i18n` (1,786 keys), unit **289/289**, `db:validate`,
+`build`; and a Chromium save of a blank popup description with the storefront dialog labelled "Offer".
+
 ### Changed - 2026-11-10: a hero banner's description is optional
 
 Owner request: *"in homepage hero section we have to add description for image required which is

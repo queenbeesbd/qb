@@ -742,3 +742,21 @@ Owner direction: the homepage hero's per-image description was required and did 
 saving a blank description stored NULL and the row displayed the decorative label, the storefront banner
 rendered `alt=""`, and restoring the text brought the description back. `verify:admin`, `verify:browser`
 and the db suite were not re-run; nothing is deployed.
+
+## Offer popup description is optional (2026-11-10)
+
+Same owner direction as the hero banner: the popup's description was required and does not need to be.
+
+- **Migration `0023`** drops `NOT NULL` from `offer_popup.alt_text` and changes its `CHECK` to
+  `NULL or char_length between 1 and 200`. Existing rows keep their text; **52 tables unchanged**.
+- **Service**: `OfferPopupRow.altText` is `string | null`; `parseAltText` maps blank to `null` and still
+  bounds a supplied description at `OFFER_POPUP_ALT_MAX`.
+- **Editor**: the field is labelled `Description Optional`, is not `required`, and the help says a blank
+  one gives the popup a plain "Offer" label.
+- **Storefront**: the dialog's `aria-label` is the owner's description when present, otherwise the
+  dictionary string `popup.label` ("Offer"); the image keeps `alt=""` because the dialog is the labelled
+  surface.
+
+**Verified** on the served build against the dev cluster: the editor accepted a blank description, and
+the popup dialog rendered `aria-label="Offer"`. `verify:admin`, `verify:browser` and the db suite were
+not re-run; nothing is deployed.

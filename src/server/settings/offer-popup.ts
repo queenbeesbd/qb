@@ -25,19 +25,25 @@ export const OFFER_POPUP_ALT_MAX = 200;
 export type OfferPopupRow = {
   readonly imageKey: string;
   readonly aspect: OfferPopupAspect;
-  readonly altText: string;
+  /** `null` when the owner wrote none; the dialog then uses its generic "Offer" label. */
+  readonly altText: string | null;
   readonly isActive: boolean;
   readonly updatedAt: Date;
 };
 
-function parseAltText(value: unknown): string {
-  if (typeof value !== 'string') throw new ValidationError('the popup needs a description');
+/**
+ * The description is **optional** (owner direction, 2026-11-10): blank stores `null` rather than
+ * blocking the save, and the storefront falls back to a generic dialog label instead of inventing a
+ * description of the picture. A supplied description is still bounded, because it is read aloud.
+ */
+function parseAltText(value: unknown): string | null {
+  if (value === undefined || value === null) return null;
+  if (typeof value !== 'string') throw new ValidationError('the description must be text');
   const text = value.trim();
-  if (text.length === 0) throw new ValidationError('the popup needs a description');
   if (text.length > OFFER_POPUP_ALT_MAX) {
     throw new ValidationError(`the description must be ${OFFER_POPUP_ALT_MAX} characters or fewer`);
   }
-  return text;
+  return text.length === 0 ? null : text;
 }
 
 function parseAspect(value: unknown): OfferPopupAspect {

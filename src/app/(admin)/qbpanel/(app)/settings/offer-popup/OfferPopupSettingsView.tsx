@@ -35,7 +35,7 @@ export function OfferPopupSettingsView({
   csrfToken,
   altMax,
 }: {
-  current: { imageKey: string; aspect: PopupAspect; altText: string; isActive: boolean } | null;
+  current: { imageKey: string; aspect: PopupAspect; altText: string | null; isActive: boolean } | null;
   notice: OfferPopupNotice | null;
   csrfToken: string;
   altMax: number;
@@ -87,12 +87,13 @@ export function OfferPopupSettingsView({
               />
 
               <div className={styles.field}>
-                <label htmlFor="offerPopupAlt">{t('admin.offerPopup.altLabel')}</label>
+                <label htmlFor="offerPopupAlt">
+                  {t('admin.offerPopup.altLabel')} <em>{t('common.optional')}</em>
+                </label>
                 <input
                   className={styles.input}
                   id="offerPopupAlt"
                   name="altText"
-                  required
                   maxLength={altMax}
                   defaultValue={current?.altText ?? ''}
                 />

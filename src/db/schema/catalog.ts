@@ -362,8 +362,12 @@ export const offerPopup = pgTable(
     id: integer('id').primaryKey().default(1),
     imageKey: text('image_key').notNull(),
     aspect: text('aspect').notNull(),
-    /** The image's accessible description; the popup is an image with no visible copy of its own. */
-    altText: text('alt_text').notNull(),
+    /**
+     * The image's accessible description, or `null` when the owner supplied none (optional since
+     * 2026-11-10). The dialog then falls back to a generic "Offer" label rather than an invented
+     * description of the picture.
+     */
+    altText: text('alt_text'),
     isActive: boolean('is_active').notNull().default(false),
     createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
@@ -374,7 +378,7 @@ export const offerPopup = pgTable(
       'offer_popup_image_key_format',
       sql`${t.imageKey} ~ '^[a-z0-9]+(-[a-z0-9]+)*$' and char_length(${t.imageKey}) <= 120`,
     ),
-    check('offer_popup_alt_len', sql`char_length(${t.altText}) between 1 and 200`),
+    check('offer_popup_alt_len', sql`${t.altText} is null or char_length(${t.altText}) between 1 and 200`),
     check('offer_popup_aspect_valid', colIn('aspect', OFFER_POPUP_ASPECTS)),
   ],
 );

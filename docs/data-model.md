@@ -724,12 +724,12 @@ typed row to read.
 | `id` | integer | PK | `CHECK (id = 1)` - the singleton |
 | `image_key` | text | NOT NULL | An asset key under `public/catalog` (square) or `public/hero` (16:9), never a URL |
 | `aspect` | text | NOT NULL | `square` or `wide`; records which frame the bytes were encoded in |
-| `alt_text` | text | NOT NULL | The accessible description (1-200 chars); the image has no visible copy |
+| `alt_text` | text | NULL | The accessible description (1-200 chars); the image has no visible copy. **Optional since 2026-11-10** (migration `0023`): NULL means the owner wrote none and the dialog is labelled with the generic "Offer" string instead of an invented description |
 | `is_active` | boolean | NOT NULL | Default false; an inactive row is never rendered |
 | `created_at` / `updated_at` | timestamptz | NOT NULL | |
 
 **Constraints.** `CHECK (id = 1)`; key format `^[a-z0-9]+(-[a-z0-9]+)*$` up to 120 characters; alt
-length 1..200; aspect in (`square`, `wide`). The frame is **chosen from the uploaded file's own ratio**
+length NULL or 1..200; aspect in (`square`, `wide`). The frame is **chosen from the uploaded file's own ratio**
 (closer to 1:1 or 16:9) by `saveOfferPopupUpload`; the service stores the result and the key it wrote.
 The upload is decoded, EXIF-rotated and re-encoded to WebP through `saveUpload` before the row exists.
 
