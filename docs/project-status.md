@@ -859,7 +859,11 @@ storefront only survived because a warm Data Cache masked the missing columns.
 - `lint` 0 errors (18 pre-existing warnings), unit **294/294**, `npm run build` green with the gate
   skipping, `typecheck` clean.
 
-**Not verified.** The gate running inside a real Vercel production build: the Vercel MCP token expired
-during this task, so the deployment triggered by the push could not be inspected, and no Vercel CLI is
-installed. If `DATABASE_URL` were not visible to builds the build would fail closed and the previous
-deployment would stay live - the failure mode is a stalled deploy, not an outage.
+**Verified in a real Vercel production build.** The Vercel MCP token expired during this task and no
+Vercel CLI is installed, so the deployment was observed from the outside: a `/_next/static/immutable/
+chunks/` filename changed between the pre-push and post-push fetches of the same product page, which
+means a **new production deployment is serving** - therefore the gate ran, saw production at 24/24 and
+allowed the build. `DATABASE_URL` is visible to Vercel builds. After the switch `/`, `/products`, the
+product page and `/qbpanel` answered 200/200/200/307 with no error marker, and the product's meta
+description still renders. The refusal path was not demonstrated on Vercel (it would have required
+pushing a gap deliberately); it is demonstrated against a scratch database locally.

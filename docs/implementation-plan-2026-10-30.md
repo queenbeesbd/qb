@@ -491,6 +491,11 @@ self-service password recovery"; a signed-in change is adjacent but must be stat
 1. **Provisioning (owner authorization, one resource at a time):** database branch per environment,
    storage branch per environment, host project, domain and DNS. Each is its own approval.
 2. Migrations in the pipeline, not by hand: apply on deploy, verify schema hash, fail closed.
+   **Partly done 2026-11-10:** the *fail closed* half exists - `npm run prebuild` runs
+   `scripts/check-migrations.ts --build`, which refuses a Vercel production build when a migration is
+   pending or an applied hash matches no file (see `docs/database.md`, Rollout sequencing). Not done:
+   **applying** migrations from the pipeline, which stays the owner's explicit act against a named
+   target; and a schema-hash assertion beyond the per-migration content hash.
 3. Environment validation for the deployed target (`QUEENBEES_ENV`, driver, TLS, no loopback) and the
    `TRUST_PROXY_HEADERS` decision **verified** against the actual proxy before enabling.
 4. Health endpoint that checks the database with a bounded timeout and returns no internal detail.
