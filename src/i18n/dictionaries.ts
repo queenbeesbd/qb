@@ -457,7 +457,7 @@ export const dictionary = {
 
   'admin.settings.other.title': 'Other settings',
   'admin.settings.other.body':
-    'Store policy the storefront does not render: who may place an order, and what checkout asks for.',
+    'Checkout policy, and the words the payment card publishes. These are the storefront’s own settings rather than the shop’s contact details.',
   'admin.settings.other.checkoutTitle': 'Checkout',
   'admin.settings.other.checkoutBody':
     'One switch, and it changes who can buy. A mobile number is required either way.',
