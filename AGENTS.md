@@ -314,8 +314,20 @@ migrations `0021`-`0023` (per-product delivery columns; optional hero and popup 
 database was still at `0020`. The storefront kept answering 200 only because the Data Cache still held a
 snapshot written by the previous deployment; the first cache miss would have failed. `0021`-`0023` were
 applied the same way and production now stands at **24 migrations**. **A push is a deploy: apply the
-migrations for a commit before pushing it, and treat `db:status` as a pre-push step, not a pre-deploy
-one.** Do not assume "nothing is deployed until the owner says so" - it is.
+migrations for a commit before pushing it.** Do not assume "nothing is deployed until the owner says
+so" - it is.
+
+**The deploy now fails closed instead of shipping ahead of its schema (Phase 60, item 2, 2026-11-10).**
+`npm run prebuild` runs `scripts/check-migrations.ts --build`, which on a Vercel **production** build
+compares `drizzle/` with `drizzle.__drizzle_migrations` and exits 1 on any pending migration or on an
+applied hash that matches no file, so the build never starts and the previous deployment stays live.
+It skips preview builds and a local `npm run build` (which therefore still needs no database). The
+decision is the pure, tested `evaluateMigrationGate` (`src/db/migration-gate.ts`). It **never applies**
+a migration, never prints the connection string, and has **no override flag** - the fix is
+`npm run db:migrate` against that target. **Run `npm run check:migrations` before pushing any commit
+that adds a migration.** If a production build fails at this step, the site is still up on the
+previous deployment; do not reach for a way around the gate. See `docs/database.md` (Rollout
+sequencing).
 
 **Known exposure.** An untracked, gitignored `.env` file in the working tree holds a plaintext credential for the withdrawn `merchant.zatiqeasy.com` vendor. It is read by no code and is not committed. **Rotation and removal are owner actions** - do not read the value into output, and do not delete or rotate it on the owner's behalf.
 

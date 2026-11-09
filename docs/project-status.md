@@ -826,3 +826,40 @@ could not be ranked; Neon exposes only the combined `data_transfer_bytes` per pr
 Postgres-vs-object-storage split. The estimate is a model from row sizes and the observed total. The
 egress change was verified locally (product description renders in body and meta; listing 200) and takes
 effect in production on the deploying commit.
+
+## Pre-deploy migration gate (Phase 60, item 2, 2026-11-10)
+
+**Why.** `main` is wired to Vercel and a push deploys; Vercel's build applies no migration. That
+combination put code ahead of its schema four times - `0015` (traffic and order writes), `0016`-`0018`
+(delivery settings), `0019`-`0020` (traffic screen), and `0021`-`0023` earlier the same day, where the
+storefront only survived because a warm Data Cache masked the missing columns.
+
+**What exists now.** `npm run prebuild` runs `scripts/check-migrations.ts --build` before `next build`.
+
+- `evaluateMigrationGate` (`src/db/migration-gate.ts`) is the decision, pure and unit-tested
+  (`tests/unit/migration-gate.test.ts`, 5 cases). An applied hash with no current file outranks a
+  pending migration; both block.
+- On Vercel **production** the CLI compares the journal with `drizzle.__drizzle_migrations` and exits 1
+  with the missing tags, so the build never starts and the previous deployment stays live.
+- `VERCEL_ENV` other than `production`, or no `VERCEL_ENV` at all (a local `npm run build`), prints one
+  skip line - a preview shares the production database, and building locally must not need a database.
+- `npm run check:migrations` runs it on demand against the current `DATABASE_URL`.
+- **Fails closed**: missing `DATABASE_URL`, an unreachable host (10 s pool timeout newly set in
+  `src/db/migrate.ts`) or any error refuses the build. No override flag. It never applies a migration
+  and never prints the connection string - only host, port, database and environment.
+- **Requirement:** `DATABASE_URL` must be readable at build time in the Vercel production environment.
+
+**Verified 2026-11-10, locally.**
+- `npm run check:migrations` against the dev cluster: `✓ migrations applied: 24/24`.
+- A scratch database created in the local cluster with no migrations: `✗ 24 migration(s) ... are not
+  applied`, listing every tag, **exit 1** (checked without a pipe), then dropped.
+- `VERCEL_ENV=preview` and a non-Vercel run: skip line, exit 0.
+- `DATABASE_URL` removed: refuses with the environment module's message, exit 1.
+- Unroutable host `10.255.255.1`: refuses in **10.3 s**, exit 1 (bounded, no hang).
+- `lint` 0 errors (18 pre-existing warnings), unit **294/294**, `npm run build` green with the gate
+  skipping, `typecheck` clean.
+
+**Not verified.** The gate running inside a real Vercel production build: the Vercel MCP token expired
+during this task, so the deployment triggered by the push could not be inspected, and no Vercel CLI is
+installed. If `DATABASE_URL` were not visible to builds the build would fail closed and the previous
+deployment would stay live - the failure mode is a stalled deploy, not an outage.

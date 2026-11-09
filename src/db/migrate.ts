@@ -53,8 +53,12 @@ export function hashMigration(entry: JournalEntry, folder = MIGRATIONS_FOLDER): 
   return createHash('sha256').update(readFileSync(sqlFileFor(entry, folder), 'utf8')).digest('hex');
 }
 
+/**
+ * Bounded so a build or a CLI cannot hang on an unreachable host: the pre-deploy gate fails closed,
+ * and a pool that never acquires a connection would turn that refusal into a stalled deploy.
+ */
 function createPool(connectionString: string): Pool {
-  return new Pool({ connectionString, max: 2 });
+  return new Pool({ connectionString, max: 2, connectionTimeoutMillis: 10_000 });
 }
 
 /** Applies every pending migration in order. */

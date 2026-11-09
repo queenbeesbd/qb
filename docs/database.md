@@ -165,17 +165,38 @@ Expand, then migrate, then contract - never a destructive change in the same ste
 (`docs/data-model.md` section 16.2). Additive changes are preferred because a rollback then needs no
 data migration.
 
-**A production deploy does not apply migrations.** `npm run build` and Vercel's build step touch no
-database, so a deployment can carry code that reads a table the target database does not have. The
-sequence is: `npm run db:status` against the target (it prints every pending migration by name),
-`npm run db:migrate`, `npm run db:validate` (50 tables), **then** deploy the code. Applied history is
-per database, so a migration that is applied locally is not applied anywhere else.
+**A production deploy does not apply migrations, so the build now refuses to start without them.**
+`main` is connected to Vercel and every push deploys; Vercel's build step runs no migration. The
+sequence remains: `npm run db:status` against the target (it prints every pending migration by name),
+`npm run db:migrate`, `npm run db:validate`, **then** push. Applied history is per database, so a
+migration applied locally is applied nowhere else.
 
-That sequence was skipped once and cost a live screen: migration `0015_free_thunderbolt` (the
-`visit_session` / `visit_event` tables, ADR 0027) was deployed in code on 2026-11-06 but not applied to
-the production database, so `/qbpanel/analytics` failed with `relation "visit_session" does not exist`
-while every other admin page loaded, and order creation refused at the visit-log update. It was applied
-on 2026-11-07. Recorded in `docs/project-status.md`.
+**The pre-deploy gate (Phase 60, item 2, 2026-11-10).** `npm run prebuild` runs
+`scripts/check-migrations.ts --build` before every `next build`. On a Vercel **production** build it
+compares the journal in `drizzle/` with `drizzle.__drizzle_migrations` on the deployed database: a
+pending migration or an applied hash that matches no file **exits 1 and the build never starts**, so
+Vercel keeps the previous deployment live instead of serving code that reads a schema which is not
+there. Anywhere else it prints one skip line (preview builds skip, because they share the database and
+a preview must stay useful; a local `npm run build` skips, so no database is needed to build).
+
+- `npm run check:migrations` runs the same check explicitly against whatever `DATABASE_URL` this shell
+  points at - **run it before pushing a commit that adds a migration**.
+- The decision is `evaluateMigrationGate` (`src/db/migration-gate.ts`), a pure function, tested in
+  `tests/unit/migration-gate.test.ts`. An edited history outranks a pending migration, because that
+  database has already diverged.
+- It **never applies a migration** and never prints the connection string - only host, port and
+  database. It **fails closed**: a missing `DATABASE_URL`, an unreachable host (bounded at 10 s) or
+  any error refuses the build, because a build that cannot see the schema must not ship. There is no
+  override flag; the fix is `npm run db:migrate` against the target.
+- Requirement: `DATABASE_URL` must be readable at **build** time in the Vercel production environment
+  (Vercel exposes project variables to the build unless one is deliberately restricted).
+
+The gap this closes cost four incidents: `0015` (the `visit_session` / `visit_event` tables, ADR 0027)
+shipped in code on 2026-11-06 with `/qbpanel/analytics` failing `relation "visit_session" does not
+exist`; `0016`-`0018` repeated it on 2026-11-08 (`/qbpanel/settings/delivery` died on a missing
+column); `0019`-`0020` broke `/qbpanel/traffic`; and `0021`-`0023` (per-product delivery columns,
+optional hero and popup descriptions) auto-deployed on 2026-11-10 while the database was still at
+`0020`, leaving the storefront alive only on a warm Data Cache. Recorded in `docs/project-status.md`.
 
 ### Rollback
 

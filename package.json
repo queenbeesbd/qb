@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev --webpack",
+    "prebuild": "tsx scripts/check-migrations.ts --build",
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
@@ -14,6 +15,7 @@
     "verify:browser": "node scripts/verify-browser.cjs",
     "db:generate": "drizzle-kit generate",
     "db:check": "drizzle-kit check",
+    "check:migrations": "tsx --env-file-if-exists=.env.local --env-file-if-exists=.env scripts/check-migrations.ts",
     "db:status": "tsx --env-file-if-exists=.env.local --env-file-if-exists=.env scripts/db.ts status",
     "db:migrate": "tsx --env-file-if-exists=.env.local --env-file-if-exists=.env scripts/db.ts migrate",
     "db:validate": "tsx --env-file-if-exists=.env.local --env-file-if-exists=.env scripts/db.ts validate",

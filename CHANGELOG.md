@@ -14,6 +14,29 @@ An entry may describe a deployment only once it has actually happened and been o
 
 ## [Unreleased]
 
+### Added - 2026-11-10: a pre-deploy migration gate (Phase 60, item 2)
+
+`main` deploys on every push and Vercel's build applies no migration, so code has shipped ahead of its
+schema four times (0015; 0016-0018; 0019-0020; 0021-0023 - the last one today). The build now refuses
+instead of the shop breaking later.
+
+- `evaluateMigrationGate` (`src/db/migration-gate.ts`) decides from the journal and the applied hashes;
+  a **pending** migration or an **applied hash that matches no file** blocks. It is pure, so the rule
+  is covered without a cluster in `tests/unit/migration-gate.test.ts`.
+- `scripts/check-migrations.ts`, wired as `prebuild`: on a Vercel **production** build it exits 1 with
+  the missing tags, so Vercel keeps the previous deployment live. Preview builds and a local
+  `npm run build` print one skip line and continue, so building needs no database.
+- `npm run check:migrations` runs it explicitly against the current `DATABASE_URL` - the pre-push step.
+- **Fails closed**: no `DATABASE_URL`, an unreachable host (bounded at 10 s via the pool's
+  `connectionTimeoutMillis`) or any error refuses the build. It never applies a migration, never prints
+  the connection string, and has no override flag. The displayed success is `✓ migrations applied: n/n`
+  against a named host, database and environment.
+
+Verified: `npm run check:migrations` **24/24** against the dev cluster; a scratch database with no
+migrations produced exit **1** naming all 24 tags; `VERCEL_ENV=preview` and a non-Vercel run both
+skipped with exit 0; a missing `DATABASE_URL` and an unroutable host each refused in ~10 s; `lint` 0
+errors, unit **294/294**, `build` green.
+
 ### Changed - 2026-11-10: cut Neon network transfer (5 GB Free-plan budget)
 
 Owner request after Neon's network-transfer guidance: Free allows **5 GB per project per month** of
