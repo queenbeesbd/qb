@@ -294,6 +294,34 @@ export function ProductForm({
       <div className={styles.productFormColumns}>
         {/* ================= Left: what the customer reads ================= */}
         <div className={styles.productFormMain}>
+          {/*
+            Media leads the form (owner direction, 2026-11-10): the owner photographs the product
+            before writing about it, so the picker is the first thing on the page rather than the last
+            thing in the column. The live preview sits beside it, so a chosen photograph appears in the
+            card while the rest of the form is still empty.
+          */}
+          <section className={styles.formCard} aria-labelledby="pf-media">
+            <div className={styles.formCardHead}>
+              <h2 id="pf-media">{t('admin.catalog.sectionMedia')}</h2>
+              <p>{t('admin.catalog.sectionMediaBody')}</p>
+            </div>
+
+            <ProductMediaUploader
+              id="productImages"
+              images={uploads}
+              onAdd={addUploads}
+              onRemove={removeUpload}
+              onMove={moveUpload}
+              maxImages={MAX_PRODUCT_IMAGES}
+            />
+
+            {mode === 'edit' ? (
+              <p className={styles.hint}>{t('admin.catalog.mediaEditHint')}</p>
+            ) : (
+              <p className={styles.hint}>{t('admin.catalog.mediaAltNote')}</p>
+            )}
+          </section>
+
           <section className={styles.formCard} aria-labelledby="pf-general">
             <div className={styles.formCardHead}>
               <h2 id="pf-general">{t('admin.catalog.sectionGeneral')}</h2>
@@ -378,28 +406,6 @@ export function ProductForm({
                 lang="bn"
               />
             </div>
-          </section>
-
-          <section className={styles.formCard} aria-labelledby="pf-media">
-            <div className={styles.formCardHead}>
-              <h2 id="pf-media">{t('admin.catalog.sectionMedia')}</h2>
-              <p>{t('admin.catalog.sectionMediaBody')}</p>
-            </div>
-
-            <ProductMediaUploader
-              id="productImages"
-              images={uploads}
-              onAdd={addUploads}
-              onRemove={removeUpload}
-              onMove={moveUpload}
-              maxImages={MAX_PRODUCT_IMAGES}
-            />
-
-            {mode === 'edit' ? (
-              <p className={styles.hint}>{t('admin.catalog.mediaEditHint')}</p>
-            ) : (
-              <p className={styles.hint}>{t('admin.catalog.mediaAltNote')}</p>
-            )}
           </section>
 
           {/* ---- Pricing ---- */}

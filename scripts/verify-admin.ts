@@ -2600,6 +2600,7 @@ async function main(): Promise<void> {
               dropZone: boolean;
               feeFields: number;
               enctype: string;
+              mediaFirst: boolean;
             }>(`(() => {
               const sections = [...document.querySelectorAll('main section h2')].map((h) => h.textContent?.trim() ?? '');
               const header = document.querySelector('main form > header');
@@ -2618,10 +2619,15 @@ async function main(): Promise<void> {
                 dropZone: document.querySelector('main [data-dragging]') !== null,
                 feeFields: document.querySelectorAll('main input[name^="delivery"]').length,
                 enctype: form?.getAttribute('enctype') ?? '',
+                /*
+                 * Media leads the editor (owner direction, 2026-11-10): the owner picks the photograph
+                 * before writing the copy, so the picker is the first card, ahead of General information.
+                 */
+                mediaFirst: sections.indexOf('Media') === 0 && sections.indexOf('Media') < sections.indexOf('General information'),
               };
             })()`);
             record(
-              'the product editor is its own route with the reference section set, a media picker, a sticky action bar and a preview',
+              'the product editor is its own route with the reference section set, a media picker first, a sticky action bar and a preview',
               editorShell.heading === 'New product' &&
                 editorShell.h1Count === 1 &&
                 editorShell.sections.includes('General information') &&
@@ -2639,7 +2645,8 @@ async function main(): Promise<void> {
                 editorShell.dropZone === true &&
                 editorShell.feeFields === 3 &&
                 editorShell.enctype === 'multipart/form-data' &&
-                editorShell.overflow <= 1,
+                editorShell.overflow <= 1 &&
+                editorShell.mediaFirst === true,
               JSON.stringify(editorShell),
             );
 

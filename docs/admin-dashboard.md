@@ -113,7 +113,8 @@ form, so a filtered, paginated list and a full-height editor stop sharing a URL 
 lose whichever one the owner was in. `?new=1` and `?edit=<id>` are gone rather than kept as aliases.
 
 **Layout (revised 2026-11-06 to the reference's information architecture):** the writing and the
-commercial facts share the wide column - General information, Media, Pricing, Inventory and Shipping -
+commercial facts share the wide column - Media, General information, Pricing, Inventory and Shipping,
+with **Media first** since 2026-11-10 (the owner uploads the photograph before writing the copy) -
 while the narrow column holds the live storefront preview, Category/Brand, pack size and slug, and
 Publication. A sticky action bar keeps Save reachable. Below 1100px the columns stack in source order:
 fields first, preview and status after.

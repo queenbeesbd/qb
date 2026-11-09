@@ -459,7 +459,7 @@ A create/edit screen is its own route, and it is built from one shape:
 | Page header | `h1`, one sentence - from `PageHeader`, the same as every other admin page; no eyebrow |
 | Sticky action bar | the readiness summary on the left, Cancel and Save on the right. **The only action bar on the page** - a second one at the bottom is the same content twice and overlays the form |
 | Two columns | copy and media left, commercial facts right. Below 1100px they stack, and the **preview comes first** |
-| Section cards | one per task (General information, Media, Pricing, Organisation, Publication), each with a one-line explanation |
+| Section cards | one per task (Media, General information, Pricing, Organisation, Publication), each with a one-line explanation. **Media leads the wide column** (owner direction, 2026-11-10): the photograph is picked before the copy is written |
 | Live preview | shows only what was typed. An empty field renders as "No price yet", never a placeholder value |
 | Required summary | names the empty required fields in text. Never an asterisk convention alone |
 | Validation | `noValidate` on the form; the submit handler states the missing set, sets `aria-invalid`, and focuses the first offender |
