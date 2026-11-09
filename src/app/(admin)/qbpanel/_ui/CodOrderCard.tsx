@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import type { FormEvent } from 'react';
 
 import { deliveryAreaName } from '@/lib/delivery-areas';
 import { orderDiscountMinor } from '@/lib/money';
@@ -51,9 +52,11 @@ function ageOf(placedAt: string, now: number): { minutes: number; hours: number;
 /**
  * One COD order, decided inline.
  *
- * Approval is one deliberate click because the owner has already made the call; the audit note is
- * prefilled and editable rather than a typing tax on every order. Rejection is destructive - it
- * cancels the order - so it opens a confirmation that states the consequence and requires a reason.
+ * Approval is one deliberate click because the owner has already made the call. The audit note is a
+ * **placeholder**, not a prefilled value (owner feedback, 2026-11-10): clicking the field must start
+ * from empty, and pressing Accept without typing records the default note. A prefilled value made the
+ * owner backspace it out before every order. Rejection is destructive - it cancels the order - so it
+ * opens a confirmation that states the consequence and requires a reason.
  * Both are native posts to the guarded route; this component only removes friction.
  */
 export function CodOrderCard({
@@ -103,6 +106,18 @@ export function CodOrderCard({
           dateStyle: 'medium',
           timeStyle: 'short',
         }).format(new Date(decided.decidedAt));
+
+  /**
+   * Approve with an empty note records the default one. The field starts empty (the default is its
+   * placeholder), so this fills the value at submit time instead of making the owner clear a prefilled
+   * sentence first. The server applies the same default, so the no-JavaScript path behaves identically.
+   */
+  function fillDefaultReason(event: FormEvent<HTMLFormElement>) {
+    const field = event.currentTarget.elements.namedItem('reason');
+    if (field instanceof HTMLInputElement && field.value.trim() === '') {
+      field.value = t('admin.cod.approveReasonDefault');
+    }
+  }
 
   return (
     <article
@@ -212,15 +227,19 @@ export function CodOrderCard({
             action="/api/qbpanel/orders-cod"
             method="post"
             className={`${styles.approveForm} ${styles.approveFormRow}`}
+            onSubmit={fillDefaultReason}
           >
               <input type="hidden" name="csrf" value={csrfToken} />
               <input type="hidden" name="orderId" value={row.orderId} />
               <input type="hidden" name="decision" value="approve" />
               {/*
-                * Open by default and labelled as required. The field always was `required` with a
-                * 10-character minimum, but the summary said "optional" - so an owner who collapsed it
-                * and cleared the pre-filled value hit a refusal they had been told could not happen
-                * (Phase 24 A-14 / F-05).
+                * Open by default and labelled as required. The note is the row's **placeholder**, so
+                * the field starts empty: clicking it means typing your own note, not clearing ours.
+                * Pressing Accept with it empty records the default note (here in `onSubmit`, and on
+                * the server for the no-JavaScript path). No native `required`/`minLength` on the field:
+                * with `required` the browser would block the very empty submission this is meant to
+                * accept, before `onSubmit` could fill it. A typed note is still validated (10-500) by
+                * the input and re-validated by the service.
                 */}
               <details className={styles.noteDetails} open>
                 <summary>
@@ -233,10 +252,9 @@ export function CodOrderCard({
                   id={`reason-${row.orderId}`}
                   name="reason"
                   className={styles.input}
-                  required
                   minLength={10}
                   maxLength={500}
-                  defaultValue={t('admin.cod.approveReasonDefault')}
+                  placeholder={t('admin.cod.approveReasonDefault')}
                   aria-describedby={`reason-hint-${row.orderId}`}
                 />
                 <p className={styles.hint} id={`reason-hint-${row.orderId}`}>

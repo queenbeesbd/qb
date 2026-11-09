@@ -827,7 +827,8 @@ export const dictionary = {
   'admin.cod.decision.rejected': 'Cancelled',
   'admin.cod.itemsTitle': 'Items in this order',
   'admin.cod.noteSummary': 'Audit note',
-  'admin.cod.noteSummaryHint': 'At least 10 characters.',
+  'admin.cod.noteSummaryHint':
+    'Leave it blank and Accept records “Confirmed by phone”. A note you type needs 10 characters or more.',
   'admin.cod.approveReasonDefault': 'Confirmed by phone',
   'admin.cod.rejectTitle': 'Cancel this order?',
   'admin.cod.rejectBody':

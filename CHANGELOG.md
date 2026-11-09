@@ -14,6 +14,26 @@ An entry may describe a deployment only once it has actually happened and been o
 
 ## [Unreleased]
 
+### Changed - 2026-11-10: the COD approval note is a placeholder, and the row lines up
+
+Owner feedback on the overview worklist: *"its not properly aligned ... the confirmed by phone writing
+should be placeholder and if owner click accept it auto counts as that but if the owner click the box it
+should be empty write ... now we have to backspace and remove which is pain."*
+
+- **The note field starts empty** with **"Confirmed by phone"** as its placeholder, so clicking it means
+  typing rather than clearing. Pressing **Accept** with it empty records that default — filled in the
+  form's submit handler and again by `POST /api/qbpanel/orders-cod`, so an approval without JavaScript
+  behaves identically. A typed note is still validated (10–500) and recorded verbatim. Rejection still
+  requires a typed reason.
+- **The row is a grid, not a bottom-aligned flex row**: the note (label, input, hint) is the first row and
+  Accept/Reject the second, right-aligned, so the buttons no longer sit level with the hint. On a phone
+  both controls stack full width with no horizontal overflow.
+- The same change is applied to the order-detail approval form, which shares the route.
+
+**Verified:** `typecheck`, `lint` (0 errors), `check:i18n`, `build`; Chromium measurements of the fixed
+row (input 485–525, hint 525–542, buttons 550–590) and approved orders whose audit reason was
+"Confirmed by phone" (empty note) and a typed note (verbatim).
+
 ### Added - 2026-11-10: a WhatsApp number under the bKash block
 
 Owner request: *"under bKash add a section for whatsapp number with same copy mechanism ... make a form

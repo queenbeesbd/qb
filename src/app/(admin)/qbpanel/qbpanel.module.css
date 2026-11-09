@@ -929,17 +929,25 @@ html[lang='bn'] .sectionHead h2 {
   border-top: 1px solid var(--admin-line);
 }
 
+/*
+ * The worklist's approval row: the note on its own line, then the decision beside it.
+ *
+ * It used to be a flex row of [note details][Accept], bottom-aligned - so the note's label, input and
+ * hint stacked to the left while Accept and Reject were dragged to the bottom of that stack, level with
+ * the hint rather than the field (owner feedback, 2026-11-10). A grid makes the field the first row and
+ * the actions the second, right-aligned, so the buttons sit under the note they belong to and never
+ * overlap its hint.
+ */
 .approveForm.approveFormRow {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: end;
   flex: 1 1 20rem;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  gap: var(--space-3);
+  gap: var(--space-2);
   min-width: 0;
 }
 
 .approveFormRow .noteDetails {
-  flex: 1 1 15rem;
   min-width: 0;
 }
 
@@ -948,6 +956,7 @@ html[lang='bn'] .sectionHead h2 {
 }
 
 .approveFormRow .button {
+  justify-self: end;
   min-width: 8.5rem;
 }
 

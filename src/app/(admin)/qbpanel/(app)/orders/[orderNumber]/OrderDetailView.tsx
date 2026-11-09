@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import type { FormEvent } from 'react';
 
 import type { TranslationKey } from '@/i18n/dictionaries';
 import { useTranslation } from '@/i18n/useTranslation';
@@ -985,6 +986,18 @@ function OrderActionBand({
 }: OrderActionBandProps) {
   const { t, price } = useTranslation();
 
+  /**
+   * Approve with an empty note records the default one (owner feedback, 2026-11-10). The field carries
+   * the default as its placeholder, so it starts empty and is filled here only if the owner pressed
+   * Approve without typing. The server applies the same default for the no-JavaScript path.
+   */
+  function fillDefaultReason(event: FormEvent<HTMLFormElement>) {
+    const field = event.currentTarget.elements.namedItem('reason');
+    if (field instanceof HTMLInputElement && field.value.trim() === '') {
+      field.value = t('admin.cod.approveReasonDefault');
+    }
+  }
+
   return (
     <section className={styles.actionBand} aria-labelledby="order-action-title">
       <div className={styles.actionBandHead}>
@@ -1009,6 +1022,7 @@ function OrderActionBand({
               action="/api/qbpanel/orders-cod"
               method="post"
               className={styles.approveForm + ' ' + styles.actionFormPrimary}
+              onSubmit={fillDefaultReason}
             >
               <input type="hidden" name="csrf" value={csrfToken} />
               <input type="hidden" name="orderId" value={order.orderId} />
@@ -1023,10 +1037,9 @@ function OrderActionBand({
                   id="order-approve-reason"
                   name="reason"
                   className={styles.input}
-                  required
                   minLength={10}
                   maxLength={500}
-                  defaultValue={t('admin.cod.approveReasonDefault')}
+                  placeholder={t('admin.cod.approveReasonDefault')}
                 />
               </details>
               <SubmitButton

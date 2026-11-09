@@ -7,6 +7,7 @@
  */
 
 import { withTransaction } from '@/db/client';
+import { translate } from '@/i18n/config';
 import { COD_PATH } from '@/server/auth/constants';
 import { guardMutation } from '@/server/auth/guard';
 import { PERMISSIONS } from '@/server/authz/permissions';
@@ -33,6 +34,17 @@ export async function POST(request: Request): Promise<Response> {
 
   if (orderId === null || decision === null) return redirectTo(`${COD_PATH}?notice=invalid`);
 
+  /*
+   * The approve field shows its default as a **placeholder**, so an empty note means "the note I did not
+   * overwrite". Recording the stated default here (not only in the browser) keeps the no-JavaScript path
+   * working and keeps the audit reason an explicit sentence rather than an empty string. A rejection
+   * still needs a typed reason: cancelling an order is not a default anyone may assume.
+   */
+  const effectiveReason =
+    decision === 'approve' && reason.trim() === ''
+      ? translate('admin.cod.approveReasonDefault')
+      : reason;
+
   const actor = {
     staffUserId: principal.staffUserId,
     permissions: principal.permissions,
@@ -41,7 +53,7 @@ export async function POST(request: Request): Promise<Response> {
 
   try {
     await withTransaction((tx) =>
-      decideCod(tx, actor, { orderId, decision, reason }),
+      decideCod(tx, actor, { orderId, decision, reason: effectiveReason }),
     );
     if (decision === 'reject') return redirectTo(`${COD_PATH}?notice=rejected`);
 

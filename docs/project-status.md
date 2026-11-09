@@ -703,3 +703,24 @@ keys), unit suite **289/289**, `build`; through the running panel a WhatsApp num
 checkout showed both cards, the copy control put the number on the clipboard, clearing the number
 removed the block, and guest ordering was left as it was found. `verify:admin`, `verify:browser` and the
 db suite were not re-run, and nothing is deployed.
+
+## COD approval note: placeholder, default on Accept, and an aligned row (2026-11-10)
+
+Owner feedback on the overview worklist: the audit note was prefilled with "Confirmed by phone" and had
+to be backspaced before every order, and the note/actions row was bottom-aligned so the buttons sat level
+with the hint instead of the field.
+
+- **The field is empty** with `Confirmed by phone` as its placeholder. `CodOrderCard` and the order
+  detail's action band fill that default in their form `onSubmit` when the field is blank, and
+  `POST /api/qbpanel/orders-cod` applies the same default for an approval, so the no-JavaScript path is
+  unchanged. A typed note is validated (10-500) and stored verbatim; a rejection still needs its reason.
+- **Layout**: `.approveFormRow` is now a one-column grid - note first, actions second and right-aligned -
+  instead of a flex row with `align-items: flex-end`. At 1365px the input is 485-525, the hint 525-542
+  and both buttons 550-590 (Accept ending on the field's right edge); at 390px the form stacks full width
+  with no horizontal overflow.
+- The hint now says what an empty note will record.
+
+**Verified** on the served build against the dev cluster: the worklist showed an empty input with the
+placeholder, clicking it left it empty, Accept recorded `cod.approved` with reason `Confirmed by phone`,
+and a second order approved with a typed note recorded that note verbatim. `verify:admin`,
+`verify:browser` and the db suite were not re-run; nothing is deployed.
