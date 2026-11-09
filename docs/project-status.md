@@ -629,3 +629,24 @@ payment card prints the saved paragraphs and no number or label, and with it **o
 "only method" lines are absent; and a guest order placed through the rendered form lands on its receipt
 under **Order placed** with the removed "nothing to pay online" sentence absent. `verify:admin`,
 `verify:browser` and the db suite were not re-run for this change, and nothing is deployed.
+
+## Search as you type, with one fuzzy matcher (2026-11-10)
+
+Owner request: both search boxes should work in real time and fuzzily, with no press on the magnifier.
+
+- **`src/lib/fuzzy.ts`** is the single matcher, with no dependency: exact field, prefix, word start,
+  substring, letters in order, and one-character tolerance (substitution, insertion, adjacent swap).
+  Terms under three characters are matched only as prefixes/substrings. Stores ranks, not probabilities;
+  callers sort on the score with name and id as tie-breakers.
+- **Storefront.** The listing's `ProductSearch` commits a trimmed term 300ms after typing stops and the
+  `CatalogView` applies it with `router.replace`, so a search adds no history entries; the header field
+  commits after 400ms (push from any other page, replace on `/products`), which is what makes typing a
+  single letter open results. The submit button and `GET` form remain for Enter and no-JavaScript. The
+  scope is unchanged (name in both locales, brand, pack - ADR 0011) and the default relevance sort now
+  ranks by match strength.
+- **Admin.** `listProductsForAdmin` ranks in memory when a search is present: it reads the live rows'
+  name/Bangla name/slug/SKU, scores them with the same matcher, pages the ranked ids and loads full rows
+  for that page only. A blank search keeps the original single paged query. `ListSearch` gained an
+  opt-in `live` prop (300ms `replace`) that only the products list sets.
+- **No new surface**: no endpoint, no client-side catalog index, no search dependency, no change to the
+  admin search's permission or to the storefront's no-index rules.

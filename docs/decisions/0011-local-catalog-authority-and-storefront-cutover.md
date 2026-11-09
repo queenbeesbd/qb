@@ -172,6 +172,29 @@ failure.
   are lineage-bound rather than environment-bound (ADR 0006), and isolation depends on each environment
   having its own endpoint and credential.
 
+## Amendment (2026-11-10): fuzzy matching, and search that runs while typing
+
+The owner asked for both search boxes - the storefront and the admin product list - to search as the
+term is typed, without pressing the magnifier, and for the match to be fuzzy. This changes **how a
+term is compared and when it is committed**, not what may be searched:
+
+- **Scope is unchanged** (section 5): name in both locales, brand and pack. No tags, no description,
+  no new index and no new catalog field.
+- **Matching is fuzzy and shared** (`src/lib/fuzzy.ts`, no new dependency). A term matches a field
+  that equals it, starts with it, contains it as a word, contains its letters in order, or differs by
+  one character (substitution, insertion or adjacent transposition). Terms of two characters are only
+  matched as prefixes or substrings, so type-ahead does not fuzz short input into noise.
+- **Relevance is the score.** With no explicit sort, the listing now orders results by match strength
+  (exact field, then prefix, then word, then substring, then fuzzy), with name and id as tie-breakers.
+  Explicit sorts (price, name, newest) are unchanged.
+- **Search as you type.** The storefront header field commits after a 400ms pause and opens the
+  listing; the listing's own field commits after 300ms with `replace`, so refining a search adds no
+  history entries. The admin product list does the same at 300ms and is the only admin list with it -
+  every live search is a server render, and a long order list is read once rather than scanned.
+- **The submit button and the plain `GET` form stay.** They are the no-JavaScript path and what Enter
+  does; no route, endpoint or API was added for suggestions, and the CRAWLER/no-index rules are
+  untouched.
+
 ## Open questions
 
 - **Does overselling matter, and does the toggle sit over the quantity ledger?** **Settled (ADR 0013,

@@ -20,9 +20,10 @@
  * for what the availability state does and does not guarantee.
  */
 
-import { sql } from 'drizzle-orm';
+import { inArray, sql } from 'drizzle-orm';
 
 import type { Transaction } from '@/db/client';
+import { fuzzyScoreAcross } from '@/lib/fuzzy';
 import { likeTerm } from '@/lib/search';
 import {
   brand,
@@ -879,6 +880,60 @@ export type ProductInput = {
 };
 
 /**
+ * The row an admin product list draws. Extracted so the search path and the plain path cannot select
+ * different columns: the list must look the same however it was narrowed.
+ */
+const adminProductColumns = {
+  id: product.id,
+  slug: product.slug,
+  nameBn: product.nameBn,
+  nameEn: product.nameEn,
+  categoryId: product.categoryId,
+  categoryNameEn: category.nameEn,
+  brandNameEn: brand.nameEn,
+  availability: product.availability,
+  isPublished: product.isPublished,
+  priceMinor: sql<number | null>`(
+    select "price_minor" from "product_variant"
+    where "product_variant"."product_id" = "product"."id" and "product_variant"."is_default"
+    limit 1
+  )`,
+  compareAtPriceMinor: sql<number | null>`(
+    select "compare_at_price_minor" from "product_variant"
+    where "product_variant"."product_id" = "product"."id" and "product_variant"."is_default"
+    limit 1
+  )`,
+  sku: sql<string | null>`(
+    select "sku" from "product_variant"
+    where "product_variant"."product_id" = "product"."id" and "product_variant"."is_default"
+    limit 1
+  )`,
+  imageCount: sql<number>`(
+    select count(*)::int from "product_image"
+    where "product_image"."product_id" = "product"."id" and "product_image"."deleted_at" is null
+  )`,
+  /*
+   * The photograph the list draws beside a row: the flagged primary, or failing that the first
+   * image in the owner's order. Without the fallback, a product whose images exist but whose
+   * primary flag was never set would show the empty frame while its detail page showed a photo -
+   * a worse lie than no thumbnail at all.
+   */
+  primaryImageKey: sql<string | null>`(
+    select "base_key" from "product_image"
+    where "product_image"."product_id" = "product"."id"
+      and "product_image"."deleted_at" is null
+    order by "product_image"."is_primary" desc, "product_image"."sort_order" asc, "product_image"."id" asc
+    limit 1
+  )`,
+} as const;
+
+/**
+ * How many live rows a fuzzy search may read before ranking. The catalog is ~1,500 rows; the bound
+ * exists so a pathological catalog cannot make one keystroke read the whole table's worth of detail.
+ */
+const ADMIN_SEARCH_CANDIDATES = 5000;
+
+/**
  * A product as the admin list needs it. Prices come from the product's default variant, which is where
  * the schema puts them - the storefront's `Product.priceMinor` is the same value projected through the
  * read layer.
@@ -886,6 +941,12 @@ export type ProductInput = {
  * The list is **paged with an exact total** (Phase 30). The count runs over the same predicate as the
  * page, so the footer cannot disagree with the rows it describes, and the order ends with `id` so a
  * page boundary is stable when two products share a name.
+ *
+ * **Search is fuzzy** (2026-11-10), and shared with the storefront's matcher: a term finds a product by
+ * name, Bangla name, slug or SKU whether it starts the field, sits inside it, appears as letters in
+ * order, or differs by one character. SQL `ilike` cannot express any of that, so a non-empty search
+ * reads the live rows' searchable fields, ranks them in memory, pages the ranked ids and then loads the
+ * full rows for that page only. A blank search keeps the single paged query it always used.
  */
 export async function listProductsForAdmin(
   tx: Transaction,
@@ -915,87 +976,92 @@ export async function listProductsForAdmin(
   readonly total: number;
 }> {
   const search = options.search?.trim() ?? '';
-  const searchClause =
-    search === ''
-      ? sql`true`
-      : sql`(${product.nameEn} ilike ${likeTerm(search)}
-          or ${product.nameBn} ilike ${likeTerm(search)}
-          or ${product.slug} ilike ${likeTerm(search)}
-          or exists (
-            select 1 from "product_variant"
-            where "product_variant"."product_id" = ${product.id}
-              and "product_variant"."is_default"
-              and "product_variant"."sku" ilike ${likeTerm(search)}
-          ))`;
   const availability = options.availability ?? null;
-  const where = sql`${product.deletedAt} is null
-          and (${availability}::text is null or ${product.availability} = ${availability})
-          and ${searchClause}`;
   const limit = Math.min(Math.max(options.limit ?? PRODUCT_PAGE_SIZE, 1), 100);
   const offset = Math.max(options.offset ?? 0, 0);
 
-  const rows = await tx
+  // Filters narrow an owner-facing list only. They apply over the same "live row" predicate, so a
+  // search cannot reveal an archived product, and availability stays the binary state it is.
+  const liveRows = sql`${product.deletedAt} is null
+          and (${availability}::text is null or ${product.availability} = ${availability})`;
+
+  if (search === '') {
+    const rows = await tx
+      .select(adminProductColumns)
+      .from(product)
+      .innerJoin(category, sql`${category.id} = ${product.categoryId}`)
+      .innerJoin(brand, sql`${brand.id} = ${product.brandId}`)
+      .where(liveRows)
+      .orderBy(product.nameEn, product.id)
+      .limit(limit)
+      .offset(offset);
+
+    const counted = await tx
+      .select({ total: sql<number>`count(*)::int` })
+      .from(product)
+      .innerJoin(category, sql`${category.id} = ${product.categoryId}`)
+      .innerJoin(brand, sql`${brand.id} = ${product.brandId}`)
+      .where(liveRows);
+
+    return { rows, total: counted[0]?.total ?? 0 };
+  }
+
+  /*
+   * Fuzzy search, in two reads: the candidates' searchable fields are small enough to rank, and only
+   * the page's winners need the full row (prices, counts and the thumbnail subqueries). The order is
+   * score first, then name and id, so the same term always produces the same pages.
+   */
+  const candidates = await tx
     .select({
       id: product.id,
-      slug: product.slug,
-      nameBn: product.nameBn,
       nameEn: product.nameEn,
-      categoryId: product.categoryId,
-      categoryNameEn: category.nameEn,
-      brandNameEn: brand.nameEn,
-      availability: product.availability,
-      isPublished: product.isPublished,
-      priceMinor: sql<number | null>`(
-        select "price_minor" from "product_variant"
-        where "product_variant"."product_id" = "product"."id" and "product_variant"."is_default"
-        limit 1
-      )`,
-      compareAtPriceMinor: sql<number | null>`(
-        select "compare_at_price_minor" from "product_variant"
-        where "product_variant"."product_id" = "product"."id" and "product_variant"."is_default"
-        limit 1
-      )`,
+      nameBn: product.nameBn,
+      slug: product.slug,
       sku: sql<string | null>`(
         select "sku" from "product_variant"
         where "product_variant"."product_id" = "product"."id" and "product_variant"."is_default"
         limit 1
       )`,
-      imageCount: sql<number>`(
-        select count(*)::int from "product_image"
-        where "product_image"."product_id" = "product"."id" and "product_image"."deleted_at" is null
-      )`,
-      /*
-       * The photograph the list draws beside a row: the flagged primary, or failing that the first
-       * image in the owner's order. Without the fallback, a product whose images exist but whose
-       * primary flag was never set would show the empty frame while its detail page showed a photo -
-       * a worse lie than no thumbnail at all.
-       */
-      primaryImageKey: sql<string | null>`(
-        select "base_key" from "product_image"
-        where "product_image"."product_id" = "product"."id"
-          and "product_image"."deleted_at" is null
-        order by "product_image"."is_primary" desc, "product_image"."sort_order" asc, "product_image"."id" asc
-        limit 1
-      )`,
     })
     .from(product)
-    .innerJoin(category, sql`${category.id} = ${product.categoryId}`)
-    .innerJoin(brand, sql`${brand.id} = ${product.brandId}`)
-    // Filters narrow an owner-facing list only. They apply over the same "live row" predicate, so a
-    // search cannot reveal an archived product, and availability stays the binary state it is.
-    .where(where)
-    .orderBy(product.nameEn, product.id)
-    .limit(limit)
-    .offset(offset);
+    .where(liveRows)
+    .limit(ADMIN_SEARCH_CANDIDATES);
 
-  const counted = await tx
-    .select({ total: sql<number>`count(*)::int` })
+  const ranked = candidates
+    .map((candidate) => ({
+      id: candidate.id,
+      nameEn: candidate.nameEn,
+      score: fuzzyScoreAcross(search, [candidate.nameEn, candidate.nameBn, candidate.slug, candidate.sku]),
+    }))
+    .filter(
+      (
+        candidate,
+      ): candidate is { id: number; nameEn: string; score: number } => candidate.score !== null,
+    )
+    .sort(
+      (a, b) =>
+        b.score - a.score ||
+        a.nameEn.localeCompare(b.nameEn, 'en') ||
+        a.id - b.id,
+    );
+
+  const pageIds = ranked.slice(offset, offset + limit).map((candidate) => candidate.id);
+  if (pageIds.length === 0) return { rows: [], total: ranked.length };
+
+  const pageRows = await tx
+    .select(adminProductColumns)
     .from(product)
     .innerJoin(category, sql`${category.id} = ${product.categoryId}`)
     .innerJoin(brand, sql`${brand.id} = ${product.brandId}`)
-    .where(where);
+    .where(sql`${liveRows} and ${inArray(product.id, pageIds)}`);
 
-  return { rows, total: counted[0]?.total ?? 0 };
+  // The database does not preserve `IN` order; re-order to the ranked page so the rows match the list.
+  const byId = new Map(pageRows.map((row) => [row.id, row]));
+  const rows = pageIds
+    .map((id) => byId.get(id))
+    .filter((row): row is (typeof pageRows)[number] => row !== undefined);
+
+  return { rows, total: ranked.length };
 }
 
 export async function getProductForAdmin(tx: Transaction, productId: unknown): Promise<

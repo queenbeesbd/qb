@@ -14,6 +14,29 @@ An entry may describe a deployment only once it has actually happened and been o
 
 ## [Unreleased]
 
+### Changed - 2026-11-10: search runs while typing, and matches fuzzily
+
+Owner request: *"both storefront and admin panel search for products feature should be real time fuzzy
+search - no need to click search icon; if I type `a` it will show products start with `a`."*
+
+- **One matcher** (`src/lib/fuzzy.ts`, no dependency): a term matches a field that equals it, starts it,
+  contains it as a word, contains its letters in order, or differs by one character. Terms under three
+  characters match only as prefixes/substrings, so type-ahead does not fuzz into noise.
+- **Storefront**: the header field commits after a 400ms pause and opens the listing (`push` from
+  elsewhere, `replace` on the listing); the listing's own field commits after 300ms with `replace`, so
+  refining a search adds no history entries. The default sort ("relevance") now orders matches by score.
+  Scope is unchanged - name in both locales, brand and pack (ADR 0011).
+- **Admin products list**: search is fuzzy and live at 300ms (`replace`). SQL `ilike` cannot express
+  fuzzy matching, so a non-empty search ranks the live rows' searchable fields in memory, pages the
+  ranked ids and loads the full rows for that page only; a blank search keeps the single paged query.
+  Other admin lists keep the submit-only field: each live search is a server render.
+- **Nothing added to the surface**: the submit button and the plain `GET` form stay for Enter and
+  no-JavaScript, and no endpoint, client-side product index or search library was introduced.
+
+**Verified:** `typecheck`, `lint` (0 errors), `check:i18n`, unit suite **283/283** (including 8 matcher
+and 2 listing-search cases), `build`, and a Chromium walk-through of typing in both boxes; see
+`docs/project-status.md`.
+
 ### Changed - 2026-11-09: checkout copy trimmed, and the advance instructions get their own topic
 
 Owner request: *"Cash is paid to the courier on delivery — there is nothing to pay online" remove this

@@ -1,4 +1,5 @@
 import { normaliseForSearch } from '@/lib/format';
+import { fuzzyScoreAcross } from '@/lib/fuzzy';
 import type { CatalogCategory, CatalogItem } from '@/lib/types';
 
 export const SORT_OPTIONS = [
@@ -133,16 +134,16 @@ export function parseCatalogQuery(
 }
 
 /**
- * Search haystack: both published names, the brand and the pack size. The
- * storefront has no tags or description search, so neither is included.
+ * Search haystack: both published names, the brand and the pack size. The storefront has no tags or
+ * description search, so neither is included - this is scope, not capability (ADR 0011).
+ *
+ * Matching is fuzzy and shared with the admin panel (`src/lib/fuzzy.ts`): a field may start with the
+ * term, contain it, contain its letters in order, or differ by one character. `null` means "no match",
+ * and the score is the relevance rank the "relevance" sort uses.
  */
-function matchesQuery(item: CatalogItem, needle: string): boolean {
-  if (!needle) return true;
-  const haystack = [item.name.bn, item.name.en, item.brand, item.pack]
-    .filter((value): value is string => typeof value === 'string' && value.length > 0)
-    .map(normaliseForSearch)
-    .join(' | ');
-  return haystack.includes(needle);
+function searchScore(item: CatalogItem, needle: string): number | null {
+  if (!needle) return 0;
+  return fuzzyScoreAcross(needle, [item.name.en, item.name.bn, item.brand, item.pack]);
 }
 
 export function filterProducts(
@@ -169,7 +170,7 @@ export function filterProducts(
     ) {
       return false;
     }
-    return matchesQuery(item, needle);
+    return searchScore(item, needle) !== null;
   });
 }
 
@@ -210,7 +211,25 @@ export function selectCatalog(
   products: readonly CatalogItem[],
   query: CatalogQuery,
 ): CatalogItem[] {
-  return sortProducts(filterProducts(products, query), query.sort);
+  const filtered = filterProducts(products, query);
+  const needle = normaliseForSearch(query.q);
+  if (query.sort !== 'relevance' || needle === '') return sortProducts(filtered, query.sort);
+
+  /*
+   * A search is only useful when the closest match is first: an exact name, then a name that starts
+   * with the term, then a word inside it, then a looser match. Name and id break ties so the same
+   * search always yields the same order - a shopper paging through results must not see one product
+   * move between pages.
+   */
+  return filtered
+    .map((item) => ({ item, score: searchScore(item, needle) ?? 0 }))
+    .sort(
+      (a, b) =>
+        b.score - a.score ||
+        displayName(a.item).localeCompare(displayName(b.item), 'en') ||
+        a.item.id.localeCompare(b.item.id),
+    )
+    .map((entry) => entry.item);
 }
 
 /**

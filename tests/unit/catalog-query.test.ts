@@ -328,6 +328,30 @@ describe('catalog filter facets', () => {
       '/products',
     );
   });
+
+  it('matches a typed prefix without pressing search, and a one-letter misspelling', () => {
+    const prefix = selectCatalog(listingProducts, parseCatalogQuery({ q: 'sha' }, listingCategories));
+    assert.deepEqual(
+      prefix.map((item) => item.slug),
+      ['shampoo'],
+      'a term finds the product whose name starts with it, which is the search-as-you-type case',
+    );
+
+    const typo = selectCatalog(listingProducts, parseCatalogQuery({ q: 'serun' }, listingCategories));
+    assert.deepEqual(
+      typo.map((item) => item.slug),
+      ['serum'],
+      'one wrong character is still the word the shopper meant',
+    );
+  });
+
+  it('searches the brand field too, and an exact name does not drag in unrelated rows', () => {
+    const byBrand = selectCatalog(listingProducts, parseCatalogQuery({ q: 'lilac' }, listingCategories));
+    assert.deepEqual(byBrand.map((item) => item.slug).sort(), ['serum', 'toner']);
+
+    const prefix = selectCatalog(listingProducts, parseCatalogQuery({ q: 'ser' }, listingCategories));
+    assert.deepEqual(prefix.map((item) => item.slug), ['serum']);
+  });
 });
 
 describe('subcategory listing scope', () => {

@@ -1,6 +1,8 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useEffect, useRef } from 'react';
 
 import { useTranslation } from '@/i18n/useTranslation';
 import { AdminIcon } from './icons';
@@ -32,6 +34,12 @@ export function ListToolbar({ children }: { children: React.ReactNode }) {
  * It is a real `GET` form, so it works without JavaScript and the result is a URL. The filters that
  * are already active travel as hidden fields, and the **page number never does** - narrowing a list
  * returns to its first page instead of landing on an empty page 4.
+ *
+ * `live` turns it into a **search-as-you-type** field: a third of a second after typing stops, the
+ * form's own values are written into the URL with `replace`, so the list narrows without pressing
+ * Search. It is opt-in because each live search is a server render: the products list is the one that
+ * benefits from it (the owner is looking for one row in a long catalog), while an order list is read
+ * once rather than scanned. The button stays for Enter and for a browser without JavaScript.
  */
 export function ListSearch({
   action,
@@ -42,6 +50,7 @@ export function ListSearch({
   hidden,
   clearHref,
   dirty,
+  live,
 }: {
   action: string;
   /** Unique per page: two lists on one route must not share a label target. */
@@ -54,11 +63,54 @@ export function ListSearch({
   clearHref: string;
   /** True when anything is narrowing the list, which is what makes "Clear" meaningful. */
   dirty: boolean;
+  /** Narrow the list while typing. Off by default; see the note above. */
+  live?: boolean;
 }) {
   const { t } = useTranslation();
+  const router = useRouter();
+  const formRef = useRef<HTMLFormElement | null>(null);
+  const timerRef = useRef<number | null>(null);
+  const lastSearchRef = useRef(value);
+
+  useEffect(() => {
+    lastSearchRef.current = value;
+  }, [value]);
+
+  useEffect(
+    () => () => {
+      if (timerRef.current !== null) window.clearTimeout(timerRef.current);
+    },
+    [],
+  );
+
+  function schedule() {
+    if (!live) return;
+    if (timerRef.current !== null) window.clearTimeout(timerRef.current);
+    timerRef.current = window.setTimeout(() => {
+      timerRef.current = null;
+      const form = formRef.current;
+      if (!form) return;
+      const params = new URLSearchParams();
+      for (const [name, entry] of new FormData(form)) {
+        if (typeof entry === 'string' && entry.trim() !== '') params.set(name, entry);
+      }
+      const term = params.get('q') ?? '';
+      if (term === lastSearchRef.current) return;
+      lastSearchRef.current = term;
+      const search = params.toString();
+      router.replace(search === '' ? action : `${action}?${search}`, { scroll: false });
+    }, 300);
+  }
 
   return (
-    <form className={styles.searchForm} action={action} method="get" role="search">
+    <form
+      ref={formRef}
+      className={styles.searchForm}
+      action={action}
+      method="get"
+      role="search"
+      onChange={schedule}
+    >
       {Object.entries(hidden ?? {}).map(([name, hiddenValue]) =>
         hiddenValue === undefined || hiddenValue === '' ? null : (
           <input key={name} type="hidden" name={name} value={hiddenValue} />

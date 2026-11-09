@@ -166,6 +166,21 @@ export function CatalogView({
     navigate(next);
   }
 
+  /**
+   * A live search term **replaces** rather than pushes: the shopper is refining one search, not
+   * visiting a sequence of pages, and the back button should return to where the search started rather
+   * than to "se", "ser", "seru". Every other filter still pushes, because choosing a filter is a step.
+   */
+  function replace(patch: Partial<CatalogQuery>) {
+    const next = { ...optimisticQuery, ...patch, page: 1 };
+    const href = listingHref(next);
+    if (href === listingHref(optimisticQuery)) return;
+    startTransition(() => {
+      setOptimisticQuery(next);
+      router.replace(href, { scroll: false });
+    });
+  }
+
   function clearFilters() {
     push({
       q: '',
@@ -390,7 +405,11 @@ export function CatalogView({
         <section className={styles.results}>
           <div className={styles.toolbar}>
             <div className={styles.toolbarRow}>
-              <ProductSearch initial={optimisticQuery.q} onSubmit={(term) => push({ q: term })} />
+              <ProductSearch
+                initial={optimisticQuery.q}
+                onSubmit={(term) => push({ q: term })}
+                onLiveSubmit={(term) => replace({ q: term })}
+              />
 
               <button
                 type="button"

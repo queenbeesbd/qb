@@ -151,6 +151,7 @@ export function CatalogView({
             hidden={{ stock: stock === 'all' ? '' : stock, size: size === defaultSize ? '' : String(size) }}
             clearHref={clearHref}
             dirty={filtering}
+            live
           />
         </ListToolbar>
 
