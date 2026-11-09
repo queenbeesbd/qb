@@ -349,7 +349,6 @@ export const dictionary = {
   'notFound.shelfUnavailableTitle': 'The shelf could not be read',
   'notFound.shelfUnavailableBody':
     'The catalogue did not answer just now. The search and the category index below still work, and the shop is one link away.',
-  'notFound.inStock': 'In stock',
   'notFound.categoriesTitle': 'Shop by category',
   'notFound.categoriesAction': 'All categories',
   'notFound.allProducts': 'Shop all products',

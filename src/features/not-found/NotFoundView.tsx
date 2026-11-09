@@ -92,8 +92,12 @@ export function NotFoundView({
     return () => observer.disconnect();
   }, []);
 
-  // Six tiles: one wide and five single, which is a mosaic rather than a strip and keeps the hero from
-  // outgrowing its text column.
+  /*
+   * The wall is deliberately even: six products, one ratio, one gap. The first draft mixed tile sizes
+   * and cropped lifestyle photography into tall cells, which read as a ragged photo pile rather than as
+   * the shop's shelf. Uniformity is what carries the direction here; the flat fields only appear behind
+   * a tile that has no photograph to fill it.
+   */
   const tiles = products.slice(0, 6);
   const shelf = products;
   const shopCategories = categories.slice(0, 8);
@@ -102,66 +106,59 @@ export function NotFoundView({
     <div className={styles.page} data-standalone={standalone ? 'true' : 'false'} ref={root}>
       <section className={styles.hero} aria-labelledby="not-found-title">
         <div className={styles.heroText} data-reveal-group>
-          <h1 id="not-found-title" className={styles.title} data-reveal-item>
-            {t('notFound.headline')}
-          </h1>
-          <p className={styles.lede} data-reveal-item>
-            {t('notFound.lede')}
-          </p>
-          <form className={styles.search} action="/products" method="get" role="search" data-reveal-item>
-            <label className="sr-only" htmlFor="not-found-search">
-              {t('notFound.searchLabel')}
-            </label>
-            <input
-              id="not-found-search"
-              className={styles.searchInput}
-              type="search"
-              name="q"
-              placeholder={t('notFound.searchPlaceholder')}
-              autoComplete="off"
-            />
-            <button className={styles.searchButton} type="submit">
-              {t('notFound.searchAction')}
-            </button>
-          </form>
+          {/* The statement leads, the way a shop front leads with its name. */}
+          <div className={styles.heroLead}>
+            <h1 id="not-found-title" className={styles.title} data-reveal-item>
+              {t('notFound.headline')}
+            </h1>
+            <p className={styles.lede} data-reveal-item>
+              {t('notFound.lede')}
+            </p>
+          </div>
+
           {/*
-            The shop's name is folded into this sentence rather than set above the headline: a wordmark
-            standing on its own above an h1 reads as a kicker, and the facts here are real counts.
+            The one action sits at the foot of the column, as the dealt hero says: the reader who wants
+            to search finds it where a hand already is, and the facts that prove the shop is fine sit
+            under it rather than under the headline.
           */}
-          <p className={styles.heroFacts} data-reveal-item>
-            {t('notFound.heroFacts', {
-              products: inStockTotal,
-              categories: categories.length,
-            })}
-          </p>
-          {shopCategories.length > 0 && (
-            <div className={styles.heroCategories} data-reveal-item>
-              <h2 className={styles.heroCategoriesTitle}>{t('notFound.categoriesTitle')}</h2>
-              <ul className={styles.categoryRow}>
-                {shopCategories.map((category) => (
-                  <li key={category.id}>
-                    <Link className={styles.categoryLink} href={`/categories/${category.slug}`}>
-                      {category.name.en ?? category.name.bn}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
+          <div className={styles.heroFoot}>
+            <form className={styles.search} action="/products" method="get" role="search" data-reveal-item>
+              <label className="sr-only" htmlFor="not-found-search">
+                {t('notFound.searchLabel')}
+              </label>
+              <input
+                id="not-found-search"
+                className={styles.searchInput}
+                type="search"
+                name="q"
+                placeholder={t('notFound.searchPlaceholder')}
+                autoComplete="off"
+              />
+              <button className={styles.searchButton} type="submit">
+                {t('notFound.searchAction')}
+              </button>
+            </form>
+            <p className={styles.heroFacts} data-reveal-item>
+              {t('notFound.heroFacts', {
+                products: inStockTotal,
+                categories: categories.length,
+              })}
+            </p>
+          </div>
         </div>
 
+        {/*
+          The wall: six products, one ratio, one crop. It is the shop shown, not a mood; a tile with no
+          photograph keeps its flat field rather than borrowing someone else's picture.
+        */}
         <div className={styles.heroShelf} aria-hidden={tiles.length === 0 ? true : undefined}>
           <ul className={styles.mosaic} data-reveal-group>
-            {tiles.map((product, index) => (
-              <li
-                key={product.id}
-                className={`${styles.tile} ${index === 0 ? styles.tileWide : ''}`}
-                data-reveal-item
-              >
+            {tiles.map((product) => (
+              <li key={product.id} className={styles.tile} data-reveal-item>
                 <ProductPhoto
                   image={product.images[0]}
                   alt=""
-                  sizes="(max-width: 719px) 40vw, 18vw"
+                  sizes="(max-width: 719px) 44vw, 17vw"
                   frame={CARD_FRAME}
                   fallbackLabel={product.name.en ?? ''}
                 />
@@ -218,11 +215,14 @@ export function NotFoundView({
                         <span className={styles.shelfName}>{product.name.en ?? product.name.bn}</span>
                         <span className={styles.shelfPrice}>{price(product.priceMinor)}</span>
                       </span>
-                      <span className={styles.shelfFact}>
-                        {product.pack !== null && product.pack !== ''
-                          ? product.pack
-                          : product.brand ?? t('notFound.inStock')}
-                      </span>
+                      {/*
+                        One stored fact per item, in the shop's own vocabulary: the pack size, else the
+                        brand, else nothing. "In stock" is not repeated here - it is the section's own
+                        heading, and every row on it is in stock by definition.
+                      */}
+                      {(product.pack || product.brand) && (
+                        <span className={styles.shelfFact}>{product.pack || product.brand}</span>
+                      )}
                     </span>
                   </Link>
                 </li>
@@ -230,6 +230,25 @@ export function NotFoundView({
             </ul>
           </section>
         )
+      )}
+
+      {shopCategories.length > 0 && (
+        <section className={styles.section} aria-labelledby="not-found-categories">
+          <div className={styles.sectionHead}>
+            <h2 id="not-found-categories" className={styles.sectionTitle}>
+              {t('notFound.categoriesTitle')}
+            </h2>
+          </div>
+          <ul className={styles.categoryRow} data-reveal-group>
+            {shopCategories.map((category) => (
+              <li key={category.id} data-reveal-item>
+                <Link className={styles.categoryLink} href={`/categories/${category.slug}`}>
+                  {category.name.en ?? category.name.bn}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
       )}
 
       {/* The reply card, and nothing beside it: one printed card on a coloured field. */}
