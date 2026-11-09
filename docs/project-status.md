@@ -760,3 +760,26 @@ Same owner direction as the hero banner: the popup's description was required an
 **Verified** on the served build against the dev cluster: the editor accepted a blank description, and
 the popup dialog rendered `aria-label="Offer"`. `verify:admin`, `verify:browser` and the db suite were
 not re-run; nothing is deployed.
+
+## Production traffic screen repaired by applying two pending migrations (2026-11-10)
+
+`https://queenbees.vercel.app/qbpanel/traffic` rendered the admin error boundary. Neon and Vercel were
+used to read the production project directly rather than guessing.
+
+- **Cause.** The deployed code selects `visit_session.division` (ADR 0033) and expects
+  `order_claimed` in `order_event_type_valid` (ADR 0032), but production's `drizzle.__drizzle_migrations`
+  ended at `0018_customer_email_change` (19 applied, latest `1794084805097`). `0019_pink_blonde_phantom`
+  and `0020_puzzling_slipstream` were never applied, so the traffic queries failed on a missing column and
+  the visit beacon could not write (`visit_session` had no session after 2026-11-08).
+- **Fix.** Both migrations were applied to Neon project `autumn-wave-01272789`, branch `production`,
+  database `queenbees` as one transaction, then recorded in `drizzle.__drizzle_migrations` with
+  sha256 hashes of the committed SQL and the journal's `when` values. Production is at **21 migrations /
+  52 tables**; `division` exists with its check, and the event check now includes `order_claimed`.
+- **Evidence.** A temporary insert through the new column returned `division = 'dhaka'` and was rolled
+  back with the row deleted in the same transaction; loading the production storefront once recorded a
+  real session (`22` total, latest `2026-11-09T20:18:14Z`, `division` non-null); the page's aggregate
+  queries (today/window/series/funnel/paths/totals/divisions/devices) execute; `/api/track` answers 204.
+- **Not applied:** `0021`-`0023` (per-product delivery, optional hero and popup descriptions) belong to
+  undeployed code and stay local. The next deploy must run `db:status` and apply them first.
+- **Limit.** The authenticated page was not opened with owner credentials, so its rendered output was not
+  seen; the database-level cause is removed and every query it runs succeeds against production.

@@ -14,6 +14,23 @@ An entry may describe a deployment only once it has actually happened and been o
 
 ## [Unreleased]
 
+### Fixed - 2026-11-10: the production traffic screen (migrations `0019` and `0020` applied)
+
+`/qbpanel/traffic` on `queenbees.vercel.app` answered "The admin page could not be loaded". The deployed
+code reads `visit_session.division`, and production was still at migration `0018` - so the column did not
+exist, every traffic query failed, and the visit beacon had written nothing since 2026-11-08.
+
+- **Applied `0019_pink_blonde_phantom` and `0020_puzzling_slipstream`** to the production branch as one
+  transaction, recorded in `drizzle.__drizzle_migrations` with the committed SQL's hashes and the
+  journal's timestamps: production is now at **21 migrations / 52 tables**. `0019` also widens
+  `order_event_type_valid` to include `order_claimed` and replaces the order-immutability trigger, which
+  the deployed guest-claim feature needs.
+- **Verified against production:** `visit_session.division` exists and accepts a write, a real storefront
+  load recorded a session with a division, and the traffic page's aggregate queries run. `/api/track`
+  answers 204 and the visit log is recording again.
+- **Migrations `0021`-`0023` remain local-only**, because their code is not deployed; `db:status` must be
+  run before the next deploy.
+
 ### Changed - 2026-11-10: the offer popup's description is optional too
 
 Follow-up to the hero change: *"same description issue in /qbpanel/settings/offer-popup fix this too."*

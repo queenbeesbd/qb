@@ -289,14 +289,28 @@ no screen, notice or figure may imply a refund occurred.
 
 **Deployed 2026-11-09 (owner-authorized, ADR 0031).** The panel moved to `/qbpanel` and the owner session
 lengthened; the production alias `https://queenbees.vercel.app` now serves it (deployment
-`dpl_4B5pc2fMzGF7BRPXZxJfRyfHb3L5`). **No migration was applied - none was added; production stays at 19
-migrations / 52 tables.** Observed after the deploy: `/` and `/products` 200, `/admin` and
+`dpl_4B5pc2fMzGF7BRPXZxJfRyfHb3L5`). **No migration was applied with that deploy - and it shipped code
+that needed two, which failed the traffic screen and the visit log on 2026-11-10 (see below); production
+now stands at 21 migrations / 52 tables.** Observed after the deploy: `/` and `/products` 200, `/admin` and
 `/api/admin/...` 404, `/qbpanel` 307 to `/qbpanel/login`, `/qbpanel/login` 200 with `X-Robots-Tag` and
 `cache-control: private, no-store`, `robots.txt` `Disallow: /`, cross-origin `POST
 /api/qbpanel/session/login` 403. `android-app/dist/queenbees-panel-debug.apk` loads that same
 `/qbpanel`, so it works only against a deployment carrying this change. **An existing `/admin` bookmark
 is dead**, and a session minted before the change keeps its old 8-hour expiry, so the owner signs in
 once more per device.
+
+**Production migration catch-up (2026-11-10).** `/qbpanel/traffic` showed "The admin page could not be
+loaded". The cause was the same as 2026-11-07 and 2026-11-08: **the deployed code expected migrations
+`0019_pink_blonde_phantom` and `0020_puzzling_slipstream`, and production was still at `0018`** - so
+`visit_session.division` did not exist, every traffic query failed, the visit beacon wrote nothing after
+2026-11-08, and the guest-order claim's `order_claimed` event would have been refused. Both migrations
+were applied to the production branch as one transaction and recorded in `drizzle.__drizzle_migrations`
+(hashes of the committed SQL, the journal's `when` timestamps), taking production to **21 migrations**;
+`visit_session.division` exists and one live storefront load recorded a session with a division.
+**Migrations `0021`-`0023` (per-product delivery, optional hero/popup descriptions) are local-only and
+belong to undeployed code - apply them with `db:status` before the next deploy.** This is the third
+recurrence of the same failure mode: a deploy does not run migrations, so **run `db:status` and apply
+pending migrations before every deploy**, not after a screen breaks.
 
 **Known exposure.** An untracked, gitignored `.env` file in the working tree holds a plaintext credential for the withdrawn `merchant.zatiqeasy.com` vendor. It is read by no code and is not committed. **Rotation and removal are owner actions** - do not read the value into output, and do not delete or rotate it on the owner's behalf.
 
