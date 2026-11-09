@@ -157,6 +157,19 @@ export const product = pgTable(
      * no ledger, reservation or deduction participates in it, and what that leaves unguaranteed.
      */
     availability: text('availability').notNull().default('out_of_stock'),
+    /**
+     * Optional per-product delivery charges (owner decision, 2026-11-10), one per delivery area, in
+     * poisha. `NULL` is the normal case: the product is delivered at the store's own configured charge
+     * for the customer's area (ADR 0029). A value here replaces that charge for an order containing the
+     * product, and an order with several such products is charged the **lowest** of them.
+     *
+     * Three columns rather than a rate table: the shop sells one store's own goods, and the owner asked
+     * for exactly three fields - Chattogram, Dhaka and every other district - so a table would be a
+     * shape with one row per product and no other use.
+     */
+    deliveryChattogramMinor: integer('delivery_chattogram_minor'),
+    deliveryDhakaMinor: integer('delivery_dhaka_minor'),
+    deliveryOthersMinor: integer('delivery_others_minor'),
     isPublished: boolean('is_published').notNull().default(false),
     publishedAt: timestamp('published_at', { withTimezone: true, mode: 'date' }),
     createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
@@ -186,6 +199,19 @@ export const product = pgTable(
     // A shelf line, bounded at 500 characters by the documented input rule. The schema bounds it too,
     // so a value written outside the form cannot exceed what the interface promises.
     check('product_short_description_len', sql`${t.shortDescription} is null or char_length(${t.shortDescription}) between 1 and 500`),
+    // A delivery charge is money: never negative, and null means "use the store's own charge".
+    check(
+      'product_delivery_chattogram_non_negative',
+      sql`${t.deliveryChattogramMinor} is null or ${t.deliveryChattogramMinor} >= 0`,
+    ),
+    check(
+      'product_delivery_dhaka_non_negative',
+      sql`${t.deliveryDhakaMinor} is null or ${t.deliveryDhakaMinor} >= 0`,
+    ),
+    check(
+      'product_delivery_others_non_negative',
+      sql`${t.deliveryOthersMinor} is null or ${t.deliveryOthersMinor} >= 0`,
+    ),
   ],
 );
 

@@ -1,5 +1,7 @@
 /** Domain types for the local demo catalog. See docs/catalog.md. */
 
+import type { ProductDeliveryMinor } from './delivery';
+
 /**
  * The interface language. English only since Phase 28: the narrower type makes a Bangla interface a
  * compile error rather than a configuration mistake. Catalog records still carry `bn` text; that is
@@ -161,6 +163,11 @@ export type CatalogItem = {
    */
   categorySlug: string;
   pack: string | null;
+  /**
+   * The product's own delivery charge per area, or nulls where the store's configured charge applies
+   * (owner decision, 2026-11-10). The cart and checkout price a basket from this same snapshot.
+   */
+  deliveryMinor: ProductDeliveryMinor;
   priceMinor: Money;
   compareAtPriceMinor: Money | null;
   availability: Availability;

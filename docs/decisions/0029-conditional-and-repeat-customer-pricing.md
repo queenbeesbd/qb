@@ -28,7 +28,12 @@ default charges, no conditional rate, no repeat benefit. `npm run db:migrate` is
 ### 2. One pure resolver defines the hierarchy
 
 `src/lib/delivery.ts` gains `quoteOrderDelivery(rates, area, context)`, used by the cart, the checkout
-preview and the order transaction. For a signed-in customer:
+preview and the order transaction.
+
+**Amended 2026-11-10 (ADR 0034):** a product's own delivery charge, when the basket states one for the
+customer's area, is answered **before** every step below, applies to guests too, and can price an order
+even when no default is configured. It is not a rate and is never re-priced by rules 1 or 2. The
+hierarchy below is otherwise unchanged. For a signed-in customer:
 
 1. repeat delivery - repeat customer, rule on, rate for the area;
 2. conditional delivery - rule on, `subtotal >= minimum`, rate for the area;

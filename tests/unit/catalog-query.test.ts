@@ -19,6 +19,7 @@ import {
   type CatalogQuery,
 } from '@/features/catalog/query';
 import { listingHref } from '@/features/catalog/listing/url';
+import { NO_PRODUCT_DELIVERY } from '@/lib/delivery';
 import type { CatalogCategory, CatalogItem } from '@/lib/types';
 
 const CATEGORY_40 = 'a'.repeat(40);
@@ -61,6 +62,7 @@ const products: CatalogItem[] = [
     categoryId: 'skincare',
     categorySlug: 'skincare',
     pack: null,
+    deliveryMinor: NO_PRODUCT_DELIVERY,
     priceMinor: 10000,
     compareAtPriceMinor: null,
     availability: 'in_stock',
@@ -80,6 +82,7 @@ const products: CatalogItem[] = [
     categoryId: 'haircare',
     categorySlug: 'haircare',
     pack: null,
+    deliveryMinor: NO_PRODUCT_DELIVERY,
     priceMinor: 20000,
     compareAtPriceMinor: null,
     availability: 'in_stock',
@@ -185,6 +188,7 @@ describe('catalog filter facets', () => {
       categoryId: 'skincare',
       categorySlug: 'skincare',
       pack: '30 ml',
+      deliveryMinor: NO_PRODUCT_DELIVERY,
       priceMinor: 10000,
       compareAtPriceMinor: null,
       availability: 'in_stock',
@@ -204,6 +208,7 @@ describe('catalog filter facets', () => {
       categoryId: 'haircare',
       categorySlug: 'haircare',
       pack: null,
+      deliveryMinor: NO_PRODUCT_DELIVERY,
       priceMinor: 20000,
       compareAtPriceMinor: null,
       availability: 'out_of_stock',
@@ -223,6 +228,7 @@ describe('catalog filter facets', () => {
       categoryId: 'skincare',
       categorySlug: 'skincare',
       pack: null,
+      deliveryMinor: NO_PRODUCT_DELIVERY,
       priceMinor: 30000,
       compareAtPriceMinor: null,
       availability: 'in_stock',
@@ -242,6 +248,7 @@ describe('catalog filter facets', () => {
       categoryId: 'skincare',
       categorySlug: 'skincare',
       pack: null,
+      deliveryMinor: NO_PRODUCT_DELIVERY,
       priceMinor: 5000,
       compareAtPriceMinor: null,
       availability: 'in_stock',
@@ -389,6 +396,7 @@ describe('subcategory listing scope', () => {
     categoryId,
     categorySlug,
     pack: null,
+    deliveryMinor: NO_PRODUCT_DELIVERY,
     priceMinor: 10_000,
     compareAtPriceMinor: null,
     availability: 'in_stock',

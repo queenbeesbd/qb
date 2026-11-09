@@ -104,6 +104,7 @@ function toCatalogItem(record: CatalogProduct): CatalogItem {
     categoryId: record.categoryId,
     categorySlug: record.categorySlug,
     pack: record.pack,
+    deliveryMinor: record.deliveryMinor,
     priceMinor: record.priceMinor,
     compareAtPriceMinor: record.compareAtPriceMinor,
     availability: record.availability,

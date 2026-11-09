@@ -1,3 +1,4 @@
+import { NO_PRODUCT_DELIVERY } from '@/lib/delivery';
 import type {
   CatalogCategory,
   CatalogItem,
@@ -76,6 +77,9 @@ export function fixtureToCatalogItem(product: Product): CatalogItem {
     categoryId: product.categoryId,
     categorySlug: product.categoryId,
     pack: product.pack,
+    // The captured fixture predates per-product delivery charges and has no field for them. Nulls
+    // mean "the store's own charge applies", which is true: nothing in the fixture states a fee.
+    deliveryMinor: NO_PRODUCT_DELIVERY,
     priceMinor: product.priceMinor,
     compareAtPriceMinor: product.compareAtPriceMinor,
     availability: product.availability,

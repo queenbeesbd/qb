@@ -872,6 +872,10 @@ export type ProductInput = {
   readonly categoryId: unknown;
   readonly brandId: unknown;
   readonly packSize?: unknown;
+  /** Optional per-area delivery charges, typed in BDT. Blank means the store's own charge applies. */
+  readonly deliveryChattogram?: unknown;
+  readonly deliveryDhaka?: unknown;
+  readonly deliveryOthers?: unknown;
   readonly price: unknown;
   readonly compareAtPrice?: unknown;
   readonly sku?: unknown;
@@ -1076,6 +1080,10 @@ export async function getProductForAdmin(tx: Transaction, productId: unknown): P
       packSize: string | null;
       categoryId: number;
       brandId: number;
+      /** Optional per-area delivery charges in poisha; null means the store's own charge applies. */
+      deliveryChattogramMinor: number | null;
+      deliveryDhakaMinor: number | null;
+      deliveryOthersMinor: number | null;
       availability: string;
       isPublished: boolean;
       publishedAt: Date | null;
@@ -1109,6 +1117,9 @@ export async function getProductForAdmin(tx: Transaction, productId: unknown): P
       packSize: product.packSize,
       categoryId: product.categoryId,
       brandId: product.brandId,
+      deliveryChattogramMinor: product.deliveryChattogramMinor,
+      deliveryDhakaMinor: product.deliveryDhakaMinor,
+      deliveryOthersMinor: product.deliveryOthersMinor,
       availability: product.availability,
       isPublished: product.isPublished,
       publishedAt: product.publishedAt,
@@ -1180,6 +1191,9 @@ export async function createProduct(
       descriptionEn: fields.descriptionEn,
       shortDescription: fields.shortDescription,
       packSize: fields.packSize,
+      deliveryChattogramMinor: fields.deliveryChattogramMinor,
+      deliveryDhakaMinor: fields.deliveryDhakaMinor,
+      deliveryOthersMinor: fields.deliveryOthersMinor,
       availability: fields.availability,
       isPublished: fields.isPublished,
       publishedAt: fields.isPublished ? new Date() : null,
@@ -1210,6 +1224,11 @@ export async function createProduct(
       nameEn: fields.nameEn,
       categoryId: fields.categoryId,
       priceMinor: fields.priceMinor,
+      deliveryMinor: {
+        chattogram: fields.deliveryChattogramMinor,
+        dhaka: fields.deliveryDhakaMinor,
+        others: fields.deliveryOthersMinor,
+      },
       availability: fields.availability,
       isPublished: fields.isPublished,
     },
@@ -1261,6 +1280,9 @@ export async function updateProduct(
       descriptionEn: fields.descriptionEn,
       shortDescription: fields.shortDescription,
       packSize: fields.packSize,
+      deliveryChattogramMinor: fields.deliveryChattogramMinor,
+      deliveryDhakaMinor: fields.deliveryDhakaMinor,
+      deliveryOthersMinor: fields.deliveryOthersMinor,
       availability: fields.availability,
       isPublished: fields.isPublished,
       // `product_published_needs_timestamp` requires a timestamp the first time it is published; an
@@ -1300,6 +1322,11 @@ export async function updateProduct(
       slug: fields.slug,
       nameEn: fields.nameEn,
       priceMinor: fields.priceMinor,
+      deliveryMinor: {
+        chattogram: fields.deliveryChattogramMinor,
+        dhaka: fields.deliveryDhakaMinor,
+        others: fields.deliveryOthersMinor,
+      },
       availability: fields.availability,
       isPublished: fields.isPublished,
     },
@@ -1488,6 +1515,9 @@ async function normalizeProductInput(
   categoryId: number;
   brandId: number;
   packSize: string | null;
+  deliveryChattogramMinor: number | null;
+  deliveryDhakaMinor: number | null;
+  deliveryOthersMinor: number | null;
   priceMinor: number;
   compareAtPriceMinor: number | null;
   sku: string;
@@ -1517,6 +1547,17 @@ async function normalizeProductInput(
 
   const packSize = parseOptionalText(input.packSize, TEXT_BOUNDS.packSize);
   if (!packSize.ok) throw new ValidationError('the pack size is too long');
+
+  /*
+   * A product's own delivery charge (owner decision, 2026-11-10). Blank is the ordinary case and means
+   * "the store's configured charge applies"; a typed amount is this product's charge for that area.
+   * Zero is accepted and means free delivery - it is a different statement from blank, which is why
+   * the column is nullable rather than zero-filled. `parsePoisha` refuses a formatted amount, a
+   * negative number and a bare number, so the value is always an integer the owner actually typed.
+   */
+  const deliveryChattogram = parseOptionalDeliveryCharge(input.deliveryChattogram, 'Chattogram');
+  const deliveryDhaka = parseOptionalDeliveryCharge(input.deliveryDhaka, 'Dhaka');
+  const deliveryOthers = parseOptionalDeliveryCharge(input.deliveryOthers, 'other districts');
 
   // A category reference is validated against the table, not trusted: an id that does not exist, or
   // that names an archived category, is refused rather than written as a dangling association.
@@ -1579,12 +1620,34 @@ async function normalizeProductInput(
     categoryId,
     brandId,
     packSize: packSize.value,
+    deliveryChattogramMinor: deliveryChattogram,
+    deliveryDhakaMinor: deliveryDhaka,
+    deliveryOthersMinor: deliveryOthers,
     priceMinor,
     compareAtPriceMinor,
     sku: requestedSku ?? defaultSku(slug),
     availability,
     isPublished: parseVisibility(input.isPublished),
   };
+}
+
+/**
+ * Reads one optional per-area delivery charge. A blank field stores `null`, which means the store's
+ * configured charge for that area applies. A typed amount must be a BDT string the owner actually
+ * typed; formatting, a negative number or a bare JS number is refused rather than guessed at.
+ */
+function parseOptionalDeliveryCharge(raw: unknown, label: string): number | null {
+  if (raw === undefined || raw === null) return null;
+  if (typeof raw !== 'string') {
+    throw new ValidationError(`the ${label} delivery charge must be typed text`);
+  }
+  const value = raw.trim();
+  if (value === '') return null;
+  const minor = parsePoisha(value, { allowZero: true });
+  if (minor === null) {
+    throw new ValidationError(`the ${label} delivery charge must be a BDT amount, zero or more`);
+  }
+  return minor;
 }
 
 /**

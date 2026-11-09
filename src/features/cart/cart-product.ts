@@ -1,3 +1,4 @@
+import type { ProductDeliveryMinor } from '@/lib/delivery';
 import type {
   Availability,
   CatalogItem,
@@ -24,6 +25,8 @@ export type CartProduct = {
   name: string;
   brand: string | null;
   pack: string | null;
+  /** The product's own delivery charge per area, which the checkout quote may use. */
+  deliveryMinor: ProductDeliveryMinor;
   priceMinor: Money;
   compareAtPriceMinor: Money | null;
   availability: Availability;
@@ -40,6 +43,7 @@ export function toCartProduct(item: CatalogItem): CartProduct {
     name: item.name.en ?? item.name.bn ?? item.slug,
     brand: item.brand,
     pack: item.pack,
+    deliveryMinor: item.deliveryMinor,
     priceMinor: item.priceMinor,
     compareAtPriceMinor: item.compareAtPriceMinor,
     availability: item.availability,

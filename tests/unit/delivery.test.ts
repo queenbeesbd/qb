@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
 import {
+  customDeliveryMinor,
   quoteDelivery,
   quoteOrderDelivery,
   repeatDiscountMinor,
@@ -274,5 +275,81 @@ describe('repeat-customer discount', () => {
       };
       assert.equal(repeatDiscountMinor(invalid, { ...repeatCustomer, subtotalMinor: 250000 }), 0);
     }
+  });
+});
+
+/**
+ * A product's own delivery charge (owner decision, 2026-11-10).
+ *
+ * Two rules the owner stated: a basket with one product that carries a fee and others that do not is
+ * charged the custom fee, and a basket with several custom fees is charged the lowest. The rest of
+ * the hierarchy is unchanged when no product states a fee.
+ */
+describe('product delivery charges', () => {
+  const none = { chattogram: null, dhaka: null, others: null };
+  const fee = (chattogram: number | null, dhaka: number | null, others: number | null) => ({
+    chattogram,
+    dhaka,
+    others,
+  });
+
+  it('takes the lowest stated fee for the area, and treats a blank field as "no fee of its own"', () => {
+    assert.equal(
+      customDeliveryMinor([none, fee(7000, 9000, 12000), fee(5000, 9500, 12000)], 'dhaka'),
+      9000,
+    );
+    assert.equal(customDeliveryMinor([none, none], 'dhaka'), null);
+    assert.equal(customDeliveryMinor([fee(7000, 9000, 12000)], 'chattogram'), 7000);
+    assert.equal(
+      customDeliveryMinor([fee(null, null, 12000)], 'dhaka'),
+      null,
+      'a product with no fee for this area does not price it',
+    );
+  });
+
+  it('accepts zero as "free delivery", which blank does not mean', () => {
+    assert.equal(customDeliveryMinor([fee(null, 0, null)], 'dhaka'), 0);
+  });
+
+  it('ignores a value that is not a non-negative integer', () => {
+    assert.equal(
+      customDeliveryMinor([{ chattogram: -1, dhaka: 12.5, others: null }], 'dhaka'),
+      null,
+    );
+    assert.equal(customDeliveryMinor([none], 'unknown-area'), null);
+  });
+
+  it('beats every step of the store hierarchy, for a guest as well', () => {
+    assert.deepEqual(quoteOrderDelivery(BASE_RATES, 'dhaka', newCustomer, 4500), {
+      ok: true,
+      quote: { areaCode: 'dhaka', chargeMinor: 4500, source: 'product' },
+    });
+    assert.deepEqual(quoteOrderDelivery(BASE_RATES, 'dhaka', repeatCustomer, 4500), {
+      ok: true,
+      quote: { areaCode: 'dhaka', chargeMinor: 4500, source: 'product' },
+    });
+    assert.deepEqual(quoteOrderDelivery(BASE_RATES, 'dhaka', guest, 4500), {
+      ok: true,
+      quote: { areaCode: 'dhaka', chargeMinor: 4500, source: 'product' },
+    });
+  });
+
+  it('prices an order from the product when the store has no default charge configured', () => {
+    const unconfigured: DeliveryRates = { defaultMinor: null, overrides: new Map() };
+    assert.deepEqual(quoteOrderDelivery(unconfigured, 'others', guest, 0), {
+      ok: true,
+      quote: { areaCode: 'others', chargeMinor: 0, source: 'product' },
+    });
+    assert.deepEqual(quoteOrderDelivery(unconfigured, 'others', guest), {
+      ok: false,
+      reason: 'unconfigured',
+    });
+  });
+
+  it('leaves the existing hierarchy untouched when no product states a fee', () => {
+    assert.deepEqual(quoteOrderDelivery(BASE_RATES, 'dhaka', newCustomer, null), {
+      ok: true,
+      quote: { areaCode: 'dhaka', chargeMinor: 10000, source: 'conditional' },
+    });
   });
 });

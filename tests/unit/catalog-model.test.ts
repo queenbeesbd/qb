@@ -44,6 +44,7 @@ test('fixtureToCatalogItem carries only view facts and is marked fixture-sourced
   assert.equal(item.priceMinor, fixture.priceMinor);
   assert.equal(item.compareAtPriceMinor, fixture.compareAtPriceMinor);
   assert.equal(item.availability, fixture.availability);
+  assert.deepEqual(item.deliveryMinor, { chattogram: null, dhaka: null, others: null });
 
   // The category id is the slug in the fixture; both fields agree so filtering keys on one value.
   assert.equal(item.categorySlug, item.categoryId);
@@ -65,6 +66,9 @@ test('fixtureToCatalogItem carries only view facts and is marked fixture-sourced
       'categorySlug',
       'compareAtPriceMinor',
       'createdAt',
+      // The product's own delivery charges (2026-11-10). A view/pricing fact like `pack`; the fixture
+      // states none, so all three are null and the store's configured charge applies.
+      'deliveryMinor',
       'description',
       'id',
       'images',

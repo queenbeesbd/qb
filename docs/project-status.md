@@ -650,3 +650,35 @@ Owner request: both search boxes should work in real time and fuzzily, with no p
   opt-in `live` prop (300ms `replace`) that only the products list sets.
 - **No new surface**: no endpoint, no client-side catalog index, no search dependency, no change to the
   admin search's permission or to the storefront's no-index rules.
+
+## Per-product delivery charges (2026-11-10)
+
+The owner asked for a product to be able to carry its own delivery charge, with three optional fields
+(Chattogram, Dhaka, other districts), a blank field falling back to the store's charge, and the **lowest**
+fee winning when a basket holds several. Recorded in ADR 0034, which amends ADR 0029's hierarchy.
+
+- **Schema:** migration `0021` adds `delivery_chattogram_minor`, `delivery_dhaka_minor` and
+  `delivery_others_minor` to `product` (nullable integers with non-negative checks). Additive; **52 tables
+  unchanged**, `db:validate` reports 199 checks.
+- **Resolver:** `src/lib/delivery.ts` gains `ProductDeliveryMinor` and `customDeliveryMinor`, and
+  `quoteOrderDelivery` gained a fourth argument that answers first - before the repeat, conditional,
+  district and default steps - so a product fee applies to a guest, is never re-priced by the rate rules,
+  and can price an order with no default configured. Zero is accepted and means free delivery.
+- **Threading:** the storefront catalog projection, the cart's compact product and the order lines each
+  carry the three numbers, so the checkout preview and the order transaction call the same resolver with
+  the same inputs.
+- **Editor:** the product form's Shipping card became **Delivery charge** with the three optional money
+  fields; the service parses them with `parsePoisha` (blank -> NULL, zero allowed), stores them, returns
+  them for prefill and records them in the audit `before`/`after`.
+- **Checkout:** a `source: 'product'` quote renders "A product in this order carries its own delivery
+  charge for this area.", and `deliveryConfigured` now counts a product charge as configured.
+
+**Verified (local dev cluster + production build).** `typecheck`, `lint` (0 errors), `check:i18n` (1,780
+keys), unit suite **289/289** (six new precedence cases), `db:validate` (52 tables, 199 checks),
+`db:check`, `build`. Through the running panel and storefront in headless Chromium: the editor renders
+**Delivery charge** and prefill, fees saved as 40/60/90 BDT and 120/150/200 BDT; the checkout showed
+Tk 60 for product 1 in Dhaka, **Tk 60** for the basket of both (lowest), Tk 150 for product 2 alone and
+Tk 100 (the store's Dhaka override) for a product without a fee; a guest order of both products stored
+`items_subtotal_minor = 140000`, `shipping_minor = 6000`, `total_minor = 146000` on the Dhaka area. Test
+fees were then cleared and guest ordering switched back off; the test order remains in the local cluster.
+`verify:admin`, `verify:browser` and the db suite were not re-run, and nothing is deployed.

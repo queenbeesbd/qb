@@ -32,6 +32,7 @@ function item(
     categoryId: 'skincare',
     categorySlug: 'skincare',
     pack: null,
+    deliveryMinor: { chattogram: null, dhaka: null, others: null },
     priceMinor: 10_000,
     compareAtPriceMinor: null,
     availability: 'in_stock',

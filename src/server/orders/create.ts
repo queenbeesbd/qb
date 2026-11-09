@@ -49,7 +49,12 @@ import {
   productVariant,
 } from '@/db/schema';
 import { checkOrderability } from '@/server/catalog/orderability';
-import { quoteOrderDelivery, repeatDiscountMinor } from '@/lib/delivery';
+import {
+  customDeliveryMinor,
+  quoteOrderDelivery,
+  repeatDiscountMinor,
+  type ProductDeliveryMinor,
+} from '@/lib/delivery';
 import { isRepeatCustomer, loadDeliveryRates } from '@/server/delivery/service';
 import { recordPromoRedemption, resolvePromo } from '@/server/promotions/service';
 
@@ -238,7 +243,15 @@ export async function createOrder(tx: Transaction, input: CreateOrderInput): Pro
     authenticated: input.customerId !== null,
     repeatCustomer,
   };
-  const quote = quoteOrderDelivery(rates, input.contact.districtCode, pricing);
+  /*
+   * A product's own delivery charge, when the basket carries one for this area, is the charge that is
+   * snapshotted - resolved from the same rows the lines were priced from, never from the request.
+   */
+  const productChargeMinor = customDeliveryMinor(
+    resolved.map((line) => line.deliveryMinor),
+    input.contact.districtCode,
+  );
+  const quote = quoteOrderDelivery(rates, input.contact.districtCode, pricing, productChargeMinor);
   if (!quote.ok) {
     throw new OrderRefusalError(
       quote.reason === 'unconfigured' ? 'delivery_unconfigured' : 'invalid_district',
@@ -440,6 +453,8 @@ export type ResolvedOrderLine = {
   readonly sku: string;
   readonly priceMinor: number;
   readonly compareAtPriceMinor: number | null;
+  /** The product's own delivery charges, read inside the same transaction as its price. */
+  readonly deliveryMinor: ProductDeliveryMinor;
   readonly quantity: number;
   readonly imageKey: string | null;
 };
@@ -479,6 +494,9 @@ export async function resolveOrderLines(
         sku: productVariant.sku,
         priceMinor: productVariant.priceMinor,
         compareAtPriceMinor: productVariant.compareAtPriceMinor,
+        deliveryChattogramMinor: product.deliveryChattogramMinor,
+        deliveryDhakaMinor: product.deliveryDhakaMinor,
+        deliveryOthersMinor: product.deliveryOthersMinor,
       })
       .from(productVariant)
       .innerJoin(product, sql`${product.id} = ${productVariant.productId}`)
@@ -506,6 +524,11 @@ export async function resolveOrderLines(
       sku: row.sku,
       priceMinor: row.priceMinor,
       compareAtPriceMinor: row.compareAtPriceMinor,
+      deliveryMinor: {
+        chattogram: row.deliveryChattogramMinor,
+        dhaka: row.deliveryDhakaMinor,
+        others: row.deliveryOthersMinor,
+      },
       // Clamped here as well as at the request boundary, so the invariant holds for any caller: a
       // quantity outside 1..cap is never stored, whatever path reached this function.
       quantity: Math.min(Math.max(Math.trunc(line.quantity), 1), ORDER_LIMITS.maxQuantityPerLine),

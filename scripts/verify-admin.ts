@@ -2598,6 +2598,7 @@ async function main(): Promise<void> {
               h1Count: number;
               imagesInput: boolean;
               dropZone: boolean;
+              feeFields: number;
               enctype: string;
             }>(`(() => {
               const sections = [...document.querySelectorAll('main section h2')].map((h) => h.textContent?.trim() ?? '');
@@ -2615,6 +2616,7 @@ async function main(): Promise<void> {
                 overflow: document.documentElement.scrollWidth - window.innerWidth,
                 imagesInput: document.querySelector('main input[type="file"][name="images"]') !== null,
                 dropZone: document.querySelector('main [data-dragging]') !== null,
+                feeFields: document.querySelectorAll('main input[name^="delivery"]').length,
                 enctype: form?.getAttribute('enctype') ?? '',
               };
             })()`);
@@ -2626,7 +2628,7 @@ async function main(): Promise<void> {
                 editorShell.sections.includes('Media') &&
                 editorShell.sections.includes('Pricing') &&
                 editorShell.sections.includes('Inventory') &&
-                editorShell.sections.includes('Shipping') &&
+                editorShell.sections.includes('Delivery charge') &&
                 editorShell.sections.includes('Organisation') &&
                 editorShell.sections.includes('Publication') &&
                 editorShell.sections.includes('Storefront preview') &&
@@ -2635,6 +2637,7 @@ async function main(): Promise<void> {
                 editorShell.columns === 2 &&
                 editorShell.imagesInput === true &&
                 editorShell.dropZone === true &&
+                editorShell.feeFields === 3 &&
                 editorShell.enctype === 'multipart/form-data' &&
                 editorShell.overflow <= 1,
               JSON.stringify(editorShell),

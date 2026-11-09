@@ -26,6 +26,7 @@ import { desc, sql } from 'drizzle-orm';
 
 import type { Transaction } from '@/db/client';
 import { IMAGE_RIGHTS_STATUS, UNBRANDED_BRAND_SLUG } from '@/db/schema/values';
+import type { ProductDeliveryMinor } from '@/lib/delivery';
 import type { ImageRightsStatus } from '@/lib/types';
 import {
   brand,
@@ -53,6 +54,12 @@ export type CatalogProduct = {
   readonly categoryId: string;
   readonly categorySlug: string;
   readonly pack: string | null;
+  /**
+   * The product's own delivery charges, or nulls when the store's configured charge applies
+   * (owner decision, 2026-11-10). Read here because the cart and checkout price a basket from the
+   * same snapshot the storefront renders.
+   */
+  readonly deliveryMinor: ProductDeliveryMinor;
   readonly priceMinor: number;
   readonly compareAtPriceMinor: number | null;
   /** The owner's In Stock / Out of Stock state (D19). Never a quantity. */
@@ -133,6 +140,9 @@ export async function listPublishedProducts(tx: Transaction): Promise<CatalogPro
       descriptionEn: product.descriptionEn,
       shortDescription: product.shortDescription,
       packSize: product.packSize,
+      deliveryChattogramMinor: product.deliveryChattogramMinor,
+      deliveryDhakaMinor: product.deliveryDhakaMinor,
+      deliveryOthersMinor: product.deliveryOthersMinor,
       availability: product.availability,
       categoryId: category.id,
       categorySlug: category.slug,
@@ -211,6 +221,9 @@ export async function getPublishedProductBySlug(
       descriptionEn: product.descriptionEn,
       shortDescription: product.shortDescription,
       packSize: product.packSize,
+      deliveryChattogramMinor: product.deliveryChattogramMinor,
+      deliveryDhakaMinor: product.deliveryDhakaMinor,
+      deliveryOthersMinor: product.deliveryOthersMinor,
       availability: product.availability,
       categoryId: category.id,
       categorySlug: category.slug,
@@ -491,6 +504,9 @@ function projectProduct(
     descriptionEn: string | null;
     shortDescription: string | null;
     packSize: string | null;
+    deliveryChattogramMinor: number | null;
+    deliveryDhakaMinor: number | null;
+    deliveryOthersMinor: number | null;
     availability: string;
     categoryId: number;
     categorySlug: string;
@@ -516,6 +532,11 @@ function projectProduct(
     categoryId: String(row.categoryId),
     categorySlug: row.categorySlug,
     pack: row.packSize,
+    deliveryMinor: {
+      chattogram: row.deliveryChattogramMinor,
+      dhaka: row.deliveryDhakaMinor,
+      others: row.deliveryOthersMinor,
+    },
     priceMinor: row.priceMinor,
     compareAtPriceMinor: row.compareAtPriceMinor,
     // The schema's CHECK constraint is the guarantee; this narrows the string the driver returns.

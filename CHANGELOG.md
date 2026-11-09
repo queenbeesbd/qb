@@ -14,6 +14,31 @@ An entry may describe a deployment only once it has actually happened and been o
 
 ## [Unreleased]
 
+### Added - 2026-11-10: a product can carry its own delivery charge
+
+Owner request: *"products can have its own delivery charges - remove the shipping component and add
+delivery charge component where there will be three form for ctg then dhaka and then others ... adding
+this will be optional and if we dont add they will use normal site delivery fee ... if custom orders
+multiple product with custom delivery fee then the site will count the lowest one."* Recorded in
+[ADR 0034](docs/decisions/0034-per-product-delivery-charges.md).
+
+- **Three optional product columns** (`delivery_chattogram_minor`, `delivery_dhaka_minor`,
+  `delivery_others_minor`, migration `0021`, additive; 52 tables unchanged). NULL is the normal case and
+  means the store's configured charge applies; `0` means free delivery for that area.
+- **The editor's Shipping card is now Delivery charge**: three optional BDT fields, a hint naming the
+  blank/fallback and lowest-of-several rules, and the link to Delivery charges. Values are parsed as
+  typed BDT and audited with the product write.
+- **One resolver, shared by preview and order**: `customDeliveryMinor` takes the lowest fee any line
+  states for the customer's area and `quoteOrderDelivery` answers it before every store rule, including
+  for a guest. It is per order, never per unit, and never enters a subtotal or discount.
+- **Checkout states the rule** when a product's charge priced the order, and a product charge can price an
+  order even when no store default is configured (which still refuses otherwise).
+- Stored orders keep their snapshot: a later fee change affects later orders only.
+
+**Verified:** `typecheck`, `lint` (0 errors), `check:i18n`, unit suite **289/289** (6 new delivery
+precedence cases), `db:validate` (52 tables, 199 checks), `build`, and a Chromium walk-through saving the
+fees, reading the checkout charge and placing an order whose stored `shipping_minor` matched.
+
 ### Changed - 2026-11-10: search runs while typing, and matches fuzzily
 
 Owner request: *"both storefront and admin panel search for products feature should be real time fuzzy

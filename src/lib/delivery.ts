@@ -6,7 +6,10 @@
  * reads the configuration from the database, decides whether the caller is a repeat customer, and
  * recomputes every amount; a submitted total is never trusted.
  *
- * **The hierarchy is fixed (ADR 0029).** For a signed-in customer:
+ * **The hierarchy is fixed (ADR 0029, amended 2026-11-10).** A product's own delivery charge, when
+ * the basket carries one for the customer's area, is the whole charge - it is the shop's stated price
+ * for delivering that product, not a benefit, so it is **not** re-priced by the repeat or conditional
+ * rules. Otherwise, for a signed-in customer:
  *
  *   repeat delivery (repeat customer, rule on, rate for the area)
  *     -> conditional delivery (rule on, subtotal reaches the minimum, rate for the area)
@@ -65,7 +68,54 @@ export type DeliveryPricingContext = {
   readonly repeatCustomer: boolean;
 };
 
-export type DeliveryQuoteSource = 'repeat' | 'conditional' | 'district' | 'default';
+/**
+ * A product's own delivery charges, one per area, in poisha.
+ *
+ * `null` is the ordinary case: the product is delivered at the store's configured charge. A number is
+ * the owner's own price for delivering that product to that area; zero means free delivery, which is
+ * why the fields are nullable rather than zero-filled - blank and "free" are different statements.
+ */
+export type ProductDeliveryMinor = {
+  readonly chattogram: number | null;
+  readonly dhaka: number | null;
+  readonly others: number | null;
+};
+
+/** The neutral value: no fee of its own, so the store's charge decides. */
+export const NO_PRODUCT_DELIVERY: ProductDeliveryMinor = { chattogram: null, dhaka: null, others: null };
+
+/**
+ * The basket's own delivery charge for an area: the **lowest** fee any product in the basket states
+ * for that area, or `null` when none does.
+ *
+ * The owner's rule: one product with a custom fee and others without uses the custom fee; several
+ * products with custom fees use the lowest. Lowest rather than highest is deliberate - the shopper
+ * chose what to buy, and charging the largest of several stated prices would punish a larger basket.
+ * An invalid or negative number is ignored rather than trusted.
+ */
+export function customDeliveryMinor(
+  items: readonly (ProductDeliveryMinor | null | undefined)[],
+  areaCode: unknown,
+): number | null {
+  if (typeof areaCode !== 'string') return null;
+  let lowest: number | null = null;
+  for (const item of items) {
+    if (item === null || item === undefined) continue;
+    const fee =
+      areaCode === 'dhaka'
+        ? item.dhaka
+        : areaCode === 'chattogram'
+          ? item.chattogram
+          : areaCode === 'others'
+            ? item.others
+            : null;
+    if (!validAmount(fee)) continue;
+    if (lowest === null || fee < lowest) lowest = fee;
+  }
+  return lowest;
+}
+
+export type DeliveryQuoteSource = 'product' | 'repeat' | 'conditional' | 'district' | 'default';
 
 export type DeliveryQuote = {
   readonly areaCode: string;
@@ -115,9 +165,22 @@ export function quoteOrderDelivery(
   rates: DeliveryRates,
   areaCode: unknown,
   context: DeliveryPricingContext,
+  /** The basket's own fee (`customDeliveryMinor`), or null when no product states one. */
+  productChargeMinor: number | null = null,
 ): DeliveryQuoteResult {
   const area = typeof areaCode === 'string' ? deliveryAreaByCode(areaCode) : null;
   if (area === null) return { ok: false, reason: 'invalid_district' };
+
+  /*
+   * The product's stated price comes first and applies to guests too: it is what the shop charges to
+   * deliver that product, not a benefit tied to an account, and it is still snapshotted on the order.
+   */
+  if (validAmount(productChargeMinor)) {
+    return {
+      ok: true,
+      quote: { areaCode: area.code, chargeMinor: productChargeMinor, source: 'product' },
+    };
+  }
 
   if (context.authenticated) {
     const repeat = rates.repeat;

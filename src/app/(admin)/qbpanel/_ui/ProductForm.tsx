@@ -24,6 +24,10 @@ export type ProductFormValues = {
   descriptionBn?: string | null;
   descriptionEn?: string | null;
   packSize?: string | null;
+  /** Optional per-area delivery charges in poisha; null/absent means the store's charge applies. */
+  deliveryChattogramMinor?: number | null;
+  deliveryDhakaMinor?: number | null;
+  deliveryOthersMinor?: number | null;
   categoryId?: number;
   brandId?: number;
   priceMinor?: number | null;
@@ -490,16 +494,67 @@ export function ProductForm({
             </div>
           </section>
 
-          {/* ---- Shipping ---- */}
-          <section className={styles.formCard} aria-labelledby="pf-shipping">
+          {/* ---- Delivery charge (optional, per area) ---- */}
+          <section className={styles.formCard} aria-labelledby="pf-delivery">
             <div className={styles.formCardHead}>
-              <h2 id="pf-shipping">{t('admin.catalog.sectionShipping')}</h2>
-              <p>{t('admin.catalog.sectionShippingBody')}</p>
+              <h2 id="pf-delivery">{t('admin.catalog.sectionDelivery')}</h2>
+              <p>{t('admin.catalog.sectionDeliveryBody')}</p>
             </div>
-            <p className={styles.note}>{t('admin.catalog.shippingNote')}</p>
+
+            <div className={styles.formGrid}>
+              <div className={styles.field}>
+                <label htmlFor="deliveryChattogram">{t('admin.catalog.field.deliveryChattogram')}</label>
+                <div className={styles.moneyInput}>
+                  <span className={styles.moneyPrefix} aria-hidden="true">
+                    {t('admin.catalog.currencyMark')}
+                  </span>
+                  <input
+                    className={styles.input}
+                    id="deliveryChattogram"
+                    name="deliveryChattogram"
+                    inputMode="decimal"
+                    defaultValue={toBdtInput(values.deliveryChattogramMinor)}
+                  />
+                </div>
+              </div>
+
+              <div className={styles.field}>
+                <label htmlFor="deliveryDhaka">{t('admin.catalog.field.deliveryDhaka')}</label>
+                <div className={styles.moneyInput}>
+                  <span className={styles.moneyPrefix} aria-hidden="true">
+                    {t('admin.catalog.currencyMark')}
+                  </span>
+                  <input
+                    className={styles.input}
+                    id="deliveryDhaka"
+                    name="deliveryDhaka"
+                    inputMode="decimal"
+                    defaultValue={toBdtInput(values.deliveryDhakaMinor)}
+                  />
+                </div>
+              </div>
+
+              <div className={styles.field}>
+                <label htmlFor="deliveryOthers">{t('admin.catalog.field.deliveryOthers')}</label>
+                <div className={styles.moneyInput}>
+                  <span className={styles.moneyPrefix} aria-hidden="true">
+                    {t('admin.catalog.currencyMark')}
+                  </span>
+                  <input
+                    className={styles.input}
+                    id="deliveryOthers"
+                    name="deliveryOthers"
+                    inputMode="decimal"
+                    defaultValue={toBdtInput(values.deliveryOthersMinor)}
+                  />
+                </div>
+              </div>
+            </div>
+
+            <p className={styles.hint}>{t('admin.catalog.deliveryHelp')}</p>
             <p className={styles.hint}>
               <Link className={styles.recordLink} href="/qbpanel/settings/delivery">
-                {t('admin.catalog.shippingLink')}
+                {t('admin.catalog.deliveryLink')}
               </Link>
             </p>
           </section>

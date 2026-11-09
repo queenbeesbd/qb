@@ -8,7 +8,12 @@ import {
   type ContactFieldName,
   type ContactValues,
 } from '@/lib/checkout-fields';
-import { quoteOrderDelivery, repeatDiscountMinor, type DeliveryRates } from '@/lib/delivery';
+import {
+  customDeliveryMinor,
+  quoteOrderDelivery,
+  repeatDiscountMinor,
+  type DeliveryRates,
+} from '@/lib/delivery';
 import { DELIVERY_AREAS } from '@/lib/delivery-areas';
 import { useTranslation } from '@/i18n/useTranslation';
 import { useCart } from '@/features/cart/useCart';
@@ -184,8 +189,21 @@ export function CheckoutForm({
     authenticated: customer.authenticated,
     repeatCustomer: customer.repeatCustomer,
   };
-  const quote = districtCode === '' ? null : quoteOrderDelivery(rates, districtCode, pricingContext);
-  const deliveryConfigured = pricing.defaultMinor !== null;
+  /*
+   * A product's own delivery charge (owner decision, 2026-11-10). The preview resolves it from the same
+   * cart projection the order transaction reads, so the charge shown and the charge stored cannot
+   * disagree; the server still recomputes it inside the order.
+   */
+  const productChargeMinor = customDeliveryMinor(
+    resolved.entries.map((entry) => entry.product.deliveryMinor),
+    districtCode,
+  );
+  const quote =
+    districtCode === ''
+      ? null
+      : quoteOrderDelivery(rates, districtCode, pricingContext, productChargeMinor);
+  // A configured default, or a product that states its own charge, is enough to price the order.
+  const deliveryConfigured = pricing.defaultMinor !== null || productChargeMinor !== null;
   /**
    * A line whose product is not in stock right now. Availability comes from the same catalog snapshot
    * the cart is built from, and the server refuses such an order anyway - so the form says so here
@@ -618,9 +636,11 @@ export function CheckoutForm({
               )}
               {previewTotal !== null && (
                 <p className={styles.muted}>
-                  {quote?.ok === true && quote.quote.source === 'district'
-                    ? t('checkout.deliveryDistrictNote')
-                    : t('checkout.deliveryDefaultNote')}
+                  {quote?.ok === true && quote.quote.source === 'product'
+                    ? t('checkout.deliveryProductNote')
+                    : quote?.ok === true && quote.quote.source === 'district'
+                      ? t('checkout.deliveryDistrictNote')
+                      : t('checkout.deliveryDefaultNote')}
                 </p>
               )}
               {!deliveryConfigured && (

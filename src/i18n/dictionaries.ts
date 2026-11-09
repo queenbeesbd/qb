@@ -236,6 +236,7 @@ export const dictionary = {
   'checkout.unavailableNotice':
     'A product in your cart cannot be ordered right now. Return to the cart, remove it and try again.',
   'checkout.loadingLines': 'Loading the items in your cart…',
+  'checkout.deliveryProductNote': 'A product in this order carries its own delivery charge for this area.',
   'checkout.deliveryDistrictNote': 'This district’s configured delivery charge applies.',
   'checkout.deliveryDefaultNote': 'This district has no separate charge, so the default applies.',
   'checkout.submit': 'Place order',
@@ -1304,11 +1305,15 @@ export const dictionary = {
     'Drag photographs here, or add them from your computer. The first one is the card image; the rest appear in the gallery in this order.',
   'admin.catalog.sectionInventory': 'Inventory',
   'admin.catalog.sectionInventoryBody': 'How the product is identified, and whether it can be ordered.',
-  'admin.catalog.sectionShipping': 'Shipping',
-  'admin.catalog.sectionShippingBody': 'Delivery is charged by area for the whole store, not per product.',
-  'admin.catalog.shippingNote':
-    'Every order is charged the delivery rate for the customer’s area. A product does not carry its own delivery charge.',
-  'admin.catalog.shippingLink': 'Open delivery charges',
+  'admin.catalog.sectionDelivery': 'Delivery charge',
+  'admin.catalog.sectionDeliveryBody':
+    'Optional. This product can carry its own delivery charge instead of the store’s.',
+  'admin.catalog.field.deliveryChattogram': 'Chattogram',
+  'admin.catalog.field.deliveryDhaka': 'Dhaka',
+  'admin.catalog.field.deliveryOthers': 'Other districts',
+  'admin.catalog.deliveryHelp':
+    'Leave a field blank to use the store’s delivery charge for that area. If an order contains several products with their own charge, the lowest one is charged.',
+  'admin.catalog.deliveryLink': 'Open delivery charges',
   'admin.catalog.sectionOrganisation': 'Organisation',
   'admin.catalog.sectionOrganisationBody': 'Where the product sits, and how it is identified.',
   'admin.catalog.sectionPublication': 'Publication',
