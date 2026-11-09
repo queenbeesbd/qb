@@ -55,6 +55,7 @@ export async function POST(request: Request): Promise<Response> {
         instructions: form.get('instructions') ?? '',
         bkashNumber: form.get('bkashNumber') ?? '',
         bkashVisible,
+        whatsappNumber: form.get('whatsappNumber') ?? '',
         sendMoneyNote: form.get('sendMoneyNote') ?? '',
         advanceThreshold: form.get('advanceThreshold') ?? '',
       }),

@@ -7,12 +7,15 @@
  * advance, which orders may prepay in full for the gift, and where to send that money - and the owner
  * confirms the transfer on the phone, exactly as before.
  *
- * Values live in `store_setting`, so the number and the wording are data. Five keys, edited at
+ * Values live in `store_setting`, so the number and the wording are data. Six keys, edited at
  * **Settings -> Other settings -> Checkout instructions**:
  *
  * - `payment.instructions` - the owner's paragraphs, rendered one per line as plain text;
  * - `payment.bkash_number` - an 11-digit Bangladeshi mobile, shown with a copy button;
  * - `payment.bkash_visible` - the owner's switch for drawing that number block at all;
+ * - `payment.whatsapp_number` - a WhatsApp number to message about an order, drawn under the bKash
+ *   block with the same copy button; **no default exists**, so the block is absent until the owner
+ *   saves one;
  * - `payment.send_money_note` - the "Payment, not Send Money" caution;
  * - `payment.advance_threshold_minor` - the goods subtotal below which the delivery charge is payable
  *   in advance (default 500 BDT).
@@ -45,6 +48,12 @@ export const PAYMENT_SEND_MONEY_NOTE_KEY = 'payment.send_money_note';
 export const PAYMENT_ADVANCE_THRESHOLD_KEY = 'payment.advance_threshold_minor';
 /** Whether the advance-payment number block is drawn at checkout, independent of the number itself. */
 export const PAYMENT_BKASH_VISIBLE_KEY = 'payment.bkash_visible';
+/**
+ * A WhatsApp number a customer can message about an order (owner direction, 2026-11-10). It is drawn
+ * under the advance-payment number in the same card and is hidden until the owner saves one - there is
+ * no default, because a number nobody supplied would be an invented way to reach the shop.
+ */
+export const PAYMENT_WHATSAPP_NUMBER_KEY = 'payment.whatsapp_number';
 
 /** Bounds are formatting limits, not policy. */
 export const PAYMENT_MAX = { instructions: 2000, note: 220 } as const;
@@ -56,6 +65,8 @@ export type PaymentInstructions = {
   readonly bkashNumber: string | null;
   /** The owner's own switch: off hides the number block without deleting the stored number. */
   readonly bkashVisible: boolean;
+  /** A WhatsApp number to message about an order; `null` means the shop publishes none. */
+  readonly whatsappNumber: string | null;
   readonly sendMoneyNote: string | null;
   /** Poisha. Below this goods subtotal the delivery charge is expected in advance. */
   readonly advanceThresholdMinor: number;
@@ -65,6 +76,8 @@ const DEFAULTS: PaymentInstructions = {
   instructions: DEFAULT_PAYMENT_INSTRUCTIONS,
   bkashNumber: DEFAULT_BKASH_NUMBER,
   bkashVisible: true,
+  // No default: the owner's own WhatsApp number is the only number this shop may publish.
+  whatsappNumber: null,
   sendMoneyNote: DEFAULT_SEND_MONEY_NOTE,
   advanceThresholdMinor: DEFAULT_ADVANCE_THRESHOLD_MINOR,
 };
@@ -127,6 +140,19 @@ function storedSwitch(value: unknown, fallback: boolean): boolean {
   return fallback;
 }
 
+/**
+ * The same Bangladeshi mobile format the advance-payment number uses: the block offers a number to copy
+ * into WhatsApp, and a number that cannot be dialled is refused rather than stored and shown.
+ */
+export function parseWhatsappNumber(raw: unknown): string | null {
+  const value = text(raw).trim();
+  if (value.length === 0) return null;
+  if (!RECIPIENT_PHONE_PATTERN.test(value)) {
+    throw new ValidationError('the WhatsApp number must be an 11-digit Bangladeshi mobile number');
+  }
+  return value;
+}
+
 export function parseAdvanceThreshold(raw: unknown): number {
   const value = text(raw).trim();
   if (value.length === 0) return DEFAULT_ADVANCE_THRESHOLD_MINOR;
@@ -135,13 +161,13 @@ export function parseAdvanceThreshold(raw: unknown): number {
   return amount;
 }
 
-/** Reads the five keys. A missing row is the default; a saved blank is an intentional absence. */
+/** Reads the six keys. A missing row is the default; a saved blank is an intentional absence. */
 export async function loadPaymentInstructions(tx: Transaction): Promise<PaymentInstructions> {
   const rows = await tx
     .select({ key: storeSetting.key, value: storeSetting.value })
     .from(storeSetting)
     .where(
-      sql`${storeSetting.key} in (${PAYMENT_INSTRUCTIONS_KEY}, ${PAYMENT_BKASH_NUMBER_KEY}, ${PAYMENT_BKASH_VISIBLE_KEY}, ${PAYMENT_SEND_MONEY_NOTE_KEY}, ${PAYMENT_ADVANCE_THRESHOLD_KEY})`,
+      sql`${storeSetting.key} in (${PAYMENT_INSTRUCTIONS_KEY}, ${PAYMENT_BKASH_NUMBER_KEY}, ${PAYMENT_BKASH_VISIBLE_KEY}, ${PAYMENT_WHATSAPP_NUMBER_KEY}, ${PAYMENT_SEND_MONEY_NOTE_KEY}, ${PAYMENT_ADVANCE_THRESHOLD_KEY})`,
     );
 
   const stored = new Map(rows.map((row) => [row.key, row.value]));
@@ -157,6 +183,9 @@ export async function loadPaymentInstructions(tx: Transaction): Promise<PaymentI
   const note = stored.has(PAYMENT_SEND_MONEY_NOTE_KEY)
     ? text(stored.get(PAYMENT_SEND_MONEY_NOTE_KEY)).trim()
     : defaultNote;
+  const whatsapp = stored.has(PAYMENT_WHATSAPP_NUMBER_KEY)
+    ? text(stored.get(PAYMENT_WHATSAPP_NUMBER_KEY)).trim()
+    : '';
   const threshold = stored.has(PAYMENT_ADVANCE_THRESHOLD_KEY)
     ? Number(stored.get(PAYMENT_ADVANCE_THRESHOLD_KEY))
     : DEFAULTS.advanceThresholdMinor;
@@ -167,13 +196,14 @@ export async function loadPaymentInstructions(tx: Transaction): Promise<PaymentI
     bkashVisible: stored.has(PAYMENT_BKASH_VISIBLE_KEY)
       ? storedSwitch(stored.get(PAYMENT_BKASH_VISIBLE_KEY), DEFAULTS.bkashVisible)
       : DEFAULTS.bkashVisible,
+    whatsappNumber: whatsapp.length === 0 ? null : whatsapp,
     sendMoneyNote: note.length === 0 ? null : note,
     advanceThresholdMinor:
       Number.isSafeInteger(threshold) && threshold > 0 ? threshold : DEFAULTS.advanceThresholdMinor,
   };
 }
 
-/** Saves the five values. The change and its audit record share the caller's transaction. */
+/** Saves the six values. The change and its audit record share the caller's transaction. */
 export async function savePaymentInstructions(
   tx: Transaction,
   actor: ActorContext,
@@ -181,6 +211,7 @@ export async function savePaymentInstructions(
     readonly instructions: unknown;
     readonly bkashNumber: unknown;
     readonly bkashVisible: unknown;
+    readonly whatsappNumber: unknown;
     readonly sendMoneyNote: unknown;
     readonly advanceThreshold: unknown;
   },
@@ -193,6 +224,7 @@ export async function savePaymentInstructions(
     instructions: plainText(input.instructions, 'payment instructions', PAYMENT_MAX.instructions),
     bkashNumber: parseBkashNumber(input.bkashNumber),
     bkashVisible: parseBkashVisible(input.bkashVisible),
+    whatsappNumber: parseWhatsappNumber(input.whatsappNumber),
     sendMoneyNote: note.length === 0 ? null : note,
     advanceThresholdMinor: parseAdvanceThreshold(input.advanceThreshold),
   };
@@ -201,6 +233,7 @@ export async function savePaymentInstructions(
     { key: PAYMENT_INSTRUCTIONS_KEY, value: next.instructions, valueType: 'text' },
     { key: PAYMENT_BKASH_NUMBER_KEY, value: next.bkashNumber ?? '', valueType: 'text' },
     { key: PAYMENT_BKASH_VISIBLE_KEY, value: next.bkashVisible, valueType: 'boolean' },
+    { key: PAYMENT_WHATSAPP_NUMBER_KEY, value: next.whatsappNumber ?? '', valueType: 'text' },
     { key: PAYMENT_SEND_MONEY_NOTE_KEY, value: next.sendMoneyNote ?? '', valueType: 'text' },
     { key: PAYMENT_ADVANCE_THRESHOLD_KEY, value: next.advanceThresholdMinor, valueType: 'money_minor' },
   ];

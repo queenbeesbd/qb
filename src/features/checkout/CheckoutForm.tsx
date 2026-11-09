@@ -144,6 +144,8 @@ export function CheckoutForm({
     bkashNumber: string | null;
     /** The owner's switch: off draws no number block even when a number is stored. */
     bkashVisible: boolean;
+    /** A WhatsApp number to message about an order; null publishes no block. */
+    whatsappNumber: string | null;
     sendMoneyNote: string | null;
     advanceThresholdMinor: number;
   };
@@ -160,6 +162,7 @@ export function CheckoutForm({
   const [promoReason, setPromoReason] = useState<string | null>(null);
   const [promoBusy, setPromoBusy] = useState(false);
   const [bkashCopied, setBkashCopied] = useState(false);
+  const [whatsappCopied, setWhatsappCopied] = useState(false);
   /**
    * The fields the last submit attempt would be refused for, or `null` before the first attempt.
    *
@@ -506,6 +509,31 @@ export function CheckoutForm({
                 ) : (
                   <p className={styles.muted}>{t('checkout.payment.numberMissing')}</p>
                 ))}
+
+              {/*
+                A second way to reach the shop (owner direction, 2026-11-10). Same card shape and the same
+                copy control as the bKash number, and it is absent - not blank, not "not configured" -
+                until the owner saves a number: there is no default, and inventing one would be a
+                contact detail the shop never published.
+              */}
+              {payment.whatsappNumber !== null && (
+                <div className={styles.bkashCard}>
+                  <span className={styles.bkashLabel}>{t('checkout.payment.whatsappLabel')}</span>
+                  <strong className={styles.bkashNumber}>{payment.whatsappNumber}</strong>
+                  <button
+                    type="button"
+                    className={styles.bkashCopy}
+                    onClick={() => {
+                      void navigator.clipboard
+                        .writeText(payment.whatsappNumber ?? '')
+                        .then(() => setWhatsappCopied(true))
+                        .catch(() => setWhatsappCopied(false));
+                    }}
+                  >
+                    {whatsappCopied ? t('checkout.payment.copied') : t('checkout.payment.copy')}
+                  </button>
+                </div>
+              )}
             </section>
 
             <aside className={styles.summary} aria-labelledby="checkout-summary">

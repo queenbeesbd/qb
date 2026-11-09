@@ -69,9 +69,10 @@ own share, bounded by what was applied.
 
 ### 6. Payment instructions are owner copy, not a payment method
 
-The checkout prints five owner-controlled values from `store_setting` - the paragraphs, the bKash
-number, whether that number block is drawn at all, the "Payment, not Send Money" caution, and the
-subtotal below which the delivery charge is expected in advance (default 500 BDT). They were edited at
+The checkout prints six owner-controlled values from `store_setting` - the paragraphs, the bKash
+number, whether that number block is drawn at all, the WhatsApp number added below, the "Payment, not
+Send Money" caution, and the subtotal below which the delivery charge is expected in advance (default
+500 BDT). They were edited at
 **Settings -> Contact and policies** when this ADR was written; on **2026-11-09 the owner moved them to
 Settings -> Other settings -> Checkout instructions**, because the copy belongs to checkout rather than
 to the shop's contact facts. The save is audited as `settings.payment_instructions_updated` in both
@@ -80,6 +81,13 @@ and rendered as plain paragraphs (a `<` or `>` is refused), with the number labe
 as a bold element and a copy button. `payment.bkash_visible` (default on) is an explicit show/hide
 switch for the number block: with it off the block is not drawn even though the number stays stored and
 the paragraphs are still printed. A stored blank number remains a gap the page states, never a guess.
+
+**Added 2026-11-10 (same owner direction):** the same card carries a **WhatsApp number** under the bKash
+block, with the same label/number/copy control (`payment.whatsapp_number`, validated as an 11-digit
+Bangladeshi mobile, edited in the same Checkout instructions form). It has **no default**: until the owner
+saves one the block is absent rather than empty, because a contact number nobody supplied would be an
+invented way to reach the shop. A blank hides that block alone; `bkash_visible` governs only the bKash
+number. No schema change - `store_setting` is key/value.
 
 **Cash on Delivery remains the only method an order records.** Nothing in this change writes a payment
 method, a payment state, a claim or a verification, and the owner still confirms a transfer on the

@@ -220,6 +220,7 @@ export const dictionary = {
   'checkout.paymentTitle': 'Payment method',
   'checkout.method.cod': 'Cash on delivery',
   'checkout.payment.bkashLabel': 'bKash Advance',
+  'checkout.payment.whatsappLabel': 'WhatsApp',
   'checkout.payment.copy': 'Copy number',
   'checkout.payment.copied': 'Number copied',
   'checkout.payment.numberMissing':
@@ -434,6 +435,9 @@ export const dictionary = {
     'One paragraph per line, printed exactly as written. Plain text only - < and > are refused.',
   'admin.payment.bkashLabel': 'bKash Advance number',
   'admin.payment.bkashHelp': 'An 11-digit Bangladeshi mobile. Leave blank to publish no advance-payment number.',
+  'admin.payment.whatsappLabel': 'WhatsApp number',
+  'admin.payment.whatsappHelp':
+    'An 11-digit Bangladeshi mobile, shown under the bKash number with a copy button. Leave blank to publish no WhatsApp block.',
   'admin.payment.visibleLabel': 'Show the number at checkout',
   'admin.payment.visibleHelp':
     'Off hides the number block on the payment card without deleting the number. The instructions above are still printed.',

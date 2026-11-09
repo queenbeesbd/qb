@@ -132,6 +132,20 @@ export function OtherSettingsView({
             </div>
 
             <div className={styles.field}>
+              <label htmlFor="whatsappNumber">{t('admin.payment.whatsappLabel')}</label>
+              <input
+                className={styles.input}
+                id="whatsappNumber"
+                name="whatsappNumber"
+                type="tel"
+                inputMode="numeric"
+                maxLength={11}
+                defaultValue={payment.whatsappNumber ?? ''}
+              />
+              <p className={styles.hint}>{t('admin.payment.whatsappHelp')}</p>
+            </div>
+
+            <div className={styles.field}>
               <label htmlFor="advanceThreshold">{t('admin.payment.thresholdLabel')}</label>
               <div className={styles.moneyInput}>
                 <span className={styles.moneyPrefix} aria-hidden="true">

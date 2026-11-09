@@ -682,3 +682,24 @@ Tk 100 (the store's Dhaka override) for a product without a fee; a guest order o
 `items_subtotal_minor = 140000`, `shipping_minor = 6000`, `total_minor = 146000` on the Dhaka area. Test
 fees were then cleared and guest ordering switched back off; the test order remains in the local cluster.
 `verify:admin`, `verify:browser` and the db suite were not re-run, and nothing is deployed.
+
+## A WhatsApp number under the bKash block (2026-11-10)
+
+Owner direction: the checkout payment card carries a WhatsApp number under the bKash number, with the
+same copy mechanism, edited beside the bKash number in **Settings -> Other settings -> Checkout
+instructions**; a number that is not set renders no block.
+
+- **`payment.whatsapp_number`** is a sixth `store_setting` key with **no default**, so nothing is
+  published until the owner saves one. It is validated as an 11-digit Bangladeshi mobile
+  (`parseWhatsappNumber`), loaded and saved in the same transaction and audit as the rest of the block.
+- **Checkout** renders a second card with the same label/number/**Copy number** control and its own
+  copied state; a blank number renders nothing at all. `bkash_visible` still governs only the bKash
+  block.
+- **One form, both numbers**: the Checkout instructions editor gains the WhatsApp field beside the bKash
+  number. No schema change and no migration.
+
+**Verified (local dev cluster + served build).** `typecheck`, `lint` (0 errors), `check:i18n` (1,783
+keys), unit suite **289/289**, `build`; through the running panel a WhatsApp number was saved and the
+checkout showed both cards, the copy control put the number on the clipboard, clearing the number
+removed the block, and guest ordering was left as it was found. `verify:admin`, `verify:browser` and the
+db suite were not re-run, and nothing is deployed.

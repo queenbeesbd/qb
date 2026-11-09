@@ -14,6 +14,24 @@ An entry may describe a deployment only once it has actually happened and been o
 
 ## [Unreleased]
 
+### Added - 2026-11-10: a WhatsApp number under the bKash block
+
+Owner request: *"under bKash add a section for whatsapp number with same copy mechanism ... make a form
+in other settings in admin panel to add both bKash number and Whatsapp number; if there is not just dont
+show these blocks."*
+
+- **`payment.whatsapp_number`** (new `store_setting` key, no default) is validated as an 11-digit
+  Bangladeshi mobile and rendered on checkout under the bKash card with the same label/number/**Copy
+  number** control, with its own copied state.
+- **One form, both numbers**: Settings -> Other settings -> Checkout instructions gains the WhatsApp
+  field beside the bKash number (and keeps the visibility switch, the caution and the advance threshold).
+- **Absent means absent**: a blank WhatsApp number renders no block at all - not an empty one and not a
+  "not published" line. `bkash_visible` still governs only the bKash block. No schema change and no
+  migration (`store_setting` is key/value).
+
+**Verified:** `typecheck`, `lint` (0 errors), `check:i18n` (1,783 keys), unit **289/289**, `build`; and a
+Chromium run of the panel form, the rendered blocks and the clipboard copy.
+
 ### Added - 2026-11-10: a product can carry its own delivery charge
 
 Owner request: *"products can have its own delivery charges - remove the shipping component and add

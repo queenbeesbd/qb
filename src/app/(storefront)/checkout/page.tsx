@@ -111,6 +111,7 @@ export default async function CheckoutPage({
         instructions: payment.instructions,
         bkashNumber: payment.bkashNumber,
         bkashVisible: payment.bkashVisible,
+        whatsappNumber: payment.whatsappNumber,
         sendMoneyNote: payment.sendMoneyNote,
         advanceThresholdMinor: payment.advanceThresholdMinor,
       }}
