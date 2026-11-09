@@ -14,6 +14,26 @@ An entry may describe a deployment only once it has actually happened and been o
 
 ## [Unreleased]
 
+### Changed - 2026-11-10: cut Neon network transfer (5 GB Free-plan budget)
+
+Owner request after Neon's network-transfer guidance: Free allows **5 GB per project per month** of
+public transfer (including object storage and functions) and **suspends the compute** when it runs out.
+Production had used **2.34 GB in its first ~3.5 days** (~20 GB/month pace).
+
+- **Catalog cache backstop: 5 minutes -> 1 hour.** The snapshot is the dominant recurring read and the
+  tag invalidation - not the clock - is what makes an owner's edit visible immediately, so the TTL only
+  bounds staleness if an invalidation is ever lost. ~12x fewer refreshes.
+- **Descriptions leave the bulk snapshot.** 398 products carried ~500,000 characters of description -
+  ~0.5 MB of the ~0.8 MB read - and no listing, home row or card renders one. `listPublishedProducts`
+  now takes `includeDescription: false` for the snapshot; the product page reads its single row through
+  `getProductDescription`, cached per slug under the same tag (and used for the meta description).
+- **Measured projection:** snapshot ≈ 0.25-0.3 MB (from ~0.8 MB); at 24 refreshes/day plus the visit log
+  and a handful of per-product description reads that is **≈0.2-0.5 GB/month** at 80-100 visitors/day,
+  against the 5 GB allowance. Catalog images stay CDN-cached at Vercel (verified `x-vercel-cache: HIT`),
+  so object-storage egress is limited to first fetch per image per POP.
+- **Also applied to production this day:** migrations `0021`-`0023`, which the auto-deployed `main`
+  branch already required (production is now at 24 migrations).
+
 ### Fixed - 2026-11-10: the production traffic screen (migrations `0019` and `0020` applied)
 
 `/qbpanel/traffic` on `queenbees.vercel.app` answered "The admin page could not be loaded". The deployed

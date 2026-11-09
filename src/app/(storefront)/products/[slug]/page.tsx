@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { ProductDetailView } from '@/features/catalog/ProductDetailView';
-import { getStorefrontCatalog } from '@/server/catalog/storefront';
+import { getProductDescription, getStorefrontCatalog } from '@/server/catalog/storefront';
 
 type Params = Promise<{ slug: string }>;
 
@@ -10,9 +10,14 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
   const { products } = await getStorefrontCatalog();
   const product = products.find((entry) => entry.slug === slug);
   if (!product) return { title: 'Product' };
+  /*
+   * The snapshot carries no descriptions (they are most of its bytes and only this route renders one),
+   * so the meta description comes from the one-row read the page also uses.
+   */
+  const description = await getProductDescription(slug);
   return {
     title: product.name.bn ?? product.name.en ?? slug,
-    description: product.description.bn ?? product.description.en ?? undefined,
+    description: description?.bn ?? description?.en ?? undefined,
   };
 }
 
@@ -41,5 +46,14 @@ export default async function ProductPage({ params }: { params: Params }) {
     .filter((item) => item.categoryId === product.categoryId && item.id !== product.id)
     .slice(0, 5);
 
-  return <ProductDetailView product={product} category={category} related={related} />;
+  const description = (await getProductDescription(slug)) ?? { bn: null, en: null };
+
+  return (
+    <ProductDetailView
+      product={product}
+      description={description}
+      category={category}
+      related={related}
+    />
+  );
 }

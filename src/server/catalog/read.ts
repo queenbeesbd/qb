@@ -129,15 +129,27 @@ export type CatalogBrand = {
  * The catalog listing keeps its own name ordering by re-sorting; this order is the load-bearing one
  * for recency, so it must not be re-derived in a view.
  */
-export async function listPublishedProducts(tx: Transaction): Promise<CatalogProduct[]> {
+export async function listPublishedProducts(
+  tx: Transaction,
+  options: {
+    /**
+     * Defaults to `true`. The storefront snapshot passes `false`, because product descriptions are
+     * ~0.5 MB of its ~0.8 MB and no listing, card or home row renders one - only the product page
+     * does, through `getPublishedProductDescription`. With `false` the two description fields come
+     * back `null`; that is a projection, not a claim that the product has no description.
+     */
+    readonly includeDescription?: boolean;
+  } = {},
+): Promise<CatalogProduct[]> {
+  const includeDescription = options.includeDescription ?? true;
   const rows = await tx
     .select({
       id: product.id,
       slug: product.slug,
       nameBn: product.nameBn,
       nameEn: product.nameEn,
-      descriptionBn: product.descriptionBn,
-      descriptionEn: product.descriptionEn,
+      descriptionBn: includeDescription ? product.descriptionBn : sql<string | null>`null`,
+      descriptionEn: includeDescription ? product.descriptionEn : sql<string | null>`null`,
       shortDescription: product.shortDescription,
       packSize: product.packSize,
       deliveryChattogramMinor: product.deliveryChattogramMinor,
@@ -171,6 +183,30 @@ export async function listPublishedProducts(tx: Transaction): Promise<CatalogPro
     rows.map((row) => row.id),
   );
   return rows.map((row) => projectProduct(row, imagesByProduct.get(String(row.id)) ?? []));
+}
+
+/**
+ * One published product's description, for the product page.
+ *
+ * The bulk storefront snapshot omits descriptions (`includeDescription: false`) because they are most
+ * of its bytes and no listing renders one. The product page asks for the one row it shows instead, so
+ * the transfer is a single description rather than 1,477 of them on every cache refresh.
+ *
+ * `null` means no published product has that slug; an object with both locales null means the product
+ * exists and the owner wrote no description in either language, which the page states as a gap.
+ */
+export async function getPublishedProductDescription(
+  tx: Transaction,
+  slug: string,
+): Promise<{ readonly bn: string | null; readonly en: string | null } | null> {
+  const rows = await tx
+    .select({ descriptionBn: product.descriptionBn, descriptionEn: product.descriptionEn })
+    .from(product)
+    .where(sql`${product.deletedAt} is null and ${product.isPublished} and ${product.slug} = ${slug}`);
+
+  const row = rows[0];
+  if (row === undefined) return null;
+  return { bn: row.descriptionBn, en: row.descriptionEn };
 }
 
 /**

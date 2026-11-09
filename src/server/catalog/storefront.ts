@@ -44,6 +44,7 @@ import type {
   CatalogProduct,
 } from './read';
 import {
+  getPublishedProductDescription,
   listCollectionSelections,
   listPublishedProducts,
   listVisibleBrands,
@@ -202,8 +203,14 @@ async function readStorefrontCatalog(): Promise<StorefrontCatalog> {
   if (fixtureFallbackEnabled()) return readFixtureCatalog();
 
   const snapshot = await withTransaction(async (tx) => {
+    /*
+     * `includeDescription: false` on purpose: the descriptions are ~0.5 MB of this ~0.8 MB snapshot
+     * (398 products carry ~500,000 characters between them) and **no listing, home row or card shows
+     * one**. Only a product page does, and it reads that one row through `getProductDescription`
+     * below. Dropping them from the bulk read is the cheapest egress reduction after the TTL.
+     */
     const [products, categories, brands, selections] = await Promise.all([
-      listPublishedProducts(tx),
+      listPublishedProducts(tx, { includeDescription: false }),
       listVisibleCategories(tx),
       listVisibleBrands(tx),
       listCollectionSelections(tx),
@@ -224,12 +231,12 @@ async function readStorefrontCatalog(): Promise<StorefrontCatalog> {
 /**
  * The same snapshot, reused across requests in a production server.
  *
- * The read is roughly 1.5 MB of rows and every storefront page needs it, so re-reading it per view
- * was the largest source of database transfer. Route handlers that write catalog rows invalidate
- * `STOREFRONT_CATALOG_TAG` after their transaction commits, so an owner's change is visible on the
- * next request rather than after the five-minute backstop. Development and the test runner read
- * directly: `unstable_cache` needs Next's incremental cache, which only exists inside a running
- * Next server, and a dev edit should never wait for a tag.
+ * The read is most of a megabyte of rows even after descriptions were removed, and every storefront
+ * page needs it, so re-reading it per view was the largest source of Neon network transfer. Route
+ * handlers that write catalog rows invalidate `STOREFRONT_CATALOG_TAG` after their transaction commits,
+ * so an owner's change is visible on the next request rather than after the one-hour backstop.
+ * Development and the test runner read directly: `unstable_cache` needs Next's incremental cache, which
+ * only exists inside a running Next server, and a dev edit should never wait for a tag.
  */
 const readStorefrontCatalogCached = unstable_cache(
   readStorefrontCatalog,
@@ -247,4 +254,25 @@ export const getStorefrontCatalog = cache(async (): Promise<StorefrontCatalog> =
   process.env.NODE_ENV === 'production'
     ? readStorefrontCatalogCached()
     : readStorefrontCatalog(),
+);
+
+/**
+ * The product page's description, read on its own and cached under the same tag.
+ *
+ * It exists because the bulk snapshot no longer carries descriptions (they were ~0.5 MB of its ~0.8 MB
+ * and only this page renders one). Caching per slug means a product page costs one small row per hour
+ * per product, not a share of the whole catalog per view; a catalog write invalidates this tag too, so
+ * an edited description is on the next request.
+ */
+const readProductDescriptionCached = unstable_cache(
+  async (slug: string) => withTransaction((tx) => getPublishedProductDescription(tx, slug)),
+  ['storefront-product-description'],
+  { tags: [STOREFRONT_CATALOG_TAG], revalidate: STOREFRONT_CATALOG_REVALIDATE_SECONDS },
+);
+
+export const getProductDescription = cache(
+  async (slug: string): Promise<{ readonly bn: string | null; readonly en: string | null } | null> =>
+    process.env.NODE_ENV === 'production'
+      ? readProductDescriptionCached(slug)
+      : withTransaction((tx) => getPublishedProductDescription(tx, slug)),
 );

@@ -6,7 +6,7 @@ import { DETAIL_SIZES } from '@/lib/images';
 import { discountAmount, discountPercent } from '@/lib/money';
 import { useTranslation } from '@/i18n/useTranslation';
 import { useCart } from '@/features/cart/useCart';
-import type { CatalogCategory, CatalogItem } from '@/lib/types';
+import type { CatalogCategory, CatalogItem, LocalizedText } from '@/lib/types';
 import { ProductCard } from '@/components/ProductCard';
 import { ProductGrid } from '@/components/ProductGrid';
 import { QuantityStepper } from '@/components/QuantityStepper';
@@ -27,10 +27,19 @@ import styles from '@/app/product.module.css';
  */
 export function ProductDetailView({
   product,
+  description,
   category,
   related,
 }: {
   product: CatalogItem;
+  /**
+   * The product's description in both locales, read by the page for this product alone.
+   *
+   * The catalog snapshot the other props come from deliberately omits descriptions: they are most of
+   * the bulk read's bytes and no listing renders one (Neon Free plan egress, 2026-11-10). Both fields
+   * `null` is the truthful "the owner wrote none", which the page states as a gap.
+   */
+  description: LocalizedText;
   category: CatalogCategory | null;
   related: readonly CatalogItem[];
 }) {
@@ -54,7 +63,7 @@ export function ProductDetailView({
   const [activeImage, setActiveImage] = useState(0);
 
   const name = pick(product.name) ?? product.slug;
-  const description = pick(product.description);
+  const descriptionText = pick(description);
   const saving = discountAmount(product.priceMinor, product.compareAtPriceMinor);
   const percent = discountPercent(product.priceMinor, product.compareAtPriceMinor);
   /**
@@ -365,8 +374,8 @@ export function ProductDetailView({
 
           <section className={styles.details} aria-labelledby="details-title">
             <h2 id="details-title">{t('product.details')}</h2>
-            <p className={description ? styles.description : styles.descriptionMissing}>
-              {description ?? t('product.noDescription')}
+            <p className={descriptionText ? styles.description : styles.descriptionMissing}>
+              {descriptionText ?? t('product.noDescription')}
             </p>
           </section>
         </div>

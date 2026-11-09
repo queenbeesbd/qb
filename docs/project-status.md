@@ -783,3 +783,46 @@ used to read the production project directly rather than guessing.
   undeployed code and stay local. The next deploy must run `db:status` and apply them first.
 - **Limit.** The authenticated page was not opened with owner credentials, so its rendered output was not
   seen; the database-level cause is removed and every query it runs succeeds against production.
+
+## Neon network transfer reduced, and the deployed-code migration gap closed (2026-11-10)
+
+**Measurement.** Neon project `autumn-wave-01272789` reported `data_transfer_bytes = 2,336,824,279`
+(2.34 GB) for the cycle starting 2026-11-01, with the project created 2026-11-06 - about **20 GB/month
+at that pace**, against the Free plan's **5 GB per project per month** (and object storage and
+functions share that allowance). Production data: 1,477 published products whose descriptions alone are
+503,643 characters (~0.5 MB); 1,919 live image rows whose rendered columns are ~138 kB; the whole bulk
+snapshot was therefore ~0.8 MB per refresh. The function region is `sin1` (co-located with the Neon
+project); catalog images answer `x-vercel-cache: HIT` after the first fetch, so image egress is bounded
+by first fetch per image per POP and is not the recurring cost.
+
+**Applied.**
+1. `STOREFRONT_CATALOG_REVALIDATE_SECONDS` 300 -> 3600. Writes still call `invalidateStorefrontCatalog`
+   immediately; the TTL is only a backstop, so an owner's edit is visible on the next request.
+2. `listPublishedProducts(tx, { includeDescription: false })` for the storefront snapshot, and a new
+   `getPublishedProductDescription` / `getProductDescription(slug)` cached under the same tag for the
+   product page (body and meta description). `ProductDetailView` now takes `description` as a prop.
+   The default `includeDescription: true` keeps the full projection for the db tests and future callers.
+
+**Estimate (80-100 visitors/day).** Snapshot ≈ 0.25-0.3 MB × 24 refreshes/day ≈ 7 MB/day; description
+reads ≈ a few MB/month; visit-log writes and admin reads are small; image egress is one-time per asset
+per POP. Expected **0.2-0.5 GB/month**, roughly a tenth of the allowance. Before the change the same
+model gives 0.8 MB × 288 ≈ 230 MB/day (≈7 GB/month) from the snapshot alone, which is consistent with
+the measured pace.
+
+**Cost if it ever exceeds 5 GB.** On **Free** there is no overage charge - the compute is **suspended**
+until the next billing cycle or an upgrade, which takes the storefront down. On **Launch** (no monthly
+minimum) the first 500 GB are included; beyond that it is **$0.10/GB** (so 6 GB would be $0.10; even the
+old 20 GB pace would be $1.50). Launch compute is $0.106/CU-hour at 0.25 CU with scale-to-zero, and
+storage $0.35/GB-month, so the realistic Launch bill for this shop is dominated by compute (order of
+$5-15/month with ~100 visitors/day), not transfer. Invoices under $0.50 are not collected.
+
+**Also this day:** `main` is wired to Vercel and every push deploys production. The feature commits
+auto-deployed code that required migrations `0021`-`0023`, so those were applied too (production now at
+**24 migrations**); the site was serving from a warm Data Cache and would have failed on the next cache
+miss. See the AGENTS production note.
+
+**Limitations.** `pg_stat_statements` is not installed on the production database, so per-query transfer
+could not be ranked; Neon exposes only the combined `data_transfer_bytes` per project, not a
+Postgres-vs-object-storage split. The estimate is a model from row sizes and the observed total. The
+egress change was verified locally (product description renders in body and meta; listing 200) and takes
+effect in production on the deploying commit.
