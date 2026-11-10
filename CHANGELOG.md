@@ -29,9 +29,14 @@ the uploaded tree.
 - **The gate must live inside the deployment.** A `prebuild` step cannot reference anything
   `.vercelignore` removes; the file header now says so, so it is not moved back.
 
-Verified: the build-mode path with no `VERCEL_ENV` prints the skip line and exits 0 (as on a local
-build); the gate ran against the dev cluster and reported the applied count; `typecheck` and `lint`
-clean over the moved file.
+Verified: the gate against the dev cluster prints `migrations applied: 24/24` and exits 0 in production
+mode, a database with nothing applied exits 1 naming all 24 pending tags, and a missing `DATABASE_URL`,
+a preview build and a non-Vercel run still skip/refuse; typecheck, lint (0 errors), unit 294/294 and
+`npm run build` green. **Deployed and observed:** `dpl_3mAQf1y4X6AFaWoGL1kL515AvWiZ` (commit
+`5b37faf`) reached READY in 37 s, its build log shows the gate running against the production Neon
+branch and the build proceeding, and `queenbees.vercel.app` serves it - `/`, `/products`, `/categories`,
+`/contact`, `/checkout`, `/cart` and `/robots.txt` 200, `/qbpanel` 307 to `/qbpanel/login`, which
+answers 200.
 
 ### Changed - 2026-11-10: the checkout payment notice is static
 

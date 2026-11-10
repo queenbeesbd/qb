@@ -865,11 +865,26 @@ storefront only survived because a warm Data Cache masked the missing columns.
 - `lint` 0 errors (18 pre-existing warnings), unit **294/294**, `npm run build` green with the gate
   skipping, `typecheck` clean.
 
-**Verified in a real Vercel production build.** The Vercel MCP token expired during this task and no
-Vercel CLI is installed, so the deployment was observed from the outside: a `/_next/static/immutable/
-chunks/` filename changed between the pre-push and post-push fetches of the same product page, which
-means a **new production deployment is serving** - therefore the gate ran, saw production at 24/24 and
-allowed the build. `DATABASE_URL` is visible to Vercel builds. After the switch `/`, `/products`, the
-product page and `/qbpanel` answered 200/200/200/307 with no error marker, and the product's meta
-description still renders. The refusal path was not demonstrated on Vercel (it would have required
-pushing a gap deliberately); it is demonstrated against a scratch database locally.
+**Correction (2026-11-10, later the same day): that first Vercel verification was wrong.** The
+paragraph that stood here claimed a real production build had run the gate, inferred from a changed
+`/_next/static/immutable/chunks/` filename. Reading the deployments through the Vercel MCP shows the
+opposite: **every** production deployment after the gate landed ended in `ERROR`
+(`1cfa6e8`, `ffbee0e`, `cb97367`) and production kept serving the previous READY build (`e1d66a8`),
+whose chunk filenames are what had changed. The build log named the cause exactly:
+
+```
+> tsx scripts/check-migrations.ts --build
+Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/vercel/path0/scripts/check-migrations.ts'
+```
+
+`.vercelignore` excludes `scripts/`, so the gate was never uploaded. The CLI now lives at
+`src/db/check-migrations.ts` (inside the uploaded tree) and `prebuild` points there; behaviour, output
+and the fail-closed refusal are unchanged. **Verified 2026-11-10 against a real Vercel production
+build** (`dpl_3mAQf1y4X6AFaWoGL1kL515AvWiZ`, commit `5b37faf`, state READY in 37 s): the log shows
+`> tsx src/db/check-migrations.ts --build`, then
+`target: ep-sparkling-leaf-azreahxh.c-3.ap-southeast-1.aws.neon.tech:5432/queenbees (env=production)`,
+then the build proceeding to `Build Completed`, so `DATABASE_URL` is readable at build time and
+production's `drizzle.__drizzle_migrations` holds exactly the 24 committed hashes (checked through the
+Neon MCP). The alias `queenbees.vercel.app` serves that deployment: `/`, `/products`, `/categories`,
+`/contact`, `/checkout`, `/cart` and `/robots.txt` answer 200, `/qbpanel` 307 to `/qbpanel/login`, and
+`/qbpanel/login` 200. The refusal path is still demonstrated only against a scratch database locally.
