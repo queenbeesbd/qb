@@ -43,6 +43,20 @@ export const CHECKOUT_PAYMENT_NOTICE: readonly PaymentNoticeLine[] = [
   },
 ];
 
+/**
+ * A printed Bangladeshi mobile number as a `wa.me` path.
+ *
+ * `wa.me` takes the international form with no `+` and no spaces, so the local `01XXXXXXXXX` the owner
+ * prints becomes `8801XXXXXXXXX`. Anything that is not an eleven-digit local mobile is returned with
+ * its digits only, so a malformed number cannot inject a path or a query into the link - the anchor
+ * still points at WhatsApp, and the number beside it is still what the notice says.
+ */
+export function whatsappLinkNumber(localNumber: string): string {
+  const digits = localNumber.replace(/[^0-9]/g, '');
+  if (digits.length === 11 && digits.startsWith('0')) return `88${digits}`;
+  return digits;
+}
+
 /** The merchant bKash number the owner published. */
 export const DEFAULT_BKASH_NUMBER = '01560035645';
 

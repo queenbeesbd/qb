@@ -14,6 +14,68 @@ An entry may describe a deployment only once it has actually happened and been o
 
 ## [Unreleased]
 
+### Changed - 2026-11-10: the customer account is a dashboard with a sidebar
+
+The old `/account` hub was a card grid: four equally weighted cards, the password and email forms
+folded into the same column as the orders link, and a sign-out button. It stated what the page was for
+rather than answering the one question a returning customer has.
+
+- **Three screens under one labelled sidebar**: `/account` (overview), `/account/orders` and
+  `/account/security`. The sidebar names the person, marks the current screen with a neutral pill, and
+  carries contact and sign-out at its foot; below 900px it folds to a strip above the content, and
+  below 720px the figures, the filter cards and the order track all re-shape for a phone.
+- **The overview answers "where is my order, and what do I owe?"**: the newest order is the largest
+  block, with a five-mark progress track derived from the stored state (placed, confirmed, dispatched,
+  delivered, cash received), the amount to have ready at the door, and three stored facts beside it.
+  Three figures above it are computed from the same rows - orders placed, cash still due, and money
+  the shop recorded as received - so the strip and the list can never disagree.
+- **The orders screen filters by four exhaustive groups** (all / on the way / delivered / cancelled)
+  whose counts add up to the account's order count; the group is a URL parameter validated server-side
+  against a closed set.
+- **Password and email moved to their own screen**, and both routes now return their result code there
+  (`/account/security?notice=…`) instead of to the dashboard, so a refusal appears beside the form that
+  caused it. The forms are unchanged: same endpoints, same session CSRF, same throttles.
+- **Signed out, `/account` redirects to sign in** with the path preserved instead of rendering a panel
+  that asked a visitor to decide something with nothing behind it.
+- **Removed, not aliased**: `AccountView`, `OrdersView`, the old hub styles and twelve dictionary keys
+  they alone used.
+- **No schema change and no migration.** The identity, session and order code is untouched; the new
+  reads are `listCustomerOrders` and one profile read of `customer.created_at`.
+
+Design: the surface was dealt as an app screen (achromatic-ledger, shell redrawn to the labelled open
+plane because the brief names a sidebar). The chrome holds no colour; the brand lavender appears only
+on the current step of the order track and as the tint of the selected filter.
+
+Verified 2026-11-10 against the local dev cluster and a dev server: `typecheck`, `lint` (0 errors, 18
+pre-existing warnings), `check:i18n` (1817 keys), unit 294/294 and `build`; the app-screen inspector at
+1440/768/390 reports **0 FAIL** on all three screens (the one remaining warning is `no-data-hue`, which
+is defended: the screen draws no chart, and the hue sits on the track's current mark); `/account`,
+`/account/orders`, `/account/orders?state=open` and `/account/security` answer 200 for a real session;
+a wrong current password and an invalid address each return to `/account/security` with the right
+notice; a real password change rewrites the credential, renders its confirmation and lets the customer
+sign in with the new one; sign-out ends the session; signed out, `/account` 307s to
+`/account/login?next=%2Faccount`; `/account/orders/<number>` still 307s to `/orders/<number>`.
+
+### Fixed - 2026-11-10: the checkout WhatsApp mark is a link in WhatsApp's green
+
+The Business WhatsApp number on the checkout payment card was plain text beside a mark drawn in the
+card's ink, and the mark was decorative. Owner direction: the mark is WhatsApp's own green and the
+number opens a WhatsApp chat.
+
+- The number and the mark are now one link to `https://wa.me/8801871161571` (the printed number in
+  international form through `whatsappLinkNumber`), opening in a new tab with
+  `rel="noopener noreferrer"` so the checkout is never navigated away mid-form.
+- The glyph is `--whatsapp-green` (#25d366) at 18px; the action is named in words beside it
+  ("Message on WhatsApp"), and the anchor carries the number, so the 28px-tall target is usable with a
+  thumb and its name does not depend on the colour.
+- This overrides the earlier rule that the mark was never WhatsApp's green. That rule stays true for
+  the shop's own chrome (the support rail and the floating cart draw their glyphs on the brand field);
+  the provider's colour is allowed here only because it marks the provider's own channel.
+
+Verified: `typecheck`, `lint`, `check:i18n`, `build`; in Chromium on a signed-in checkout the anchor
+resolves to `https://wa.me/8801871161571`, `target="_blank"`, `rel="noopener noreferrer"`, a 266x28
+hit area, and the glyph computes to `rgb(37, 211, 102)`.
+
 ### Fixed - 2026-11-10: every production build after the migration gate failed
 
 Three consecutive production deployments (`1cfa6e8`, `ffbee0e`, `cb97367`) ended in `ERROR`, and

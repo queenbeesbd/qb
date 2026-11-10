@@ -13,7 +13,7 @@ import { after } from 'next/server';
 
 import { withTransaction } from '@/db/client';
 import { deny, redirectTo } from '@/app/api/qbpanel/responses';
-import { ACCOUNT_ROOT } from '@/server/customer-auth/constants';
+import { CUSTOMER_SECURITY_PATH } from '@/server/customer-auth/constants';
 import { schedulePasswordChanged } from '@/server/customer-auth/email-delivery';
 import { changeCustomerPassword } from '@/server/customer-auth/email-security';
 import {
@@ -26,7 +26,7 @@ import { sessionContextFrom } from '@/server/auth/session';
 export const dynamic = 'force-dynamic';
 
 function backTo(code: string): Response {
-  return redirectTo(`${ACCOUNT_ROOT}?notice=${code}`);
+  return redirectTo(`${CUSTOMER_SECURITY_PATH}?notice=${code}`);
 }
 
 export async function POST(request: Request): Promise<Response> {

@@ -407,14 +407,46 @@
 }
 
 /*
- * The mark is inline with the printed line and inherits the card's ink - never WhatsApp's green. It is
- * decorative (`aria-hidden` comes from the icon itself), because the number beside it is the fact.
+ * The number and the mark are one link into Business WhatsApp (owner direction, 2026-11-10).
+ *
+ * It is inline with the printed line rather than a card of its own, so the sentence the owner wrote
+ * still reads as one sentence: the number, the provider's mark, and the action in our own words. The
+ * tap target is the anchor, not the 18px glyph, because an 18px target is unusable with a thumb.
+ */
+.whatsappLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 28px;
+  color: inherit;
+  text-decoration: none;
+}
+
+.whatsappLink:hover .whatsappLinkLabel {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.whatsappLink:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+/*
+ * The glyph carries WhatsApp's own green, so it is recognised at a glance. It is decorative
+ * (`aria-hidden` comes from the icon itself): the anchor's name is the number plus the words beside it.
  */
 .whatsappMark {
   display: inline-block;
-  margin-left: 4px;
-  vertical-align: -3px;
-  color: var(--color-ink-muted);
+  flex: none;
+  color: var(--whatsapp-green);
+}
+
+.whatsappLinkLabel {
+  color: var(--color-action);
+  font-size: var(--text-sm);
+  font-weight: 500;
 }
 
 /*

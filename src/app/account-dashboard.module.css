@@ -1,0 +1,887 @@
+/* ---------------------------------------------------------------------------
+ * The customer's account dashboard
+ *
+ * Dealt as an app screen (achromatic ledger, shell redrawn to a labelled open plane because the
+ * brief names a sidebar). The rules below are the deal, not a style of their own:
+ *
+ * - The chrome holds no colour. Navigation, titles, buttons and rules are ink and two greys; the
+ *   brand lavender appears only where it carries data - the current step of an order's progress -
+ *   and as the pale tint of a selected filter. No tinted cards, no icon chips, no shadows.
+ * - Two radii only: 10px for a panel, 6px for a control or a pill.
+ * - Surfaces separate by one tone step (page ground -> white panel) and, where two areas abut,
+ *   by a single hairline. Nothing floats except the phone nav sheet's own border.
+ * - Every figure that lines up in a column is tabular, so the money digits sit under each other.
+ * - 240px sidebar on a 34px nav pitch, sitting on the page ground with one hairline to its right.
+ *   Below 900px the sidebar folds to a horizontal nav strip above the canvas.
+ * ------------------------------------------------------------------------- */
+
+.dashboard {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr);
+  column-gap: var(--space-7);
+  align-items: start;
+  padding-top: var(--space-2);
+}
+
+.dashboard:focus {
+  outline: none;
+}
+
+/* ---------- The sidebar ---------- */
+
+.sidebar {
+  display: grid;
+  align-content: start;
+  gap: var(--space-5);
+  padding-right: var(--space-4);
+  border-right: 1px solid var(--color-border);
+  /* The sidebar travels with the page, but never becomes a second scroll container: no
+     max-height and no overflow, so the page stays the only thing that scrolls. */
+  position: sticky;
+  top: var(--space-5);
+  min-height: 0;
+}
+
+.sidebarTop {
+  display: grid;
+  gap: 2px;
+  padding: 0 var(--space-3);
+}
+
+/*
+ * Who the account belongs to. The shop's own mark and name sit in the storefront header above this
+ * frame, so the sidebar names the *person* instead of repeating the brand a second time.
+ */
+.sidebarScope {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--color-ink-muted);
+}
+
+.sidebarIdentity {
+  margin: 0;
+  font-size: var(--text-md);
+  font-weight: 500;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+.nav {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.navLink {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  min-height: 32px;
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-sm);
+  color: var(--color-ink-muted);
+  font-size: var(--text-base);
+  font-weight: 400;
+  text-decoration: none;
+}
+
+.navLink:hover {
+  color: var(--color-ink);
+  background: var(--color-surface-sunken);
+}
+
+.navLink:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 1px;
+}
+
+/* The active destination is a neutral pill with the label unchanged, never coloured. */
+.navLink[data-active='true'] {
+  color: var(--color-ink);
+  background: var(--color-surface-sunken);
+  font-weight: 500;
+}
+
+/*
+ * A count sits only on a queue something is waiting on, and the label says what it counts, so the
+ * number is never a bare badge.
+ */
+.navCount {
+  font-size: var(--text-xs);
+  font-weight: 400;
+  color: var(--color-ink-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.sidebarFoot {
+  display: grid;
+  gap: var(--space-2);
+  justify-items: start;
+  padding: var(--space-4) var(--space-3) 0;
+  border-top: 1px solid var(--color-border);
+}
+
+.sidebarEmail {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--color-ink-muted);
+  overflow-wrap: anywhere;
+}
+
+.signOut {
+  margin: 0;
+}
+
+.signOutButton {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--color-ink);
+  font: inherit;
+  font-size: var(--text-base);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.signOutButton:hover {
+  color: var(--color-action);
+}
+
+.signOutButton:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+/* ---------- The canvas ---------- */
+
+.canvas {
+  display: grid;
+  align-content: start;
+  gap: var(--space-5);
+  min-width: 0;
+}
+
+.canvasHead {
+  display: grid;
+  gap: var(--space-2);
+  max-width: 62ch;
+}
+
+.canvasHead h1 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--text-2xl);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: var(--leading-tight);
+}
+
+/*
+ * The line under the title states the finding - what the newest order is waiting on, or how the
+ * account stands - and never describes the interface.
+ */
+.canvasLead {
+  margin: 0;
+  font-size: var(--text-md);
+  line-height: var(--leading-snug);
+  color: var(--color-ink-muted);
+}
+
+.canvasLead strong {
+  color: var(--color-ink);
+  font-weight: 500;
+}
+
+/* ---------- The figures strip ---------- */
+
+/*
+ * Three figures in one container split by dividers, not three tiles: the studied screens that do
+ * this put the labels above the values and keep every value in ink.
+ */
+.strip {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.fact {
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-4) var(--space-5);
+  border-left: 1px solid var(--color-border);
+}
+
+.fact:first-child {
+  border-left: 0;
+}
+
+.factLabel {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--color-ink-muted);
+}
+
+.factValue {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  font-weight: 500;
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+}
+
+/* A zero is set in grey; it is a fact, not a hole. */
+.factValue[data-zero='true'] {
+  color: var(--color-ink-subtle);
+}
+
+.factNote {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--color-ink-subtle);
+}
+
+/* ---------- Panels ---------- */
+
+.panel {
+  display: grid;
+  gap: var(--space-4);
+  align-content: start;
+  padding: var(--space-5);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.panelHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
+
+.panelTitle {
+  margin: 0;
+  font-size: var(--text-md);
+  font-weight: 600;
+  line-height: var(--leading-snug);
+}
+
+.panelMeta {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--color-ink-muted);
+}
+
+.panelLink {
+  font-size: var(--text-base);
+  color: var(--color-ink);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.panelLink:hover {
+  color: var(--color-action);
+}
+
+/* Two columns for the blocks that pair: the current order on the left, the account on the right. */
+.pair {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(260px, 1fr);
+  gap: var(--space-5);
+  align-items: stretch;
+}
+
+/* ---------- The current order ---------- */
+
+/*
+ * The number and the amount: the two facts the customer came for, with the amount the larger of the
+ * pair because cash on delivery is the only way this shop is paid.
+ */
+.orderTop {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
+
+.orderNumber {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.orderWhen {
+  margin: var(--space-1) 0 0;
+  font-size: var(--text-sm);
+  color: var(--color-ink-muted);
+}
+
+.orderAmount {
+  display: grid;
+  gap: 2px;
+  justify-items: end;
+  text-align: right;
+}
+
+.orderAmountValue {
+  font-family: var(--font-display);
+  font-size: var(--text-2xl);
+  font-weight: 500;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+
+.orderAmountLabel {
+  font-size: var(--text-sm);
+  color: var(--color-ink-muted);
+}
+
+/*
+ * The progress track: the shop's four stored steps plus cash. Reached steps are ink, the current one
+ * carries the screen's one hue, and a step not reached is grey. A cancelled order draws no track at
+ * all - the state sentence replaces it, because a cancelled order has no \"next\".
+ */
+.steps {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.step {
+  display: grid;
+  gap: var(--space-2);
+  align-content: start;
+}
+
+.stepDot {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--color-border);
+}
+
+.step[data-state='done'] .stepDot {
+  background: var(--color-ink);
+}
+
+/*
+ * The one hue on the screen, on the one thing that carries data: where the parcel is now. It is a
+ * 4px mark rather than a tinted field, which keeps the screen under the style's 1% colour budget.
+ */
+.step[data-state='current'] .stepDot {
+  background: var(--brand-primary-deep);
+}
+
+.stepLabel {
+  margin: 0;
+  font-size: var(--text-sm);
+  line-height: var(--leading-snug);
+  color: var(--color-ink-subtle);
+}
+
+.step[data-state='done'] .stepLabel {
+  color: var(--color-ink);
+}
+
+.step[data-state='current'] .stepLabel {
+  color: var(--color-ink);
+  font-weight: 500;
+}
+
+/* The three stored facts under the track: one row, so the panel balances the card beside it. */
+.orderFacts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: var(--space-3);
+  margin: 0;
+}
+
+.orderFacts > div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.orderFacts dt {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--color-ink-muted);
+}
+
+.orderFacts dd {
+  margin: 0;
+  font-size: var(--text-base);
+}
+
+/* ---------- Order rows ---------- */
+
+.rows {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--space-1) var(--space-4);
+  padding: var(--space-3) 0;
+  border-top: 1px solid var(--color-border);
+}
+
+.row:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.rowLink {
+  font-size: var(--text-base);
+  font-weight: 500;
+  color: var(--color-ink);
+  text-decoration: none;
+}
+
+.rowLink:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.rowLink:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+.rowAmount {
+  font-size: var(--text-base);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.rowMeta {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-3);
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--color-ink-muted);
+}
+
+/* The state of a row is a word, not a pill: the copy already says what it means. */
+.rowState {
+  color: var(--color-ink);
+}
+
+/* ---------- Count cards (the orders filter) ---------- */
+
+.counts {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+
+.count {
+  display: grid;
+  gap: 2px;
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-ink);
+  font: inherit;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.count:hover {
+  border-color: var(--color-border-strong);
+}
+
+.count:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+.count[data-active='true'] {
+  border: 1.5px solid var(--color-action);
+  background: var(--color-action-soft);
+  /* The 0.5px the thicker border adds is taken back, so the four cards stay the same size. */
+  padding: calc(var(--space-3) - 0.5px);
+}
+
+.countLabel {
+  font-size: var(--text-sm);
+  color: var(--color-ink-muted);
+}
+
+.count[data-active='true'] .countLabel {
+  color: var(--color-ink);
+}
+
+.countValue {
+  font-size: var(--text-md);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- Empty and notice states ---------- */
+
+.empty {
+  display: grid;
+  gap: var(--space-3);
+  justify-items: start;
+  padding: var(--space-5) 0;
+}
+
+.empty p {
+  margin: 0;
+  color: var(--color-ink-muted);
+  font-size: var(--text-base);
+  line-height: var(--leading-snug);
+  max-width: 46ch;
+}
+
+.notice {
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-base);
+  line-height: var(--leading-snug);
+}
+
+.noticeInfo {
+  background: var(--color-success-soft);
+  color: var(--color-success);
+}
+
+.noticeError {
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+}
+
+/* ---------- Settings rows (password, email) ---------- */
+
+.settings {
+  display: grid;
+  gap: 0;
+}
+
+.settingsRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr);
+  gap: var(--space-6);
+  padding: var(--space-6) 0;
+  border-top: 1px solid var(--color-border);
+}
+
+.settingsRow:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.settingsText {
+  display: grid;
+  gap: var(--space-2);
+  align-content: start;
+  max-width: 44ch;
+}
+
+.settingsTitle {
+  margin: 0;
+  font-size: var(--text-md);
+  font-weight: 600;
+  line-height: var(--leading-snug);
+}
+
+.settingsBody {
+  margin: 0;
+  font-size: var(--text-base);
+  line-height: var(--leading-body);
+  color: var(--color-ink-muted);
+}
+
+.settingsPanel {
+  display: grid;
+  gap: var(--space-4);
+  align-content: start;
+  padding: var(--space-5);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-sunken);
+}
+
+.form {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.field {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.fieldLabel {
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--color-ink);
+}
+
+.field input {
+  width: 100%;
+  min-width: 0;
+  height: 40px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-ink);
+  font: inherit;
+  font-size: var(--text-control);
+}
+
+.field input:hover {
+  border-color: var(--color-border-strong);
+}
+
+.field input:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: -1px;
+  border-color: var(--color-focus);
+}
+
+.field input::placeholder {
+  color: var(--color-ink-subtle);
+}
+
+.fieldPair {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4);
+}
+
+.fieldHint {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--color-ink-muted);
+  line-height: var(--leading-snug);
+}
+
+/* ---------- Buttons ---------- */
+
+/*
+ * The one primary action on this surface is ink, not the brand field: the deal keeps the chrome
+ * achromatic and spends the lavender on data. Secondary controls are a quiet outline.
+ */
+.button {
+  justify-self: start;
+  min-height: 40px;
+  padding: 0 var(--space-5);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: var(--color-ink);
+  color: var(--color-surface);
+  font: inherit;
+  font-size: var(--text-base);
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.button:hover {
+  background: #30283c;
+}
+
+.button:active {
+  transform: translateY(1px);
+}
+
+.button:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+.button:disabled {
+  background: var(--color-border);
+  color: var(--color-ink-subtle);
+  cursor: not-allowed;
+}
+
+.ghostButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+  padding: 0 var(--space-4);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-ink);
+  font: inherit;
+  font-size: var(--text-base);
+  font-weight: 500;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.ghostButton:hover {
+  background: var(--color-surface-sunken);
+}
+
+.ghostButton:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+/* ---------- Key-value rows in the account panel ---------- */
+
+.facts {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
+}
+
+.facts > div {
+  display: grid;
+  gap: 2px;
+}
+
+.facts dt {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--color-ink-muted);
+}
+
+.facts dd {
+  margin: 0;
+  font-size: var(--text-base);
+  overflow-wrap: anywhere;
+}
+
+/* A link pinned to a stretched panel's foot, so the extra height is not a hole. */
+.panelFoot {
+  margin-top: auto;
+  padding-top: var(--space-2);
+}
+
+/* ---------- The phone ---------- */
+
+/* Present only in the folded strip; the sidebar's own foot holds sign-out above 900px. */
+.phoneSignOut {
+  display: none;
+}
+
+/*
+ * Below 900px the sidebar folds: the identity moves into the page title, and the destinations become
+ * a strip above the canvas. The sign-out stays in the strip, because a phone user should not have to
+ * open the security screen to leave.
+ */
+@media (max-width: 899px) {
+  .dashboard {
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: var(--space-5);
+  }
+
+  .sidebar {
+    position: static;
+    gap: var(--space-3);
+    padding: 0 0 var(--space-3);
+    border-right: 0;
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .sidebarTop,
+  .sidebarFoot {
+    display: none;
+  }
+
+  .nav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-1);
+  }
+
+  .navLink {
+    min-height: 40px;
+    padding: 0 var(--space-3);
+    border: 1px solid var(--color-border);
+  }
+
+  .navLink[data-active='true'] {
+    border-color: var(--color-border-strong);
+  }
+
+  .phoneSignOut {
+    display: flex;
+    align-items: center;
+  }
+
+  .pair,
+  .settingsRow {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-4);
+  }
+}
+
+/*
+ * A phone (720px and below) is where the density has to give way: the figures stack, the progress track
+ * turns from a row of five marks into five rows, and the four filter cards become 2 x 2.
+ */
+@media (max-width: 719px) {
+  /*
+   * Five marks across 358px left every label touching its neighbour ("ConfirmedDispatchedDelivered"),
+   * so below 720px the track becomes five stacked rows: a short bar and its own label. The order of the
+   * marks is the same; only the axis changes.
+   */
+  .steps {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 6px;
+  }
+
+  .step {
+    grid-template-columns: 18px minmax(0, 1fr);
+    align-items: center;
+    gap: var(--space-2);
+  }
+
+  .orderFacts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  /* A phone stacks the three figures: three columns of money at 390px truncate the note under each. */
+  .strip {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .fact {
+    border-left: 0;
+    border-top: 1px solid var(--color-border);
+  }
+
+  .fact:first-child {
+    border-top: 0;
+  }
+
+  .counts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .fieldPair {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+

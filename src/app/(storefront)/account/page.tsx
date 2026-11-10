@@ -1,31 +1,48 @@
 import type { Metadata } from 'next';
-import { AccountView } from '@/features/account/AccountView';
-import { currentCustomerPrincipal } from '@/server/customer-auth/guard';
 
-export const metadata: Metadata = { title: 'My account' };
+import { withTransaction } from '@/db/client';
+import { AccountFrame } from '@/features/account/dashboard/AccountFrame';
+import { AccountOverview } from '@/features/account/dashboard/AccountOverview';
+import { toDashboardOrder } from '@/features/account/dashboard/map-order';
+import { ACCOUNT_ROOT } from '@/server/customer-auth/constants';
+import { requireCustomerPage } from '@/server/customer-auth/guard';
+import { readCustomerProfile } from '@/server/customer-auth/profile';
+import { listCustomerOrders } from '@/server/orders/read';
+
+export const metadata: Metadata = { title: 'My account', robots: { index: false, follow: false } };
 export const dynamic = 'force-dynamic';
 
 /**
- * The account landing page.
+ * The account dashboard.
  *
- * It resolves the session on the server and passes only the two facts the view needs, so the client
- * component never sees a token, an expiry or an identifier it does not display.
+ * Signed out, `requireCustomerPage` redirects to sign-in with this path as the return - a dashboard
+ * that rendered its own "you are not signed in" panel put an extra decision in front of a screen that
+ * has nothing to show.
+ *
+ * The session supplies the identity; the orders and the account row are read in one transaction and
+ * filtered by the session's `customer_id` in SQL. Only serialisable values cross to the views.
  */
-export default async function AccountPage({
-  searchParams,
-}: {
-  searchParams: Promise<Record<string, string | string[] | undefined>>;
-}) {
-  const principal = await currentCustomerPrincipal();
-  const params = await searchParams;
-  const notice = typeof params.notice === 'string' ? params.notice : null;
+export default async function AccountPage() {
+  const principal = await requireCustomerPage(ACCOUNT_ROOT);
+  const { orders, profile } = await withTransaction(async (tx) => ({
+    orders: await listCustomerOrders(tx, principal.customerId),
+    profile: await readCustomerProfile(tx, principal.customerId),
+  }));
+
   return (
-    <AccountView
-      customer={
-        principal === null ? null : { email: principal.email, displayName: principal.displayName }
-      }
-      csrfToken={principal?.csrfToken ?? null}
-      notice={notice}
-    />
+    <AccountFrame
+      customer={{ email: principal.email, displayName: principal.displayName }}
+      csrfToken={principal.csrfToken}
+      active="overview"
+    >
+      <AccountOverview
+        customer={{
+          email: principal.email,
+          displayName: principal.displayName,
+          memberSince: profile.createdAt?.toISOString() ?? null,
+        }}
+        orders={orders.map(toDashboardOrder)}
+      />
+    </AccountFrame>
   );
 }

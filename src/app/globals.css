@@ -61,6 +61,13 @@
   --color-danger-soft: #fbeaee;
   --color-warning: #755100;
   --color-warning-soft: #fdf3e2;
+  /*
+   * WhatsApp's own brand green, used in exactly one place: the mark beside the Business WhatsApp number
+   * on the checkout payment card (owner direction, 2026-11-10). It is a *provider's* colour, not ours,
+   * so it never appears on a button, a badge or a state - the shop's own green for a good outcome is
+   * --color-success, and the two are not interchangeable.
+   */
+  --whatsapp-green: #25d366;
 
   /*
    * Categorical chart ramp.

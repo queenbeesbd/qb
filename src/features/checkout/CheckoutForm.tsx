@@ -15,7 +15,7 @@ import {
   type DeliveryRates,
 } from '@/lib/delivery';
 import { DELIVERY_AREAS } from '@/lib/delivery-areas';
-import { CHECKOUT_PAYMENT_NOTICE } from '@/data/payment-instructions';
+import { CHECKOUT_PAYMENT_NOTICE, whatsappLinkNumber } from '@/data/payment-instructions';
 import { useTranslation } from '@/i18n/useTranslation';
 import { useCart } from '@/features/cart/useCart';
 import { resolveCartLines } from '@/features/cart/cart-lines';
@@ -477,10 +477,25 @@ export function CheckoutForm({
                   <p key={line.before}>
                     {line.before}
                     {line.whatsapp !== undefined && (
-                      <>
+                      /*
+                        Owner direction (2026-11-10): the number and the mark are one link into
+                        Business WhatsApp, so a customer reading "send the screenshot to this number"
+                        can tap it instead of retyping eleven digits. The anchor carries the number
+                        as its accessible name, which is why the glyph itself stays decorative; it
+                        opens in a new tab and never navigates the checkout away mid-form.
+                      */
+                      <a
+                        className={styles.whatsappLink}
+                        href={`https://wa.me/${whatsappLinkNumber(line.whatsapp)}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
                         <strong className={styles.noticeNumber}>{line.whatsapp}</strong>
-                        <WhatsAppIcon className={styles.whatsappMark} width={16} height={16} />
-                      </>
+                        <WhatsAppIcon className={styles.whatsappMark} width={18} height={18} />
+                        <span className={styles.whatsappLinkLabel}>
+                          {t('checkout.payment.whatsappLink')}
+                        </span>
+                      </a>
                     )}
                     {line.after}
                   </p>

@@ -28,6 +28,13 @@ export const ACCOUNT_ROOT = '/account';
 export const CUSTOMER_LOGIN_PATH = '/account/login';
 export const CUSTOMER_REGISTER_PATH = '/account/register';
 export const CUSTOMER_ORDERS_PATH = '/account/orders';
+/**
+ * Password and email live on their own screen (2026-11-10).
+ *
+ * The two account-security routes return their result code **here**, not to the dashboard: a refusal
+ * has to be read beside the field that caused it, and the fields are no longer on the landing page.
+ */
+export const CUSTOMER_SECURITY_PATH = '/account/security';
 export const CHECKOUT_PATH = '/checkout';
 
 /** Customer sign-in throttle: by account and by source, matching the owner flow's shape. */
