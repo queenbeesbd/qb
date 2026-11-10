@@ -29,6 +29,12 @@ five**, always.
 - The storefront's null guard stays: it is what keeps the captured fixture - which has no rating
   concept - from being given four invented stars in the development-only demo path.
 
+**The snapshot cache is versioned (same day).** The first deploy of this change drew no stars on the
+live site: Vercel's Data Cache outlives a deployment, so the new build served a catalog snapshot written
+by the previous one, which still said `ratingHalves: null`. `unstable_cache`'s key now carries
+`STOREFRONT_CATALOG_KEY_VERSION`, and AGENTS records the rule - bump it whenever the snapshot's shape
+changes, so a new build reads fresh rows instead of a payload it no longer understands.
+
 Verified 2026-11-11: `typecheck`, `lint` (0 errors), `check:i18n` (1864 keys), unit **305/305**
 (`DEFAULT_PRODUCT_RATING_HALVES` is four stars and is one of the offered choices), `test:db`
 **281/281** (a product inserted without a rating reads 8, and setting it to null is refused by the

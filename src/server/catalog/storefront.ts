@@ -35,7 +35,11 @@ import {
   fixtureToCatalogItem,
 } from '@/features/catalog/model';
 import type { CatalogBrand, CatalogCategory, CatalogItem } from '@/lib/types';
-import { STOREFRONT_CATALOG_REVALIDATE_SECONDS, STOREFRONT_CATALOG_TAG } from './cache';
+import {
+  STOREFRONT_CATALOG_KEY_VERSION,
+  STOREFRONT_CATALOG_REVALIDATE_SECONDS,
+  STOREFRONT_CATALOG_TAG,
+} from './cache';
 import { EnvironmentError } from '@/server/env';
 
 import type {
@@ -238,10 +242,13 @@ async function readStorefrontCatalog(): Promise<StorefrontCatalog> {
  * so an owner's change is visible on the next request rather than after the one-hour backstop.
  * Development and the test runner read directly: `unstable_cache` needs Next's incremental cache, which
  * only exists inside a running Next server, and a dev edit should never wait for a tag.
+ *
+ * The key carries `STOREFRONT_CATALOG_KEY_VERSION`, so a deployment that changes the snapshot's shape
+ * reads fresh rows instead of a payload cached by the previous build.
  */
 const readStorefrontCatalogCached = unstable_cache(
   readStorefrontCatalog,
-  ['storefront-catalog'],
+  ['storefront-catalog', STOREFRONT_CATALOG_KEY_VERSION],
   { tags: [STOREFRONT_CATALOG_TAG], revalidate: STOREFRONT_CATALOG_REVALIDATE_SECONDS },
 );
 
