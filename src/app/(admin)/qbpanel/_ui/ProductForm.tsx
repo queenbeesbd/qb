@@ -7,6 +7,7 @@ import { useTranslation } from '@/i18n/useTranslation';
 import { imageVariantPath } from '@/lib/images';
 import { slugPreview } from '@/lib/slug-preview';
 import { parseBdtInput } from '@/lib/money';
+import { formatRating, RATING_CHOICES } from '@/lib/rating';
 import { discountAmount, discountPercent, formatMoney } from '@/lib/money';
 import { MAX_PRODUCT_IMAGES } from '@/lib/upload-limits';
 import { AdminIcon } from './icons';
@@ -34,6 +35,8 @@ export type ProductFormValues = {
   compareAtPriceMinor?: number | null;
   sku?: string | null;
   availability?: string;
+  /** Display rating in half stars (ADR 0035); null means the product shows no stars. */
+  ratingHalves?: number | null;
   isPublished?: boolean;
   /** The photograph a saved product already puts on its card, if it has one. */
   primaryImageKey?: string | null;
@@ -104,6 +107,14 @@ export function ProductForm({
   const [categoryId, setCategoryId] = useState(String(values.categoryId ?? ''));
   const [brandId, setBrandId] = useState(String(values.brandId ?? ''));
   const [availability, setAvailability] = useState(values.availability ?? 'out_of_stock');
+  /*
+   * The rating the shop shows on this product's card. Blank is the ordinary case and means "no
+   * rating claim"; the options are the same half-star grid the server accepts, so the select cannot
+   * offer a value the save would refuse.
+   */
+  const [rating, setRating] = useState(
+    values.ratingHalves === null || values.ratingHalves === undefined ? '' : String(values.ratingHalves / 2),
+  );
   const [isPublished, setIsPublished] = useState(values.isPublished ?? false);
 
   const formRef = useRef<HTMLFormElement>(null);
@@ -461,6 +472,30 @@ export function ProductForm({
                   <p className={styles.hintWarn}>{t('admin.catalog.field.compareAtPriceWarn')}</p>
                 )}
               </div>
+            </div>
+
+            {/*
+              The rating the shop displays on this product's card (ADR 0035). It is the owner's own
+              claim, not an average - which is why it lives here as a typed value and not as a figure
+              read from customer reviews. Blank is a real choice: no stars, no empty row.
+            */}
+            <div className={styles.field}>
+              <label htmlFor="rating">{t('admin.catalog.field.rating')}</label>
+              <select
+                className={styles.select}
+                id="rating"
+                name="rating"
+                value={rating}
+                onChange={(event) => setRating(event.target.value)}
+              >
+                <option value="">{t('admin.catalog.field.ratingNone')}</option>
+                {RATING_CHOICES.map((halves) => (
+                  <option key={halves} value={String(halves / 2)}>
+                    {t('admin.catalog.field.ratingOption', { rating: formatRating(halves) })}
+                  </option>
+                ))}
+              </select>
+              <p className={styles.hint}>{t('admin.catalog.field.ratingHelp')}</p>
             </div>
           </section>
 

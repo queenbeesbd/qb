@@ -1,0 +1,46 @@
+/*
+ * Five stars in a row.
+ *
+ * The filled tone is the shop's action ink - the same deep purple the price and every filled control
+ * use (7.4:1 on white). A gold star is the universal rating colour and would be the obvious literal
+ * choice, but this palette has two anchors (lavender, pink) and no gold; the star's shape carries the
+ * meaning and the ink keeps the shop's own voice. The empty tone is the border colour: visible enough
+ * to read as an unearned star, quiet enough that four stars still read as four.
+ */
+.row {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.1em;
+  color: var(--color-action);
+  /* The row is a figure, not text: it never wraps and never inherits a line-height that clips it. */
+  flex: none;
+  line-height: 0;
+  vertical-align: middle;
+}
+
+.row[data-size='sm'] {
+  font-size: 11px;
+}
+
+.row[data-size='md'] {
+  font-size: 15px;
+}
+
+.star {
+  display: block;
+  overflow: visible;
+}
+
+/*
+ * The unearned star is a real shape, not a faint suggestion: at 1.1:1 the border colour made the
+ * fifth star of a 4.5 vanish, and a row whose empty stars are invisible cannot state its own scale.
+ * 70% muted ink over the surface is #97909c, 3.09:1 on white - the non-text contrast a meaningful
+ * graphic needs, and still clearly quieter than the filled star's 7.4:1.
+ */
+.empty {
+  fill: color-mix(in srgb, var(--color-ink-muted) 70%, var(--color-surface));
+}
+
+.filled {
+  fill: currentColor;
+}

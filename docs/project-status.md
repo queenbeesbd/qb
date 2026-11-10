@@ -960,3 +960,44 @@ baseline; the desktop sidebar unchanged. `typecheck`, `lint` (0 errors, 18 pre-e
 **Not verified:** real iOS Safari and Android Chrome, screen readers, 200% zoom, and an authenticated
 walk-through on the production domain (no production customer credential is held here). The storefront
 tab bar's own 10.5px labels are outside this change.
+
+## Product reviews and the owner's rating (2026-11-10, ADR 0035)
+
+**What shipped.** `product_review` (53rd table) and `product.rating_halves`, written by migrations
+`0024`, `0025` and `0026`.
+
+- **A buyer writes it.** `src/server/reviews/service.ts` checks a real, non-cancelled order of the
+  customer's that contains the product, records that order on the row, and refuses a second review for
+  the same product (a unique index backs it). The review is born `pending`.
+- **The owner publishes it.** `/qbpanel/reviews` (behind the new `review.moderate`) is an oldest-first
+  worklist with three tabs and the counts on them. Publishing and refusing are state-guarded,
+  audited (`review.published` / `review.refused`), and final: a decided review cannot be re-decided, and
+  none is ever deleted.
+- **The customer sees their own.** The product page reads their own row in any state and shows the
+  state; a signed-out visitor reads only `approved` rows. The public read is filtered in SQL, not in the
+  view.
+- **The rating is the owner's.** `product.rating_halves` is integer half stars, set in the product
+  editor from "No rating" through every half step, and drawn on the product card (pack row) and the
+  product page (under the name). Nothing aggregates review stars.
+- **One photograph per review.** `saveUpload` (square contract), stored before the transaction, served
+  by the existing `/catalog/<key>-<width>.webp` route, shown in the queue and with the review.
+
+**Verified 2026-11-10** on the dev cluster and a dev server: unit **304/304** (new
+`tests/unit/rating.test.ts`), `test:db` **280/280** (new `tests/db/reviews.test.ts`), `typecheck`,
+`lint` (0 errors, 18 pre-existing warnings), `check:i18n` (1865 keys), `check:catalog`, `check:secrets`,
+`db:validate` (53 tables, 210 checks, 108 indexes, 14 triggers), `db:check`, `build`. Browser
+walk-through: the customer submitted a 4-star review with a photo and saw it marked "Awaiting approval";
+`curl` without cookies showed neither the words nor the photo key; the owner published it from the queue
+and the signed-out page then served both. No horizontal overflow at 390px or 1440px.
+
+**Two stale database assertions were corrected** in the same pass, both pinning rules that later owner
+decisions replaced: `tests/db/hero.test.ts` and `tests/db/catalog.test.ts` required a blank banner
+description to be refused, while the 2026-11-10 decision makes it optional (migration `0022`, `0023`);
+`tests/db/constraints.test.ts` still expected 46 tables.
+
+**Not verified:** real iOS Safari and Android Chrome, screen readers, 200% zoom, an authenticated
+walk-through on the production domain (no production credential is held here), and real customer-supplied
+photographs (the walk-through used a catalog image as the file).
+
+**Production note.** The three migrations must be applied to the production branch before the deploy that
+carries this code; the build gate fails closed otherwise.

@@ -20,6 +20,7 @@ import {
   ORDERS_PATH,
   OWNERS_PATH,
   PROMO_CODES_PATH,
+  REVIEWS_PATH,
   TRAFFIC_PATH,
   SUPPORT_SETTINGS_PATH,
 } from '@/server/auth/constants';
@@ -97,6 +98,10 @@ export default async function AdminShellLayout({ children }: { children: React.R
   }
   if (hasPermission(principal, PERMISSIONS.settingsWrite)) {
     items.push({ href: PROMO_CODES_PATH, labelKey: 'admin.nav.promo', group: 'commerce', icon: 'tag' });
+  }
+  if (hasPermission(principal, PERMISSIONS.reviewModerate)) {
+    // A worklist beside the other queues: a customer's words wait here until the owner publishes them.
+    items.push({ href: REVIEWS_PATH, labelKey: 'admin.nav.reviews', group: 'commerce', icon: 'list' });
   }
   if (hasPermission(principal, PERMISSIONS.customerRead)) {
     items.push({ href: CUSTOMERS_PATH, labelKey: 'admin.nav.customers', group: 'customers', icon: 'customers' });

@@ -5092,3 +5092,92 @@ a.rankName:hover {
   overflow-wrap: anywhere;
 }
 
+
+/* ---------------------------------------------------------------------------
+   Review moderation (ADR 0035)
+   ---------------------------------------------------------------------------
+   One card per review: the product and who wrote it at the head, the stars on the
+   same line so a decision can be made without reading the words first, the words
+   themselves in the reading face, and the two decisions at the foot. The body is
+   pre-line so a customer's own paragraph breaks survive - the owner is reading
+   what will be published, not a normalised summary of it. */
+
+.reviewList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.reviewCard {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.reviewHead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.reviewProduct {
+  font-weight: 600;
+}
+
+.reviewMeta {
+  margin-top: 2px;
+  font-size: var(--text-xs);
+  color: var(--color-ink-muted);
+  overflow-wrap: anywhere;
+}
+
+/* The stars and the figure beside them: a decision reads the same two facts as a customer does. */
+.reviewRating {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--color-ink);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.reviewBody {
+  font-size: var(--text-sm);
+  line-height: 1.65;
+  color: var(--color-ink);
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
+.reviewActions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.reviewActions form {
+  margin: 0;
+}
+
+/* A customer's photograph in the moderation queue: a thumbnail, not a gallery. */
+.reviewImage {
+  display: block;
+  width: 120px;
+  height: 120px;
+  object-fit: cover;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-sunken);
+}

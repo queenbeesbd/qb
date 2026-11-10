@@ -225,6 +225,34 @@
 
 /* Mobile-first price hierarchy: the current price dominates, the comparison
    price is secondary, and neither is allowed to break mid-figure. */
+/*
+ * The shop's rating, directly under the product name (ADR 0035).
+ *
+ * Five drawn stars, the figure, and the scale. The figure is in the display face like the price so
+ * the two read as the page's numbers, and "out of 5" is stated once rather than implied by the row -
+ * four filled stars and one empty is also four stars, and the words settle it.
+ */
+.rating {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: calc(var(--space-1) * -1);
+}
+
+.ratingValue {
+  font-family: var(--font-display);
+  font-size: var(--text-base);
+  font-weight: 600;
+  color: var(--color-ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.ratingOutOf {
+  font-size: var(--text-xs);
+  color: var(--color-ink-muted);
+}
+
 .pricing {
   display: flex;
   align-items: baseline;

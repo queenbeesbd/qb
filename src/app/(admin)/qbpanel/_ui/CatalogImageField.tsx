@@ -6,7 +6,7 @@ import { useTranslation } from '@/i18n/useTranslation';
 import { imageVariantPath } from '@/lib/images';
 import { UPLOAD_ACCEPT } from '@/lib/upload-limits';
 import { AdminIcon } from './icons';
-import { prepareImageFile } from './image-prep';
+import { prepareImageFile } from '@/lib/image-prep';
 import styles from '../qbpanel.module.css';
 
 /**

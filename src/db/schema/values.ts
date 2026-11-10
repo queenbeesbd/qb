@@ -136,6 +136,16 @@ export const RETURN_REASON = [
  */
 export const PRODUCT_AVAILABILITY = ['in_stock', 'out_of_stock'] as const;
 
+/**
+ * `product_review.state` (ADR 0035).
+ *
+ * A review exists in exactly three positions: waiting for the owner, published, or refused. It is the
+ * only column that changes after insert - the words and the stars are frozen by a trigger - and there
+ * is deliberately no delete: a refused review is kept as the record of what was refused, and deleting
+ * it would make a customer's own copy of their words the only one left.
+ */
+export const REVIEW_STATE = ['pending', 'approved', 'rejected'] as const;
+
 export const IMAGE_RIGHTS_STATUS = ['unknown', 'pending_confirmation', 'cleared', 'restricted'] as const;
 
 /**

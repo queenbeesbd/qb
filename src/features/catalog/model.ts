@@ -82,6 +82,8 @@ export function fixtureToCatalogItem(product: Product): CatalogItem {
     deliveryMinor: NO_PRODUCT_DELIVERY,
     priceMinor: product.priceMinor,
     compareAtPriceMinor: product.compareAtPriceMinor,
+    // The captured fixture carries no rating, so the demo path makes no rating claim either.
+    ratingHalves: null,
     availability: product.availability,
     images: product.images.map((image) => ({
       key: image.key,

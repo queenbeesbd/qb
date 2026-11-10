@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import { DETAIL_SIZES } from '@/lib/images';
 import { discountAmount, discountPercent } from '@/lib/money';
+import { formatRating } from '@/lib/rating';
 import { useTranslation } from '@/i18n/useTranslation';
 import { useCart } from '@/features/cart/useCart';
 import type { CatalogCategory, CatalogItem, LocalizedText } from '@/lib/types';
@@ -11,7 +12,9 @@ import { ProductCard } from '@/components/ProductCard';
 import { ProductGrid } from '@/components/ProductGrid';
 import { QuantityStepper } from '@/components/QuantityStepper';
 import { ProductPhoto } from '@/components/ProductPhoto';
+import { RatingStars } from '@/components/RatingStars';
 import { GalleryCarousel } from './product/GalleryCarousel';
+import { ProductReviews, type OwnReviewView, type ReviewListItem } from './product/ProductReviews';
 import { ZoomModal } from './product/ZoomModal';
 import { CheckIcon } from '@/components/icons';
 import styles from '@/app/product.module.css';
@@ -30,6 +33,14 @@ export function ProductDetailView({
   description,
   category,
   related,
+  reviews,
+  totalPublished,
+  ownReview,
+  canReview,
+  signedIn,
+  csrfToken,
+  reviewAction,
+  reviewNotice,
 }: {
   product: CatalogItem;
   /**
@@ -42,6 +53,21 @@ export function ProductDetailView({
   description: LocalizedText;
   category: CatalogCategory | null;
   related: readonly CatalogItem[];
+  /**
+   * Published reviews, newest first, and the total that exists - so a shortened list can say so.
+   * Resolved on the server for this viewer: the public list plus their own review and whether they
+   * are entitled to write one (ADR 0035).
+   */
+  reviews: readonly ReviewListItem[];
+  totalPublished: number;
+  ownReview: OwnReviewView | null;
+  canReview: boolean;
+  signedIn: boolean;
+  csrfToken: string | null;
+  /** The route the review form posts to. Built by the page, never from a slug in the browser. */
+  reviewAction: string;
+  /** A fixed notice code from the POST's redirect (`submitted`, `already`, ...), never free text. */
+  reviewNotice: string | null;
 }) {
   const { t, pick, price } = useTranslation();
   const cart = useCart();
@@ -244,6 +270,23 @@ export function ProductDetailView({
           )}
           <h1 className={styles.title}>{name}</h1>
 
+          {/*
+            The shop's own rating, in the one place a shopper looks for it: between the name and the
+            price. It is not an average of the reviews below - those carry their own stars - and a
+            product with no rating draws nothing at all rather than an empty row.
+          */}
+          {product.ratingHalves !== null && (
+            <p className={styles.rating}>
+              <RatingStars
+                halves={product.ratingHalves}
+                size="md"
+                label={t('product.ratingAria', { rating: formatRating(product.ratingHalves) })}
+              />
+              <span className={styles.ratingValue}>{formatRating(product.ratingHalves)}</span>
+              <span className={styles.ratingOutOf}>{t('product.ratingOutOf')}</span>
+            </p>
+          )}
+
           <p className={styles.pricing}>
             <span className={styles.currentPrice}>{price(product.priceMinor)}</span>
             {compareAt !== null && (
@@ -413,6 +456,17 @@ export function ProductDetailView({
           </button>
         </div>
       )}
+
+      <ProductReviews
+        reviews={reviews}
+        totalPublished={totalPublished}
+        ownReview={ownReview}
+        canReview={canReview}
+        signedIn={signedIn}
+        csrfToken={csrfToken}
+        action={reviewAction}
+        notice={reviewNotice}
+      />
 
       {related.length > 0 && (
         <section className={styles.related} aria-labelledby="related-title">

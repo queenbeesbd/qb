@@ -192,11 +192,19 @@ describe('image metadata read from the file', () => {
        * for them - a 600-wide WebP primary and three generated variants, both checked below:
        *
        * - `zq-` photography imported from the owner's previous store (source frames vary);
-       * - discovery imagery (`category-`, `brand-logo-`), which is deliberately square.
+       * - discovery imagery (`category-`, `brand-logo-`), which is deliberately square;
+       * - browser uploads (`product-upload-`, `photo-upload-`), which are written by `saveUpload` in
+       *   the contract of their own surface - a product portrait, or a square for a category, a brand
+       *   logo and a customer's review photo.
        */
-      const squareDiscoveryImage = key.startsWith('category-') || key.startsWith('brand-logo-');
+      const squareDiscoveryImage =
+        key.startsWith('category-') ||
+        key.startsWith('brand-logo-') ||
+        key.startsWith('photo-upload-');
       if (squareDiscoveryImage) assert.equal(asset.height, 600, `${key}: square discovery image`);
-      else if (!key.startsWith('zq-')) assert.equal(asset.height, 800, `${key}: height`);
+      else if (!key.startsWith('zq-') && !key.startsWith('product-upload-')) {
+        assert.equal(asset.height, 800, `${key}: height`);
+      }
       assert.ok(asset.height > 0, `${key}: height`);
       assert.equal(asset.contentType, 'image/webp');
       assert.ok(asset.byteSize > 0);

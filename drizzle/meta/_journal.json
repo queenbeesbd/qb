@@ -169,6 +169,27 @@
       "when": 1794255073506,
       "tag": "0023_needy_gorilla_man",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1794320542425,
+      "tag": "0024_early_tusk",
+      "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1794321119586,
+      "tag": "0025_clumsy_tigra",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1794321244223,
+      "tag": "0026_great_vance_astro",
+      "breakpoints": true
     }
   ]
 }

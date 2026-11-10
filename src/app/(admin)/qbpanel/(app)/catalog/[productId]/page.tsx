@@ -108,6 +108,7 @@ export default async function EditProductPage({
           compareAtPriceMinor: data.product.compareAtPriceMinor,
           sku: data.product.sku,
           availability: data.product.availability,
+          ratingHalves: data.product.ratingHalves,
           isPublished: data.product.isPublished,
           primaryImageKey:
             data.product.images.find((image) => image.isPrimary)?.key ?? data.product.images[0]?.key ?? null,

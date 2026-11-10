@@ -35,6 +35,7 @@ export const PERMISSIONS = {
   staffManage: 'staff.manage',
   auditRead: 'audit.read',
   settingsWrite: 'settings.write',
+  reviewModerate: 'review.moderate',
 } as const;
 
 export type PermissionCode = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];
@@ -82,6 +83,10 @@ export const PERMISSION_CATALOGUE: readonly PermissionDefinition[] = [
   { code: PERMISSIONS.customerRevokeSession, description: 'Revoke a customer session', isPrivileged: false },
   { code: PERMISSIONS.customerFlag, description: 'Raise or clear a customer review flag', isPrivileged: false },
   { code: PERMISSIONS.catalogWrite, description: 'Create or edit catalog content', isPrivileged: false },
+  // A published review puts a customer's words on the shop's own page, which is why it is a permission
+  // of its own rather than a side effect of `catalog.write` (ADR 0035). Not privileged: it neither
+  // asserts a money fact nor changes who may act.
+  { code: PERMISSIONS.reviewModerate, description: 'Publish or refuse a product review', isPrivileged: false },
   { code: PERMISSIONS.inventoryAdjust, description: 'Adjust stock through the movement ledger', isPrivileged: false },
   { code: PERMISSIONS.staffRead, description: 'List staff users', isPrivileged: false },
   { code: PERMISSIONS.auditRead, description: 'Read the audit trail', isPrivileged: false },
@@ -112,6 +117,7 @@ export const PERMISSION_LABELS: Record<string, string> = {
   [PERMISSIONS.customerRevokeSession]: 'Revoke customer sessions',
   [PERMISSIONS.customerFlag]: 'Customer review flags',
   [PERMISSIONS.catalogWrite]: 'Edit catalog',
+  [PERMISSIONS.reviewModerate]: 'Moderate reviews',
   [PERMISSIONS.inventoryAdjust]: 'Adjust stock',
   [PERMISSIONS.staffRead]: 'Read staff',
   [PERMISSIONS.staffManage]: 'Manage staff and roles',
@@ -169,4 +175,6 @@ export const PERMISSIONS_IMPLEMENTED: readonly PermissionCode[] = [
   PERMISSIONS.returnInspect,
   // Phase 22: additional courier costs, recorded with payment receipt.
   PERMISSIONS.orderCostRecord,
+  // ADR 0035: the review moderation queue - the only way a customer's words reach the shop's own page.
+  PERMISSIONS.reviewModerate,
 ];

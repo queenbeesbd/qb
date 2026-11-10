@@ -7,7 +7,7 @@ import { UploadIcon } from '@/components/icons';
 import { useTranslation } from '@/i18n/useTranslation';
 
 import styles from '../qbpanel.module.css';
-import { prepareImageFile } from './image-prep';
+import { prepareImageFile } from '@/lib/image-prep';
 
 /**
  * The file input every admin upload form uses (owner direction, 2026-11-05).

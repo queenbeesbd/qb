@@ -84,7 +84,7 @@ describe('homepage hero carousel', { skip: toolingAvailable ? false : SKIP_REASO
     assert.equal(after[0]?.imageKey, first.imageKey);
   });
 
-  it('refuses a duplicate, an unknown asset and a missing description', async () => {
+  it('refuses a duplicate and an unknown asset, and accepts a blank description', async () => {
     await assert.rejects(
       fixture.db.transaction((tx) =>
         addHeroImage(tx, actor(), { key: 'hero-1', alt: 'Already here' }),
@@ -97,13 +97,17 @@ describe('homepage hero carousel', { skip: toolingAvailable ? false : SKIP_REASO
       ),
       ValidationError,
     );
+    /*
+     * A description is optional (owner direction, 2026-11-10, migration 0022): a blank one is stored
+     * as null and the banner then renders `alt=""`, decorative. This assertion used to require a
+     * rejection, which was the rule before that decision.
+     */
     const images = await fixture.db.transaction((tx) => listHeroImages(tx));
-    await assert.rejects(
-      fixture.db.transaction((tx) =>
-        updateHeroImage(tx, actor(), { id: String(images[0]?.id), alt: '   ' }),
-      ),
-      ValidationError,
+    await fixture.db.transaction((tx) =>
+      updateHeroImage(tx, actor(), { id: String(images[0]?.id), alt: '   ' }),
     );
+    const after = await fixture.db.transaction((tx) => listHeroImages(tx));
+    assert.equal(after.find((image) => image.id === images[0]?.id)?.altText, null);
   });
 
   it('never removes the last image', async () => {

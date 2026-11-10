@@ -106,6 +106,8 @@ export type AuditAction =
   | 'integration.steadfast_credentials_cleared'
   | 'order.steadfast_booked'
   | 'order.steadfast_booking_failed'
+  | 'review.published'
+  | 'review.refused'
   | 'admin.action_denied';
 
 export type AuditEntry = {

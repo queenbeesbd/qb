@@ -100,13 +100,29 @@
   color: var(--color-action);
 }
 
+/*
+ * One reserved line for two facts: the pack size on the left, the shop's rating on the right.
+ *
+ * Sharing the line is what lets a rating appear without moving anything: the row already reserved
+ * its height, so a rated product and an unrated one put their price on the same baseline. The pack
+ * truncates rather than pushing the stars out of the card.
+ */
+.packRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-1);
+  min-height: 1.6em;
+}
+
 .pack {
   font-size: var(--text-xs);
   color: var(--color-ink-muted);
-  min-height: 1.6em;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  /* The stars keep their width; the pack is the half that gives way. */
+  min-width: 0;
 }
 
 /**

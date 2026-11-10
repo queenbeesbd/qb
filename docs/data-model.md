@@ -556,6 +556,7 @@ category with products is refused by the FK, never cascaded.
 | `name_bn` / `name_en` | text | NOT NULL | `CHECK (char_length BETWEEN 1 AND 200)` |
 | `description_bn` / `description_en` | text | NULL | **NULL means the description is not known** and the interface states that gap (honesty rule) |
 | `short_description` | text | NULL | **Added in Phase 35 (migration `0006`).** The one-line shelf line shown under the price. `CHECK (NULL OR char_length BETWEEN 1 AND 500)`. **English only by decision** - it is a short caption, not catalog copy, and the interface is English only (Phase 28). NULL means the owner wrote none, and the product page omits the line rather than rendering an empty paragraph |
+| `rating_halves` | integer | NULL | **Added 2026-11-10 (migration `0024`, ADR 0035).** The rating the shop displays, in **half stars** (2 = one star, 9 = four and a half, 10 = five), `CHECK (NULL OR BETWEEN 2 AND 10)`. Integer halves for the same reason money is integer poisha: `4.5` has no exact binary representation. **The owner's own field, typed in the product editor - never derived from `product_review`, and no average of reviews exists anywhere.** NULL means the shop makes no rating claim and the storefront draws no stars |
 | `pack_size` | text | NULL | e.g. `30 ml`. NULL means not known |
 | `delivery_chattogram_minor` / `delivery_dhaka_minor` / `delivery_others_minor` | integer | NULL | **Added 2026-11-10 (migration `0021`, ADR 0034).** The product's own delivery charge per area, in poisha, `CHECK (NULL OR >= 0)`. NULL is the ordinary case and means the store's configured charge applies; `0` means free delivery for that area. The editor writes them at Settings-era `product` writes; `customDeliveryMinor` takes the lowest non-null fee in a basket for the customer's area, and the order snapshots it in `order.shipping_minor` |
 | `availability` | text | NOT NULL | **Added in Phase 13 (migration `0003`).** The owner-controlled `In Stock` / `Out of Stock` state (D19). Default **`out_of_stock`**, deliberately fail-safe: a product nobody has confirmed as available cannot be ordered. **A state, not a quantity** - see ADR 0010 |
@@ -738,6 +739,42 @@ audited as `settings.offer_popup_saved` with before and after. The storefront op
 browsing session**, keyed by the image and update time.
 
 ---
+
+### 5.9 `product_review` (customer reviews, 2026-11-10, ADR 0035)
+
+**Why it exists.** A customer who has ordered a product may write about it. The row is the whole record:
+the words, the customer's own stars, the order that earned the right to speak, an optional photograph,
+and the owner's decision.
+
+| Column | Type | Null | Notes |
+| --- | --- | --- | --- |
+| `id` | bigint identity | PK | |
+| `product_id` | bigint | NOT NULL | FK `product(id)` `ON DELETE RESTRICT` |
+| `customer_id` | bigint | NOT NULL | FK `customer(id)` `ON DELETE RESTRICT` |
+| `order_id` | bigint | NOT NULL | FK `order(id)` `ON DELETE RESTRICT`. **Proof of purchase**, not a display field: the service refuses the insert unless an order of this customer, not cancelled, contains the product |
+| `rating_halves` | integer | NOT NULL | The customer's stars in halves, `CHECK (BETWEEN 2 AND 10 AND % 2 = 0)` - whole stars only, because the form offers five and a half step is not one of them |
+| `body` | text | NOT NULL | `CHECK (char_length BETWEEN 10 AND 1000)`. Plain text; never rendered as HTML |
+| `image_key` / `image_width` / `image_height` | text / integer / integer | NULL | **Added the same day (migration `0025`).** An optional photograph as our own asset key under `/catalog/`, written by `saveUpload` (decoded, EXIF-stripped, WebP at 320/600/1050). The three columns are one fact: all present or all absent (`product_review_image_complete`), and the key must match the catalog key rule |
+| `state` | text | NOT NULL | `pending` / `approved` / `rejected`, default `pending`. **Only `approved` is published** |
+| `decided_by` | bigint | NULL | FK `staff_user(id)`. Required once decided |
+| `decided_at` | timestamptz | NULL | Required once decided |
+| `created_at` / `updated_at` | timestamptz | NOT NULL | |
+
+**Constraints and indexes.** `product_review_customer_product_unique (customer_id, product_id)` - one
+review per customer per product, so a second submission is a refusal rather than a second opinion.
+`product_review_published_idx (product_id, created_at DESC) WHERE state = 'approved'` serves the product
+page; `product_review_queue_idx (state, created_at)` serves the owner's queue.
+`product_review_decision_complete` states that a decided row names an actor and a moment, and a pending
+row names neither.
+
+**Frozen and never deleted.** `queenbees_guard_review_immutable_body` refuses any change to the author,
+the purchase, the stars, the words and the photo, and refuses any transition out of a decided state.
+`product_review_no_delete` refuses every `DELETE`: a refused review is the record of what was refused.
+
+**What it is not.** It is not a rating source. No column, read or screen aggregates these stars; the
+stars a product draws come from `product.rating_halves`. A published review is labelled **Verified
+buyer** on the storefront - the only thing verifiably true about it - and the customer's name and email
+are never rendered.
 
 ## 6. Inventory: balance, ledger and reservations
 

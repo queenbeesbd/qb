@@ -103,6 +103,7 @@ export async function POST(request: Request): Promise<Response> {
     sku: form.get('sku') ?? undefined,
     availability: form.get('availability'),
     isPublished: form.get('isPublished') ?? undefined,
+    rating: form.get('rating') ?? undefined,
   };
 
   const images = imageFiles(form);

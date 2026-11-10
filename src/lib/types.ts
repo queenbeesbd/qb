@@ -170,6 +170,14 @@ export type CatalogItem = {
   deliveryMinor: ProductDeliveryMinor;
   priceMinor: Money;
   compareAtPriceMinor: Money | null;
+  /**
+   * The rating the shop displays for this product, in half stars (ADR 0035): 9 draws four and a half.
+   *
+   * This is the owner's own field, typed in the product editor - **not** an average of customer
+   * reviews, and it is never derived from them. `null` means no rating claim is made and the card
+   * draws no stars at all rather than an empty row or a zero.
+   */
+  ratingHalves: number | null;
   availability: Availability;
   images: CatalogImage[];
   source: CatalogSource;

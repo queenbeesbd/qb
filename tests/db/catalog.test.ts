@@ -698,12 +698,16 @@ describe('catalog management', { skip: toolingAvailable ? false : SKIP_REASON },
     assert.equal(hidden?.isActive, false);
     assert.equal(await withTransaction((tx) => loadActiveOfferPopup(tx)), null);
 
-    await assert.rejects(
-      withTransaction((tx) =>
-        saveOfferPopup(tx, owner, { asset: null, altText: '', isActive: false }),
-      ),
-      ValidationError,
+    /*
+     * The description became optional on 2026-11-10 (migration 0023, owner direction): a blank one is
+     * stored as null and the dialog is then labelled with the generic "Offer". This assertion used to
+     * require a rejection, which was the rule before that decision.
+     */
+    await withTransaction((tx) =>
+      saveOfferPopup(tx, owner, { asset: null, altText: '   ', isActive: false }),
     );
+    const cleared = await withTransaction((tx) => loadOfferPopup(tx));
+    assert.equal(cleared?.altText, null);
   });
 
   it('archives a product, unpublishes it, and preserves the owner availability statement', async () => {

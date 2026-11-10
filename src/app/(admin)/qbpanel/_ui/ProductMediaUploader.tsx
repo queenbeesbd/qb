@@ -5,7 +5,7 @@ import { useEffect, useRef, useState, type DragEvent } from 'react';
 import { MAX_PRODUCT_IMAGES, UPLOAD_ACCEPT } from '@/lib/upload-limits';
 import { useTranslation } from '@/i18n/useTranslation';
 import { AdminIcon } from './icons';
-import { prepareImageFile } from './image-prep';
+import { prepareImageFile } from '@/lib/image-prep';
 import styles from '../qbpanel.module.css';
 
 /** One photograph chosen but not yet saved, with the object URL its thumbnail reads. */

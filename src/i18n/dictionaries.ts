@@ -154,6 +154,35 @@ export const dictionary = {
   'product.noDescription':
     'A detailed description for this product is not published on the public storefront.',
   'product.related': 'Related products',
+  /*
+   * Ratings and reviews (ADR 0035). The stars a product shows are the shop's own field, so the
+   * wording never claims they are customers' - and a review's own stars are described as that
+   * review's rating, not the product's.
+   */
+  'product.ratingAria': 'Rated {rating} out of 5',
+  'product.ratingOutOf': 'out of 5',
+  'product.reviews.title': 'Reviews',
+  'product.reviews.empty': 'No reviews yet.',
+  'product.reviews.verifiedBuyer': 'Verified buyer',
+  'product.reviews.yourReview': 'Your review',
+  'product.reviews.showingSome': 'Showing the {shown} most recent of {total}.',
+  'product.reviews.state.pending': 'Awaiting approval',
+  'product.reviews.state.approved': 'Published',
+  'product.reviews.state.rejected': 'Not published',
+  'product.reviews.formTitle': 'Write a review',
+  'product.reviews.formRating': 'Your rating',
+  'product.reviews.formBody': 'Your review',
+  'product.reviews.formBodyHint': 'Between 10 and 1,000 characters.',
+  'product.reviews.formPhoto': 'Photo (optional)',
+  'product.reviews.formPhotoHint': 'One photo, up to 4 MB. It is shown with your review.',
+  'product.reviews.notice.invalidPhoto': 'That file could not be read as a photo. Choose a JPEG, PNG or WebP image.',
+  'product.reviews.starsOf': '{count} out of 5 stars',
+  'product.reviews.submit': 'Send review',
+  'product.reviews.moderationHint': 'Your review is shown to you now, and to everyone once the shop publishes it.',
+  'product.reviews.notice.submitted': 'Thanks - your review has been sent. Only you can see it until the shop publishes it.',
+  'product.reviews.notice.already': 'You have already reviewed this product.',
+  'product.reviews.notice.notPurchased': 'A review can only be written for a product you have ordered.',
+  'product.reviews.notice.invalid': 'Choose a rating and write at least 10 characters.',
   'product.availabilityLabel': 'Stock information',
   'product.availability.in_stock': 'Published as in stock',
   'product.availability.out_of_stock': 'Out of stock',
@@ -1410,6 +1439,39 @@ export const dictionary = {
   'admin.catalog.field.price': 'Price (BDT)',
   'admin.catalog.field.compareAtPrice': 'Comparison price (BDT)',
   'admin.catalog.field.compareAtPriceHelp': 'Leave blank to show no saving.',
+  /*
+   * The displayed rating (ADR 0035). It is the shop's own claim and is never computed from customer
+   * reviews, which is why the help says so: an owner should not expect it to move when a review lands.
+   */
+  /*
+   * Review moderation (ADR 0035). The copy names the three positions a review can be in and the two
+   * decisions, and says plainly what each decision does - a refused review stays the customer's own,
+   * a published one goes on the product page.
+   */
+  'admin.nav.reviews': 'Reviews',
+  'admin.reviews.title': 'Reviews',
+  'admin.reviews.subtitle': 'Customer reviews wait here until you publish them. A review is only visible to its author until then.',
+  'admin.reviews.filterLabel': 'Filter reviews by state',
+  'admin.reviews.tab.pending': 'Awaiting approval',
+  'admin.reviews.tab.approved': 'Published',
+  'admin.reviews.tab.rejected': 'Refused',
+  'admin.reviews.publish': 'Publish',
+  'admin.reviews.refuse': 'Refuse',
+  'admin.reviews.decided': 'Decided',
+  'admin.reviews.empty.pending': 'Nothing is waiting',
+  'admin.reviews.empty.pendingBody': 'Every review has been decided. New ones appear here as customers write them.',
+  'admin.reviews.empty.other': 'No reviews here yet',
+  'admin.reviews.empty.otherBody': 'A review moves into this list once you decide it.',
+  'admin.reviews.notice.published': 'Published. The review is now on the product page.',
+  'admin.reviews.notice.refused': 'Refused. The review stays visible to its author, marked not published.',
+  'admin.reviews.notice.conflict': 'That review had already been decided.',
+  'admin.reviews.notice.invalid': 'The request was not a review decision.',
+  'admin.reviews.notice.denied': 'You do not have permission to decide reviews.',
+  'admin.catalog.field.rating': 'Rating',
+  'admin.catalog.field.ratingNone': 'No rating',
+  'admin.catalog.field.ratingOption': '{rating} out of 5',
+  'admin.catalog.field.ratingHelp':
+    'The stars shown on this product\'s card and page. This is the shop\'s own rating, not an average of customer reviews.',
   'admin.catalog.field.sku': 'SKU',
   'admin.catalog.field.availability': 'Availability',
   'admin.catalog.field.isPublished': 'Publish on the storefront',

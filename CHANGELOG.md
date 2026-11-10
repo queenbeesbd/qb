@@ -14,6 +14,52 @@ An entry may describe a deployment only once it has actually happened and been o
 
 ## [Unreleased]
 
+### Added - 2026-11-10: product reviews, the owner's rating, and a review photograph
+
+A customer who has ordered a product can review it on the product page, and the shop displays a rating
+the owner sets. Recorded in `docs/decisions/0035-product-reviews-and-owner-rating.md`.
+
+**Reviews.** One review per customer per product, earned by a real order that was not cancelled (the
+order is recorded on the row as proof). The review carries the customer's words, their whole-star rating
+and an optional photograph. It is **born pending**: its author sees it immediately, marked "Awaiting
+approval", and nobody else sees it until the owner publishes it in `/qbpanel/reviews` (behind the new
+`review.moderate` permission). Refusing a review keeps it - the customer still sees their own words,
+marked not published - and no review is ever deleted. The words, stars, purchase and photo are frozen by
+a trigger; only a pending review can be decided, and only once. Publishing is audited as
+`review.published`, refusing as `review.refused`.
+
+**No average exists.** A review shows its own stars; nothing sums them, and the storefront prints no
+review average, no distribution and no rating figure beside a review count.
+
+**The owner's rating.** `product.rating_halves` is a new column holding the shop's displayed rating in
+half stars (2 = one star, 9 = four and a half, 10 = five), edited in the product editor's Pricing card
+from "No rating" through every half step. It is **not** derived from reviews: publishing a one-star
+review does not move it. The product card shows it on the pack-size row (so the price baselines stay
+aligned), the product page under the name, and a product with no rating draws no stars at all.
+
+**The photograph.** One optional image per review, through the same pipeline as product photography:
+decoded with `sharp`, EXIF-stripped, re-encoded to WebP at 320/600/1050 with the key and dimensions
+taken from the bytes, and the browser downscales a phone photo first so it fits under the request cap.
+It is stored before the review transaction opens, so an unreadable file refuses the whole submission.
+The moderation queue shows the picture beside the words, because the owner's approval is the only
+editorial check.
+
+**Schema.** `product_review` (new table) plus `product.rating_halves` - migrations `0024`, `0025` and
+`0026`, taking the schema from 52 to **53 tables**. `0026` corrects `0024`'s rating check to allow half
+stars on a product (a review's own stars stay whole).
+
+**Verified 2026-11-10** against the local cluster and a dev server: unit **304/304** (new
+`tests/unit/rating.test.ts`), `test:db` **280/280** (new `tests/db/reviews.test.ts`: purchase gate,
+cancelled-order refusal, one-review index, pending invisibility, decision conflict, immutability,
+delete refusal, decision-completeness, 4.5 accepted and 11 refused), `typecheck`, `lint` (0 errors),
+`check:i18n` (1865 keys), `check:catalog`, `check:secrets`, `db:validate` (53 tables), `db:check`,
+`build`. A browser walk-through as the customer submitted a 4-star review with a photo (visible only to
+them), and as the owner published it from the queue; the signed-out page then carried both the words and
+the photo, with no form offered. Checked at 390px and 1440px: no horizontal overflow.
+
+**Not verified:** real iOS Safari and Android Chrome, screen readers, an authenticated walk-through on
+the production domain, and the tab-bar overlap the floating cart already has on every storefront page.
+
 ### Changed - 2026-11-10: the account dashboard's phone composition
 
 The dashboard shipped with its sidebar folded into a wrapping strip of four bordered chips - including

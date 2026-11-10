@@ -1,0 +1,2 @@
+ALTER TABLE "product" DROP CONSTRAINT "product_rating_halves_valid";--> statement-breakpoint
+ALTER TABLE "product" ADD CONSTRAINT "product_rating_halves_valid" CHECK ("product"."rating_halves" is null or "product"."rating_halves" between 2 and 10);

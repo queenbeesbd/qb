@@ -24,6 +24,7 @@ import { inArray, sql } from 'drizzle-orm';
 
 import type { Transaction } from '@/db/client';
 import { fuzzyScoreAcross } from '@/lib/fuzzy';
+import { parseRatingHalves } from '@/lib/rating';
 import { likeTerm } from '@/lib/search';
 import {
   brand,
@@ -881,6 +882,11 @@ export type ProductInput = {
   readonly sku?: unknown;
   readonly availability: unknown;
   readonly isPublished?: unknown;
+  /**
+   * The rating the shop shows for this product, as the owner typed it ("4.5"), or blank for none
+   * (ADR 0035). Parsed to half stars; it is the shop's own claim, never an average of reviews.
+   */
+  readonly rating?: unknown;
 };
 
 /**
@@ -1085,6 +1091,8 @@ export async function getProductForAdmin(tx: Transaction, productId: unknown): P
       deliveryDhakaMinor: number | null;
       deliveryOthersMinor: number | null;
       availability: string;
+      /** Display rating in half stars; null means the shop makes no rating claim. */
+      ratingHalves: number | null;
       isPublished: boolean;
       publishedAt: Date | null;
       priceMinor: number | null;
@@ -1121,6 +1129,7 @@ export async function getProductForAdmin(tx: Transaction, productId: unknown): P
       deliveryDhakaMinor: product.deliveryDhakaMinor,
       deliveryOthersMinor: product.deliveryOthersMinor,
       availability: product.availability,
+      ratingHalves: product.ratingHalves,
       isPublished: product.isPublished,
       publishedAt: product.publishedAt,
       priceMinor: sql<number | null>`(
@@ -1195,6 +1204,7 @@ export async function createProduct(
       deliveryDhakaMinor: fields.deliveryDhakaMinor,
       deliveryOthersMinor: fields.deliveryOthersMinor,
       availability: fields.availability,
+      ratingHalves: fields.ratingHalves,
       isPublished: fields.isPublished,
       publishedAt: fields.isPublished ? new Date() : null,
     })
@@ -1230,6 +1240,7 @@ export async function createProduct(
         others: fields.deliveryOthersMinor,
       },
       availability: fields.availability,
+      ratingHalves: fields.ratingHalves,
       isPublished: fields.isPublished,
     },
   });
@@ -1252,6 +1263,7 @@ export async function updateProduct(
       slug: product.slug,
       nameEn: product.nameEn,
       availability: product.availability,
+      ratingHalves: product.ratingHalves,
       isPublished: product.isPublished,
       publishedAt: product.publishedAt,
       deletedAt: product.deletedAt,
@@ -1284,6 +1296,7 @@ export async function updateProduct(
       deliveryDhakaMinor: fields.deliveryDhakaMinor,
       deliveryOthersMinor: fields.deliveryOthersMinor,
       availability: fields.availability,
+      ratingHalves: fields.ratingHalves,
       isPublished: fields.isPublished,
       // `product_published_needs_timestamp` requires a timestamp the first time it is published; an
       // unpublish keeps the original date rather than erasing when it was first made public.
@@ -1316,6 +1329,7 @@ export async function updateProduct(
       nameEn: row.nameEn,
       priceMinor: row.priceMinor,
       availability: row.availability,
+      ratingHalves: row.ratingHalves,
       isPublished: row.isPublished,
     },
     after: {
@@ -1328,6 +1342,7 @@ export async function updateProduct(
         others: fields.deliveryOthersMinor,
       },
       availability: fields.availability,
+      ratingHalves: fields.ratingHalves,
       isPublished: fields.isPublished,
     },
   });
@@ -1518,6 +1533,7 @@ async function normalizeProductInput(
   deliveryChattogramMinor: number | null;
   deliveryDhakaMinor: number | null;
   deliveryOthersMinor: number | null;
+  ratingHalves: number | null;
   priceMinor: number;
   compareAtPriceMinor: number | null;
   sku: string;
@@ -1595,6 +1611,20 @@ async function normalizeProductInput(
   const availability = parseAvailability(input.availability);
   if (availability === null) throw new ValidationError('unsupported availability value');
 
+  /*
+   * The displayed rating is the owner's own field (ADR 0035), so it is optional and blank means the
+   * product makes no rating claim. A typed value must be on the half-star grid between one and five -
+   * `parseRatingHalves` refuses `4.3` rather than rounding it into a claim nobody made.
+   */
+  const ratingRaw = input.rating;
+  const ratingHalves =
+    ratingRaw === undefined || ratingRaw === null || (typeof ratingRaw === 'string' && ratingRaw.trim() === '')
+      ? null
+      : parseRatingHalves(ratingRaw);
+  if (ratingRaw !== undefined && ratingRaw !== null && !(typeof ratingRaw === 'string' && ratingRaw.trim() === '') && ratingHalves === null) {
+    throw new ValidationError('a rating must be between 1 and 5 stars, in half steps');
+  }
+
   const requestedSku = input.sku === undefined || input.sku === '' ? null : parseSku(input.sku);
   if (input.sku !== undefined && input.sku !== '' && requestedSku === null) {
     throw new ValidationError('the SKU must be letters, digits and dashes');
@@ -1627,6 +1657,7 @@ async function normalizeProductInput(
     compareAtPriceMinor,
     sku: requestedSku ?? defaultSku(slug),
     availability,
+    ratingHalves,
     isPublished: parseVisibility(input.isPublished),
   };
 }

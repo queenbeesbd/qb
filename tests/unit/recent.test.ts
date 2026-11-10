@@ -35,6 +35,7 @@ function item(
     deliveryMinor: { chattogram: null, dhaka: null, others: null },
     priceMinor: 10_000,
     compareAtPriceMinor: null,
+    ratingHalves: null,
     availability: 'in_stock',
     images:
       imageKey === null

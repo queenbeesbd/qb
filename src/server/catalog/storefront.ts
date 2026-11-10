@@ -108,6 +108,7 @@ function toCatalogItem(record: CatalogProduct): CatalogItem {
     deliveryMinor: record.deliveryMinor,
     priceMinor: record.priceMinor,
     compareAtPriceMinor: record.compareAtPriceMinor,
+    ratingHalves: record.ratingHalves,
     availability: record.availability,
     images: record.images.map((image) => ({
       key: image.key,

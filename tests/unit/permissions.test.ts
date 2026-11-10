@@ -110,6 +110,8 @@ describe('permission catalogue', () => {
         PERMISSIONS.codConfirmCollection,
         PERMISSIONS.orderDispatch,
         PERMISSIONS.returnInspect,
+        // ADR 0035: the review moderation queue.
+        PERMISSIONS.reviewModerate,
         // Phase 22: additional courier costs recorded with payment receipt.
         PERMISSIONS.orderCostRecord,
       ].sort(),

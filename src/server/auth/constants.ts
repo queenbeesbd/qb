@@ -84,6 +84,14 @@ export const BRANDS_PATH = '/qbpanel/catalog/brands';
 export const CATEGORIES_PATH = '/qbpanel/categories';
 export const DELIVERY_SETTINGS_PATH = '/qbpanel/settings/delivery';
 export const PROMO_CODES_PATH = '/qbpanel/promo-codes';
+/**
+ * Review moderation (ADR 0035).
+ *
+ * A customer's review is visible to its author the moment it is written and to nobody else until the
+ * owner publishes it here, so this is a worklist like the COD queue rather than a catalog screen: it
+ * sits in Commerce, behind `review.moderate`.
+ */
+export const REVIEWS_PATH = '/qbpanel/reviews';
 /** The derived figures screen: revenue, orders and what is selling (Phase 38). */
 export const ANALYTICS_PATH = '/qbpanel/analytics';
 /**

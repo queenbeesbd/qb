@@ -62,6 +62,11 @@ export type CatalogProduct = {
   readonly deliveryMinor: ProductDeliveryMinor;
   readonly priceMinor: number;
   readonly compareAtPriceMinor: number | null;
+  /**
+   * The rating the shop displays, in half stars (ADR 0035) - the owner's own field, never derived
+   * from reviews. Null means the shop makes no rating claim, and the card then draws no stars.
+   */
+  readonly ratingHalves: number | null;
   /** The owner's In Stock / Out of Stock state (D19). Never a quantity. */
   readonly availability: 'in_stock' | 'out_of_stock';
   readonly images: readonly {
@@ -156,6 +161,7 @@ export async function listPublishedProducts(
       deliveryDhakaMinor: product.deliveryDhakaMinor,
       deliveryOthersMinor: product.deliveryOthersMinor,
       availability: product.availability,
+      ratingHalves: product.ratingHalves,
       categoryId: category.id,
       categorySlug: category.slug,
       brandNameEn: brand.nameEn,
@@ -261,6 +267,7 @@ export async function getPublishedProductBySlug(
       deliveryDhakaMinor: product.deliveryDhakaMinor,
       deliveryOthersMinor: product.deliveryOthersMinor,
       availability: product.availability,
+      ratingHalves: product.ratingHalves,
       categoryId: category.id,
       categorySlug: category.slug,
       brandNameEn: brand.nameEn,
@@ -544,6 +551,7 @@ function projectProduct(
     deliveryDhakaMinor: number | null;
     deliveryOthersMinor: number | null;
     availability: string;
+    ratingHalves: number | null;
     categoryId: number;
     categorySlug: string;
     brandNameEn: string;
@@ -575,6 +583,8 @@ function projectProduct(
     },
     priceMinor: row.priceMinor,
     compareAtPriceMinor: row.compareAtPriceMinor,
+    // The column's own check guarantees an even value between 2 and 10; null is "no rating".
+    ratingHalves: row.ratingHalves,
     // The schema's CHECK constraint is the guarantee; this narrows the string the driver returns.
     availability: row.availability === 'in_stock' ? 'in_stock' : 'out_of_stock',
     createdAt: row.createdAt,

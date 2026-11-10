@@ -321,6 +321,41 @@ modal sheet: focus moves to Close, Tab is trapped, Escape closes, body scroll is
 the draft, Reset clears it, and focus returns to the Filters button. Category rows in the drawer are
 links, so they navigate immediately and carry the draft's other facets. No filter is visual-only.
 
+
+## Ratings and reviews (2026-11-10, ADR 0035)
+
+**Five stars are drawn, never set in a glyph font.** `RatingStars` builds each star as an SVG path in a
+24-unit box, so a half star is exact: the star is filled in the empty tone and a polygon covers precisely
+its left half (the top point, the centre-bottom point and the three left vertices), which needs no mask,
+no clip id and no painted-over background. `★★★½` therefore joins on the star's own vertical axis
+instead of a stepped approximation, and the row does not depend on a font a device may round.
+
+| Concern | Rule |
+| --- | --- |
+| Filled tone | `--color-action` (#56358c, 7.4:1 on white). Gold is the universal rating colour and would be the obvious literal choice, but this palette has two anchors and no gold; the star's shape carries the meaning |
+| Empty tone | `color-mix(in srgb, var(--color-ink-muted) 70%, var(--color-surface))` = #97909c, **3.09:1** - the non-text contrast a meaningful graphic needs. A border-colour empty star (1.1:1) made the fifth star of a 4.5 vanish and left the row unable to state its own scale |
+| Size | `sm` 11px for a product card, `md` 15px for a product page. `width="1em"` on the svg keeps the two in one rule |
+| Text in the row | `role="img"` with a caller-supplied label, e.g. **"Rated 4.5 out of 5"**. The stars alone are never announced, and the half star survives a greyscale render because the shapes differ |
+| Where on a card | The **pack-size row**, right-aligned: `pack` truncates, the stars keep their width. Sharing a reserved line is what lets a rating appear without moving the price baseline - a rated card and an unrated one in the same row still line up |
+| Where on a product page | Directly under the `h1`, above the price: stars, the figure in the display face, then "out of 5" once. Never a review count beside the stars, never "customers rated this" |
+| No rating | Nothing is drawn. Never a zero-star row, never a placeholder |
+
+**The review block** is a column of panels under the product page's detail section: stars at the head
+with **Verified buyer**, the customer's words (`white-space: pre-line`, so their paragraph breaks
+survive), the photograph at 160px and 320w, and one quiet date line. The customer's own review is shown
+first whatever its state, with the state named (Awaiting approval / Published / Not published). The form
+is offered only to a buyer and is a plain `multipart/form-data` POST - no JavaScript is required to
+submit it.
+
+**The rating input is five real radios.** They sit in reverse DOM order inside a `row-reverse` flex row,
+so `input:checked ~ label` fills the chosen star and every star to its left, in CSS, with arrow-key
+support and a screen-reader label per star ("4 out of 5 stars"). The stars are drawn, the words are in
+the label. The empty tone is the same 3.09:1 grey as the drawn row, because an unrated star that cannot
+be seen cannot be clicked.
+
+**A review photograph renders with `alt=""`.** The customer supplied no description, and the review's
+words are what a screen reader should hear rather than an invented caption.
+
 ## Admin surface (Phase 18, redesigned 2026-11-07)
 
 The owner panel is the same design system in a different mode: **Operate**, not Persuade. The

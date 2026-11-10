@@ -75,6 +75,9 @@ test('fixtureToCatalogItem carries only view facts and is marked fixture-sourced
       'name',
       'pack',
       'priceMinor',
+      // The shop's displayed rating in half stars (ADR 0035). A view fact like `pack`; the captured
+      // fixture carries no rating, so the demo path makes no claim and draws no stars.
+      'ratingHalves',
       // The owner's short shelf line (Phase 35). It is a view fact like `pack`, and null for the
       // captured fixture because that source carries no such field.
       'shortDescription',

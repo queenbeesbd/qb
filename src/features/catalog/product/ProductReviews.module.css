@@ -1,0 +1,274 @@
+/*
+ * The reviews block on a product page.
+ *
+ * It reads as one column of quoted speech: each review is a panel with the stars at its head, the
+ * words, and one quiet line of provenance under them. No avatars, no badges, no threading - there is
+ * nothing behind them but a purchase and a sentence.
+ */
+.section {
+  margin-top: var(--space-8);
+  padding-top: var(--space-6);
+  border-top: 1px solid var(--color-border);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.head h2 {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  font-size: var(--text-xl);
+}
+
+/* The count is a figure beside the heading, not part of the sentence: it updates as reviews land. */
+.count {
+  font-family: var(--font-display);
+  font-size: var(--text-base);
+  font-weight: 500;
+  color: var(--color-ink-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.notice {
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid color-mix(in srgb, var(--color-action) 24%, var(--color-border));
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  font-size: var(--text-sm);
+}
+
+.review {
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+/* The customer's own review is marked with a hairline, not a colour: it is the same kind of thing. */
+.review[data-own='true'] {
+  border-color: color-mix(in srgb, var(--color-action) 34%, var(--color-border));
+}
+
+.reviewHead {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.verified {
+  font-size: var(--text-xs);
+  color: var(--color-ink-muted);
+}
+
+/* The state of the customer's own review. Ink for published, muted for awaiting, muted for refused. */
+.state {
+  padding: 1px var(--space-2);
+  border-radius: var(--radius-pill);
+  font-size: 11.5px;
+  font-weight: 600;
+  background: var(--color-surface-sunken);
+  color: var(--color-ink-muted);
+}
+
+.state[data-state='approved'] {
+  background: var(--color-accent-soft);
+  color: var(--color-ink);
+}
+
+.body {
+  font-size: var(--text-base);
+  line-height: var(--leading-relaxed);
+  color: var(--color-ink);
+  /* A customer may write several paragraphs; the line breaks they typed are kept. */
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
+.meta {
+  font-size: var(--text-xs);
+  color: var(--color-ink-muted);
+}
+
+.empty {
+  font-size: var(--text-sm);
+  color: var(--color-ink-muted);
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-5);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.formTitle {
+  font-size: var(--text-lg);
+}
+
+.ratingField {
+  border: 0;
+  padding: 0;
+  margin: 0;
+}
+
+.ratingLegend {
+  padding: 0;
+  margin-bottom: var(--space-2);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--color-ink);
+}
+
+/*
+ * Five stars as real radios.
+ *
+ * `row-reverse` lays the 5..1 inputs out as 1..5 without reordering the DOM, and `:checked ~ label`
+ * then fills the chosen star and the lower ones beside it - the pure-CSS star rating, with keyboard
+ * support and a screen-reader label that does not depend on the drawing.
+ */
+.ratingRow {
+  display: flex;
+  flex-direction: row-reverse;
+  justify-content: flex-end;
+  gap: var(--space-1);
+}
+
+.ratingInput {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.ratingLabel {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  font-size: 26px;
+  line-height: 0;
+  /* The same 3:1 empty tone the drawn row uses: an unrated star must be visible to be clicked. */
+  color: color-mix(in srgb, var(--color-ink-muted) 70%, var(--color-surface));
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  transition: color var(--transition-fast), transform var(--transition-fast);
+}
+
+.ratingLabel svg {
+  fill: currentColor;
+}
+
+.ratingLabel:hover {
+  transform: scale(1.06);
+}
+
+.ratingInput:checked ~ .ratingLabel,
+.ratingInput:focus-visible ~ .ratingLabel {
+  color: var(--color-action);
+}
+
+/*
+ * Hover preview: pointing at a star fills it and every lower one. `~` works because the stars are in
+ * reverse DOM order - the hovered label's siblings are the smaller ratings.
+ */
+.ratingRow:hover .ratingLabel:hover,
+.ratingRow:hover .ratingLabel:hover ~ .ratingLabel {
+  color: var(--color-action);
+}
+
+.ratingInput:focus-visible ~ .ratingLabel {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 1px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.label {
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+
+.textarea {
+  width: 100%;
+  min-height: 120px;
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-ink);
+  font: inherit;
+  font-size: var(--text-control);
+  resize: vertical;
+}
+
+.textarea:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 1px;
+}
+
+.hint {
+  font-size: var(--text-xs);
+  color: var(--color-ink-muted);
+}
+
+.submit {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 var(--space-5);
+  border: 0;
+  border-radius: var(--radius-md);
+  background: var(--color-button);
+  color: var(--color-button-ink);
+  font: inherit;
+  font-size: var(--text-base);
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--transition-fast), transform var(--transition-fast);
+}
+
+.submit:hover {
+  background: color-mix(in srgb, var(--color-button) 88%, var(--color-ink));
+}
+
+.submit:active {
+  transform: scale(0.99);
+}
+
+/* A customer's photograph: one thumbnail with its corners cut the same way every other asset is. */
+.photo {
+  display: block;
+  width: 160px;
+  height: 160px;
+  max-width: 100%;
+  object-fit: cover;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-sunken);
+}
+
+/* The file input is a control like any other: 40px tall, ink on the page ground. */
+.fileInput {
+  min-height: 40px;
+  font-size: var(--text-control);
+}

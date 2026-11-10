@@ -4,11 +4,13 @@ import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import { CARD_FRAME, CARD_SIZES } from '@/lib/images';
 import { discountAmount, discountPercent } from '@/lib/money';
+import { formatRating } from '@/lib/rating';
 import { useTranslation } from '@/i18n/useTranslation';
 import type { CatalogItem } from '@/lib/types';
 import { useCart } from '@/features/cart/useCart';
 import { CartIcon } from './icons';
 import { ProductPhoto } from './ProductPhoto';
+import { RatingStars } from './RatingStars';
 import styles from './ProductCard.module.css';
 
 /**
@@ -91,8 +93,23 @@ export function ProductCard({
         <h3 className={styles.title}>
           <Link href={`/products/${product.slug}`}>{name}</Link>
         </h3>
-        <p className={styles.pack} aria-hidden={product.pack ? undefined : true}>
-          {product.pack ?? '\u00A0'}
+        {/*
+          The pack size and the shop's rating share one reserved line: the rating costs the card no
+          height, so a row of five cards keeps its price baselines whether one product is rated or
+          none is. The stars are the owner's own claim (ADR 0035), drawn only when a rating exists -
+          never an empty row, never a zero.
+        */}
+        <p
+          className={styles.packRow}
+          aria-hidden={product.pack !== null || product.ratingHalves !== null ? undefined : true}
+        >
+          <span className={styles.pack}>{product.pack ?? '\u00A0'}</span>
+          {product.ratingHalves !== null && (
+            <RatingStars
+              halves={product.ratingHalves}
+              label={t('product.ratingAria', { rating: formatRating(product.ratingHalves) })}
+            />
+          )}
         </p>
 
         <p className={styles.pricing}>
