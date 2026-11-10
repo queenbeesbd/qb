@@ -1009,3 +1009,33 @@ editor lost its "No rating" choice and opens on the stored value, and the views 
 only for the captured fixture. Verified with unit **305/305**, `test:db` **281/281** (an insert without a
 rating reads 8; setting null is refused), `typecheck`, `lint`, `check:i18n`, `db:validate`, `build`, and a
 browser pass on a freshly seeded catalog.
+
+## Review pipeline verified on production (2026-11-11)
+
+The owner authorised the production smoke pass. It exercised the one path that cannot be proven
+locally - the review photo writing to the real object-storage bucket - on the live shop.
+
+**Setup (all clearly marked as test data).** Registered `review-smoke-2026@example.test`, placed one
+order for `lilac-5-niacinamide-serum-30-ml` (750 + 100 delivery = **850 BDT**) with the address
+"SMOKE TEST ORDER - do not deliver, do not call", then submitted a five-star review with a photograph
+from the same signed-in account.
+
+**Observed.**
+
+| Check | Result |
+| --- | --- |
+| Order | `QB69C2E1B72A3997A4`, `pending` / `cod_pending_approval`, one line, 850 BDT, `order_placed` event with actor `customer` (a signed-in order, not a guest one) |
+| Review row | id 1, state **pending**, `rating_halves = 10`, `image_key` + `image_width`/`image_height` = 600x600 from the decoded bytes (the square contract), customer 2122 |
+| Photo in the bucket | `/catalog/<key>-320|600|1050.webp` all **200**, `image/webp`, 10,870 / 20,204 / 36,952 bytes, `public, max-age=31536000, immutable` |
+| Pending privacy | A signed-out request to the product page carried **neither the words nor the photo key**; the page still showed the shop's four stars |
+| Author view | The signed-in author saw the review marked "Awaiting approval" with the photo |
+
+**Not exercised on production:** the publish/refuse decision, because it needs the owner's session and
+a published review is permanent - a test review would sit on a live product for customers to read. That
+half is verified locally (publish and the public rendering) and by the database tests (state guard,
+conflict, audit). The moderation route on production is reachable and gated: `/qbpanel/reviews` answers
+307 to sign-in.
+
+**Two rows are left for the owner to decide** (each one tap, both keep the shop clean): reject the COD
+order `QB69C2E1B72A3997A4`, and refuse the pending test review at `/qbpanel/reviews` - a refusal keeps
+the row but never shows it to a customer.
