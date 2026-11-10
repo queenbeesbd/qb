@@ -888,3 +888,50 @@ production's `drizzle.__drizzle_migrations` holds exactly the 24 committed hashe
 Neon MCP). The alias `queenbees.vercel.app` serves that deployment: `/`, `/products`, `/categories`,
 `/contact`, `/checkout`, `/cart` and `/robots.txt` answer 200, `/qbpanel` 307 to `/qbpanel/login`, and
 `/qbpanel/login` 200. The refusal path is still demonstrated only against a scratch database locally.
+
+## Customer account dashboard, and the checkout WhatsApp link (2026-11-10)
+
+**Deployed and observed.** Commit `e22100c` reached READY as `dpl_4qS1QuYLj3FWCQPTn5Q2m94xNWdH` and the
+production aliases (`queenbees.vercel.app`, `queenbeesbd.com`, `www.queenbeesbd.com`) serve it.
+
+**What replaced the account hub.** `/account` is now three screens behind a labelled sidebar —
+`/account` (overview), `/account/orders`, `/account/security` — with `AccountFrame` as the shell. The
+overview leads with the newest order and a five-mark progress track derived by `orderProgress` from the
+order's own `status`/`cod_state`; a COD order still awaiting the shop's call has not reached
+"confirmed", and a cancelled or returned order draws no track. Three figures above the panels (orders
+placed, cash due, money recorded as received) are summed from the same rows the page lists. The orders
+screen filters by four exhaustive groups whose counts add up to the account's order count, and the group
+is a URL parameter checked against a closed set on the server. Both account-security routes now return
+their notice code to `/account/security`, beside the form that produced it. Signed out, `/account`
+redirects to sign-in with the path preserved.
+
+**Removed rather than aliased:** `AccountView`, `OrdersView`, the eighteen hub/orders rules left in
+`account.module.css` (that file is now the sign-in surfaces and the order receipt only) and twelve
+dictionary keys only those views used.
+
+**Checkout.** The Business WhatsApp number and its mark on the payment card are one link to
+`https://wa.me/8801871161571` (built from the printed local number by `whatsappLinkNumber`), opened in a
+new tab with `rel="noopener noreferrer"`; the glyph is `--whatsapp-green` (#25d366) and the action is
+named in words beside it. This supersedes the earlier "never WhatsApp's green" rule for this one mark,
+recorded in `AGENTS.md`.
+
+**Verified locally, 2026-11-10.** `typecheck`, `lint` (0 errors, 18 pre-existing warnings), `check:i18n`
+(1817 keys), unit **294/294**, `build`; the app-screen inspector at 1440/768/390 reports **0 FAIL** on all
+three screens (one accepted warning, `no-data-hue`: no chart is drawn and the hue is on the track); two
+page-wide allowances (`palette-purple`, `edge-text`) are the shop's existing header icon buttons and the
+phone tab bar's "Account" label, which the untouched `/products` page reports identically.
+
+**Verified against a real session, locally.** `/account`, `/account/orders`, `/account/orders?state=open`
+and `/account/security` answer 200; a wrong current password and an invalid address each return to
+`/account/security` with the right notice; a real password change rewrites the credential, renders its
+confirmation and lets the customer sign in with the new one; sign-out ends the session; signed out,
+`/account` 307s to `/account/login?next=%2Faccount`; `/account/orders/<number>` still 307s to
+`/orders/<number>`. On a signed-in checkout the anchor resolves to `wa.me/8801871161571` with
+`target="_blank"`, `rel="noopener noreferrer"` and a 266x28 hit area.
+
+**Verified on the live domain.** `queenbeesbd.com` serves deployment `e22100c`: `/`, `/products` and
+`/account/login` answer 200; `/account` and `/account/security` 307 to the sign-in page with their own
+path preserved in `next`. **Not verified:** an authenticated walk-through on production, because no
+production customer credential is held here and creating one would write real customer data; real iOS
+Safari, Android Chrome, screen readers and 200% zoom. `verify:admin`, `verify:browser`, `verify:storefront`
+and the database suite were not re-run for this change.

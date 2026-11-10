@@ -669,6 +669,53 @@ still reads as a row on a desktop.
 **Two-column pages finish together.** A page with a tall card in the right column puts a second card in
 the left column rather than leaving a long empty margin (`.duoGrid`, `.splitGrid`, `.stack`).
 
+## Customer account dashboard (2026-11-10)
+
+The customer's own surface is an **app screen**, not a storefront page. It was dealt as one
+(achromatic-ledger, shell redrawn to the labelled open plane because the owner asked for a sidebar)
+and the rules below are that deal, so a later change does not quietly put the old card grid back.
+
+**Shell.** `AccountFrame` draws one 240px labelled sidebar on the page ground with a single hairline to
+its right, and the canvas beside it at a 48px gap. The sidebar names the **person**, not the shop: the
+storefront header immediately above already carries the mark and the wordmark, and a second logo in the
+sidebar was the duplication the first build was rejected for. Nav rows are 32px on a 34px pitch, the
+active destination is a **neutral grey pill** with the label unchanged, and the sign-out sits at the
+foot. Below 900px the sidebar folds to a strip above the canvas; the sign-out joins the strip, so a
+phone never has to open a screen to leave.
+
+**Colour budget.** The chrome holds no colour at all — titles, nav, links and buttons are ink and two
+greys. The brand lavender appears twice and only for meaning: `--brand-primary-deep` on the **current
+mark** of an order's progress track, and `--color-action-soft` as the tint of the selected filter card.
+The account's buttons are **ink, not the brand field**: the style this surface was dealt spends the hue
+on data, and using the lavender for the chrome as well left nothing for the track to say. This is the
+one place in the storefront where a filled button is not `--color-button`; a change must keep the reason.
+
+**Shape.** Two radii, no more: 10px for a panel, 6px for a control or a chip. Panels separate by one
+tone step (page ground → white) and never by a shadow. Figures are tabular so money digits align.
+
+**The progress track** is the surface's signature element, and it is derived, never stored twice.
+`orderProgress` (`src/features/account/dashboard/progress.ts`) maps the order's own `status` and
+`cod_state` onto five marks — placed, confirmed, dispatched, delivered, cash received — and marks the
+furthest one reached as current. Two honest rules live there: a COD order awaiting the shop's call has
+**not** reached "confirmed" however the row reads, and a cancelled or returned order draws **no track**,
+because it has no next step to promise. Below 720px the five marks become five stacked rows; five labels
+across 358px collided ("ConfirmedDispatchedDelivered").
+
+**Figures.** The three cells above the panels — orders placed, cash due, money recorded as received —
+are summed from the same rows the page lists (`dueOnDeliveryMinor`, `recordedPaidMinor`), so a cell and
+the list behind it cannot disagree. A zero is set in grey, not hidden.
+
+**Screens and their one question.** `/account` — where is my order and what do I owe; `/account/orders` —
+what did I order and what is still coming; `/account/security` — is this account still only mine. Every
+account-security notice returns to `/account/security`, beside the form that caused it.
+
+**Verified 2026-11-10:** the app-screen inspector at 1440, 768 and 390 reports **0 FAIL** on all three
+screens. Its one remaining warning is `no-data-hue`, which is accepted: no chart is drawn, and the hue
+sits on the track's current mark. Two rules were allowed page-wide (`palette-purple`, `edge-text`) because
+both come from the shop's existing header icon buttons and the phone tab bar's "Account" label — the
+untouched `/products` page reports the identical pair. **Not verified:** real iOS Safari, Android Chrome,
+screen readers, and 200% zoom.
+
 ## Layout width system
 
 Two tokens in `globals.css` define the content grid, and every piece of page
