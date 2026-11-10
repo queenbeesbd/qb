@@ -174,8 +174,9 @@ export type CatalogItem = {
    * The rating the shop displays for this product, in half stars (ADR 0035): 9 draws four and a half.
    *
    * This is the owner's own field, typed in the product editor - **not** an average of customer
-   * reviews, and it is never derived from them. `null` means no rating claim is made and the card
-   * draws no stars at all rather than an empty row or a zero.
+   * reviews, and it is never derived from them. A database record always carries one (four stars
+   * unless the owner chose another); `null` is reachable only through the captured fixture, which has
+   * no rating concept, and the card then draws no stars rather than inventing four for demo data.
    */
   ratingHalves: number | null;
   availability: Availability;

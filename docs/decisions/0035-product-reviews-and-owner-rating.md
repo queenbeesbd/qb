@@ -1,6 +1,6 @@
 # ADR 0035 - Product reviews, the owner's rating, and a review photograph
 
-**Status:** approved by the owner, 2026-11-10. Implemented locally; nothing is deployed by this record.
+**Status:** approved by the owner, 2026-11-10; the four-star default confirmed 2026-11-11. Implemented locally; nothing is deployed by this record.
 **Supersedes:** nothing. **Amends:** the honesty rule in `AGENTS.md` that forbids invented ratings, for
 one narrow and named case.
 
@@ -69,8 +69,15 @@ stored rating must never drift by a rounding step. The check allows any half ste
 
 - It is **not** derived from reviews, and no code may derive it from them. An owner who publishes a
   one-star review does not change the stars on the card.
-- It is **null by default**: a product with no rating draws no stars at all. Never a zero, never an
-  empty row, never a placeholder.
+- **Every product carries one** (owner direction, 2026-11-11). A product the owner never rated shows
+  **four out of five**: `rating_halves` is `NOT NULL DEFAULT 8`, so the figure is applied by the column
+  itself and a product created by any path - the form, a seed, a future import - cannot exist without
+  the stars its card draws. The editor opens on the stored value and offers every half step, so an
+  untouched field stores exactly what the database would.
+- Clearing the field is therefore **not** a way back to "no stars": choosing a value is a choice among
+  1-5, and the default is the choice nobody made. The storefront never has a product to draw a blank
+  row for, and the views keep their null guard only for the captured fixture, which has no rating
+  concept and must not have four stars invented for it.
 - The editor offers every half step, because the owner asked for 4.5 by name. A customer's review is
   the whole-star choice instead: five stars, no halves, because the point of a review is the sentence.
 - The storefront says only what is true: the stars, the figure, "out of 5", and an accessible label

@@ -179,10 +179,14 @@ export const product = pgTable(
      *
      * The owner types it in the product editor; it is **not** an average of customer reviews, and no
      * code derives it from `product_review`. Customer star ratings are kept with their review and are
-     * never aggregated. Null means the shop makes no rating claim for this product, and the storefront
-     * then draws no stars at all rather than an empty or zero-filled row.
+     * never aggregated.
+     *
+     * **Every product has one** (owner direction, 2026-11-11): a product the owner never rated shows
+     * **four out of five**, which is why the column is `NOT NULL DEFAULT 8` rather than nullable. The
+     * default is a stated shop figure, applied by the database itself, so a product created by any
+     * path - the form, a seed, a future import - cannot exist without the stars its card draws.
      */
-    ratingHalves: integer('rating_halves'),
+    ratingHalves: integer('rating_halves').notNull().default(8),
     isPublished: boolean('is_published').notNull().default(false),
     publishedAt: timestamp('published_at', { withTimezone: true, mode: 'date' }),
     createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
@@ -214,10 +218,7 @@ export const product = pgTable(
     check('product_short_description_len', sql`${t.shortDescription} is null or char_length(${t.shortDescription}) between 1 and 500`),
     // Any half step from one star to five: 2, 3, ... 10 halves. 9 is four and a half stars, which is
     // the value the owner asked for by name; a customer's review is the one that stays whole-star.
-    check(
-      'product_rating_halves_valid',
-      sql`${t.ratingHalves} is null or ${t.ratingHalves} between 2 and 10`,
-    ),
+    check('product_rating_halves_valid', sql`${t.ratingHalves} between 2 and 10`),
     // A delivery charge is money: never negative, and null means "use the store's own charge".
     check(
       'product_delivery_chattogram_non_negative',

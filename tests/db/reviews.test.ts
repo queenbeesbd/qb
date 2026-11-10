@@ -240,6 +240,32 @@ describe('product reviews', { skip: toolingAvailable ? false : SKIP_REASON }, ()
     );
   });
 
+  it('gives a product nobody rated the shop default of four stars', async () => {
+    /*
+     * Owner direction, 2026-11-11: every product carries a rating, and an unrated one shows four out
+     * of five. The default is the column's own, so a row inserted by any path - the form, the seed, a
+     * future import - cannot exist without the stars its card draws.
+     */
+    const brand = await fixture.pool.query<{ id: string }>(
+      `insert into brand (slug, name_bn, name_en) values ('default-rating-brand', 'ব্র্যান্ড', 'Brand') returning id`,
+    );
+    const category = await fixture.pool.query<{ id: string }>(
+      `insert into category (slug, name_bn, name_en) values ('default-rating-cat', 'শ্রেণি', 'Category') returning id`,
+    );
+    const inserted = await fixture.pool.query<{ id: string; rating_halves: number }>(
+      `insert into product (slug, brand_id, category_id, name_en)
+       values ('default-rating-product', $1, $2, 'Unrated Product') returning id, rating_halves`,
+      [brand.rows[0]?.id, category.rows[0]?.id],
+    );
+    assert.equal(inserted.rows[0]?.rating_halves, 8);
+
+    // Clearing it is not a way back to "no stars": the column is required.
+    await assert.rejects(
+      fixture.pool.query(`update product set rating_halves = null where id = $1`, [inserted.rows[0]?.id]),
+      /not-null|null value/i,
+    );
+  });
+
   it('accepts 4.5 as a product rating and refuses one outside the range', async () => {
     await fixture.pool.query(`update product set rating_halves = 9 where id = $1`, [productId]);
     const stored = await fixture.pool.query<{ rating_halves: number }>(

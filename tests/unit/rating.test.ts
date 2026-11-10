@@ -11,6 +11,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
 import {
+  DEFAULT_PRODUCT_RATING_HALVES,
   MAX_RATING_HALVES,
   MIN_RATING_HALVES,
   RATING_CHOICES,
@@ -83,6 +84,14 @@ describe('starFills', () => {
     for (const halves of RATING_CHOICES) {
       assert.ok(starFills(halves).filter((fill) => fill === 'half').length <= 1);
     }
+  });
+});
+
+describe('the default', () => {
+  it('is four out of five, and is one of the choices the editor offers', () => {
+    assert.equal(DEFAULT_PRODUCT_RATING_HALVES, 8);
+    assert.equal(formatRating(DEFAULT_PRODUCT_RATING_HALVES), '4');
+    assert.ok(RATING_CHOICES.includes(DEFAULT_PRODUCT_RATING_HALVES));
   });
 });
 

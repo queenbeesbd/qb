@@ -338,7 +338,7 @@ instead of a stepped approximation, and the row does not depend on a font a devi
 | Text in the row | `role="img"` with a caller-supplied label, e.g. **"Rated 4.5 out of 5"**. The stars alone are never announced, and the half star survives a greyscale render because the shapes differ |
 | Where on a card | The **pack-size row**, right-aligned: `pack` truncates, the stars keep their width. Sharing a reserved line is what lets a rating appear without moving the price baseline - a rated card and an unrated one in the same row still line up |
 | Where on a product page | Directly under the `h1`, above the price: stars, the figure in the display face, then "out of 5" once. Never a review count beside the stars, never "customers rated this" |
-| No rating | Nothing is drawn. Never a zero-star row, never a placeholder |
+| Default | **Four out of five** (owner direction, 2026-11-11): every product carries `product.rating_halves` and the column defaults to 8 halves, so a product the owner never rated still draws four filled stars and one empty. There is no "no stars" state in the database; the views keep a null guard only for the captured fixture, which must not have a rating invented for it |
 
 **The review block** is a column of panels under the product page's detail section: stars at the head
 with **Verified buyer**, the customer's words (`white-space: pre-line`, so their paragraph breaks

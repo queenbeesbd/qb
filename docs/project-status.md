@@ -1001,3 +1001,11 @@ photographs (the walk-through used a catalog image as the file).
 
 **Production note.** The three migrations must be applied to the production branch before the deploy that
 carries this code; the build gate fails closed otherwise.
+
+**The rating default (2026-11-11).** Owner direction: the stars on a product are the shop's own figure,
+set by hand on the product form, and a product whose rating was never set shows **four out of five**.
+`product.rating_halves` became `NOT NULL DEFAULT 8` (migration `0027`, backfilling every null first), the
+editor lost its "No rating" choice and opens on the stored value, and the views keep their null guard
+only for the captured fixture. Verified with unit **305/305**, `test:db` **281/281** (an insert without a
+rating reads 8; setting null is refused), `typecheck`, `lint`, `check:i18n`, `db:validate`, `build`, and a
+browser pass on a freshly seeded catalog.

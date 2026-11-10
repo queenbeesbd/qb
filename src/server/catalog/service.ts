@@ -24,7 +24,7 @@ import { inArray, sql } from 'drizzle-orm';
 
 import type { Transaction } from '@/db/client';
 import { fuzzyScoreAcross } from '@/lib/fuzzy';
-import { parseRatingHalves } from '@/lib/rating';
+import { DEFAULT_PRODUCT_RATING_HALVES, parseRatingHalves } from '@/lib/rating';
 import { likeTerm } from '@/lib/search';
 import {
   brand,
@@ -883,8 +883,10 @@ export type ProductInput = {
   readonly availability: unknown;
   readonly isPublished?: unknown;
   /**
-   * The rating the shop shows for this product, as the owner typed it ("4.5"), or blank for none
-   * (ADR 0035). Parsed to half stars; it is the shop's own claim, never an average of reviews.
+   * The rating the shop shows for this product, as the owner typed it ("4.5"). Blank stores the
+   * default, **four out of five** (owner direction, 2026-11-11): every product carries a rating, and
+   * a product nobody rated is not a special case. It is the shop's own claim, never an average of
+   * reviews.
    */
   readonly rating?: unknown;
 };
@@ -1091,8 +1093,8 @@ export async function getProductForAdmin(tx: Transaction, productId: unknown): P
       deliveryDhakaMinor: number | null;
       deliveryOthersMinor: number | null;
       availability: string;
-      /** Display rating in half stars; null means the shop makes no rating claim. */
-      ratingHalves: number | null;
+      /** Display rating in half stars. Always set; four stars unless the owner chose another. */
+      ratingHalves: number;
       isPublished: boolean;
       publishedAt: Date | null;
       priceMinor: number | null;
@@ -1533,7 +1535,7 @@ async function normalizeProductInput(
   deliveryChattogramMinor: number | null;
   deliveryDhakaMinor: number | null;
   deliveryOthersMinor: number | null;
-  ratingHalves: number | null;
+  ratingHalves: number;
   priceMinor: number;
   compareAtPriceMinor: number | null;
   sku: string;
@@ -1612,16 +1614,17 @@ async function normalizeProductInput(
   if (availability === null) throw new ValidationError('unsupported availability value');
 
   /*
-   * The displayed rating is the owner's own field (ADR 0035), so it is optional and blank means the
-   * product makes no rating claim. A typed value must be on the half-star grid between one and five -
-   * `parseRatingHalves` refuses `4.3` rather than rounding it into a claim nobody made.
+   * The displayed rating is the owner's own field (ADR 0035). **It is always set** (owner direction,
+   * 2026-11-11): a blank field stores `DEFAULT_PRODUCT_RATING_HALVES`, four out of five, because the
+   * shop shows stars on every product and a product nobody rated is not a special case. A typed value
+   * must be on the half-star grid between one and five - `parseRatingHalves` refuses `4.3` rather than
+   * rounding it into a claim nobody made.
    */
   const ratingRaw = input.rating;
-  const ratingHalves =
-    ratingRaw === undefined || ratingRaw === null || (typeof ratingRaw === 'string' && ratingRaw.trim() === '')
-      ? null
-      : parseRatingHalves(ratingRaw);
-  if (ratingRaw !== undefined && ratingRaw !== null && !(typeof ratingRaw === 'string' && ratingRaw.trim() === '') && ratingHalves === null) {
+  const ratingBlank =
+    ratingRaw === undefined || ratingRaw === null || (typeof ratingRaw === 'string' && ratingRaw.trim() === '');
+  const ratingHalves = ratingBlank ? DEFAULT_PRODUCT_RATING_HALVES : parseRatingHalves(ratingRaw);
+  if (ratingHalves === null) {
     throw new ValidationError('a rating must be between 1 and 5 stars, in half steps');
   }
 

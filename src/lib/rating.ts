@@ -18,6 +18,17 @@ export const MAX_RATING_HALVES = 10;
 export const MIN_RATING_HALVES = 2;
 
 /**
+ * The rating a product shows when the owner has not chosen one: **four out of five** (owner
+ * direction, 2026-11-11).
+ *
+ * It is a stated shop figure, not a measurement, and it is applied by the column's own
+ * `DEFAULT` so a product cannot exist without the stars its card draws - including a product created
+ * by a seed, a script or a future import that never asks about ratings. The editor offers it as the
+ * first choice, so an untouched form stores exactly what the database would.
+ */
+export const DEFAULT_PRODUCT_RATING_HALVES = 8;
+
+/**
  * Every rating the product editor offers, in halves, lowest first: 1, 1.5, 2, ... 5.
  *
  * Every half step, because the owner asked for 4.5 by name. A customer's review is the whole-star

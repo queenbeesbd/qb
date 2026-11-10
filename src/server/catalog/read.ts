@@ -64,9 +64,10 @@ export type CatalogProduct = {
   readonly compareAtPriceMinor: number | null;
   /**
    * The rating the shop displays, in half stars (ADR 0035) - the owner's own field, never derived
-   * from reviews. Null means the shop makes no rating claim, and the card then draws no stars.
+   * from reviews. **Always present** (owner direction, 2026-11-11): four stars unless the owner chose
+   * another value, applied by the column's own default so no product can exist without one.
    */
-  readonly ratingHalves: number | null;
+  readonly ratingHalves: number;
   /** The owner's In Stock / Out of Stock state (D19). Never a quantity. */
   readonly availability: 'in_stock' | 'out_of_stock';
   readonly images: readonly {
@@ -551,7 +552,7 @@ function projectProduct(
     deliveryDhakaMinor: number | null;
     deliveryOthersMinor: number | null;
     availability: string;
-    ratingHalves: number | null;
+    ratingHalves: number;
     categoryId: number;
     categorySlug: string;
     brandNameEn: string;

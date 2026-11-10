@@ -14,6 +14,27 @@ An entry may describe a deployment only once it has actually happened and been o
 
 ## [Unreleased]
 
+### Changed - 2026-11-11: every product shows four stars unless the owner rates it
+
+Owner direction: the stars on a product are the shop's own figure, set by hand on the product form -
+not a summary of customer reviews - and a product whose rating was never set **shows four out of
+five**, always.
+
+- `product.rating_halves` is now `NOT NULL DEFAULT 8` (migration `0027`, which backfills every existing
+  null to 8 before making the column required). The default is the column's own, so a product created
+  by any path - the form, the seed, a future import - carries the stars its card draws.
+- The product editor opens on the stored value and offers 1 through 5 in half steps; there is no "No
+  rating" choice any more, because there is no product without a rating. Leaving the field alone stores
+  exactly what the database would.
+- The storefront's null guard stays: it is what keeps the captured fixture - which has no rating
+  concept - from being given four invented stars in the development-only demo path.
+
+Verified 2026-11-11: `typecheck`, `lint` (0 errors), `check:i18n` (1864 keys), unit **305/305**
+(`DEFAULT_PRODUCT_RATING_HALVES` is four stars and is one of the offered choices), `test:db`
+**281/281** (a product inserted without a rating reads 8, and setting it to null is refused by the
+column), `db:validate`, `build`, plus a browser pass on a freshly seeded catalog where an untouched
+product card and product page draw four filled stars and one empty.
+
 ### Added - 2026-11-10: product reviews, the owner's rating, and a review photograph
 
 A customer who has ordered a product can review it on the product page, and the shop displays a rating

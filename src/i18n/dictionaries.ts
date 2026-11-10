@@ -1468,10 +1468,9 @@ export const dictionary = {
   'admin.reviews.notice.invalid': 'The request was not a review decision.',
   'admin.reviews.notice.denied': 'You do not have permission to decide reviews.',
   'admin.catalog.field.rating': 'Rating',
-  'admin.catalog.field.ratingNone': 'No rating',
   'admin.catalog.field.ratingOption': '{rating} out of 5',
   'admin.catalog.field.ratingHelp':
-    'The stars shown on this product\'s card and page. This is the shop\'s own rating, not an average of customer reviews.',
+    'The stars shown on this product\'s card and page - the shop\'s own rating, not an average of customer reviews. Leave it alone and the product shows four out of five.',
   'admin.catalog.field.sku': 'SKU',
   'admin.catalog.field.availability': 'Availability',
   'admin.catalog.field.isPublished': 'Publish on the storefront',
