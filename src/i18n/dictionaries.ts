@@ -220,7 +220,6 @@ export const dictionary = {
   'checkout.paymentTitle': 'Payment method',
   'checkout.method.cod': 'Cash on delivery',
   'checkout.payment.bkashLabel': 'bKash Advance',
-  'checkout.payment.whatsappLabel': 'WhatsApp',
   'checkout.payment.copy': 'Copy number',
   'checkout.payment.copied': 'Number copied',
   'checkout.payment.numberMissing':
@@ -430,23 +429,17 @@ export const dictionary = {
   'admin.contact.policyHelp':
     'Plain text. A blank line starts a new paragraph. Markup is refused rather than rendered.',
   'admin.contact.save': 'Save contact and policies',
-  'admin.payment.instructionsLabel': 'Instructions',
-  'admin.payment.instructionsHelp':
-    'One paragraph per line, printed exactly as written. Plain text only - < and > are refused.',
   'admin.payment.bkashLabel': 'bKash Advance number',
   'admin.payment.bkashHelp': 'An 11-digit Bangladeshi mobile. Leave blank to publish no advance-payment number.',
-  'admin.payment.whatsappLabel': 'WhatsApp number',
-  'admin.payment.whatsappHelp':
-    'An 11-digit Bangladeshi mobile, shown under the bKash number with a copy button. Leave blank to publish no WhatsApp block.',
   'admin.payment.visibleLabel': 'Show the number at checkout',
   'admin.payment.visibleHelp':
-    'Off hides the number block on the payment card without deleting the number. The instructions above are still printed.',
+    'Off hides the number block on the payment card without deleting the number. The notice above it is always printed.',
   'admin.payment.thresholdLabel': 'Advance applies below',
   'admin.payment.thresholdHelp':
     'Orders whose goods subtotal is below this amount are told the delivery charge is payable in advance. The delivery charge itself is not part of the subtotal.',
   'admin.payment.noteLabel': 'Payment, not Send Money',
   'admin.payment.noteHelp': 'Shown under the number. Leave blank to omit the caution.',
-  'admin.payment.save': 'Save checkout instructions',
+  'admin.payment.save': 'Save advance payment',
   'admin.contact.notice.saved': 'The contact facts and policy text are saved.',
   'admin.contact.notice.denied': 'Your account does not have permission to change the store settings.',
   'admin.contact.notice.invalid':
@@ -462,13 +455,13 @@ export const dictionary = {
 
   'admin.settings.other.title': 'Other settings',
   'admin.settings.other.body':
-    'Checkout policy, and the words the payment card publishes. These are the storefront’s own settings rather than the shop’s contact details.',
+    'Checkout policy, and the advance-payment number the checkout publishes. These are the storefront’s own settings rather than the shop’s contact details.',
   'admin.settings.other.checkoutTitle': 'Checkout',
   'admin.settings.other.checkoutBody':
     'One switch, and it changes who can buy. A mobile number is required either way.',
-  'admin.settings.other.instructionsTitle': 'Checkout instructions',
+  'admin.settings.other.instructionsTitle': 'Advance payment',
   'admin.settings.other.instructionsBody':
-    'The words the payment card publishes: the advance-payment terms, the bKash Advance number and the gift note. Cash on Delivery stays the method an order records.',
+    'The number a customer sends an advance to, whether it is shown, and the subtotal below which the delivery charge is paid in advance. The notice above the number is fixed copy and is not edited here. Cash on Delivery stays the method an order records.',
   'admin.settings.other.guestLabel': 'Guests may order without an account',
   'admin.settings.other.guestHelp':
     'Off: a customer must sign in or register before checkout, and the cart survives the detour. On: anyone can order by giving a name, a mobile number and an address - no account, no password.',
@@ -480,10 +473,10 @@ export const dictionary = {
     'An account is required to order, as it has been until now. Existing guest orders are unaffected.',
   'admin.settings.other.save': 'Save checkout policy',
   'admin.settings.other.notice.saved': 'Checkout policy saved.',
-  'admin.settings.other.notice.paymentSaved': 'Checkout instructions saved.',
+  'admin.settings.other.notice.paymentSaved': 'Advance payment settings saved.',
   'admin.settings.other.notice.denied': 'Your account does not have permission for that action.',
   'admin.settings.other.notice.invalid':
-    'Nothing was saved: the bKash Advance number must be an 11-digit Bangladeshi mobile and the text must be plain, without < or >.',
+    'Nothing was saved: the bKash Advance number must be an 11-digit Bangladeshi mobile, the threshold must be a BDT amount above zero, and the caution must be plain text without < or >.',
 
   'admin.nav.storefront': 'Back to the storefront',
 

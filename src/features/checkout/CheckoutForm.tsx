@@ -15,11 +15,13 @@ import {
   type DeliveryRates,
 } from '@/lib/delivery';
 import { DELIVERY_AREAS } from '@/lib/delivery-areas';
+import { CHECKOUT_PAYMENT_NOTICE } from '@/data/payment-instructions';
 import { useTranslation } from '@/i18n/useTranslation';
 import { useCart } from '@/features/cart/useCart';
 import { resolveCartLines } from '@/features/cart/cart-lines';
 import { useCartProjection } from '@/features/cart/useCartProjection';
 import { ContactLink } from '@/components/ContactLink';
+import { WhatsAppIcon } from '@/components/icons';
 import type { CartProduct } from '@/features/cart/cart-product';
 import styles from './CheckoutForm.module.css';
 
@@ -99,9 +101,9 @@ type AppliedPromo = {
  * It submits **ids, quantities, delivery contact and at most one promotion code**. There is still no
  * price field the server trusts, and **no payment-method field at all**: Cash on Delivery is the only
  * method this release accepts (Phase 17), so the method is not a choice the browser can make and the
- * route does not read one. The payment card prints the owner's advance-payment instructions (ADR 0029)
- * - where to send money and under which threshold - which is copy, not a method: the order is still
- * written as COD and the owner confirms the transfer on the phone.
+ * route does not read one. The payment card prints the shop's **static** advance-payment notice
+ * (`CHECKOUT_PAYMENT_NOTICE`, owner decision 2026-11-10) beside the owner's bKash number - which is copy,
+ * not a method: the order is still written as COD and the owner confirms the transfer on the phone.
  *
  * The delivery charge and the automatic repeat-customer discount are previewed with the same pure
  * resolver the order transaction uses, and the promotion code is applied by asking the server: the preview
@@ -138,14 +140,11 @@ export function CheckoutForm({
   };
   /** Read by the server from the session and the order history; the preview only mirrors it. */
   customer: { authenticated: boolean; repeatCustomer: boolean };
-  /** The owner's published payment instructions. An instruction, never a payment method. */
+  /** The shop's advance-payment notice and the owner's number. An instruction, never a payment method. */
   payment: {
-    instructions: string;
     bkashNumber: string | null;
     /** The owner's switch: off draws no number block even when a number is stored. */
     bkashVisible: boolean;
-    /** A WhatsApp number to message about an order; null publishes no block. */
-    whatsappNumber: string | null;
     sendMoneyNote: string | null;
     advanceThresholdMinor: number;
   };
@@ -162,7 +161,6 @@ export function CheckoutForm({
   const [promoReason, setPromoReason] = useState<string | null>(null);
   const [promoBusy, setPromoBusy] = useState(false);
   const [bkashCopied, setBkashCopied] = useState(false);
-  const [whatsappCopied, setWhatsappCopied] = useState(false);
   /**
    * The fields the last submit attempt would be refused for, or `null` before the first attempt.
    *
@@ -231,10 +229,6 @@ export function CheckoutForm({
   const previewTotal =
     quote?.ok === true ? resolved.subtotalMinor - discountMinor + quote.quote.chargeMinor : null;
   const advanceApplies = resolved.subtotalMinor < payment.advanceThresholdMinor;
-  const paymentParagraphs = payment.instructions
-    .split('\n')
-    .map((line) => line.trim())
-    .filter((line) => line.length > 0);
 
   const refusal = notice === null ? null : (REFUSAL_KEYS[notice] ?? 'checkout.notice.invalid');
   const promoMessage =
@@ -472,13 +466,26 @@ export function CheckoutForm({
               <h2 id="checkout-payment">{t('checkout.paymentTitle')}</h2>
               <p className={styles.methodOnly}>{t('checkout.method.cod')}</p>
 
-              {paymentParagraphs.length > 0 && (
-                <div className={styles.paymentInstructions}>
-                  {paymentParagraphs.map((paragraph) => (
-                    <p key={paragraph}>{paragraph}</p>
-                  ))}
-                </div>
-              )}
+              {/*
+                The shop's standing notice, fixed in `CHECKOUT_PAYMENT_NOTICE` (owner decision,
+                2026-11-10): the advance-delivery rule, the gift terms, where to send the screenshot and
+                the COD option. It is no longer owner-editable, and the WhatsApp mark sits beside the
+                number inside the sentence rather than in a second number card.
+              */}
+              <div className={styles.paymentInstructions}>
+                {CHECKOUT_PAYMENT_NOTICE.map((line) => (
+                  <p key={line.before}>
+                    {line.before}
+                    {line.whatsapp !== undefined && (
+                      <>
+                        <strong className={styles.noticeNumber}>{line.whatsapp}</strong>
+                        <WhatsAppIcon className={styles.whatsappMark} width={16} height={16} />
+                      </>
+                    )}
+                    {line.after}
+                  </p>
+                ))}
+              </div>
 
               {/*
                 The number block is hidden outright when the owner switches it off - that is the owner's
@@ -509,31 +516,6 @@ export function CheckoutForm({
                 ) : (
                   <p className={styles.muted}>{t('checkout.payment.numberMissing')}</p>
                 ))}
-
-              {/*
-                A second way to reach the shop (owner direction, 2026-11-10). Same card shape and the same
-                copy control as the bKash number, and it is absent - not blank, not "not configured" -
-                until the owner saves a number: there is no default, and inventing one would be a
-                contact detail the shop never published.
-              */}
-              {payment.whatsappNumber !== null && (
-                <div className={styles.bkashCard}>
-                  <span className={styles.bkashLabel}>{t('checkout.payment.whatsappLabel')}</span>
-                  <strong className={styles.bkashNumber}>{payment.whatsappNumber}</strong>
-                  <button
-                    type="button"
-                    className={styles.bkashCopy}
-                    onClick={() => {
-                      void navigator.clipboard
-                        .writeText(payment.whatsappNumber ?? '')
-                        .then(() => setWhatsappCopied(true))
-                        .catch(() => setWhatsappCopied(false));
-                    }}
-                  >
-                    {whatsappCopied ? t('checkout.payment.copied') : t('checkout.payment.copy')}
-                  </button>
-                </div>
-              )}
             </section>
 
             <aside className={styles.summary} aria-labelledby="checkout-summary">

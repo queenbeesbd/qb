@@ -1,10 +1,13 @@
 /**
- * POST /api/qbpanel/settings/payment - the payment instructions the checkout publishes.
+ * POST /api/qbpanel/settings/payment - the advance-payment number the checkout publishes.
  *
- * `settings.write`: this text tells a customer where to send money, so it is as consequential as a
+ * `settings.write`: this number tells a customer where to send money, so it is as consequential as a
  * price. The route checks the session, CSRF and origin; the service re-checks the permission, refuses
- * markup, validates the bKash number, its visibility switch and the advance threshold. A redirect
- * carries a fixed notice code, never the submitted text or the number.
+ * markup in the caution line, validates the bKash number, its visibility switch and the advance
+ * threshold. A redirect carries a fixed notice code, never the submitted number.
+ *
+ * The **notice's wording is static** (`CHECKOUT_PAYMENT_NOTICE`, 2026-11-10), so this form no longer
+ * edits paragraphs or a second WhatsApp number.
  *
  * The editor lives under **Settings -> Other settings -> Checkout instructions**, so a refusal returns
  * to that page rather than to Contact and policies, which no longer owns this block.
@@ -52,10 +55,8 @@ export async function POST(request: Request): Promise<Response> {
   try {
     await withTransaction((tx) =>
       savePaymentInstructions(tx, actor, {
-        instructions: form.get('instructions') ?? '',
         bkashNumber: form.get('bkashNumber') ?? '',
         bkashVisible,
-        whatsappNumber: form.get('whatsappNumber') ?? '',
         sendMoneyNote: form.get('sendMoneyNote') ?? '',
         advanceThreshold: form.get('advanceThreshold') ?? '',
       }),

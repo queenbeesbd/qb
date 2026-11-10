@@ -1,28 +1,47 @@
 /**
- * The owner's payment instructions, as published on checkout.
+ * The checkout payment notice, as published.
  *
- * **These are owner records, not interface copy** (the same rule the catalog and the delivery-area list
- * follow): the shop writes the words its customers read about paying, and the checkout prints them
- * verbatim. They are stored in `store_setting` (`payment.instructions`, `payment.bkash_number`,
- * `payment.bkash_visible`, `payment.send_money_note`, `payment.advance_threshold_minor`) and edited at
- * **Settings -> Other settings -> Checkout instructions**, so changing the number or the wording is a
- * data edit, not a deploy.
+ * **Static by owner decision (2026-11-10).** This copy used to be owner-editable at
+ * Settings -> Other settings -> Checkout instructions and stored in `store_setting`
+ * (`payment.instructions`). The owner no longer wants the wording controlled from the back office: the
+ * terms are the shop's standing policy, so they live here as code and the admin screen does not edit
+ * them. The advance-payment **number**, its visibility switch, the "Payment, not Send Money" caution and
+ * the advance threshold are still settings, because they are facts about where to send money.
  *
- * The values below are the **defaults used until the owner saves a value**, and they are exactly the
- * copy the owner supplied. The number is validated as an 11-digit Bangladeshi mobile before it is
- * stored, and the text refuses `<` and `>` - it is rendered as plain paragraphs, never as markup.
+ * One entry per printed line. A line carrying `whatsapp` draws the mark beside that number, inside the
+ * sentence the owner wrote - there is no second WhatsApp card.
  *
  * `check:i18n` scans application code for Bengali; this file is on its data allowlist because the
  * owner's own payment notice is a record, exactly like a product's Bengali name.
  */
 
-/** Bangla: the advance-delivery rule, the gift note, and how to pay. Rendered one paragraph per line. */
-export const DEFAULT_PAYMENT_INSTRUCTIONS = [
-  '৫০০ টাকার নিচের অর্ডারের জন্য ডেলিভারি চার্জ এডভান্স পেমেন্ট করতে হবে।',
-  '৫০০৳+ অর্ডারে ফুল পেমেন্ট এডভান্সে থাকছে সারপ্রাইজ গিফট।',
-  'এডভান্স পেমেন্টের জন্য আমাদের মার্চেন্ট বিকাশ নাম্বারে Payment করে স্ক্রিনশট দিবেন ইনবক্সে।',
-  'ফুল পেমেন্ট এডভান্স করে অর্ডার প্লেস করলে পার্সেলের সাথে ছোট্ট একটা সারপ্রাইজ গিফট থাকবে। অথবা ক্যাশ অন ডেলিভারিতেও নিতে পারবেন।🫶🏻',
-].join('\n');
+/** One printed line. `before` is printed as written; `whatsapp` is the number the mark sits beside. */
+export type PaymentNoticeLine = {
+  readonly before: string;
+  readonly whatsapp?: string;
+  readonly after?: string;
+};
+
+/** Bangla: the advance-delivery rule, the gift note, where to send the screenshot, and the COD option. */
+export const CHECKOUT_PAYMENT_NOTICE: readonly PaymentNoticeLine[] = [
+  {
+    before:
+      '📍৫০০ টাকার নিচের অর্ডারের জন্য ডেলিভারি চার্জ এডভান্স পেমেন্ট করতে হবে ✅',
+  },
+  {
+    before:
+      '📍এডভান্স পেমেন্টের জন্য আমাদের মার্চেন্ট বিকাশ নাম্বারে Payment করে স্ক্রিনশট দিবেন Business Whatsapp এ - ',
+    whatsapp: '01871161571',
+    after: ' ✅',
+  },
+  {
+    before:
+      '📍ফুল পেমেন্ট এডভান্স করে অর্ডার প্লেস করলে পার্সেলের সাথে ছোট্ট একটা সারপ্রাইজ গিফট থাকবে (গিফট এর জন্য মিনিমাম অর্ডার ভ্যালু ৫০০৳ হতে হবে)✅',
+  },
+  {
+    before: '📍এছাড়াও Full Cash On Delivery এভেইলেবল রয়েছে ✅',
+  },
+];
 
 /** The merchant bKash number the owner published. */
 export const DEFAULT_BKASH_NUMBER = '01560035645';

@@ -14,6 +14,26 @@ An entry may describe a deployment only once it has actually happened and been o
 
 ## [Unreleased]
 
+### Changed - 2026-11-10: the checkout payment notice is static
+
+The owner no longer wants the payment wording controlled from the back office. Checkout now prints
+`CHECKOUT_PAYMENT_NOTICE` (`src/data/payment-instructions.ts`) verbatim: the 500 BDT advance-delivery
+rule, the advance-payment instruction naming Business WhatsApp **01871161571** with the WhatsApp mark
+drawn beside the number, the gift terms, and the Cash on Delivery sentence.
+
+- The **Instructions** textarea and the separate **WhatsApp number** field/card are removed;
+  `payment.instructions` and `payment.whatsapp_number` are no longer read or written. Stored rows are
+  left untouched and unread rather than migrated.
+- Still owner settings at **Settings -> Other settings -> Advance payment**: the bKash Advance number,
+  its visibility switch, the "Payment, not Send Money" caution, and the advance threshold. No schema
+  change.
+- The mark is inline with the printed line in the card's ink, never WhatsApp's green, and is decorative
+  (`aria-hidden`); the number beside it is the fact.
+
+Verified: `typecheck`, `lint` (0 errors, 18 pre-existing warnings), `check:i18n` (1781 keys, 1302
+referenced), `build`, unit **294/294**. The full browser/admin suites and real devices were not run for
+this change.
+
 ### Added - 2026-11-10: a pre-deploy migration gate (Phase 60, item 2)
 
 `main` deploys on every push and Vercel's build applies no migration, so code has shipped ahead of its

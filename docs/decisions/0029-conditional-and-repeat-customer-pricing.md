@@ -89,6 +89,19 @@ saves one the block is absent rather than empty, because a contact number nobody
 invented way to reach the shop. A blank hides that block alone; `bkash_visible` governs only the bKash
 number. No schema change - `store_setting` is key/value.
 
+**Amended 2026-11-10 (owner decision, the same day): the notice copy is static, not owner copy.** The
+owner no longer wants the wording controlled from the back office. `CHECKOUT_PAYMENT_NOTICE` in
+`src/data/payment-instructions.ts` now holds the four printed lines - the 500 BDT advance-delivery rule,
+the advance-payment instruction naming the **Business WhatsApp 01871161571** with the WhatsApp mark drawn
+beside it, the gift terms, and the Cash on Delivery sentence - and checkout prints them directly.
+`payment.instructions` is no longer read or written, the admin textarea was removed, and the separate
+**WhatsApp number card and its setting were removed** rather than kept beside the inline number (the number
+in the copy is the one the owner publishes; there is no second card). Still settings, still edited at
+**Settings -> Other settings -> Advance payment**: the bKash Advance number, its visibility switch, the
+"Payment, not Send Money" caution and the advance threshold. Absent stored rows behave as before, and a
+blank bKash number is still a stated gap rather than a guess. No schema change; rows already stored under
+`payment.instructions` / `payment.whatsapp_number` are simply unread.
+
 **Cash on Delivery remains the only method an order records.** Nothing in this change writes a payment
 method, a payment state, a claim or a verification, and the owner still confirms a transfer on the
 phone. The checkout states the advance expectation and the gift as published terms; the order itself is

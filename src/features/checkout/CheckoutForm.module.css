@@ -401,6 +401,22 @@
   margin: 0;
 }
 
+/* The number the WhatsApp mark sits beside: emphasised inside the sentence, not moved to a card. */
+.noticeNumber {
+  font-variant-numeric: tabular-nums;
+}
+
+/*
+ * The mark is inline with the printed line and inherits the card's ink - never WhatsApp's green. It is
+ * decorative (`aria-hidden` comes from the icon itself), because the number beside it is the fact.
+ */
+.whatsappMark {
+  display: inline-block;
+  margin-left: 4px;
+  vertical-align: -3px;
+  color: var(--color-ink-muted);
+}
+
 /*
  * The number block is a two-column grid, not a wrapping flex row: the label and the number stack in
  * the first column while the copy control is centred against both in the second, so the button's

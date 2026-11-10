@@ -12,10 +12,12 @@ import styles from '../../../qbpanel.module.css';
  * Two groups, each with its own form and its own save:
  *
  * 1. **Checkout** - the guest-order switch, a policy rather than a rendered value.
- * 2. **Checkout instructions** - the owner's own words and number for advance payment. This was moved
- *    here from Contact and policies: it is checkout copy, not a fact about reaching the shop, and the
- *    owner asked for one topic by that name. The block is still an **instruction**, never a payment
- *    method - Cash on Delivery remains the only method an order records (ADR 0029).
+ * 2. **Checkout instructions** - the advance-payment number and the rule that decides when the
+ *    delivery charge is paid in advance. This was moved here from Contact and policies: it is checkout
+ *    copy, not a fact about reaching the shop. The **wording is no longer edited here** (owner
+ *    decision, 2026-11-10): the notice is static code, and this screen holds only the number, its
+ *    visibility switch, the caution and the threshold. The block is still an **instruction**, never a
+ *    payment method - Cash on Delivery remains the only method an order records (ADR 0029).
  *
  * **The switches post their own value and nothing else.** A ticked checkbox posts `true` and an
  * unticked one posts nothing, which each route reads as off (it requires the literal `true`, and the
@@ -31,7 +33,7 @@ export function OtherSettingsView({
 }: {
   guestOrders: boolean;
   payment: PaymentInstructions;
-  paymentMaxLengths: { readonly instructions: number; readonly note: number };
+  paymentMaxLengths: { readonly note: number };
   csrfToken: string;
 }) {
   const { t } = useTranslation();
@@ -85,10 +87,10 @@ export function OtherSettingsView({
       </section>
 
       {/*
-        Checkout instructions. The owner's paragraphs, the advance-payment number, whether that number
-        is drawn at all, the "Payment, not Send Money" caution, and the subtotal below which the
-        delivery charge is expected in advance. Every value is stored in `store_setting` and printed
-        verbatim at checkout.
+        Checkout instructions. The advance-payment number, whether it is drawn at all, the "Payment, not
+        Send Money" caution, and the subtotal below which the delivery charge is expected in advance.
+        The notice's wording is static code now, so there is no textarea: every field here is a fact
+        that decides what the payment card does, not a paragraph it prints.
       */}
       <section className={styles.section} aria-labelledby="other-instructions">
         <div className={styles.sectionHead}>
@@ -103,19 +105,6 @@ export function OtherSettingsView({
         >
           <input type="hidden" name="csrf" value={csrfToken} />
 
-          <div className={styles.field}>
-            <label htmlFor="instructions">{t('admin.payment.instructionsLabel')}</label>
-            <textarea
-              className={styles.textarea}
-              id="instructions"
-              name="instructions"
-              rows={6}
-              defaultValue={payment.instructions}
-              maxLength={paymentMaxLengths.instructions}
-            />
-            <p className={styles.hint}>{t('admin.payment.instructionsHelp')}</p>
-          </div>
-
           <div className={styles.formGrid}>
             <div className={styles.field}>
               <label htmlFor="bkashNumber">{t('admin.payment.bkashLabel')}</label>
@@ -129,20 +118,6 @@ export function OtherSettingsView({
                 defaultValue={payment.bkashNumber ?? ''}
               />
               <p className={styles.hint}>{t('admin.payment.bkashHelp')}</p>
-            </div>
-
-            <div className={styles.field}>
-              <label htmlFor="whatsappNumber">{t('admin.payment.whatsappLabel')}</label>
-              <input
-                className={styles.input}
-                id="whatsappNumber"
-                name="whatsappNumber"
-                type="tel"
-                inputMode="numeric"
-                maxLength={11}
-                defaultValue={payment.whatsappNumber ?? ''}
-              />
-              <p className={styles.hint}>{t('admin.payment.whatsappHelp')}</p>
             </div>
 
             <div className={styles.field}>

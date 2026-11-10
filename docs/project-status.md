@@ -500,13 +500,19 @@ pending, cancelled, rejected or unpaid order does not count. The automatic disco
 promotion code and the pair is capped at the goods subtotal; `order.discount_minor` and
 `order.shipping_minor` keep the snapshot the customer was charged.
 
-Checkout also publishes the owner's **payment instructions** - Bangla paragraphs, the bKash number with
-a copy button, the "Payment, not Send Money" caution and the subtotal below which the delivery charge is
-expected in advance - from `store_setting`, edited at Settings -> Contact and policies and audited. The
-defaults are owner data in `src/data/payment-instructions.ts`; markup is refused and everything renders
-as plain paragraphs. **Cash on Delivery remains the only method an order records:** no payment state,
-claim, screenshot upload or verification queue exists, and the block is an instruction the owner
-confirms on the phone.
+Checkout also publishes a **static payment notice** (owner decision, 2026-11-10): the four Bangla lines in
+`CHECKOUT_PAYMENT_NOTICE` (`src/data/payment-instructions.ts`) - the 500 BDT advance-delivery rule, the
+advance-payment instruction naming Business WhatsApp **01871161571** with the WhatsApp mark beside it, the
+gift terms, and the Cash on Delivery sentence - are printed verbatim and are **not** editable in the admin.
+`payment.instructions` is no longer read or written. Still settings, edited at **Settings -> Other settings
+-> Advance payment**: the bKash Advance number with a copy button, its show/hide switch, the "Payment, not
+Send Money" caution and the subtotal below which the delivery charge is expected in advance; markup is
+refused. The separate WhatsApp number card and its setting were removed rather than kept beside the inline
+number. **Cash on Delivery remains the only method an order records:** no payment state, claim, screenshot
+upload or verification queue exists, and the block is an instruction the owner confirms on the phone.
+
+Verified for the static notice with typecheck, lint (0 errors), `check:i18n` (1781 keys), `build` and unit
+**294/294**; the browser and admin suites were not re-run, and nothing was deployed.
 
 Verified with typecheck, lint (0 errors, 2 pre-existing warnings), `check:i18n` (1,714 keys), `build`,
 unit **251/251**, `db:migrate`/`db:validate` (51 tables, 191 checks), an HTTP settings walk-through
