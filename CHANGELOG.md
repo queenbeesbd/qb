@@ -14,6 +14,35 @@ An entry may describe a deployment only once it has actually happened and been o
 
 ## [Unreleased]
 
+### Changed - 2026-11-10: the account dashboard's phone composition
+
+The dashboard shipped with its sidebar folded into a wrapping strip of four bordered chips - including
+the sign-out, which then read as a destination. At 390px it took two rows and looked like a broken
+toolbar. The phone is now its own composition:
+
+- **One segmented track** - three equal cells on a sunken field, the current screen on white - 40px
+  tall, capped at 440px above 480px so it never stretches into a progress bar on a tablet.
+- **One identity row** under it: the customer's name and a plain **Sign out**, both 40px tall. The
+  contact page leaves the phone navigation; the footer already carries it.
+- **The third screen is "Security"** in the sidebar, the track and its `h1`, instead of "Password and
+  email" in the navigation and a different heading on the page.
+- **Every thumb target is 40px** - segments, sign-out, panel links, order numbers; the earlier build
+  left 19-24px text links inside taller rows, which is still a 19px target.
+- **The three figures line up**: each cell is `auto 1fr` with the value on the cell floor, so a label
+  that wraps to two lines no longer pushes its figure below the others. Their notes are hidden at this
+  width; the labels say what each figure is.
+- **The order block** puts the amount under the order line instead of beside it, and the progress track
+  becomes five stacked rows. The line under the page title no longer repeats the order number the panel
+  below already names.
+- Pluralisation: "One order on this account" instead of "1 orders on this account".
+
+Verified 2026-11-10 at 390, 768 and 1440 on the real signed-in pages: no horizontal overflow on any of
+the three screens, every `main` link and button at least 40px tall, two corner radii on the surface
+(6px controls, 10px panels; the 4px progress mark keeps its 0.5px-radius ends), the three figures on one
+baseline, and the desktop sidebar unchanged. `typecheck`, `lint` (0 errors), `check:i18n` and `build`
+green. Real iOS Safari, Android Chrome, screen readers and the storefront tab bar's own 10.5px labels
+were not part of this change.
+
 ### Changed - 2026-11-10: the customer account is a dashboard with a sidebar
 
 The old `/account` hub was a card grid: four equally weighted cards, the password and email forms

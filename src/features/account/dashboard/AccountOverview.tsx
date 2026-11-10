@@ -85,14 +85,15 @@ export function AccountOverview({
     <>
       <header className={styles.canvasHead}>
         <h1>{t('account.title')}</h1>
+        {/*
+          The finding, and nothing repeated: the order it describes is named by the panel directly
+          below, so printing its number here as well spent a phone's first screen on the same 16
+          characters twice.
+        */}
         <p className={styles.canvasLead}>
-          {newest === undefined || progress === null ? (
-            t('account.lead.noOrders')
-          ) : (
-            <>
-              <strong>{newest.orderNumber}</strong> · {t(progress.nextKey)}
-            </>
-          )}
+          {newest === undefined || progress === null
+            ? t('account.lead.noOrders')
+            : t(progress.nextKey)}
         </p>
       </header>
 

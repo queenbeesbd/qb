@@ -935,3 +935,28 @@ path preserved in `next`. **Not verified:** an authenticated walk-through on pro
 production customer credential is held here and creating one would write real customer data; real iOS
 Safari, Android Chrome, screen readers and 200% zoom. `verify:admin`, `verify:browser`, `verify:storefront`
 and the database suite were not re-run for this change.
+
+## The account dashboard's phone composition (2026-11-10)
+
+Owner feedback: "the bar shows way too bad now" at phone width. The folded sidebar was four bordered
+chips that wrapped to two rows, one of them the sign-out, which read as a destination among equals.
+
+**What changed.** The phone state is now a **segmented track** of three equal cells (the current one on
+white, 40px tall, capped at 440px above 480px so a tablet does not get a progress bar), an **identity
+row** carrying the customer's name and a plain **Sign out** at 40px, and no contact item (the shop's
+footer carries it). The third screen is named **Security** in the navigation and in its `h1`. Every
+`main` link and button on the phone is at least 40px tall - the earlier build left 19-24px text links.
+The three figures now align on one baseline (`grid-template-rows: auto 1fr` with the value on the cell
+floor) and their notes are hidden at this width. The order block puts its amount under the order line,
+the track becomes five stacked rows, and the line under the title no longer repeats the order number the
+panel below names. "1 orders" is "One order".
+
+**Verified 2026-11-10** at 390, 768 and 1440 on the real signed-in pages against the dev cluster: no
+horizontal overflow on `/account`, `/account/orders` or `/account/security`; no `main` link or button
+under 40px; two corner radii on the surface (6px controls, 10px panels); the three figures sharing one
+baseline; the desktop sidebar unchanged. `typecheck`, `lint` (0 errors, 18 pre-existing warnings),
+`check:i18n` and `build` green.
+
+**Not verified:** real iOS Safari and Android Chrome, screen readers, 200% zoom, and an authenticated
+walk-through on the production domain (no production customer credential is held here). The storefront
+tab bar's own 10.5px labels are outside this change.

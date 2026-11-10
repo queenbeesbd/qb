@@ -50,6 +50,13 @@ export function AccountFrame({
           <p className={styles.sidebarIdentity}>{customer.displayName ?? customer.email}</p>
         </div>
 
+        {/*
+          Three destinations, one row on a phone: the studied screens' segmented track (48px, a
+          sunken field with the active item on white) rather than a list of bordered chips, which
+          wrapped to two lines at 390px and read as a toolbar of equal buttons. Contact is a desktop
+          item; on a phone the shop's footer already carries it, and a fourth cell would push the
+          track past the screen.
+        */}
         <ul className={styles.nav}>
           {destinations.map((destination) => (
             <li key={destination.section}>
@@ -63,25 +70,29 @@ export function AccountFrame({
               </Link>
             </li>
           ))}
-          {/*
-            The shop's contact page is a real destination outside this tree, and the one place a
-            customer settles anything the dashboard cannot: a delivery, a change to an order in flight.
-          */}
-          <li>
+          <li className={styles.navContact}>
             <Link className={styles.navLink} href="/contact">
               {t('account.nav.contact')}
             </Link>
           </li>
-          {/* Sign-out joins the strip when the sidebar folds, so a phone never has to open a screen to leave. */}
-          <li className={styles.phoneSignOut}>
-            <form action="/api/account/logout" method="post">
-              <input type="hidden" name="csrf" value={csrfToken} />
-              <button type="submit" className={styles.signOutButton}>
-                {t('account.signOut')}
-              </button>
-            </form>
-          </li>
         </ul>
+
+        {/*
+          On a phone there is no sidebar foot, so the identity and the way out sit directly under the
+          track: who you are on the left, one plain "Sign out" on the right, on a 40px row that needs
+          no opening and no second screen.
+        */}
+        <div className={styles.phoneIdentity}>
+          <span className={styles.phoneIdentityName}>
+            {customer.displayName ?? customer.email}
+          </span>
+          <form action="/api/account/logout" method="post">
+            <input type="hidden" name="csrf" value={csrfToken} />
+            <button type="submit" className={styles.signOutButton}>
+              {t('account.signOut')}
+            </button>
+          </form>
+        </div>
 
         <div className={styles.sidebarFoot}>
           <p className={styles.sidebarEmail}>{customer.email}</p>

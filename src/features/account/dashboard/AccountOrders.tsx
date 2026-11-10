@@ -34,7 +34,9 @@ export function AccountOrders({
         <p className={styles.canvasLead}>
           {orders.length === 0
             ? t('account.lead.noOrders')
-            : t('account.ordersPage.lead', { count: orders.length })}
+            : orders.length === 1
+              ? t('account.ordersPage.leadOne')
+              : t('account.ordersPage.lead', { count: orders.length })}
         </p>
       </header>
 

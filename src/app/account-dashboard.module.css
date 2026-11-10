@@ -769,9 +769,16 @@
 
 /* ---------- The phone ---------- */
 
-/* Present only in the folded strip; the sidebar's own foot holds sign-out above 900px. */
-.phoneSignOut {
+/*
+ * The phone's identity row: who is signed in, and the way out. Hidden above 900px, where the sidebar's
+ * foot already states both.
+ */
+.phoneIdentity {
   display: none;
+}
+
+.navContact {
+  display: block;
 }
 
 /*
@@ -782,47 +789,119 @@
 @media (max-width: 899px) {
   .dashboard {
     grid-template-columns: minmax(0, 1fr);
-    row-gap: var(--space-5);
+    row-gap: var(--space-4);
+    padding-top: 0;
   }
 
+  /*
+   * The track, not a list. One row of three equal cells on a sunken field: the active one sits on white
+   * at 500 weight, the others stay grey. 44px tall each, so the whole row is a thumb target and nothing
+   * wraps at 390px - the previous bordered chips did, and the second line was what the owner saw as a
+   * broken bar.
+   */
   .sidebar {
     position: static;
-    gap: var(--space-3);
-    padding: 0 0 var(--space-3);
+    display: grid;
+    gap: var(--space-2);
+    padding: 0;
     border-right: 0;
-    border-bottom: 1px solid var(--color-border);
   }
 
-  .sidebarTop,
-  .sidebarFoot {
-    display: none;
-  }
-
-  .nav {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--space-1);
-  }
-
-  .navLink {
-    min-height: 40px;
-    padding: 0 var(--space-3);
-    border: 1px solid var(--color-border);
-  }
-
-  .navLink[data-active='true'] {
-    border-color: var(--color-border-strong);
-  }
-
-  .phoneSignOut {
-    display: flex;
-    align-items: center;
-  }
-
+  /* Nothing shares a row with anything below 900px: two cards side by side at 390px cut each to 170px. */
   .pair,
   .settingsRow {
     grid-template-columns: minmax(0, 1fr);
     gap: var(--space-4);
+  }
+
+  .sidebarTop,
+  .sidebarFoot,
+  .navContact {
+    display: none;
+  }
+
+  .nav {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(0, 1fr);
+    gap: 2px;
+    /*
+     * As wide as its three options, not as wide as the screen: a segmented track stretched across a
+     * 768px tablet reads as a progress bar, and the studied screens cap it the same way. It takes the
+     * full width only where that is all there is (below 480px).
+     */
+    max-width: min(100%, 440px);
+    padding: 3px;
+    border-radius: var(--radius-sm);
+    /*
+     * One step under the page ground, so the white active cell has an edge to sit against. The first
+     * build used --color-surface-sunken, which on this ground left the whole control nearly invisible
+     * and the current screen readable only from the label's weight.
+     */
+    background: var(--color-border);
+  }
+
+  .navLink {
+    justify-content: center;
+    min-height: 40px;
+    padding: 0 var(--space-2);
+    border-radius: var(--radius-sm);
+    font-size: var(--text-base);
+    text-align: center;
+  }
+
+  .navLink:hover {
+    background: transparent;
+  }
+
+  .navLink[data-active='true'] {
+    background: var(--color-surface);
+    font-weight: 500;
+  }
+
+  .navLink:active {
+    transform: scale(0.98);
+  }
+
+  .phoneIdentity {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+    min-height: 40px;
+    max-width: min(100%, 440px);
+    padding: 0 var(--space-1);
+  }
+
+  /* Everything a thumb lands on is 40px tall: a 24px text link inside a 40px row is still a 24px target. */
+  .phoneIdentity form button,
+  .panelLink,
+  .rowLink {
+    display: inline-flex;
+    align-items: center;
+    min-height: 40px;
+  }
+
+  .phoneIdentityName {
+    min-width: 0;
+    font-size: var(--text-base);
+    color: var(--color-ink-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* The page title carries the phone's own rhythm: a hair less air than desktop, no extra padding. */
+  .canvas {
+    gap: var(--space-4);
+  }
+
+  .canvasHead h1 {
+    font-size: var(--text-xl);
+  }
+
+  .canvasLead {
+    font-size: var(--text-base);
   }
 }
 
@@ -832,9 +911,57 @@
  */
 @media (max-width: 719px) {
   /*
+   * A phone is read at arm's length with one thumb, so the same content is set tighter and the two
+   * lowest-value lines give way: the notes under the money figures (the labels already say what each
+   * figure is), and the three-across layout the strip keeps on a tablet.
+   */
+  .panel {
+    padding: var(--space-4);
+    gap: var(--space-3);
+  }
+
+  .strip {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .fact {
+    padding: var(--space-3);
+    /* The label takes what it needs; the figure sits on the cell's floor, so all three line up
+       however many lines their labels take ("Due on delivery" wraps, "Orders placed" does not). */
+    grid-template-rows: auto 1fr;
+  }
+
+  .factValue {
+    align-self: end;
+    font-size: var(--text-lg);
+  }
+
+  .factNote {
+    display: none;
+  }
+
+  /*
+   * The answer figure moves under the order's own line instead of sharing it: at 390px a 16-character
+   * order number and a 26px amount on one row left the amount wrapping to a second line anyway.
+   */
+  .orderTop {
+    display: grid;
+    gap: var(--space-2);
+    align-items: start;
+  }
+
+  .orderAmount {
+    justify-items: start;
+    text-align: left;
+  }
+
+  .orderAmountValue {
+    font-size: var(--text-xl);
+  }
+
+  /*
    * Five marks across 358px left every label touching its neighbour ("ConfirmedDispatchedDelivered"),
-   * so below 720px the track becomes five stacked rows: a short bar and its own label. The order of the
-   * marks is the same; only the axis changes.
+   * so the track becomes five stacked rows: a short bar and its own label, in the order they happen.
    */
   .steps {
     grid-template-columns: minmax(0, 1fr);
@@ -842,27 +969,17 @@
   }
 
   .step {
-    grid-template-columns: 18px minmax(0, 1fr);
+    grid-template-columns: 14px minmax(0, 1fr);
     align-items: center;
     gap: var(--space-2);
   }
 
+  .stepLabel {
+    font-size: var(--text-sm);
+  }
+
   .orderFacts {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  /* A phone stacks the three figures: three columns of money at 390px truncate the note under each. */
-  .strip {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .fact {
-    border-left: 0;
-    border-top: 1px solid var(--color-border);
-  }
-
-  .fact:first-child {
-    border-top: 0;
   }
 
   .counts {

@@ -683,6 +683,29 @@ active destination is a **neutral grey pill** with the label unchanged, and the 
 foot. Below 900px the sidebar folds to a strip above the canvas; the sign-out joins the strip, so a
 phone never has to open a screen to leave.
 
+**The phone is its own composition (2026-11-10, second pass).** Folding the sidebar into a wrapping
+strip of bordered chips was the first attempt and it read as a broken toolbar: four chips, two rows,
+one of them a sign-out that looked like a destination. The folded state is now:
+
+- **One segmented track**, three equal cells on `--color-border` with the current screen on white at 500
+  weight - 40px tall, so the whole row is a thumb target and nothing wraps at 390px. It is capped at
+  440px from 480px up: stretched across a 768px tablet a segmented control reads as a progress bar.
+- **One identity row** under it: who is signed in, and a plain **Sign out** on the right, both inside a
+  40px row. The shop's contact page leaves the phone navigation - the footer already carries it - and
+  stays a desktop sidebar item.
+- **Destination names are one word per width.** The third screen is **Security** in the sidebar and in
+  the track; its `h1` is the same word, and the two sections under it name the password and the address.
+- **Everything a thumb lands on is 40px**: the segments, the sign-out, the panel links and an order
+  number. A 24px text link inside a 40px row is still a 24px target.
+- **The figures keep their alignment**: each cell is `auto 1fr` and the value sits on the cell floor, so
+  "Due on delivery" wrapping to two lines no longer pushed its figure below the other two. The notes
+  under the figures are hidden at this width; the labels already say what each figure is.
+- **The order's own block** puts the amount under the order line rather than beside it (a 16-character
+  number and a 26px figure never shared a 358px row cleanly), and the progress track turns from five
+  marks across into five stacked rows.
+- **The finding is stated once.** The line under the title used to repeat the order number the panel
+  immediately below already names; on a phone that spent the first screen on the same characters twice.
+
 **Colour budget.** The chrome holds no colour at all — titles, nav, links and buttons are ink and two
 greys. The brand lavender appears twice and only for meaning: `--brand-primary-deep` on the **current
 mark** of an order's progress track, and `--color-action-soft` as the tint of the selected filter card.
