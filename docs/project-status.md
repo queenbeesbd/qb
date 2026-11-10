@@ -840,7 +840,7 @@ combination put code ahead of its schema four times - `0015` (traffic and order 
 (delivery settings), `0019`-`0020` (traffic screen), and `0021`-`0023` earlier the same day, where the
 storefront only survived because a warm Data Cache masked the missing columns.
 
-**What exists now.** `npm run prebuild` runs `scripts/check-migrations.ts --build` before `next build`.
+**What exists now.** `npm run prebuild` runs `src/db/check-migrations.ts --build` before `next build`.
 
 - `evaluateMigrationGate` (`src/db/migration-gate.ts`) is the decision, pure and unit-tested
   (`tests/unit/migration-gate.test.ts`, 5 cases). An applied hash with no current file outranks a

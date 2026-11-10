@@ -318,7 +318,7 @@ migrations for a commit before pushing it.** Do not assume "nothing is deployed 
 so" - it is.
 
 **The deploy now fails closed instead of shipping ahead of its schema (Phase 60, item 2, 2026-11-10).**
-`npm run prebuild` runs `scripts/check-migrations.ts --build`, which on a Vercel **production** build
+`npm run prebuild` runs `src/db/check-migrations.ts --build`, which on a Vercel **production** build
 compares `drizzle/` with `drizzle.__drizzle_migrations` and exits 1 on any pending migration or on an
 applied hash that matches no file, so the build never starts and the previous deployment stays live.
 It skips preview builds and a local `npm run build` (which therefore still needs no database). The
@@ -328,6 +328,13 @@ a migration, never prints the connection string, and has **no override flag** - 
 that adds a migration.** If a production build fails at this step, the site is still up on the
 previous deployment; do not reach for a way around the gate. See `docs/database.md` (Rollout
 sequencing).
+
+**A `prebuild` step may only reference files the deployment actually contains.** The gate first lived
+at `scripts/check-migrations.ts`, but `.vercelignore` excludes `scripts/`, so Vercel never received it
+and the three production builds after it (`1cfa6e8`, `ffbee0e`, `cb97367`) died on
+`ERR_MODULE_NOT_FOUND` while production stayed on the last READY build - Vercel failing closed exactly
+as designed, but the shop could not ship. It now lives at `src/db/check-migrations.ts`; do not move it
+back to `scripts/`, and check `.vercelignore` before wiring any new build-time command.
 
 **Known exposure.** An untracked, gitignored `.env` file in the working tree holds a plaintext credential for the withdrawn `merchant.zatiqeasy.com` vendor. It is read by no code and is not committed. **Rotation and removal are owner actions** - do not read the value into output, and do not delete or rotate it on the owner's behalf.
 

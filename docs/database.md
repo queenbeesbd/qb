@@ -172,7 +172,7 @@ sequence remains: `npm run db:status` against the target (it prints every pendin
 migration applied locally is applied nowhere else.
 
 **The pre-deploy gate (Phase 60, item 2, 2026-11-10).** `npm run prebuild` runs
-`scripts/check-migrations.ts --build` before every `next build`. On a Vercel **production** build it
+`src/db/check-migrations.ts --build` before every `next build`. On a Vercel **production** build it
 compares the journal in `drizzle/` with `drizzle.__drizzle_migrations` on the deployed database: a
 pending migration or an applied hash that matches no file **exits 1 and the build never starts**, so
 Vercel keeps the previous deployment live instead of serving code that reads a schema which is not
@@ -190,6 +190,11 @@ a preview must stay useful; a local `npm run build` skips, so no database is nee
   override flag; the fix is `npm run db:migrate` against the target.
 - Requirement: `DATABASE_URL` must be readable at **build** time in the Vercel production environment
   (Vercel exposes project variables to the build unless one is deliberately restricted).
+- Requirement: **the CLI must live inside the uploaded tree.** `.vercelignore` excludes `scripts/`, so
+  the first version (`scripts/check-migrations.ts`) was absent from the build and every production
+  deployment after it failed with `ERR_MODULE_NOT_FOUND` on 2026-11-10 - Vercel failed closed exactly
+  as designed, but the shop could not ship. It now lives at `src/db/check-migrations.ts`; a `prebuild`
+  step may only reference files the deployment actually contains.
 
 The gap this closes cost four incidents: `0015` (the `visit_session` / `visit_event` tables, ADR 0027)
 shipped in code on 2026-11-06 with `/qbpanel/analytics` failing `relation "visit_session" does not

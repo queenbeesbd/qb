@@ -14,6 +14,25 @@ An entry may describe a deployment only once it has actually happened and been o
 
 ## [Unreleased]
 
+### Fixed - 2026-11-10: every production build after the migration gate failed
+
+Three consecutive production deployments (`1cfa6e8`, `ffbee0e`, `cb97367`) ended in `ERROR`, and
+production kept serving the last READY build (`e1d66a8`). The gate itself was fine; it was missing from
+the uploaded tree.
+
+- `.vercelignore` excludes `scripts/` (the verification suites are not needed to serve the app), so
+  `prebuild` ran `tsx scripts/check-migrations.ts --build` against a file Vercel never received:
+  `Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/vercel/path0/scripts/check-migrations.ts'`.
+- The CLI moved to `src/db/check-migrations.ts` (beside the `evaluateMigrationGate` it calls), and
+  `prebuild` and `check:migrations` now point there. No behaviour changed: same `--build` skip rule,
+  same fail-closed refusal, same output.
+- **The gate must live inside the deployment.** A `prebuild` step cannot reference anything
+  `.vercelignore` removes; the file header now says so, so it is not moved back.
+
+Verified: the build-mode path with no `VERCEL_ENV` prints the skip line and exits 0 (as on a local
+build); the gate ran against the dev cluster and reported the applied count; `typecheck` and `lint`
+clean over the moved file.
+
 ### Changed - 2026-11-10: the checkout payment notice is static
 
 The owner no longer wants the payment wording controlled from the back office. Checkout now prints
@@ -43,7 +62,7 @@ instead of the shop breaking later.
 - `evaluateMigrationGate` (`src/db/migration-gate.ts`) decides from the journal and the applied hashes;
   a **pending** migration or an **applied hash that matches no file** blocks. It is pure, so the rule
   is covered without a cluster in `tests/unit/migration-gate.test.ts`.
-- `scripts/check-migrations.ts`, wired as `prebuild`: on a Vercel **production** build it exits 1 with
+- `src/db/check-migrations.ts`, wired as `prebuild`: on a Vercel **production** build it exits 1 with
   the missing tags, so Vercel keeps the previous deployment live. Preview builds and a local
   `npm run build` print one skip line and continue, so building needs no database.
 - `npm run check:migrations` runs it explicitly against the current `DATABASE_URL` - the pre-push step.

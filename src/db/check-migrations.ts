@@ -16,11 +16,17 @@
  *
  * It never applies a migration and never prints the connection string: the target is reduced to
  * host, port and database, and a failure states what is pending, not where the credential is.
+ *
+ * **It lives in `src/db/`, not `scripts/`, on purpose.** `.vercelignore` excludes `scripts/` from the
+ * deployment because the verification suites are not needed to serve the application, so a `prebuild`
+ * step that pointed there died with `ERR_MODULE_NOT_FOUND` on Vercel and took every production build
+ * down with it (2026-11-10). This file and everything it imports must stay inside the uploaded tree.
+ * Do not move it back to `scripts/`.
  */
 
-import { evaluateMigrationGate } from '../src/db/migration-gate';
-import { migrationStatus } from '../src/db/migrate';
-import { EnvironmentError, serverEnv } from '../src/server/env';
+import { evaluateMigrationGate } from './migration-gate';
+import { migrationStatus } from './migrate';
+import { EnvironmentError, serverEnv } from '../server/env';
 
 /** Host and database only. Never includes user or password. */
 function describeTarget(url: string): string {
