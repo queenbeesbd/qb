@@ -37,6 +37,15 @@ const NEW_ARRIVALS_LIMIT = 10;
 const BEST_SELLING_LIMIT = 10;
 
 /**
+ * How deep the homepage asks for the ranking: the row, plus one.
+ *
+ * The eleventh is the evidence that there is more behind the row's "All best sellers" tile. Asking for
+ * exactly the row's length would make that tile impossible to draw, because a page can only know what
+ * it asked for.
+ */
+export const HOMEPAGE_BEST_SELLER_DEPTH = BEST_SELLING_LIMIT + 1;
+
+/**
  * How many products "More to explore" publishes: two desktop rows of five.
  *
  * On a phone the section draws eight of them (four rows of two) because an even count fills the
@@ -55,8 +64,14 @@ export type HomepageSelection = {
   featured: CatalogItem[];
   /** Real ordered units, most first. Empty until the shop has sold something. */
   bestSellers: CatalogItem[];
+  /** The shop has more ranked products than the row draws - it then ends in "All best sellers". */
+  bestSellersHaveMore: boolean;
   deals: CatalogItem[];
+  /** The shop has more genuinely discounted products than the row draws - "All offers". */
+  dealsHaveMore: boolean;
   newArrivals: CatalogItem[];
+  /** The shop has more dated products than the row draws - "All new arrivals". */
+  newArrivalsHaveMore: boolean;
   browse: CatalogItem[];
   brands: CatalogBrand[];
   /** The brand rail's own "View all" condition - see `departmentsHaveMore`. */
@@ -139,26 +154,43 @@ export function selectHomepage({
    * the ones that drop a product already shown as new. Doing it the other way round (filtering the
    * newest row) would publish a "Recently added" list that is not the newest products, which is a
    * different, false claim.
+   *
+   * One extra row is read, and the eleventh is the evidence that there is more behind the row's
+   * "All new arrivals" tile. `selectNewestProducts` owns the dating rule, so nothing here re-states it.
    */
-  const newArrivals = selectRecentlyAdded(purchasable).slice(0, NEW_ARRIVALS_LIMIT);
+  const recentlyAdded = selectRecentlyAdded(purchasable, NEW_ARRIVALS_LIMIT + 1);
+  const newArrivals = recentlyAdded.slice(0, NEW_ARRIVALS_LIMIT);
   const recentShown = new Set(newArrivals.map((product) => product.id));
+
+  /*
+   * Everything the "All offers" listing would show, in the shop's own availability state. This is the
+   * count the tile is measured against, so a row shortened by the exclusions below still offers the
+   * way through to products it did not have room for.
+   */
+  const onOffer = purchasable.filter(
+    (product) => discountAmount(product.priceMinor, product.compareAtPriceMinor) !== null,
+  );
 
   /*
    * **Most Selling is the second fact row, and it yields only to recency.** Its ranking comes from the
    * order lines; the one exclusion is a product already drawn as new, because the newest-products row
    * cannot be filtered without becoming a different, false claim.
    */
-  const bestSellers = byCuratedId(bestSellerIds)
-    .filter((product) => !recentShown.has(product.id))
-    .slice(0, BEST_SELLING_LIMIT);
+  const ranked = byCuratedId(bestSellerIds).filter((product) => !recentShown.has(product.id));
+  const bestSellers = ranked.slice(0, BEST_SELLING_LIMIT);
   const bestSellingShown = new Set(bestSellers.map((product) => product.id));
+  /*
+   * The listing's own ranking depth: every ranked product the shop still sells, before this page's
+   * exclusions. That is what "All best sellers" will list, so that is what the tile is measured on.
+   */
+  const purchasableBestSellerIds = bestSellerIds.filter((id) => productById.has(id)).length;
 
   const featured = byCuratedId(featuredIds)
     .filter((product) => !recentShown.has(product.id))
     .slice(0, HOMEPAGE_SECTION_SIZE);
   const featuredShown = new Set(featured.map((product) => product.id));
 
-  const deals = purchasable
+  const offerable = purchasable
     .filter(
       (product) =>
         !recentShown.has(product.id) &&
@@ -171,8 +203,8 @@ export function selectHomepage({
         discountAmount(b.priceMinor, b.compareAtPriceMinor)! -
           discountAmount(a.priceMinor, a.compareAtPriceMinor)! ||
         a.id.localeCompare(b.id),
-    )
-    .slice(0, DEALS_LIMIT);
+    );
+  const deals = offerable.slice(0, DEALS_LIMIT);
 
   const shownIds = new Set(
     [...newArrivals, ...bestSellers, ...featured, ...deals].map((product) => product.id),
@@ -191,8 +223,21 @@ export function selectHomepage({
     departmentsHaveMore: roots.length > RAIL_MOBILE_LIMIT,
     featured,
     bestSellers,
+    /*
+     * Each product row ends in a "see everything" tile when the listing behind it holds more than the
+     * row draws (owner direction, 2026-11-12).
+     *
+     * The comparison is against **the same set the tile's destination lists**, not against the row's
+     * own exclusions. The rows drop products already shown elsewhere on the page, so on a small
+     * catalog the offer row can be four cards while the offers listing holds thirteen: the shopper is
+     * owed the way through, and the count behind the tile has to be the listing's count or the tile
+     * would be missing exactly when it is needed.
+     */
+    bestSellersHaveMore: purchasableBestSellerIds > bestSellers.length,
     deals,
+    dealsHaveMore: onOffer.length > deals.length,
     newArrivals,
+    newArrivalsHaveMore: recentlyAdded.length > newArrivals.length,
     browse,
     brands: brands.slice(0, BRAND_LIMIT),
     brandsHaveMore: brands.length > RAIL_MOBILE_LIMIT,

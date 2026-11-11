@@ -29,6 +29,7 @@ const SORT_LABEL_KEYS: Record<SortOption, TranslationKey> = {
   'price-asc': 'catalog.sortPriceAsc',
   'price-desc': 'catalog.sortPriceDesc',
   'name-asc': 'catalog.sortNameAsc',
+  'best-selling': 'catalog.sortBestSelling',
 };
 
 /**
@@ -66,7 +67,8 @@ function activeCountOf(query: CatalogQuery, routeBrand: string | null = null): n
     (query.q ? 1 : 0) +
     query.brands.filter((entry) => entry !== routeBrand).length +
     (query.minPrice !== null || query.maxPrice !== null ? 1 : 0) +
-    query.availability.length
+    query.availability.length +
+    (query.offers ? 1 : 0)
   );
 }
 
@@ -192,6 +194,7 @@ export function CatalogView({
       minPrice: null,
       maxPrice: null,
       availability: [],
+      offers: false,
       page: 1,
     });
   }
@@ -215,6 +218,7 @@ export function CatalogView({
       minPrice: null,
       maxPrice: null,
       availability: [],
+      offers: false,
       page: 1,
     }));
   }
@@ -291,6 +295,9 @@ export function CatalogView({
         ) as AvailabilityFilter[],
       },
     });
+  }
+  if (optimisticQuery.offers) {
+    chips.push({ key: 'offers', label: t('catalog.onOffer'), patch: { offers: false } });
   }
   // The heading names the search term or the category, so only the fact the heading cannot state
   // becomes a chip. On a category page reached through search, the category is that fact.

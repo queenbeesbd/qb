@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { HomeView } from '@/features/catalog/HomeSections';
-import { selectHomepage } from '@/features/catalog/home-selection';
+import { HOMEPAGE_BEST_SELLER_DEPTH, selectHomepage } from '@/features/catalog/home-selection';
 import { getStorefrontCatalog } from '@/server/catalog/storefront';
 import { withTransaction } from '@/db/client';
 import { listBestSellingProductIds } from '@/server/orders/best-sellers';
@@ -34,7 +34,7 @@ export default async function HomePage() {
   const [campaign, heroImages, bestSellerIds, support] = await withTransaction(async (tx) => {
     const saved = await loadCampaign(tx);
     const hero = await listHeroImages(tx);
-    const sold = await listBestSellingProductIds(tx, 10);
+    const sold = await listBestSellingProductIds(tx, HOMEPAGE_BEST_SELLER_DEPTH);
     const links = await loadSupportLinks(tx);
     return [saved, hero, sold, links] as const;
   });
@@ -58,8 +58,11 @@ export default async function HomePage() {
         altText: image.altText,
       }))}
       deals={selection.deals}
+      dealsHaveMore={selection.dealsHaveMore}
       bestSellers={selection.bestSellers}
+      bestSellersHaveMore={selection.bestSellersHaveMore}
       newArrivals={selection.newArrivals}
+      newArrivalsHaveMore={selection.newArrivalsHaveMore}
       browse={selection.browse}
       brands={selection.brands}
       brandsHaveMore={selection.brandsHaveMore}

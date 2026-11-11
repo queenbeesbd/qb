@@ -61,6 +61,8 @@ export const dictionary = {
   'home.selectionEmptyTitle': 'Nothing to show',
   'home.selectionEmptyBody': 'No products are available for this selection right now.',
   'home.viewAll': 'View all',
+  /* The product rows' trailing tile for the ranking: the row's own claim, continued. */
+  'home.bestSellingAll': 'All best sellers',
   'home.viewMore': 'View more products',
   'home.dealsViewAll': 'All offers',
   'home.browseBy': 'Browse',
@@ -68,7 +70,7 @@ export const dictionary = {
   'home.bestSellingTitle': 'Most Selling',
   'home.brandsAll': 'All brands',
   'home.newArrivalsTitle': 'New arrivals',
-  'home.newArrivalsAll': 'See everything',
+  'home.newArrivalsAll': 'All new arrivals',
   'home.carouselLabel': 'Featured products',
   'home.carouselPrev': 'Previous products',
   'home.carouselNext': 'More products',
@@ -86,6 +88,12 @@ export const dictionary = {
   'catalog.filterBrand': 'Brand',
   'catalog.filterPrice': 'Price',
   'catalog.filterAvailability': 'Availability',
+  /*
+   * "Offers" is a derived filter (a stored comparison price genuinely above the price), not a campaign,
+   * so it is named as the state it selects. `onOffer` is both its option label and the chip's.
+   */
+  'catalog.filterOffers': 'Offers',
+  'catalog.onOffer': 'On offer',
   'catalog.allCategories': 'All categories',
   'catalog.allBrands': 'All brands',
   'catalog.inStock': 'In Stock',
@@ -121,6 +129,7 @@ export const dictionary = {
   'catalog.sortPriceAsc': 'Price: low to high',
   'catalog.sortPriceDesc': 'Price: high to low',
   'catalog.sortNameAsc': 'Name: A to Z',
+  'catalog.sortBestSelling': 'Best selling',
   'catalog.activeFilters': 'Active filters',
   'catalog.clearFilters': 'Clear filters',
   'catalog.emptyTitle': 'No products match',

@@ -7,6 +7,7 @@ import {
   slicePage,
 } from '@/features/catalog/query';
 import { getStorefrontCatalog } from '@/server/catalog/storefront';
+import { bestSellerRankingFor } from '@/server/orders/best-seller-ranking';
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
@@ -35,7 +36,7 @@ export default async function ProductsPage({ searchParams }: { searchParams: Sea
    * filters need it - but only one page of it crosses into the client component, which is what keeps
    * the payload and the DOM from growing with the catalog.
    */
-  const matched = selectCatalog(catalog.products, query);
+  const matched = selectCatalog(catalog.products, query, await bestSellerRankingFor(query.sort));
   const page = slicePage(matched, query.page);
 
   return (

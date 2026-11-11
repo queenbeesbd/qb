@@ -299,6 +299,58 @@ describe('catalog filter facets', () => {
     );
   });
 
+  /*
+   * The homepage's "All offers" and "All best sellers" tiles land on these two capabilities, so what
+   * they mean is pinned here: an offer is a **stored** comparison price genuinely above the price (the
+   * same arithmetic the card's saving badge uses), and a best-seller order is the shop's own ranking
+   * with everything it has never sold after it.
+   */
+  it('filters to genuine offers and writes the filter into the URL', () => {
+    // One real saving, one product with no comparison price, one whose comparison price equals its
+    // price - which is not a saving, exactly as on the card.
+    const comparison = [12000, null, 30000, null];
+    const withSavings: CatalogItem[] = listingProducts.map((product, index) => ({
+      ...product,
+      compareAtPriceMinor: comparison[index] ?? null,
+    }));
+
+    const query = parseCatalogQuery({ offers: '1' }, listingCategories);
+    assert.equal(query.offers, true);
+    assert.deepEqual(
+      selectCatalog(withSavings, query).map((item) => item.slug),
+      ['serum'],
+    );
+    assert.equal(
+      buildCatalogFacets(withSavings, listingCategories, '').offers,
+      1,
+      'the facet counts the same predicate the filter applies',
+    );
+    assert.equal(listingHref(query), '/products?offers=1');
+
+    const withoutSavings: CatalogItem[] = withSavings.map((item) => ({
+      ...item,
+      compareAtPriceMinor: null,
+    }));
+    assert.equal(selectCatalog(withoutSavings, query).length, 0, 'and an empty offer set is empty');
+  });
+
+  it('orders by the shop ranking, then everything it has never sold', () => {
+    const query = parseCatalogQuery({ sort: 'best-selling' }, listingCategories);
+    assert.equal(query.sort, 'best-selling');
+
+    assert.deepEqual(
+      selectCatalog(listingProducts, query, ['3', '1']).map((item) => item.slug),
+      ['toner', 'serum', 'mask', 'shampoo'],
+      'ranked first in the shop order, then unranked by name',
+    );
+
+    // A ranking that names products outside this catalog does not disturb the unranked order.
+    assert.deepEqual(
+      selectCatalog(listingProducts, query, ['999']).map((item) => item.slug),
+      ['mask', 'serum', 'shampoo', 'toner'],
+    );
+  });
+
   it('sorts newest by the stored timestamp and leaves undated records last', () => {
     const query = parseCatalogQuery({ sort: 'newest' }, listingCategories);
     assert.deepEqual(
@@ -327,6 +379,7 @@ describe('catalog filter facets', () => {
       minPrice: 12000,
       maxPrice: null,
       availability: ['in_stock'],
+      offers: false,
       sort: 'newest',
       page: 2,
     };
@@ -337,7 +390,7 @@ describe('catalog filter facets', () => {
     );
 
     assert.equal(
-      listingHref({ ...query, q: '', category: '', brands: [], minPrice: null, availability: [], sort: 'relevance', page: 1 }),
+      listingHref({ ...query, q: '', category: '', brands: [], minPrice: null, availability: [], offers: false, sort: 'relevance', page: 1 }),
       '/products',
     );
   });
@@ -423,6 +476,7 @@ describe('subcategory listing scope', () => {
       minPrice: null,
       maxPrice: null,
       availability: [],
+      offers: false,
       sort: 'relevance' as const,
       page: 1,
     };

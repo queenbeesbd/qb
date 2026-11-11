@@ -8,6 +8,7 @@ import {
   slicePage,
 } from '@/features/catalog/query';
 import { getStorefrontCatalog } from '@/server/catalog/storefront';
+import { bestSellerRankingFor } from '@/server/orders/best-seller-ranking';
 
 type Params = Promise<{ slug: string }>;
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
@@ -56,7 +57,7 @@ export default async function CategoryPage({
   const query = { ...parsed, category: category.slug, categorySlugs: scope };
   const facets = buildCatalogFacets(catalog.products, catalog.categories, query.category, scope);
 
-  const matched = selectCatalog(catalog.products, query);
+  const matched = selectCatalog(catalog.products, query, await bestSellerRankingFor(query.sort));
   const page = slicePage(matched, query.page);
 
   return (

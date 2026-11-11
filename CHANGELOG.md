@@ -14,6 +14,39 @@ An entry may describe a deployment only once it has actually happened and been o
 
 ## [Unreleased]
 
+### Added - 2026-11-12: the three product rows end in a "see everything" tile
+
+Owner direction: On Offer, Most Selling and Recently Added need the same "show more" affordance the
+category and brand rails now have.
+
+- **A new last card in each of the three carousels** (`SeeAllCard`): a card's width, height, border and
+  radius, a pale lavender field with a drawn arrow, and the row's own claim continued - **All offers**,
+  **All best sellers**, **All new arrivals** - centred as one statement. It carries no photograph, price
+  or saving, because there is nothing there to describe.
+- **Each destination was built so the label is true.** The listing gained `?offers=1` (only products
+  whose stored comparison price is genuinely higher - the same `discountAmount` the cards use, with a
+  count in the filter rail and a removable "On offer" chip) and `sort=best-selling` (ranked from real
+  `order_item` units via `listBestSellingProductIds`, unranked products after, priced by:
+  `src/server/orders/best-seller-ranking.ts` reads the ranking only when that sort is chosen). Recently
+  Added already had `?sort=newest`.
+- **The tile appears only when the listing holds more than the row shows.** The comparison is against the
+  destination's own set, not the row's exclusions: the rows drop products already shown elsewhere on the
+  page, so a four-card offer row in front of a thirteen-product offers listing still needs the way
+  through. `HOMEPAGE_BEST_SELLER_DEPTH` asks the ranking for one more than the row, which is the evidence
+  that more exists.
+- `verify:browser` 27d now accepts a trailing tile on any rail and requires it to be the last slide and to
+  point at `/categories`, `/brands` or `/products`.
+
+No schema change and no migration.
+
+Verified 2026-11-12: `typecheck`, `lint` (0 errors), unit **323/323** (new cases: offers filtering and its
+URL, the ranking order with unranked products after, and the three `*HaveMore` flags); against the dev
+cluster the homepage rendered all three tiles as the last slide at exactly the card size (224x511), and
+`/products?offers=1` listed 13 products with a saving badge on every one and the "On offer" chip, while
+`/products?sort=best-selling` ordered Lilac (12 units) then Dabo (11) then The Derma Plus (10) with the
+sort control stating it. A synthetic order seeded for that check was removed and the append-only guards
+confirmed re-enabled.
+
 ### Changed - 2026-11-12: the discovery rails are carousels everywhere, twenty circles on a desktop and fifteen on a phone
 
 Owner direction: "Shop By Category" and "Shop By Brand" must be carousels on a PC too, show twenty

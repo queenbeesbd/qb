@@ -189,6 +189,15 @@ same 116px/62px geometry, a pale lavender field with a drawn arrow and the "View
 `/categories` or `/brands`. It reads as a control, never as a tile with a missing photograph, and a shop
 with fewer than sixteen items shows them all with no control at all.
 
+**The three product rows end in a card-sized tile** (owner direction, 2026-11-12). `SeeAllCard` takes a
+card's width, height, border and radius so the shelf keeps one rhythm, and puts the opposite content in it:
+an arrow over the row's own claim continued - "All offers", "All best sellers", "All new arrivals" -
+centred as one statement rather than a photo area with a label beneath it. Each destination is real:
+`/products?offers=1`, `?sort=best-selling` (ranked from `order_item` units) and `?sort=newest`. The tile is
+drawn only when that listing holds more than the row shows, measured against the destination's set rather
+than the row's own exclusions - the rows drop products already shown elsewhere on the page, so a four-card
+offer row can sit in front of a thirteen-product offers listing.
+
 **Featured and "More to explore" are the two sections that are not carousels**, and on a phone they publish
 an **even** number of cards so the two-column grid fills its rows: featured draws four of five
 (`li:nth-child(n + 5)` is hidden below 720px) and "More to explore" draws eight of ten (hides `n + 9`).

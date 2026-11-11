@@ -1004,16 +1004,21 @@ async function main() {
         const links = [...s.querySelectorAll('a')].filter((a) =>
           a.hasAttribute('data-see-all') ||
           (!a.closest('article') && !a.closest('li') && (a.textContent || '').trim().length > 0));
-        const circles = links.filter((a) => a.hasAttribute('data-see-all'));
+        const tiles = links.filter((a) => a.hasAttribute('data-see-all'));
         return {
           id: h ? h.id : 'unknown',
           routes: links.length,
-          circles: circles.length,
-          // A trailing circle must be the rail's **last** slide, and must lead to an index.
-          circleIsLast: circles.every((a) => {
+          tiles: tiles.length,
+          /*
+           * A trailing tile must be the rail's **last** slide, and must lead to a listing: the
+           * category and brand rails go to their index, and the three product rows go to the listing
+           * with the filter or sort that continues their own claim.
+           */
+          tileIsLast: tiles.every((a) => {
             const item = a.closest('li');
+            const url = new URL(a.href);
             return !!item && !!item.parentElement && item.parentElement.lastElementChild === item &&
-              /^\\/(categories|brands)$/.test(new URL(a.href).pathname);
+              /^\\/(categories|brands|products)$/.test(url.pathname);
           }),
           afterRail: links.every((a) => !!rail &&
             (rail.compareDocumentPosition(a) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0),
@@ -1021,12 +1026,12 @@ async function main() {
       })
       .filter((entry) => entry.routes > 0)`);
     /*
-     * 27d - no section offers two ways into one listing, and the discovery rails' route is the last
-     * circle and nothing else (owner direction, 2026-11-12).
+     * 27d - no section offers two ways into one listing, and a rail's or row's trailing tile is its
+     * last slide and nothing else (owner direction, 2026-11-12).
      */
-    record('27d. no section names two routes into the same listing, and a rail’s "View all" circle is its last slide',
+    record('27d. no section names two routes into one listing, and a rail’s "View all" tile is its last slide',
       viewAllSections.every((entry) => entry.routes === 1) &&
-      viewAllSections.every((entry) => entry.circles === 0 ? entry.afterRail : entry.circleIsLast) &&
+      viewAllSections.every((entry) => entry.tiles === 0 ? entry.afterRail : entry.tileIsLast) &&
       viewAllSections.some((entry) => entry.id === 'collection-title'),
       { sections: viewAllSections });
 

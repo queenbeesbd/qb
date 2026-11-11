@@ -42,7 +42,12 @@ export async function listBestSellingProductIds(
     )
     .groupBy(product.id)
     .orderBy(sql`sum(${orderItem.quantity}) desc`, product.id)
-    .limit(Math.min(Math.max(limit, 1), 50));
+    /*
+     * The homepage asks for ten; a listing sorted by "Best selling" asks for the whole ranking, so the
+     * cap is a bound on one aggregate query rather than a page size. It stays capped because a crafted
+     * caller should not be able to ask for every product the shop has ever sold in one row set.
+     */
+    .limit(Math.min(Math.max(limit, 1), 500));
 
   return rows.map((row) => String(row.productId));
 }

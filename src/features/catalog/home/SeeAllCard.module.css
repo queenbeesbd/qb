@@ -1,0 +1,63 @@
+/* ---------------------------------------------------------------------------
+ * The product rows' trailing "see everything" tile.
+ *
+ * A card by geometry, a control by material: the same width, height, border and radius as a product
+ * card so the row keeps one rhythm, filled with the shop's pale lavender instead of a photograph. The
+ * content is one centred statement - an arrow and the row's claim continued - never a card's anatomy
+ * with its facts removed.
+ * ------------------------------------------------------------------------- */
+
+.tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  height: 100%;
+  min-height: 12rem;
+  padding: var(--space-4);
+  text-align: center;
+  background: var(--color-action-soft);
+  border: 1px solid var(--brand-primary);
+  border-radius: var(--radius-md);
+  color: var(--color-ink);
+  transition: background var(--transition-fast), border-color var(--transition-fast),
+    color var(--transition-fast);
+}
+
+.arrow {
+  transition: transform 240ms var(--ease-out-ui);
+}
+
+/* The whole tile is the target, so the arrow and the label react together. */
+.tile:hover,
+.tile:focus-visible {
+  background: var(--brand-primary);
+  border-color: var(--brand-primary);
+}
+
+.tile:hover .arrow,
+.tile:focus-visible .arrow {
+  transform: translateX(3px);
+}
+
+/* The one place white is allowed on lavender: the deep shade, as in the tab bar. */
+.tile:active {
+  background: var(--brand-primary-deep);
+  border-color: var(--brand-primary-deep);
+  color: #ffffff;
+}
+
+/* Inset, so the carousel's own clipping cannot cut the keyboard outline in half. */
+.tile:focus-visible {
+  outline: 2px solid var(--color-action);
+  outline-offset: -2px;
+}
+
+/* Two-line-safe: "All best sellers" wraps rather than being clipped in a 200px column. */
+.label {
+  font-size: var(--text-sm);
+  font-weight: 700;
+  line-height: 1.25;
+  text-wrap: balance;
+}

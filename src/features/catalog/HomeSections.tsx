@@ -12,6 +12,7 @@ import { BrandCircleRail } from './home/BrandCircleRail';
 import { CampaignBand } from './home/CampaignBand';
 import { CategoryCircleRail } from './home/CategoryCircleRail';
 import { HeroCarousel, type HeroSlide } from './home/HeroCarousel';
+import { SeeAllCard } from './home/SeeAllCard';
 import styles from '@/app/home.module.css';
 
 /**
@@ -40,8 +41,11 @@ export function HomeView({
   departmentsHaveMore,
   heroImages,
   deals,
+  dealsHaveMore,
   bestSellers,
+  bestSellersHaveMore,
   newArrivals,
+  newArrivalsHaveMore,
   browse,
   brands,
   brandsHaveMore,
@@ -54,9 +58,15 @@ export function HomeView({
   departmentsHaveMore: boolean;
   heroImages: readonly HeroSlide[];
   deals: readonly CatalogItem[];
+  /** The shop has more offers than the row draws - it then ends in an "All offers" tile. */
+  dealsHaveMore: boolean;
   /** Products with real order lines, most units first. Empty until the shop has sold something. */
   bestSellers: readonly CatalogItem[];
+  /** The shop has more ranked products than the row draws - "All best sellers". */
+  bestSellersHaveMore: boolean;
   newArrivals: readonly CatalogItem[];
+  /** The shop has more dated products than the row draws - "All new arrivals". */
+  newArrivalsHaveMore: boolean;
   browse: readonly CatalogItem[];
   brands: readonly CatalogBrand[];
   /** The brand rail's own "View all" condition - see `departmentsHaveMore`. */
@@ -124,6 +134,7 @@ export function HomeView({
                 {deals.map((product) => (
                   <ProductCard key={product.id} product={product} addToCart />
                 ))}
+                {dealsHaveMore && <SeeAllCard href="/products?offers=1" labelKey="home.dealsViewAll" />}
               </Carousel>
             </section>
           )}
@@ -141,6 +152,9 @@ export function HomeView({
                 {bestSellers.map((product) => (
                   <ProductCard key={product.id} product={product} addToCart />
                 ))}
+                {bestSellersHaveMore && (
+                  <SeeAllCard href="/products?sort=best-selling" labelKey="home.bestSellingAll" />
+                )}
               </Carousel>
             </section>
           )}
@@ -156,6 +170,9 @@ export function HomeView({
                 {newArrivals.map((product) => (
                   <ProductCard key={product.id} product={product} addToCart />
                 ))}
+                {newArrivalsHaveMore && (
+                  <SeeAllCard href="/products?sort=newest" labelKey="home.newArrivalsAll" />
+                )}
               </Carousel>
             </section>
           )}

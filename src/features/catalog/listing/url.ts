@@ -25,6 +25,7 @@ export function listingHref(query: CatalogQuery): string {
   if (query.minPrice !== null) params.set('min', taka(query.minPrice));
   if (query.maxPrice !== null) params.set('max', taka(query.maxPrice));
   query.availability.forEach((value) => params.append('availability', value));
+  if (query.offers) params.set('offers', '1');
   if (query.sort !== 'relevance') params.set('sort', query.sort);
   if (query.page > 1) params.set('page', String(query.page));
 

@@ -1,5 +1,6 @@
 import { normaliseForSearch } from '@/lib/format';
 import { fuzzyScoreAcross } from '@/lib/fuzzy';
+import { discountAmount } from '@/lib/money';
 import type { CatalogCategory, CatalogItem } from '@/lib/types';
 
 export const SORT_OPTIONS = [
@@ -8,6 +9,7 @@ export const SORT_OPTIONS = [
   'price-desc',
   'name-asc',
   'newest',
+  'best-selling',
 ] as const;
 export type SortOption = (typeof SORT_OPTIONS)[number];
 
@@ -31,6 +33,14 @@ export type CatalogQuery = {
   minPrice: number | null;
   maxPrice: number | null;
   availability: AvailabilityFilter[];
+  /**
+   * Keep only products whose stored comparison price is genuinely higher than their price.
+   *
+   * The homepage's "On Offer" row is exactly this set, so its "All offers" circle has to land on a
+   * listing that really is the same claim; the filter is derived from the same arithmetic the cards
+   * use (`discountAmount`), never from a flag.
+   */
+  offers: boolean;
   sort: SortOption;
   page: number;
 };
@@ -126,6 +136,8 @@ export function parseCatalogQuery(
     minPrice,
     maxPrice,
     availability,
+    // One documented spelling, so a copied link and the homepage's own circle agree.
+    offers: single(params.offers) === '1',
     sort: (SORT_OPTIONS as readonly string[]).includes(rawSort)
       ? (rawSort as SortOption)
       : 'relevance',
@@ -170,6 +182,8 @@ export function filterProducts(
     ) {
       return false;
     }
+    // The same arithmetic a card's saving badge uses, so the row and this filter cannot disagree.
+    if (query.offers && discountAmount(item.priceMinor, item.compareAtPriceMinor) === null) return false;
     return searchScore(item, needle) !== null;
   });
 }
@@ -179,7 +193,16 @@ function displayName(item: CatalogItem): string {
 }
 
 /** Deterministic, total ordering so the same query always yields the same list. */
-export function sortProducts(products: readonly CatalogItem[], sort: SortOption): CatalogItem[] {
+export function sortProducts(
+  products: readonly CatalogItem[],
+  sort: SortOption,
+  /**
+   * The shop's real ranking, most units first (`listBestSellingProductIds`). Only `best-selling` reads
+   * it; a product the shop has never sold is not a best seller, so it sorts after the ranked ones by
+   * its own name rather than being given a made-up rank.
+   */
+  bestSellerIds: readonly string[] = [],
+): CatalogItem[] {
   const sorted = [...products];
   switch (sort) {
     case 'price-asc':
@@ -202,6 +225,18 @@ export function sortProducts(products: readonly CatalogItem[], sort: SortOption)
         if (left !== right) return right.localeCompare(left);
         return b.id.localeCompare(a.id);
       });
+    case 'best-selling': {
+      const rank = new Map(bestSellerIds.map((id, index) => [id, index]));
+      return sorted.sort((a, b) => {
+        const left = rank.get(a.id);
+        const right = rank.get(b.id);
+        // A ranked product precedes an unranked one; two ranked ones follow the shop's own order.
+        if (left !== undefined && right !== undefined) return left - right;
+        if (left !== undefined) return -1;
+        if (right !== undefined) return 1;
+        return displayName(a).localeCompare(displayName(b), 'en') || a.id.localeCompare(b.id);
+      });
+    }
     default:
       return sorted.sort((a, b) => a.id.localeCompare(b.id));
   }
@@ -210,10 +245,13 @@ export function sortProducts(products: readonly CatalogItem[], sort: SortOption)
 export function selectCatalog(
   products: readonly CatalogItem[],
   query: CatalogQuery,
+  bestSellerIds: readonly string[] = [],
 ): CatalogItem[] {
   const filtered = filterProducts(products, query);
   const needle = normaliseForSearch(query.q);
-  if (query.sort !== 'relevance' || needle === '') return sortProducts(filtered, query.sort);
+  if (query.sort !== 'relevance' || needle === '') {
+    return sortProducts(filtered, query.sort, bestSellerIds);
+  }
 
   /*
    * A search is only useful when the closest match is first: an exact name, then a name that starts
@@ -255,6 +293,8 @@ export type CatalogFacets = {
   /** Product counts per category, over the whole visible catalog. */
   categories: { slug: string; count: number }[];
   availability: Record<AvailabilityFilter, number>;
+  /** How many products in scope carry a genuine saving - the "On offer" row's own predicate. */
+  offers: number;
   /** Bounds in poisha, over the page's own category scope. Zero when that scope is empty. */
   price: { min: number; max: number };
 };
@@ -289,12 +329,14 @@ export function buildCatalogFacets(
     : products;
 
   const availability: Record<AvailabilityFilter, number> = { in_stock: 0, out_of_stock: 0 };
+  let offers = 0;
   let min = Number.POSITIVE_INFINITY;
   let max = 0;
   for (const item of scope) {
     if (item.availability === 'in_stock' || item.availability === 'out_of_stock') {
       availability[item.availability] += 1;
     }
+    if (discountAmount(item.priceMinor, item.compareAtPriceMinor) !== null) offers += 1;
     if (item.priceMinor < min) min = item.priceMinor;
     if (item.priceMinor > max) max = item.priceMinor;
   }
@@ -325,6 +367,7 @@ export function buildCatalogFacets(
       count: categoryCounts.get(category.slug) ?? 0,
     })),
     availability,
+    offers,
     price: { min: Number.isFinite(min) ? min : 0, max },
   };
 }

@@ -68,6 +68,8 @@ export function FilterControls({
   const [availabilityOpen, setAvailabilityOpen] = useState(
     () => value.availability.length > 0,
   );
+  /* Collapsed like the other secondary refinements, and open when it is the active filter. */
+  const [offersOpen, setOffersOpen] = useState(() => value.offers);
   const [brandTerm, setBrandTerm] = useState('');
   const [brandsExpanded, setBrandsExpanded] = useState(false);
   const [categoriesExpanded, setCategoriesExpanded] = useState(false);
@@ -355,6 +357,38 @@ export function FilterControls({
           ))}
         </ul>
       </FilterSection>
+
+      {/*
+        Offers is a real filter, not a promotion: it keeps the products whose stored comparison price is
+        genuinely higher than their price, the same arithmetic the cards' saving badges use. It has its
+        own section rather than living under Price because it is a statement about the product, and it
+        is the destination of the homepage's "All offers" circle.
+      */}
+      {facets.offers > 0 && (
+        <FilterSection
+          id={`${idPrefix}-offers`}
+          title={t('catalog.filterOffers')}
+          summary={value.offers ? t('catalog.onOffer') : null}
+          open={offersOpen}
+          onToggle={() => setOffersOpen((open) => !open)}
+        >
+          <ul className={styles.optionList}>
+            <li>
+              <label className={styles.option} data-selected={value.offers ? 'true' : undefined}>
+                <input
+                  type="checkbox"
+                  className={styles.checkInput}
+                  checked={value.offers}
+                  onChange={() => onFilterChange({ offers: !value.offers })}
+                />
+                <span className={styles.checkBox} aria-hidden="true" />
+                <span className={styles.optionLabel}>{t('catalog.onOffer')}</span>
+                <span className={styles.facetCount}>{facets.offers.toLocaleString('en-US')}</span>
+              </label>
+            </li>
+          </ul>
+        </FilterSection>
+      )}
     </div>
   );
 }
