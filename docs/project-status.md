@@ -1081,6 +1081,27 @@ matching**, 53 tables, and `customer_phone_unique` present and valid. The redepl
 `/api/admin/session` **404**; `/qbpanel/login` carries `X-Robots-Tag` and `private, no-store`. The
 register page renders both **Mobile** and **Email** modes with `name="phone"` and `name="email"`, and
 sign-in renders one `name="identifier"` field with the link switch. `RESEND_API_KEY`, `EMAIL_FROM` and
-`APP_BASE_URL` are set in Vercel **Production**. **Not exercised on production:** a real registration,
-a real verification mail and a real reset - they would create live accounts and send mail to a real
-address, so those remain verified locally only.
+`APP_BASE_URL` are set in Vercel **Production**.
+
+**The mail path was then exercised on production, end to end (2026-11-11).** `queenbeesbd.com` is
+**verified** in Resend with sending enabled and receiving disabled, and `mail@queenbeesbd.com` is the
+sender. An email-mode registration on the live site created customer **2123**, and Resend accepted and
+marked **delivered** one message, *"Confirm your email address - QueenBee's"*, from
+`mail@queenbeesbd.com`. The address used was Resend's own delivery simulator (`delivered@resend.dev`),
+so **no third party was mailed** and delivery is the provider's own report rather than an observed
+inbox.
+
+Reading that message back through the Resend API gave the link the application generated -
+`https://queenbees.vercel.app/account/verify-email?token=...` - which rendered the confirmation button
+rather than confirming on the bare GET, and `POST /api/account/verify-email` with the token answered
+**303 `?verified=1`**; a second POST with the same token answered **303 `?error=invalid`**, so **single
+use holds in production**. `customer.email_verified_at` was set at 08:55:03Z, once.
+
+The probe was then **closed rather than left in the shop**: its session was revoked and the account was
+soft-deleted (`status = 'deleted'`, `deleted_at = now()`), after which signing in with its credential
+answers the generic **`?error=invalid`** - no disclosure that the account ever existed. **Nothing else on
+production was written** by this check: no order, no address, no catalog row.
+
+**One configuration observation, not changed here:** `APP_BASE_URL` is `https://queenbees.vercel.app`,
+so mailed links carry that host rather than the shop's own `https://www.queenbeesbd.com`. Both serve the
+same deployment, so the links work; pointing them at the branded domain is an owner decision.
