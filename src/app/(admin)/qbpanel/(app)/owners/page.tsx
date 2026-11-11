@@ -3,7 +3,7 @@ import { requireAdminPage } from '@/server/auth/guard';
 import { readIssuedTokenFlash } from '@/server/auth/flash';
 import { hasPermission } from '@/server/authz/principal';
 import { PERMISSIONS } from '@/server/authz/permissions';
-import { listOwnerAccounts } from '@/server/authz/owners';
+import { loadModeratorAccess, listOwnerAccounts } from '@/server/authz/owners';
 import { OwnersView, type OwnerNotice } from './OwnersView';
 
 export const dynamic = 'force-dynamic';
@@ -13,6 +13,7 @@ const NOTICES: readonly OwnerNotice[] = [
   'tokenIssued',
   'disabled',
   'enabled',
+  'accessSaved',
   'denied',
   'conflict',
   'exists',
@@ -26,11 +27,16 @@ function readNotice(value: string | string[] | undefined): OwnerNotice | null {
 }
 
 /**
- * Owner accounts.
+ * Staff accounts: owners and moderators (owner direction, 2026-11-12).
  *
- * Requires `staff.read` to view; the create, token and status controls render only for an actor holding
- * `staff.manage`, and every route behind them re-checks that permission independently. There is no role
- * selector and no permission matrix, because the launch surface has one role (D10, ADR 0009).
+ * Requires `staff.read` to view; the create, token, status and moderator-access controls render only for
+ * an actor holding `staff.manage`, and every route behind them re-checks that permission independently.
+ *
+ * ADR 0009 settled administration as owner-only. The owner has since asked for a moderator account that
+ * runs the shop floor, so the screen now has exactly two roles - **owner** (full access) and
+ * **moderator** (the set ticked in the access matrix) - and no third picker. Anything that asserts a money
+ * fact, writes settings or manages staff is owner-level by the database's own rule, so it is drawn
+ * disabled rather than offered.
  */
 export default async function AdminOwnersPage({
   searchParams,
@@ -42,6 +48,9 @@ export default async function AdminOwnersPage({
 
   const owners = await withTransaction((tx) => listOwnerAccounts(tx));
   const canManage = hasPermission(principal, PERMISSIONS.staffManage);
+  const moderatorAccess = canManage
+    ? await withTransaction((tx) => loadModeratorAccess(tx))
+    : null;
 
   // Read only: the route clears the cookie before this page renders again, so a reload shows nothing.
   // Only the digest is stored and the token is single-use.
@@ -58,12 +67,19 @@ export default async function AdminOwnersPage({
         disabledAt: owner.disabledAt?.toISOString() ?? null,
         lastSeenAt: owner.lastSeenAt?.toISOString() ?? null,
         hasCredential: owner.hasCredential,
+        roleCode: owner.roleCode,
+        roleName: owner.roleName,
       }))}
       currentStaffUserId={principal.staffUserId}
       canManage={canManage}
       notice={readNotice(params.notice)}
       issuedToken={issuedToken}
       csrfToken={principal.csrfToken}
+      moderatorAccess={
+        moderatorAccess === null
+          ? null
+          : { granted: moderatorAccess.granted, catalogue: moderatorAccess.catalogue }
+      }
     />
   );
 }

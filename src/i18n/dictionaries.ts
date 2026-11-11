@@ -407,6 +407,7 @@ export const dictionary = {
 
   /* ---- Owner admin (Phases 12-13) ---- */
   'admin.title': 'Owner admin',
+  'admin.titleModerator': 'Moderator admin',
   'admin.skipToContent': 'Skip to main content',
   'admin.loading': 'Loading…',
 
@@ -1347,9 +1348,9 @@ export const dictionary = {
   'admin.overview.roadmapNote':
     'The storefront now renders the database catalog. Next phase: customer accounts and checkout.',
 
-  'admin.owners.title': 'Owner accounts',
+  'admin.owners.title': 'Staff accounts',
   'admin.owners.body':
-    'QueenBee’s is a single store. Every owner has the same full access. There are no staff or support roles, and no role picker or permission-management interface.',
+    'QueenBee’s is a single store: an owner has full access, and a moderator runs the shop floor. You choose which screens moderators get, and money facts, settings and this screen always stay with the owner.',
   'admin.owners.empty': 'There are no owner accounts yet.',
   'admin.owners.status': 'Status',
   'admin.owners.statusActive': 'Active',
@@ -1360,9 +1361,22 @@ export const dictionary = {
   'admin.owners.never': 'Never',
   'admin.owners.you': 'You',
   'admin.owners.actions': 'Actions',
-  'admin.owners.createTitle': 'New owner account',
+  'admin.owners.roleLabel': 'Account role',
+  'admin.owners.roleOwner': 'Owner — full access',
+  'admin.owners.roleModerator': 'Moderator — the shop floor',
+  'admin.owners.roleHint':
+    'A moderator runs orders, the catalog and reviews. Money facts, settings, customers, the overview and this screen stay with the owner, and the database refuses those permissions on a non-owner role.',
+  'admin.owners.accessTitle': 'Moderator access',
+  'admin.owners.accessBody':
+    'Which screens every moderator account may open. One set for the role, not one per person, so two moderators on the same shift cannot see different screens.',
+  'admin.owners.accessOwnerOnly': 'Owner only',
+  'admin.owners.accessHint':
+    'A ticked row is granted the moment this is saved, and it applies to every moderator. Unticked screens disappear from their sidebar and refuse the route as well.',
+  'admin.owners.accessSave': 'Save moderator access',
+  'admin.owners.notice.accessSaved': 'Moderator access saved. Every moderator sees the change on their next request.',
+  'admin.owners.createTitle': 'New account',
   'admin.owners.createBody':
-    'A new account always receives the owner role — there is no role to choose. Creating the account does not make it usable: the new owner sets their own password with a single-use token.',
+    'Choose the role: an owner has full access, a moderator gets the screens ticked below. Creating an account does not make it usable — the person sets their own password with a single-use token.',
   'admin.owners.displayName': 'Name',
   'admin.owners.email': 'Email',
   'admin.owners.createSubmit': 'Create owner account',

@@ -40,7 +40,7 @@ const RECENT_LIMIT = 5;
  * permission their destination requires, so the page never links to a refusal.
  */
 export default async function AdminOverviewPage() {
-  const principal = await requireAdminPage(PERMISSIONS.staffRead);
+  const principal = await requireAdminPage(PERMISSIONS.dashboardRead);
   const canReadOrders = hasPermission(principal, PERMISSIONS.orderRead);
   const canReadCustomers = hasPermission(principal, PERMISSIONS.customerRead);
   const canReadAudit = hasPermission(principal, PERMISSIONS.auditRead);

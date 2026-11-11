@@ -157,6 +157,15 @@ export function AdminShell({
           .map((code) => (code === 'owner' ? t('admin.session.roleOwner') : code))
           .join(', ');
 
+  /*
+   * The surface names the role it belongs to (owner direction, 2026-11-12): with a moderator account the
+   * shell said "Owner admin" for everyone, which was a false label on a screen that no longer belongs to
+   * one role.
+   */
+  const surfaceLabel = identity.roleCodes.includes('owner')
+    ? t('admin.title')
+    : t('admin.titleModerator');
+
   const initials = identity.displayName.trim().slice(0, 2).toUpperCase();
 
   const primaryTabs = [...items]
@@ -210,7 +219,7 @@ export function AdminShell({
               </span>
               <span className={styles.brandText}>
                 <span className={styles.brandName}>QueenBee&apos;s</span>
-                <span className={styles.brandArea}>{t('admin.title')}</span>
+                <span className={styles.brandArea}>{surfaceLabel}</span>
               </span>
             </Link>
           </div>
@@ -232,7 +241,7 @@ export function AdminShell({
                 </span>
               </Link>
               <nav className={styles.breadcrumb} aria-label={t('admin.breadcrumbLabel')}>
-                <span className={styles.breadcrumbRoot}>{t('admin.title')}</span>
+                <span className={styles.breadcrumbRoot}>{surfaceLabel}</span>
                 <span className={styles.breadcrumbSeparator} aria-hidden="true">
                   /
                 </span>

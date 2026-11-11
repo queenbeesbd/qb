@@ -36,6 +36,15 @@ export const PERMISSIONS = {
   auditRead: 'audit.read',
   settingsWrite: 'settings.write',
   reviewModerate: 'review.moderate',
+  /**
+   * The overview screen: today's figures, the COD worklist, the recent orders and the quick actions.
+   *
+   * It is its own permission rather than a corollary of `order.read` because it is a **page** the owner
+   * decides about (owner direction, 2026-11-12): a moderator runs the shop floor from the order screens,
+   * and the dashboard's money figures stay with the owner. Gating the page and its rail entry on the
+   * same code is what makes that choice real instead of cosmetic.
+   */
+  dashboardRead: 'dashboard.read',
 } as const;
 
 export type PermissionCode = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];
@@ -89,7 +98,39 @@ export const PERMISSION_CATALOGUE: readonly PermissionDefinition[] = [
   { code: PERMISSIONS.reviewModerate, description: 'Publish or refuse a product review', isPrivileged: false },
   { code: PERMISSIONS.inventoryAdjust, description: 'Adjust stock through the movement ledger', isPrivileged: false },
   { code: PERMISSIONS.staffRead, description: 'List staff users', isPrivileged: false },
+  { code: PERMISSIONS.dashboardRead, description: 'Open the admin overview', isPrivileged: false },
   { code: PERMISSIONS.auditRead, description: 'Read the audit trail', isPrivileged: false },
+];
+
+/**
+ * The moderator role (owner direction, 2026-11-12).
+ *
+ * Not owner-level, so the database trigger refuses it any **privileged** permission - money facts, cash
+ * reconciliation, settings and staff management stay with the owner. What it may hold is the operational
+ * surface: read orders, dispatch, cancel, edit the catalog, publish reviews, adjust stock.
+ */
+export const MODERATOR_ROLE = {
+  code: 'moderator',
+  name: 'Moderator',
+  description: 'Runs the shop floor: orders, catalog and reviews, without money facts or settings.',
+  isOwnerLevel: false,
+} as const;
+
+/**
+ * What a moderator gets by default (owner direction, 2026-11-12).
+ *
+ * "Everything without the overview, customers and integrations" in the owner's words, minus what the
+ * schema refuses a non-owner role: no `cod.approve`, `cod.confirm_collection`, `order.cost_record`,
+ * `settings.write` or `staff.manage`, because each of those asserts a money fact or changes who may act.
+ * The owner can widen or narrow this list one permission at a time on the owners screen.
+ */
+export const MODERATOR_DEFAULT_PERMISSIONS: readonly PermissionCode[] = [
+  PERMISSIONS.orderRead,
+  PERMISSIONS.orderDispatch,
+  PERMISSIONS.orderCancel,
+  PERMISSIONS.catalogWrite,
+  PERMISSIONS.reviewModerate,
+  PERMISSIONS.inventoryAdjust,
 ];
 
 /** The owner role. `is_owner_level` is what the database trigger checks before allowing a privileged grant. */
@@ -119,6 +160,7 @@ export const PERMISSION_LABELS: Record<string, string> = {
   [PERMISSIONS.catalogWrite]: 'Edit catalog',
   [PERMISSIONS.reviewModerate]: 'Moderate reviews',
   [PERMISSIONS.inventoryAdjust]: 'Adjust stock',
+  [PERMISSIONS.dashboardRead]: 'Open the overview',
   [PERMISSIONS.staffRead]: 'Read staff',
   [PERMISSIONS.staffManage]: 'Manage staff and roles',
   [PERMISSIONS.auditRead]: 'Read the audit trail',

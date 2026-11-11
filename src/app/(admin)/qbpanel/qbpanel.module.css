@@ -5221,3 +5221,52 @@ a.rankName:hover {
 .pickerList {
   background: var(--admin-surface-soft);
 }
+
+/* ---- Moderator access matrix (2026-11-12) -------------------------------- */
+
+/*
+ * One row per permission, with the plain description first and the code under it in the mono face.
+ * The code is shown because it is what the database row holds: an owner who reads an audit record or a
+ * refusal should be able to match it to this screen without a lookup table.
+ */
+.accessList {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--admin-line);
+  border-radius: var(--admin-radius-card);
+  overflow: hidden;
+}
+
+.accessRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-top: 1px solid var(--admin-line);
+}
+
+.accessRow:first-child {
+  border-top: 0;
+}
+
+.accessRow .checkboxRow {
+  flex: 1 1 18rem;
+  align-items: flex-start;
+}
+
+.accessLabel {
+  display: block;
+  font-size: var(--text-sm);
+}
+
+.accessCode {
+  display: block;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: var(--text-xs);
+  color: var(--admin-subtle);
+}

@@ -57,15 +57,22 @@ export default async function AdminShellLayout({ children }: { children: React.R
   // Grouped by the owner's actual work, not by database table: the confirmation queue is the first
   // commercial destination because it is the one that waits on a person. Each entry is gated by the
   // same permission its page requires, so the rail cannot advertise a refusal.
-  const items: AdminNavItem[] = [
-    {
+  const items: AdminNavItem[] = [];
+
+  /*
+   * The overview is its own permission (owner direction, 2026-11-12): a moderator runs the shop from the
+   * order screens, and the dashboard's money figures stay with the owner. The rail entry and the page are
+   * gated on the same code, so hiding the entry and refusing the route cannot drift apart.
+   */
+  if (hasPermission(principal, PERMISSIONS.dashboardRead)) {
+    items.push({
       href: ADMIN_ROOT,
       labelKey: 'admin.nav.overview',
       group: 'overview',
       icon: 'overview',
       mobileRank: 1,
-    },
-  ];
+    });
+  }
   if (hasPermission(principal, PERMISSIONS.orderRead)) {
     items.push({ href: ANALYTICS_PATH, labelKey: 'admin.nav.analytics', group: 'overview', icon: 'analytics' });
     // Directly under Analitics in the same group: the shop's own readers, as a fact of their own.

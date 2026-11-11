@@ -14,6 +14,41 @@ An entry may describe a deployment only once it has actually happened and been o
 
 ## [Unreleased]
 
+### Added - 2026-11-12: owner and moderator accounts, with the owner choosing the moderator's screens
+
+Owner direction: a moderator account that runs the shop floor, and the owner decides which sidebar
+options it sees. By default everything except the overview, customers and integrations.
+
+- **Second role `moderator`** (not owner-level), created by migration `0033` and by the seed, with
+  defaults `MODERATOR_DEFAULT_PERMISSIONS`: read orders, dispatch, cancel, edit the catalog, moderate
+  reviews, adjust stock. **Money facts, settings, staff management and refunds stay owner-only by the
+  database's own rule** (`role_permission_privileged_guard` refuses a privileged permission on a
+  non-owner role), so the wall is structural rather than a convention in a list.
+- **`dashboard.read`** is a new permission (migration `0033`, granted to every owner-level role): the
+  overview's rail entry and its route are gated on the same code, which is what makes "moderators do not
+  get the overview" real.
+- **`/qbpanel/owners` is now "Staff accounts"**: every row states its role, the create form offers
+  **Owner or Moderator**, and a new **Moderator access** matrix lists the whole permission catalogue with
+  owner-level rows **disabled and labelled "Owner only"**. Saving rewrites the role's permission set in
+  one transaction and audits it as `staff.moderator_access_updated`.
+- **The moderator session** sees Analytics, Traffic, COD orders, All orders, Products, Categories,
+  Brands and Reviews - and is refused `/qbpanel`, `/qbpanel/owners` and every settings page. The shell
+  label follows the role ("Moderator admin"), and the create/access copy no longer claims there is one
+  role.
+- **Fixed while verifying:** `/qbpanel/forbidden` required `staff.read`, so a moderator refused anywhere
+  looped between the refusal and that page (`ERR_TOO_MANY_REDIRECTS`). A refusal destination now requires
+  a session and nothing else.
+- ADR 0040 records the decision and amends ADR 0009; AGENTS carries the rules.
+
+Verified 2026-11-12: `typecheck`, `lint` (0 errors), `check:i18n` (1959 keys), `build`, `db:migrate` +
+`db:validate` (54 tables); and by hand against the dev cluster as both accounts - the owner's Staff
+accounts screen renders the matrix (7 owner-only rows disabled with "Owner only", the six defaults
+ticked), a moderator account was created through the form and its token redeemed, the moderator's rail
+showed exactly the eight operational destinations with **no Overview, Promo codes, Storefront, Customers,
+Settings, Owners or Audit**, `/qbpanel`, `/qbpanel/owners` and `/qbpanel/settings/delivery` all landed on
+`/qbpanel/forbidden`, and ticking `customer.read` in the matrix (saved, `?notice=accessSaved`) added
+Customers to that rail while the other refusals held. The dev role was returned to its defaults.
+
 ### Fixed - 2026-11-12: review moderation was unreachable in production
 
 Owner report: the review moderation sidebar option was not there. The screen, the queue and the

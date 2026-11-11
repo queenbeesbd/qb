@@ -19,6 +19,8 @@ export type OwnerRow = {
   disabledAt: string | null;
   lastSeenAt: string | null;
   hasCredential: boolean;
+  roleCode: string;
+  roleName: string;
 };
 
 export type OwnerNotice =
@@ -26,6 +28,7 @@ export type OwnerNotice =
   | 'tokenIssued'
   | 'disabled'
   | 'enabled'
+  | 'accessSaved'
   | 'denied'
   | 'conflict'
   | 'exists'
@@ -36,6 +39,7 @@ const NOTICE_KEYS: Record<OwnerNotice, TranslationKey> = {
   tokenIssued: 'admin.owners.notice.tokenIssued',
   disabled: 'admin.owners.notice.disabled',
   enabled: 'admin.owners.notice.enabled',
+  accessSaved: 'admin.owners.notice.accessSaved',
   denied: 'admin.owners.notice.denied',
   conflict: 'admin.owners.notice.conflict',
   exists: 'admin.owners.notice.exists',
@@ -60,6 +64,7 @@ export function OwnersView({
   notice,
   issuedToken,
   csrfToken,
+  moderatorAccess,
 }: {
   owners: readonly OwnerRow[];
   currentStaffUserId: number;
@@ -67,6 +72,15 @@ export function OwnersView({
   notice: OwnerNotice | null;
   issuedToken: { token: string; expiresAt: string } | null;
   csrfToken: string;
+  /**
+   * The moderator role's permission set and the catalogue, when the actor may manage staff. `null` for
+   * a reader without `staff.manage`: the matrix is an owner tool, and rendering it disabled would still
+   * publish the policy.
+   */
+  moderatorAccess: {
+    granted: readonly string[];
+    catalogue: readonly { code: string; description: string; isPrivileged: boolean }[];
+  } | null;
 }) {
   const { t } = useTranslation();
   const format = (iso: string): string =>
@@ -118,6 +132,7 @@ export function OwnersView({
                       {isSelf && <StatusPill tone="info">{t('admin.owners.you')}</StatusPill>}
                     </span>
                     <span className={styles.recordMeta}>
+                      <span>{owner.roleName}</span>
                       <span>{owner.email}</span>
                       <span>
                         {owner.lastSeenAt === null
@@ -196,8 +211,66 @@ export function OwnersView({
               <label htmlFor="email">{t('admin.owners.email')}</label>
               <input className={styles.input} id="email" name="email" type="email" required maxLength={254} />
             </div>
+            <div className={styles.field}>
+              <label htmlFor="role">{t('admin.owners.roleLabel')}</label>
+              <select className={styles.select} id="role" name="role" defaultValue="owner">
+                <option value="owner">{t('admin.owners.roleOwner')}</option>
+                <option value="moderator">{t('admin.owners.roleModerator')}</option>
+              </select>
+              <p className={styles.hint}>{t('admin.owners.roleHint')}</p>
+            </div>
             <div className={styles.formActions}>
               <SubmitButton label={t('admin.owners.createSubmit')} pendingLabel={t('admin.common.working')} />
+            </div>
+          </form>
+        </section>
+      )}
+
+      {/*
+        Which screens a moderator may open (owner direction, 2026-11-12). One matrix for the role, not one
+        per account: two moderators on the same shift should not be able to see different screens.
+
+        An owner-level permission is drawn **disabled with its reason** rather than hidden: the owner
+        should see the whole policy, and an unticked row the owner cannot tick must say why. Those are the
+        permissions the database trigger refuses a non-owner role, so this is the same rule said in the
+        interface before the request is ever made.
+      */}
+      {canManage && moderatorAccess !== null && (
+        <section className={styles.section} aria-labelledby="moderator-access-heading">
+          <div className={styles.sectionHead}>
+            <h2 id="moderator-access-heading">{t('admin.owners.accessTitle')}</h2>
+            <p>{t('admin.owners.accessBody')}</p>
+          </div>
+          <form className={`${styles.panel} ${styles.form}`} action="/api/qbpanel/owners" method="post">
+            <input type="hidden" name="csrf" value={csrfToken} />
+            <input type="hidden" name="operation" value="access" />
+            <ul className={styles.accessList}>
+              {moderatorAccess.catalogue.map((entry) => {
+                const granted = moderatorAccess.granted.includes(entry.code);
+                const ownerOnly = entry.isPrivileged || entry.code === 'dashboard.read' || entry.code === 'staff.manage';
+                return (
+                  <li key={entry.code} className={styles.accessRow}>
+                    <label className={styles.checkboxRow}>
+                      <input
+                        type="checkbox"
+                        name="permission"
+                        value={entry.code}
+                        defaultChecked={granted && !ownerOnly}
+                        disabled={ownerOnly}
+                      />
+                      <span>
+                        <span className={styles.accessLabel}>{entry.description}</span>
+                        <span className={styles.accessCode}>{entry.code}</span>
+                      </span>
+                    </label>
+                    {ownerOnly && <span className={styles.tagMuted}>{t('admin.owners.accessOwnerOnly')}</span>}
+                  </li>
+                );
+              })}
+            </ul>
+            <p className={styles.hint}>{t('admin.owners.accessHint')}</p>
+            <div className={styles.formActions}>
+              <SubmitButton label={t('admin.owners.accessSave')} pendingLabel={t('admin.common.working')} />
             </div>
           </form>
         </section>

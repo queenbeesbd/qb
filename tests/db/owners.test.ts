@@ -28,7 +28,7 @@ import { hashPassword } from '../../src/server/auth/password';
 import { AuthorizationError, ConflictError } from '../../src/server/authz/authorize';
 import { OWNER_ROLE, PERMISSIONS } from '../../src/server/authz/permissions';
 import {
-  createOwnerAccount,
+  createStaffAccount,
   issueOwnerCredential,
   listOwnerAccounts,
   setOwnerDisabled,
@@ -147,7 +147,7 @@ describe('owner accounts', { skip: toolingAvailable ? false : SKIP_REASON }, () 
 
   it('creates an account holding the owner role without being told to', async () => {
     const created = await withTransaction((tx) =>
-      createOwnerAccount(tx, owner, { email: 'owners-second@example.test', displayName: 'Second Owner' }),
+      createStaffAccount(tx, owner, { email: 'owners-second@example.test', displayName: 'Second Owner' }),
     );
 
     const roles = await withTransaction((tx) => loadStaffRoles(tx, created.staffUserId));
@@ -157,7 +157,7 @@ describe('owner accounts', { skip: toolingAvailable ? false : SKIP_REASON }, () 
 
   it('issues a high-entropy single-use token stored only as a digest', async () => {
     const created = await withTransaction((tx) =>
-      createOwnerAccount(tx, owner, { email: 'owners-token@example.test', displayName: 'Token Owner' }),
+      createStaffAccount(tx, owner, { email: 'owners-token@example.test', displayName: 'Token Owner' }),
     );
 
     assert.ok(created.recoveryToken.length >= 32, 'the token is high entropy');
@@ -180,7 +180,7 @@ describe('owner accounts', { skip: toolingAvailable ? false : SKIP_REASON }, () 
 
   it('supersedes the previous live token when a replacement is issued for the same purpose', async () => {
     const created = await withTransaction((tx) =>
-      createOwnerAccount(tx, owner, { email: 'owners-reissue@example.test', displayName: 'Reissue Owner' }),
+      createStaffAccount(tx, owner, { email: 'owners-reissue@example.test', displayName: 'Reissue Owner' }),
     );
     await withTransaction((tx) => issueOwnerCredential(tx, owner, created.staffUserId));
     await withTransaction((tx) => issueOwnerCredential(tx, owner, created.staffUserId));
@@ -224,7 +224,7 @@ describe('owner accounts', { skip: toolingAvailable ? false : SKIP_REASON }, () 
     // A second owner exists but is disabled, so disabling the only active one must be refused - and the
     // refusal must be for the last-owner reason, not the self-change guard.
     const bystander = await withTransaction((tx) =>
-      createOwnerAccount(tx, owner, { email: 'owners-bystander@example.test', displayName: 'Bystander' }),
+      createStaffAccount(tx, owner, { email: 'owners-bystander@example.test', displayName: 'Bystander' }),
     );
     await withTransaction((tx) =>
       setOwnerDisabled(tx, owner, { targetStaffUserId: bystander.staffUserId, disabled: true }),
@@ -246,7 +246,7 @@ describe('owner accounts', { skip: toolingAvailable ? false : SKIP_REASON }, () 
     assert.equal(onlyActiveOwner, owner.staffUserId, 'the actor is the only active owner');
 
     const target = await withTransaction((tx) =>
-      createOwnerAccount(tx, owner, { email: 'owners-race@example.test', displayName: 'Race Target' }),
+      createStaffAccount(tx, owner, { email: 'owners-race@example.test', displayName: 'Race Target' }),
     );
     assert.equal(
       (await withTransaction((tx) => listOwnerAccounts(tx))).filter((account) => account.status === 'active').length,
@@ -280,7 +280,7 @@ describe('owner accounts', { skip: toolingAvailable ? false : SKIP_REASON }, () 
 
     await assert.rejects(
       withTransaction((tx) =>
-        createOwnerAccount(tx, limited, { email: 'owners-sneaky@example.test', displayName: 'Sneaky' }),
+        createStaffAccount(tx, limited, { email: 'owners-sneaky@example.test', displayName: 'Sneaky' }),
       ),
       AuthorizationError,
     );
@@ -320,7 +320,7 @@ describe('owner accounts', { skip: toolingAvailable ? false : SKIP_REASON }, () 
 
   it('records owner creation and disabling in the audit trail with the acting owner', async () => {
     const created = await withTransaction((tx) =>
-      createOwnerAccount(tx, owner, { email: 'owners-audited@example.test', displayName: 'Audited' }),
+      createStaffAccount(tx, owner, { email: 'owners-audited@example.test', displayName: 'Audited' }),
     );
     await withTransaction((tx) =>
       setOwnerDisabled(tx, owner, { targetStaffUserId: created.staffUserId, disabled: true }),
@@ -340,7 +340,7 @@ describe('owner accounts', { skip: toolingAvailable ? false : SKIP_REASON }, () 
 
   it('never stores a password hash for an account that has not redeemed its token', async () => {
     const created = await withTransaction((tx) =>
-      createOwnerAccount(tx, owner, { email: 'owners-nopassword@example.test', displayName: 'No Password' }),
+      createStaffAccount(tx, owner, { email: 'owners-nopassword@example.test', displayName: 'No Password' }),
     );
     assert.equal(await credentialCount(created.staffUserId), 0);
   });

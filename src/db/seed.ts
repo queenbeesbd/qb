@@ -22,7 +22,12 @@ import { sql } from 'drizzle-orm';
 
 import { withTransaction } from './client';
 import { permission, role, rolePermission } from './schema';
-import { OWNER_ROLE, PERMISSION_CATALOGUE } from '@/server/authz/permissions';
+import {
+  MODERATOR_DEFAULT_PERMISSIONS,
+  MODERATOR_ROLE,
+  OWNER_ROLE,
+  PERMISSION_CATALOGUE,
+} from '@/server/authz/permissions';
 
 export type SeedReport = {
   permissionsInserted: number;
@@ -100,6 +105,43 @@ export async function seedReferenceData(): Promise<SeedReport> {
       ownerPermissionsGranted += 1;
     }
 
-    return { permissionsInserted, permissionsUpdated, ownerRoleCreated, ownerPermissionsGranted };
+    /*
+     * The moderator role (owner direction, 2026-11-12). Created once, then left alone: the owner edits its
+     * permission set on the owners screen, and re-seeding must not undo that decision. Its defaults are
+     * written only when the role is new, which is also what the migration does for an existing database.
+     */
+    const existingModerator = await tx
+      .select({ id: role.id })
+      .from(role)
+      .where(sql`${role.code} = ${MODERATOR_ROLE.code}`);
+    let moderatorRoleId = existingModerator[0]?.id;
+
+    if (moderatorRoleId === undefined) {
+      const inserted = await tx
+        .insert(role)
+        .values({
+          code: MODERATOR_ROLE.code,
+          name: MODERATOR_ROLE.name,
+          description: MODERATOR_ROLE.description,
+          isOwnerLevel: false,
+        })
+        .returning({ id: role.id });
+      moderatorRoleId = inserted[0]?.id;
+      if (moderatorRoleId === undefined) throw new Error('moderator role insert returned no id');
+
+      for (const code of MODERATOR_DEFAULT_PERMISSIONS) {
+        const target = catalogue.find((entry) => entry.code === code);
+        if (target === undefined) continue;
+        await tx.insert(rolePermission).values({ roleId: moderatorRoleId, permissionId: target.id });
+      }
+    }
+
+    return {
+      permissionsInserted,
+      permissionsUpdated,
+      ownerRoleCreated,
+      ownerPermissionsGranted,
+      moderatorRoleCreated: existingModerator[0] === undefined,
+    };
   });
 }

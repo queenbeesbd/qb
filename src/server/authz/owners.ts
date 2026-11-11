@@ -25,10 +25,17 @@
 import { sql } from 'drizzle-orm';
 
 import type { Transaction } from '@/db/client';
-import { role, staffRole, staffUser } from '@/db/schema';
+import { permission, role, rolePermission, staffRole, staffUser } from '@/db/schema';
+import { recordAudit } from '../auth/audit';
 
-import { ConflictError, requirePermission, type ActorContext } from './authorize';
-import { OWNER_ROLE, PERMISSIONS } from './permissions';
+import { ConflictError, ValidationError, requirePermission, type ActorContext } from './authorize';
+import {
+  MODERATOR_DEFAULT_PERMISSIONS,
+  MODERATOR_ROLE,
+  OWNER_ROLE,
+  PERMISSIONS,
+  PERMISSION_CATALOGUE,
+} from './permissions';
 import {
   createStaffUser,
   issueCredentialToken,
@@ -45,6 +52,9 @@ export type OwnerAccount = {
   readonly lastSeenAt: Date | null;
   /** True when the account has a live password credential, i.e. it has completed its token redemption. */
   readonly hasCredential: boolean;
+  /** `owner` or `moderator` (owner direction, 2026-11-12); the role decides what the account may open. */
+  readonly roleCode: string;
+  readonly roleName: string;
 };
 
 /**
@@ -69,13 +79,27 @@ export async function listOwnerAccounts(tx: Transaction): Promise<OwnerAccount[]
           and "staff_credential"."revoked_at" is null
           and "staff_credential"."kind" = 'password'
       )`,
+      /*
+       * The role the account signs in with. One role per account in this product - owner or moderator -
+       * so a correlated read of the highest-privileged role it holds states the whole answer.
+       */
+      roleCode: sql<string>`(
+        select r."code" from ${staffRole} sr join ${role} r on r.id = sr.role_id
+        where sr.staff_user_id = "staff_user"."id"
+        order by r.is_owner_level desc, r.id limit 1
+      )`,
+      roleName: sql<string>`(
+        select r."name" from ${staffRole} sr join ${role} r on r.id = sr.role_id
+        where sr.staff_user_id = "staff_user"."id"
+        order by r.is_owner_level desc, r.id limit 1
+      )`,
     })
     .from(staffUser)
     .where(
       sql`exists (
         select 1 from ${staffRole}
         inner join ${role} on ${role.id} = ${staffRole.roleId}
-        where ${staffRole.staffUserId} = ${staffUser.id} and ${role.isOwnerLevel}
+        where ${staffRole.staffUserId} = ${staffUser.id}
       )`,
     )
     .orderBy(staffUser.id);
@@ -84,23 +108,32 @@ export async function listOwnerAccounts(tx: Transaction): Promise<OwnerAccount[]
 }
 
 /**
- * Creates another owner account and issues its one-time credential token.
+ * Creates an owner **or moderator** account and issues its one-time credential token.
  *
- * The role is **forced**, never read from the request: there is no role selector in the launch surface,
- * so there is nothing for a client to choose. The returned token is shown once and stored only as a
- * digest.
+ * The role is one of two codes, both written here and neither taken from the catalogue by string match
+ * alone: an unknown code is a refusal, so a crafted form cannot invent a role. A new account has no
+ * credential until the token is redeemed, so creating one grants nobody access by itself.
+ *
+ * A moderator is not owner-level, so the database trigger refuses it any privileged permission; this
+ * function never tries to grant one, because the role's permission set is edited separately
+ * (`saveModeratorAccess`) and that is where the privilege rule is stated to the owner.
  */
-export async function createOwnerAccount(
+export async function createStaffAccount(
   tx: Transaction,
   actor: ActorContext,
-  input: { email: string; displayName: string },
+  input: { email: string; displayName: string; role?: unknown },
 ): Promise<{ staffUserId: number; recoveryToken: string; expiresAt: Date }> {
   await requirePermission(actor, PERMISSIONS.staffManage, 'staff_user', 0);
+
+  const roleCode = input.role === MODERATOR_ROLE.code ? MODERATOR_ROLE.code : OWNER_ROLE.code;
+  if (input.role !== undefined && input.role !== OWNER_ROLE.code && input.role !== MODERATOR_ROLE.code) {
+    throw new ValidationError('choose owner or moderator');
+  }
 
   return createStaffUser(tx, actor, {
     email: input.email,
     displayName: input.displayName,
-    roleCode: OWNER_ROLE.code,
+    roleCode,
   });
 }
 
@@ -178,6 +211,113 @@ export async function setOwnerDisabled(
     disabled: input.disabled,
   });
 }
+
+/**
+ * The moderator role and the permissions it holds - the owner's answer to "which screens do moderators
+ * get?" (owner direction, 2026-11-12).
+ *
+ * One role, shared by every moderator, because the question the owner asked is about the **class** of
+ * account, not about one person: two moderators on the same shift should not be able to open different
+ * screens. Editing this list changes every moderator at once, which is why the page says so.
+ */
+export async function loadModeratorAccess(tx: Transaction): Promise<{
+  roleId: number;
+  granted: string[];
+  catalogue: readonly { code: string; description: string; isPrivileged: boolean }[];
+}> {
+  const rows = await tx
+    .select({ id: role.id })
+    .from(role)
+    .where(sql`${role.code} = ${MODERATOR_ROLE.code}`);
+  const roleId = rows[0]?.id;
+  if (roleId === undefined) throw new ConflictError('the moderator role is missing; run npm run db:seed');
+
+  const granted = await tx
+    .select({ code: permission.code })
+    .from(rolePermission)
+    .innerJoin(permission, sql`${permission.id} = ${rolePermission.permissionId}`)
+    .where(sql`${rolePermission.roleId} = ${roleId}`);
+
+  return {
+    roleId,
+    granted: granted.map((row) => row.code),
+    catalogue: PERMISSION_CATALOGUE.map((entry) => ({
+      code: entry.code,
+      description: entry.description,
+      isPrivileged: entry.isPrivileged,
+    })),
+  };
+}
+
+/**
+ * Replaces the moderator role's permission set.
+ *
+ * Three rules, all enforced here rather than in the form:
+ *
+ * 1. **Owner-level permissions are refused.** The database trigger would refuse them anyway, but a
+ *    refusal that arrives as a 500 is not an answer; this raises a validation error the page can show.
+ *    The interface already disables those rows and says why.
+ * 2. **`staff.manage` and `dashboard.read` can never be granted to a moderator** - the first would let a
+ *    moderator create accounts, and the second is the screen the owner explicitly kept for themselves.
+ *    (`staff.manage` is privileged, so the trigger would refuse it; stating it here keeps one error.)
+ * 3. **The role is rewritten as one set**, in the caller's transaction, so a save cannot leave the
+ *    moderator holding half of one policy and half of another.
+ */
+export async function saveModeratorAccess(
+  tx: Transaction,
+  actor: ActorContext,
+  input: { permissions: readonly string[] },
+): Promise<void> {
+  await requirePermission(actor, PERMISSIONS.staffManage, 'staff_user', 0);
+
+  const wanted = [...new Set(input.permissions)];
+  const byCode = new Map(PERMISSION_CATALOGUE.map((entry) => [entry.code, entry]));
+
+  const unknown = wanted.find((code) => !byCode.has(code as never));
+  if (unknown !== undefined) throw new ValidationError('that is not a permission the panel knows');
+
+  const privileged = wanted.find((code) => byCode.get(code as never)?.isPrivileged);
+  if (privileged !== undefined) {
+    throw new ValidationError('an owner-level permission cannot be given to a moderator');
+  }
+  if (wanted.includes(PERMISSIONS.staffManage) || wanted.includes(PERMISSIONS.dashboardRead)) {
+    throw new ValidationError('that screen stays with the owner');
+  }
+
+  const rows = await tx
+    .select({ id: role.id })
+    .from(role)
+    .where(sql`${role.code} = ${MODERATOR_ROLE.code}`);
+  const roleId = rows[0]?.id;
+  if (roleId === undefined) throw new ConflictError('the moderator role is missing; run npm run db:seed');
+
+  const ids = await tx
+    .select({ id: permission.id, code: permission.code })
+    .from(permission)
+    .where(sql`${permission.code} in ${wanted.length === 0 ? [''] : wanted}`);
+
+  // One delete, one insert: the set is the policy, so it is replaced rather than adjusted.
+  await tx.execute(sql`delete from ${rolePermission} where ${rolePermission.roleId} = ${roleId}`);
+  if (ids.length > 0) {
+    await tx.insert(rolePermission).values(
+      ids.map((entry) => ({ roleId, permissionId: entry.id })),
+    );
+  }
+
+  await recordAudit(tx, {
+    actorType: 'staff',
+    actorStaffId: actor.staffUserId,
+    actorRoleCodes: actor.roleCodes,
+    action: 'staff.moderator_access_updated',
+    entityType: 'role',
+    entityId: roleId,
+    before: null,
+    after: { permissions: ids.map((entry) => entry.code).sort() },
+  });
+}
+
+/** The default moderator set, for a fresh local database and for the migration. */
+export const MODERATOR_DEFAULTS = MODERATOR_DEFAULT_PERMISSIONS;
 
 /** Owner counts for the overview. Derived from rows, never estimated. */
 export async function countOwnerAccounts(

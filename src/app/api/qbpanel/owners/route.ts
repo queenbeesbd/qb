@@ -1,12 +1,17 @@
 /**
- * POST /api/qbpanel/owners - create another owner account and issue its one-time credential token.
+ * POST /api/qbpanel/owners - two owner-level operations.
  *
- * Requires `staff.manage`, which only an owner-level role holds. There is **no role field**: the role is
- * forced inside the service, so this endpoint cannot be used to create a privileged account the caller
- * could not otherwise create. The account is created without a credential, so creating it grants nobody
- * access until an owner hands over the token.
+ * - `create`: an **owner or moderator** account, plus its one-time credential token. The role is one of
+ *   two fixed codes and anything else is a refusal, so the form cannot invent a role; a moderator is not
+ *   owner-level, so the database trigger refuses it any privileged permission.
+ * - `access`: replace the moderator role's permission set (owner direction, 2026-11-12) - the owner's
+ *   answer to "which screens do moderators get?". The service refuses owner-level permissions, the
+ *   overview and staff management, and rewrites the set in one transaction.
  *
- * The token travels through the flash cookie, never the redirect URL, and is displayed once.
+ * Behaviour is chosen by the `operation` field, defaulting to `create` for the original form. Both
+ * require `staff.manage`, which only an owner-level role holds.
+ *
+ * The creation token travels through the flash cookie, never the redirect URL, and is displayed once.
  */
 
 import { withTransaction } from '@/db/client';
@@ -15,7 +20,7 @@ import { clearIssuedTokenFlash, setIssuedTokenFlash } from '@/server/auth/flash'
 import { guardMutation } from '@/server/auth/guard';
 import { PERMISSIONS } from '@/server/authz/permissions';
 import { AuthorizationError, ConflictError } from '@/server/authz/authorize';
-import { createOwnerAccount } from '@/server/authz/owners';
+import { createStaffAccount, saveModeratorAccess } from '@/server/authz/owners';
 import { parseDisplayName, parseEmail } from '@/server/catalog/validation';
 import { roleCodes } from '@/server/authz/principal';
 import { deny, redirectTo } from '../responses';
@@ -31,6 +36,27 @@ export async function POST(request: Request): Promise<Response> {
 
   const { principal, form } = guard;
 
+  const actor = {
+    staffUserId: principal.staffUserId,
+    permissions: principal.permissions,
+    roleCodes: roleCodes(principal),
+  };
+
+  if (form.get('operation') === 'access') {
+    try {
+      await withTransaction((tx) =>
+        saveModeratorAccess(tx, actor, {
+          permissions: form.getAll('permission').filter((entry): entry is string => typeof entry === 'string'),
+        }),
+      );
+      return redirectTo(`${OWNERS_PATH}?notice=accessSaved`);
+    } catch (error) {
+      if (error instanceof AuthorizationError) return redirectTo(`${OWNERS_PATH}?notice=denied`);
+      if (error instanceof ConflictError) return redirectTo(`${OWNERS_PATH}?notice=conflict`);
+      return redirectTo(`${OWNERS_PATH}?notice=invalid`);
+    }
+  }
+
   // Validated before the transaction opens, so a malformed address never reaches the database.
   const email = parseEmail(form.get('email'));
   const displayName = parseDisplayName(form.get('displayName'));
@@ -40,14 +66,10 @@ export async function POST(request: Request): Promise<Response> {
 
   try {
     const created = await withTransaction((tx) =>
-      createOwnerAccount(
+      createStaffAccount(
         tx,
-        {
-          staffUserId: principal.staffUserId,
-          permissions: principal.permissions,
-          roleCodes: roleCodes(principal),
-        },
-        { email, displayName },
+        actor,
+        { email, displayName, role: form.get('role') ?? undefined },
       ),
     );
 
