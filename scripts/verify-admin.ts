@@ -38,6 +38,7 @@ import {
   permission,
   product,
   productImage,
+  productReview,
   productVariant,
   role,
   rolePermission,
@@ -1706,6 +1707,125 @@ async function main(): Promise<void> {
       // rendered page can show: the rail exists at desktop width, the phone uses a bottom tab bar
       // whose More sheet handles focus, nothing overflows horizontally at 360/390px, a destructive
       // confirmation traps focus and closes on Escape, and the inline decision actually submits.
+      console.log('\nreview moderation');
+
+      /*
+       * A customer's review waits for the owner (ADR 0035), and the sidebar entry that reaches it is
+       * gated on `review.moderate`. That permission shipped in code but never reached the production
+       * catalogue - the seed is not run by a deploy - so the queue was invisible there even though a
+       * review was waiting. Migration `0032` closes that gap; these checks prove the screen, the gate
+       * and the decision, and would catch the permission going missing again.
+       */
+      {
+        const reviewSeed = await withTransaction(async (tx) => {
+          const customerRow = await tx
+            .insert(customer)
+            .values({ email: 'review-' + Date.now() + '@verify.test', displayName: 'Review Buyer' })
+            .returning({ id: customer.id });
+          const customerId = customerRow[0]?.id;
+          if (customerId === undefined) fail('could not create the review verification customer');
+
+          const productRow = await tx
+            .select({ id: product.id, nameEn: product.nameEn })
+            .from(product)
+            .where(sql`${product.deletedAt} is null`)
+            .limit(1);
+          const target = productRow[0];
+          if (target === undefined) fail('no product to attach the review to');
+
+          const orderRow = await tx
+            .insert(order)
+            .values({
+              orderNumber: 'QBREV' + Date.now().toString(36).toUpperCase(),
+              customerId,
+              paymentMethod: 'cod',
+              status: 'completed',
+              paymentState: 'not_applicable',
+              codState: 'cod_collected',
+              itemsSubtotalMinor: 10000,
+              shippingMinor: 0,
+              totalMinor: 10000,
+            })
+            .returning({ id: order.id });
+          const orderId = orderRow[0]?.id;
+          if (orderId === undefined) fail('could not create the review verification order');
+
+          const reviewRow = await tx
+            .insert(productReview)
+            .values({
+              productId: target.id,
+              customerId,
+              orderId,
+              // Whole stars only: the halves column stores even values, 8 = four stars.
+              ratingHalves: 8,
+              body: 'Verify Review Body - the bottle arrived sealed and the texture is light.',
+              state: 'pending',
+              imageKey: 'category-skincare',
+              imageWidth: 600,
+              imageHeight: 600,
+            })
+            .returning({ id: productReview.id });
+          const reviewId = reviewRow[0]?.id;
+          if (reviewId === undefined) fail('could not create the review verification row');
+          return { reviewId, productName: target.nameEn, customerId };
+        });
+
+        // The owner's rail carries the entry; the page renders the queue with its decision controls.
+        const ownerOverview = await call(base, '/qbpanel', { jar: ownerJar });
+        const reviewPage = await call(base, '/qbpanel/reviews', { jar: ownerJar });
+        record(
+          'the owner’s sidebar offers Reviews and the queue shows the pending review with its photo and both decisions',
+          ownerOverview.body.includes('href="/qbpanel/reviews"') &&
+            reviewPage.status === 200 &&
+            reviewPage.body.includes('Verify Review Body') &&
+            reviewPage.body.includes('/catalog/category-skincare-320.webp') &&
+            reviewPage.body.includes('name="decision" value="approved"') &&
+            reviewPage.body.includes('name="decision" value="rejected"'),
+          `rail ${ownerOverview.body.includes('href="/qbpanel/reviews"')}, status ${reviewPage.status}`,
+        );
+
+        // A principal without `review.moderate` is refused the queue and the decision.
+        const limitedReviews = await call(base, '/qbpanel/reviews', { jar: limitedJar });
+        record(
+          'a principal without review.moderate is refused the moderation queue',
+          limitedReviews.status === 307 &&
+            (limitedReviews.location ?? '').includes('/qbpanel/forbidden'),
+          `status ${limitedReviews.status} → ${limitedReviews.location ?? ''}`,
+        );
+
+        const published = await call(base, '/api/qbpanel/reviews', {
+          method: 'POST',
+          jar: ownerJar,
+          form: { csrf, reviewId: String(reviewSeed.reviewId), decision: 'approved' },
+        });
+        const reviewState = await withTransaction((tx) =>
+          tx
+            .select({ state: productReview.state, decidedBy: productReview.decidedBy })
+            .from(productReview)
+            .where(sql`${productReview.id} = ${reviewSeed.reviewId}`),
+        );
+        record(
+          'the owner publishes the review, and the row records the decision and its actor',
+          published.status === 303 &&
+            (published.location ?? '').includes('notice=published') &&
+            reviewState[0]?.state === 'approved' &&
+            reviewState[0]?.decidedBy !== null,
+          `status ${published.status}, state ${reviewState[0]?.state ?? 'missing'}`,
+        );
+
+        // A second decision on a decided review is a conflict, not a rewrite.
+        const decidedAgain = await call(base, '/api/qbpanel/reviews', {
+          method: 'POST',
+          jar: ownerJar,
+          form: { csrf, reviewId: String(reviewSeed.reviewId), decision: 'rejected' },
+        });
+        record(
+          'a decided review cannot be decided again',
+          decidedAgain.status === 303 && (decidedAgain.location ?? '').includes('notice=conflict'),
+          `status ${decidedAgain.status} → ${decidedAgain.location ?? ''}`,
+        );
+      }
+
       console.log('\nadmin interface in Chromium');
       {
         const secondCod = await withTransaction(async (tx) => {

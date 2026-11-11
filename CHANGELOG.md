@@ -14,6 +14,38 @@ An entry may describe a deployment only once it has actually happened and been o
 
 ## [Unreleased]
 
+### Fixed - 2026-11-12: review moderation was unreachable in production
+
+Owner report: the review moderation sidebar option was not there. The screen, the queue and the
+publish/refuse decisions already existed (ADR 0035) - the **permission** did not.
+
+- **Cause:** the permission catalogue is seeded, and a deploy does not run the seed. `review.moderate`
+  shipped with the review feature, so production's `permission` table never received it and the owner
+  role never held it: the `/qbpanel/reviews` entry is permission-gated, so it was hidden while a real
+  customer review sat pending.
+- **Fix, as a migration** (`0032_review_permission`): insert the missing catalogue row and grant it to
+  **every owner-level role** - both statements idempotent, so an environment already seeded with it is
+  unchanged. Production was repaired through the Neon MCP (33 migrations recorded) and now holds the
+  permission and the owner grant. AGENTS records the rule: a new permission needs a migration, not only
+  a seed.
+- **Coverage added** (`verify:admin`, four checks): the owner's sidebar carries Reviews, the queue shows
+  a pending review **with its photograph** and both decisions, a principal without `review.moderate` is
+  sent to `/qbpanel/forbidden`, publishing records the decision and its actor, and a second decision is a
+  conflict rather than a rewrite.
+
+**Also repaired here:** the previous commit shipped the Storefront customisation page without its write
+route (`src/app/api/qbpanel/storefront/route.ts`), so saving a selection on a deploy would have posted to
+a 404. The route is included in this commit; `POST /api/qbpanel/storefront` now answers 403 without a
+session (a real route) instead of 404.
+
+The customer side is unchanged and already complete: the review form takes **one photograph**
+(`saveUpload`, square set, EXIF stripped), the row is written **pending**, and nothing but the author
+sees it until the owner publishes it.
+
+Verified 2026-11-12: `typecheck`, `lint` (0 errors), `verify:admin` **235/235**, `db:migrate` +
+`db:validate` locally (54 tables), and production read back through the Neon MCP
+(`review.moderate` present, one owner-level grant, 33 migrations).
+
 ### Added - 2026-11-12: Storefront -> Customisation, and the owner chooses the homepage rows
 
 Owner direction: the admin panel needs a storefront customisation entry, the homepage hero moves under
