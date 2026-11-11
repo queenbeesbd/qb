@@ -11,7 +11,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
 import { selectHomepage } from '../../src/features/catalog/home-selection';
-import { RAIL_DESKTOP_LIMIT, RAIL_MOBILE_LIMIT } from '../../src/features/catalog/home/rail-limits';
+import { RAIL_LIMIT } from '../../src/features/catalog/home/rail-limits';
 import { NO_PRODUCT_DELIVERY } from '../../src/lib/delivery';
 import type { CatalogBrand, CatalogCategory, CatalogItem } from '../../src/lib/types';
 
@@ -78,20 +78,20 @@ function item(index: number, overrides: Partial<CatalogItem> = {}): CatalogItem 
 describe('homepage discovery rails', () => {
   it('publishes the desktop number of departments and brands, not the whole index', () => {
     const selection = select(30, 40);
-    assert.equal(selection.departments.length, RAIL_DESKTOP_LIMIT);
-    assert.equal(selection.brands.length, RAIL_DESKTOP_LIMIT);
+    assert.equal(selection.departments.length, RAIL_LIMIT);
+    assert.equal(selection.brands.length, RAIL_LIMIT);
   });
 
-  it('offers the way to the index once the phone rail would hide something', () => {
-    const atTheLimit = select(RAIL_MOBILE_LIMIT, RAIL_MOBILE_LIMIT);
-    assert.equal(atTheLimit.departmentsHaveMore, false, 'fifteen all fit on a phone');
+  it('offers the way to the index once the shop has more than the rail draws', () => {
+    const atTheLimit = select(RAIL_LIMIT, RAIL_LIMIT);
+    assert.equal(atTheLimit.departmentsHaveMore, false, 'fifteen is the whole rail');
     assert.equal(atTheLimit.brandsHaveMore, false);
-    assert.equal(atTheLimit.departments.length, RAIL_MOBILE_LIMIT);
+    assert.equal(atTheLimit.departments.length, RAIL_LIMIT);
 
-    const oneMore = select(RAIL_MOBILE_LIMIT + 1, RAIL_MOBILE_LIMIT + 1);
-    assert.equal(oneMore.departmentsHaveMore, true);
+    const oneMore = select(RAIL_LIMIT + 1, RAIL_LIMIT + 1);
+    assert.equal(oneMore.departmentsHaveMore, true, 'the sixteenth is only at the index');
     assert.equal(oneMore.brandsHaveMore, true);
-    assert.equal(oneMore.departments.length, RAIL_MOBILE_LIMIT + 1);
+    assert.equal(oneMore.departments.length, RAIL_LIMIT, 'and the rail still draws fifteen');
   });
 
   it('shows a short shop in full, with no control behind it', () => {

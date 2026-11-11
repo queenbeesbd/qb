@@ -54,6 +54,7 @@ import {
   listVisibleBrands,
   listVisibleCategories,
 } from './read';
+import { listStorefrontPicks } from '@/server/storefront/selection';
 
 /** Collection `code` values the storefront reads. Seeded, not invented per request. */
 export const FEATURED_COLLECTION_CODE = 'featured';
@@ -73,6 +74,19 @@ export type StorefrontCatalog = {
   readonly featuredIds: readonly string[];
   /** Product ids of the secondary curated selection, in position order. */
   readonly collectionIds: readonly string[];
+  /**
+   * The owner's own picks for the three curatable rows (owner direction, 2026-11-12).
+   *
+   * Slugs and ids rather than rows: the homepage already holds the catalog, so a pick is a reference
+   * into it. **Empty means automatic** - the shop's own selection (busiest departments, busiest brands,
+   * largest savings) - and a pick that has been archived disappears from the list rather than leaving
+   * a hole, because it is resolved through the same live rows every other surface reads.
+   */
+  readonly picks: {
+    readonly categorySlugs: readonly string[];
+    readonly brandSlugs: readonly string[];
+    readonly offerProductIds: readonly string[];
+  };
 };
 
 /**
@@ -197,6 +211,12 @@ function readFixtureCatalog(): StorefrontCatalog {
     brands: fixtureBrands(products),
     featuredIds: resolve(FEATURED_PRODUCT_IDS),
     collectionIds: resolve(COLLECTION_PRODUCT_IDS),
+    /*
+     * The fixture path has no owner picks: the captured records carry no such table, and inventing a
+     * selection would be the same defect as inventing a date. Empty means "the shop's automatic
+     * selection", which is exactly what the demo path should show.
+     */
+    picks: { categorySlugs: [], brandSlugs: [], offerProductIds: [] },
   };
 }
 
@@ -216,13 +236,14 @@ async function readStorefrontCatalog(): Promise<StorefrontCatalog> {
      * one**. Only a product page does, and it reads that one row through `getProductDescription`
      * below. Dropping them from the bulk read is the cheapest egress reduction after the TTL.
      */
-    const [products, categories, brands, selections] = await Promise.all([
+    const [products, categories, brands, selections, picks] = await Promise.all([
       listPublishedProducts(tx, { includeDescription: false }),
       listVisibleCategories(tx),
       listVisibleBrands(tx),
       listCollectionSelections(tx),
+      listStorefrontPicks(tx),
     ]);
-    return { products, categories, brands, selections };
+    return { products, categories, brands, selections, picks };
   });
 
   return {
@@ -232,6 +253,7 @@ async function readStorefrontCatalog(): Promise<StorefrontCatalog> {
     brands: snapshot.brands.map(toCatalogBrand),
     featuredIds: snapshot.selections.get(FEATURED_COLLECTION_CODE) ?? [],
     collectionIds: snapshot.selections.get(SECONDARY_COLLECTION_CODE) ?? [],
+    picks: snapshot.picks,
   };
 }
 

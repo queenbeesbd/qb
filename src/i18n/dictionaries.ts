@@ -487,6 +487,7 @@ export const dictionary = {
   'admin.nav.support': 'Support links',
   'admin.nav.contact': 'Contact and policies',
 
+  'admin.nav.storefrontCustomisation': 'Customisation',
   'admin.nav.announcement': 'Announcement bar',
   'admin.nav.hero': 'Homepage hero',
   'admin.nav.offerPopup': 'Offer popup',
@@ -520,6 +521,54 @@ export const dictionary = {
 
   'admin.nav.storefront': 'Back to the storefront',
 
+  'admin.storefront.title': 'Storefront',
+  'admin.storefront.body':
+    'What the homepage shows when a shopper arrives: which departments and brands the two rails draw, and which products sit in On Offer.',
+  'admin.storefront.heroHint': 'The homepage hero carousel has its own screen:',
+  'admin.storefront.summary':
+    '{categories} of 15 departments, {brands} of 15 brands, {offers} of 10 offers chosen.',
+  'admin.storefront.summaryAutomatic':
+    'Nothing chosen: the shop picks the busiest departments, the busiest brands and the largest real savings.',
+  'admin.storefront.categoriesTitle': 'Shop By Category',
+  'admin.storefront.categoriesBody':
+    'The round department rail. Only live, visible top-level departments are offered; the order is the order they appear.',
+  'admin.storefront.categoriesAutomatic':
+    'Nothing chosen: the homepage shows the busiest departments first.',
+  'admin.storefront.brandsTitle': 'Shop By Brand',
+  'admin.storefront.brandsBody':
+    'The round brand rail, in the same circles. Only live brands are offered.',
+  'admin.storefront.brandsAutomatic':
+    'Nothing chosen: the homepage shows the brands with the most products.',
+  'admin.storefront.offersTitle': 'On Offer',
+  'admin.storefront.offersBody':
+    'The offer row. Only published products with a genuine saving are offered, because that is what the row claims; a product that loses its saving later drops out of the row by itself. A product already shown in Recently Added or Most Selling is not repeated.',
+  'admin.storefront.offersAutomatic':
+    'Nothing chosen: the homepage shows the shop’s largest real savings.',
+  'admin.storefront.chosenOf': '{count} of {limit} chosen',
+  'admin.storefront.productsCount': '{count} products',
+  'admin.storefront.productsCountOne': '1 product',
+  'admin.storefront.offerSaving': '{price}, saving {saving}',
+  'admin.storefront.searchPlaceholder': 'Filter by name',
+  'admin.storefront.searchLabel': 'Filter {section}',
+  'admin.storefront.limitReached': 'All {limit} are chosen. Remove one to swap it.',
+  'admin.storefront.nothingLeft': 'Everything this row can show is already chosen.',
+  'admin.storefront.noMatch': 'No name matches “{query}”.',
+  'admin.storefront.showMore': 'Show {count} more',
+  'admin.storefront.showFewer': 'Show fewer',
+  'admin.storefront.add': 'Add {name}',
+  'admin.storefront.addShort': 'Add',
+  'admin.storefront.remove': 'Remove',
+  'admin.storefront.moveUp': 'Move {name} up',
+  'admin.storefront.moveDown': 'Move {name} down',
+  'admin.storefront.save': 'Save selection',
+  'admin.storefront.notice.saved': 'The homepage selection is saved.',
+  'admin.storefront.notice.cleared':
+    'Nothing is chosen now, so the shop picks the rows again by itself.',
+  'admin.storefront.notice.denied': 'Only an owner can change the homepage selection.',
+  'admin.storefront.notice.invalid':
+    'One of the picks could not be saved: it is no longer something the shop can show, or the row already had its maximum. Nothing was changed.',
+  'admin.storefront.notice.conflict':
+    'The selection changed while this page was open. Reload it and choose again.',
   'admin.hero.title': 'Homepage hero',
   'admin.hero.body':
     'The images the homepage carousel shows, in this order. At least one image is required and the carousel holds at most ten.',
@@ -691,6 +740,7 @@ export const dictionary = {
   'admin.overview.images': 'Attached images',
   'admin.nav.group.overview': 'Overview',
   'admin.nav.group.commerce': 'Commerce',
+  'admin.nav.group.storefront': 'Storefront',
   'admin.nav.group.customers': 'Customers',
   'admin.nav.group.settings': 'Settings',
   'admin.nav.group.system': 'System',

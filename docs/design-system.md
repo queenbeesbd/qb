@@ -180,14 +180,14 @@ direction, 2026-11-12). `controls="pager"` moves the pair out of the artwork: fl
 116px circle covered the tile's own initial or logo, which read as a defect rather than a control. A
 product shelf keeps the overlay pair, where the button sits over a card's photograph.
 
-**Twenty circles on a desktop, fifteen on a phone, then the way out.** `RAIL_DESKTOP_LIMIT` /
-`RAIL_MOBILE_LIMIT` live in `src/features/catalog/home/rail-limits.ts`; the server sends the desktop list
-and `Carousel`'s `mobileLimit` hides everything from the sixteenth slide below 720px in CSS
-(`:nth-child(n + 16):not(:last-child)`), so nothing measures the viewport and the hidden photographs are
-never fetched. When the shop has more than the phone draws, the last slide is the shared `SeeAllCircle` -
-same 116px/62px geometry, a pale lavender field with a drawn arrow and the "View all" label - linking to
-`/categories` or `/brands`. It reads as a control, never as a tile with a missing photograph, and a shop
-with fewer than sixteen items shows them all with no control at all.
+**Fifteen circles at every width, and the owner chooses which.** `RAIL_LIMIT` lives in
+`src/features/catalog/home/rail-limits.ts`; the server sends at most fifteen, so nothing is cut in CSS and
+nothing measures the viewport. The selection comes from `storefront_pick` when the owner has made one and
+from the shop's own rule otherwise (busiest departments, busiest brands) - empty means automatic, and the
+admin page says so. When the shop has more than the rail shows, the last slide is the shared
+`SeeAllCircle` - same 116px/62px geometry, a pale lavender field with a drawn arrow and the "View all"
+label - linking to `/categories` or `/brands`. It reads as a control, never as a tile with a missing
+photograph, and a shop with fifteen or fewer shows them all with no control at all.
 
 **The three product rows end in a card-sized tile** (owner direction, 2026-11-12). `SeeAllCard` takes a
 card's width, height, border and radius so the shelf keeps one rhythm, and puts the opposite content in it:
@@ -518,6 +518,28 @@ rows - and every control keeps the standard 40px height.
 **Row money cells stack.** A total with a delivery sub-line is a two-line cell; at phone width it starts
 its own line under the status and aligns start, because right-aligning it inside a row that has already
 wrapped reads as clipped.
+
+### Storefront customisation (2026-11-12)
+
+`/qbpanel/storefront` is the one screen for what the homepage shows, and it is built from the panel's own
+parts rather than a bespoke layout:
+
+- **The rail gained a division**: Overview / Commerce / **Storefront** / Customers / Settings / System.
+  Storefront holds **Customisation** and **Homepage hero** (the hero editor moved here; its old
+  `/qbpanel/settings/hero` path answers 404 rather than aliasing).
+- **One form, one action bar.** The three pickers (departments, brands, offers) are one `<form>`, saved by
+  the sticky `formHeader` bar whose live summary states the counts ("2 of 15 departments, 1 of 15 brands,
+  1 of 10 offers chosen"). There is no second Save at the bottom.
+- **Each picker is two lists and a filter.** The chosen things sit on top in the owner's order - a
+  `record` row with a quiet position numeral, move up / move down / remove at the 34px dense control - and
+  the rest of the shop sits below with a name filter, ten rows at a time and a "Show N more". Both lists
+  use the panel's `recordList`; the candidate list drops one surface step so the chosen list stays the
+  answer and the candidates stay the material.
+- **The cap is stated, not implied**: "{count} of {limit} chosen" in each section header, and
+  "All {limit} are chosen. Remove one to swap it." when the add controls disable.
+- **Empty is explained in place**: an unchosen row says what the shop will do instead ("the homepage
+  shows the busiest departments first"), so a blank picker is never read as a broken screen.
+- Every control resolves to the 34/40px scale, which `verify:admin` sweeps on this page among the others.
 
 ### The editor pattern (Phase 35)
 

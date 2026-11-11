@@ -52,7 +52,7 @@ describe('schema constraints against real PostgreSQL', { skip: toolingAvailable 
     assert.deepEqual(failures, [], `schema validation failed: ${JSON.stringify(failures)}`);
     // `tests/unit/schema-integrity.test.ts` is the authority on the number; this assertion only proves
     // the live catalog agrees with the migration files.
-    assert.equal(report.counts.tables, 53);
+    assert.equal(report.counts.tables, 54);
   });
 
   it('seeds a complete order graph', async () => {

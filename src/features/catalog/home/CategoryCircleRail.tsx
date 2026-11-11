@@ -8,7 +8,6 @@ import type { CatalogCategory } from '@/lib/types';
 import { Carousel } from '@/components/Carousel';
 import { DiscoveryPhoto } from '@/components/DiscoveryPhoto';
 import { LetterMark } from '@/components/LetterMark';
-import { RAIL_MOBILE_LIMIT } from './rail-limits';
 import { SeeAllCircle } from './SeeAllCircle';
 import styles from './CategoryCircleRail.module.css';
 
@@ -48,7 +47,6 @@ export function CategoryCircleRail({
     <Carousel
       label={t('home.categoriesTitle')}
       size="circle"
-      mobileLimit={RAIL_MOBILE_LIMIT}
       controls="pager"
     >
       {categories.map((category) => {

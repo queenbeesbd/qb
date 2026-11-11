@@ -27,8 +27,9 @@ export const STOREFRONT_CATALOG_TAG = 'storefront-catalog';
  *
  * 1 - Phase 14 shape. 2 - `ratingHalves` added (2026-11-11). 3 - `CatalogImage` carries the stored
  * `width`/`height` (2026-11-12), which the product page needs to draw a photograph at its own shape.
+ * 4 - `picks` added (2026-11-12): the owner's own departments, brands and offers for the homepage.
  */
-export const STOREFRONT_CATALOG_KEY_VERSION = 'v3';
+export const STOREFRONT_CATALOG_KEY_VERSION = 'v4';
 
 /**
  * Backstop revalidation interval, in seconds. Catalog writes invalidate the tag immediately.

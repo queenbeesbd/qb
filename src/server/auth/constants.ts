@@ -106,8 +106,17 @@ export const ANNOUNCEMENT_SETTINGS_PATH = '/qbpanel/settings/announcement';
 export const SUPPORT_SETTINGS_PATH = '/qbpanel/settings/support';
 /** The shop's own phone, hours and address, and the policy text it publishes (Phase 51). */
 export const CONTACT_SETTINGS_PATH = '/qbpanel/settings/contact';
-/** The homepage hero carousel's images and their order (Phase 51). */
-export const HERO_SETTINGS_PATH = '/qbpanel/settings/hero';
+/**
+ * Storefront customisation (owner direction, 2026-11-12): which departments and brands the homepage's
+ * two discovery rails draw, and which products the offer row holds.
+ *
+ * Its own division in the rail rather than another Settings row: it is merchandising - the same work as
+ * the catalog - and the hero carousel moved here with it, so everything that shapes the homepage is in
+ * one place. **The old hero path is retired, not aliased**: a stale bookmark lands on the 404 rather
+ * than on a second address for the same screen.
+ */
+export const STOREFRONT_PATH = '/qbpanel/storefront';
+export const STOREFRONT_HERO_PATH = '/qbpanel/storefront/hero';
 export const OFFER_POPUP_SETTINGS_PATH = '/qbpanel/settings/offer-popup';
 /**
  * Integrations (Phase 39): outbound notification destinations.

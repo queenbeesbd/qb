@@ -12,7 +12,8 @@ import {
   ANNOUNCEMENT_SETTINGS_PATH,
   CONTACT_SETTINGS_PATH,
   DELIVERY_SETTINGS_PATH,
-  HERO_SETTINGS_PATH,
+  STOREFRONT_HERO_PATH,
+  STOREFRONT_PATH,
   INTEGRATIONS_PATH,
   LOGIN_PATH,
   OFFER_POPUP_SETTINGS_PATH,
@@ -103,6 +104,25 @@ export default async function AdminShellLayout({ children }: { children: React.R
     // A worklist beside the other queues: a customer's words wait here until the owner publishes them.
     items.push({ href: REVIEWS_PATH, labelKey: 'admin.nav.reviews', group: 'commerce', icon: 'list' });
   }
+  if (hasPermission(principal, PERMISSIONS.settingsWrite)) {
+    /*
+     * Storefront is its own division rather than another Settings row (owner direction, 2026-11-12):
+     * what the homepage shows is merchandising, the same work as the catalog, and the hero carousel
+     * moved here so every decision that shapes the shop's front page sits in one place.
+     */
+    items.push({
+      href: STOREFRONT_PATH,
+      labelKey: 'admin.nav.storefrontCustomisation',
+      group: 'storefront',
+      icon: 'image',
+    });
+    items.push({
+      href: STOREFRONT_HERO_PATH,
+      labelKey: 'admin.nav.hero',
+      group: 'storefront',
+      icon: 'image',
+    });
+  }
   if (hasPermission(principal, PERMISSIONS.customerRead)) {
     items.push({ href: CUSTOMERS_PATH, labelKey: 'admin.nav.customers', group: 'customers', icon: 'customers' });
   }
@@ -132,13 +152,6 @@ export default async function AdminShellLayout({ children }: { children: React.R
       labelKey: 'admin.nav.contact',
       group: 'settings',
       icon: 'list',
-    });
-    // The homepage's first screen: the owner's own hero images and the order they run in.
-    items.push({
-      href: HERO_SETTINGS_PATH,
-      labelKey: 'admin.nav.hero',
-      group: 'settings',
-      icon: 'image',
     });
     // The image a visitor meets when the storefront opens: one image and one switch.
     items.push({

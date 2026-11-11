@@ -14,6 +14,40 @@ An entry may describe a deployment only once it has actually happened and been o
 
 ## [Unreleased]
 
+### Added - 2026-11-12: Storefront -> Customisation, and the owner chooses the homepage rows
+
+Owner direction: the admin panel needs a storefront customisation entry, the homepage hero moves under
+it, and the owner decides which fifteen departments and fifteen brands the rails draw and which products
+sit in On Offer.
+
+- **New rail division "Storefront"** with **Customisation** (`/qbpanel/storefront`) and **Homepage hero**
+  (`/qbpanel/storefront/hero`). The hero editor moved; its old `/qbpanel/settings/hero` path is retired
+  and answers 404 rather than aliasing to a second address.
+- **`storefront_pick`** (migration `0031_certain_leopardon`, schema 53 -> 54 tables): one row per pick,
+  `section` = categories | brands | offers, dense `position`, and exactly one target id per section
+  (CHECK), with `UNIQUE (section, position)` and a partial unique per target so nothing is listed twice.
+- **The page**: three pickers in one form, one sticky action bar with a live count summary, chosen rows in
+  the owner's order with move up / down / remove, a name filter and ten-at-a-time candidates below, and a
+  stated cap. **Empty means automatic** and every picker says what the shop will do instead.
+- **The rules are the service's, not the form's**: 15 departments (live, visible, top-level), 15 brands
+  (live), 10 offers (**published, with a genuine saving** - On Offer is a claim about the price). An
+  unshowable pick is refused at save (`?notice=invalid`) and dropped at read, so the row can never carry a
+  product that lost its saving. Saves are one transaction under an advisory lock, audited as
+  `storefront.selection_updated` with before/after id lists, and the storefront snapshot tag is
+  invalidated after the commit.
+- **The rails are fifteen at every width** (`RAIL_LIMIT`); the 20/15 split and the CSS phone cut are gone,
+  and the picks are read into the snapshot (`catalog.picks`, key version `v4`).
+
+No destructive change: an empty `storefront_pick` table keeps today's homepage exactly as it is.
+
+Verified 2026-11-12: `typecheck`, `lint` (0 errors), unit **323/323**, `test:db` **291/291**,
+`check:i18n` (1948 keys), `build`; and a walk-through as a real owner on the dev cluster - the page
+renders with every control at 34 or 40px, two departments + one brand + one product were chosen and
+saved (`?notice=saved`), the homepage then drew **Lip care, Skincare** in that order, **Mamaearth**, and
+**only** the chosen product in On Offer with the ids confirmed in the table; a brand id submitted as a
+department and a sixteenth department both answered `?notice=invalid` and changed nothing;
+`/qbpanel/settings/hero` is a 404 while `/qbpanel/storefront/hero` renders the editor.
+
 ### Added - 2026-11-12: the three product rows end in a "see everything" tile
 
 Owner direction: On Offer, Most Selling and Recently Added need the same "show more" affordance the

@@ -24,6 +24,7 @@ import {
   IMPORT_ENTITY_TYPE,
   OFFER_POPUP_ASPECTS,
   PRODUCT_AVAILABILITY,
+  STOREFRONT_SECTIONS,
 } from './values';
 
 /**
@@ -457,5 +458,68 @@ export const importRecord = pgTable(
     index('import_record_entity_idx').on(t.entityType, t.entityId),
     index('import_record_run_idx').on(t.importRunId),
     check('import_record_entity_type_valid', colIn('entity_type', IMPORT_ENTITY_TYPE)),
+  ],
+);
+
+/**
+ * The owner's own picks for the homepage (owner direction, 2026-11-12).
+ *
+ * One row per chosen thing, in the owner's order: the departments in the category rail, the brands in
+ * the brand rail, and the products in the offer row. The three decisions live in one table because
+ * they are the same decision - an ordered selection - and three parallel tables would have been three
+ * copies of the same code.
+ *
+ * **Optional, never required.** No rows for a section means the storefront keeps its automatic
+ * selection (busiest departments, busiest brands, largest real savings), which is what every shop has
+ * before the owner opens the editor. The service enforces the caps (15/15/10) and that a picked offer
+ * carries a genuine saving; the schema keeps the shape honest - `section` decides which foreign key is
+ * set, and the checks refuse a row that names two kinds or none.
+ *
+ * The picks are read through the storefront snapshot, so a deleted or archived row simply disappears
+ * instead of leaving a hole, and the `on delete cascade` on each target keeps a hard delete from
+ * leaving a dangling slot.
+ */
+export const storefrontPick = pgTable(
+  'storefront_pick',
+  {
+    id: bigint('id', { mode: 'number' }).generatedAlwaysAsIdentity().primaryKey(),
+    section: text('section').notNull(),
+    /** Dense 0..n-1 in the owner's order, rewritten as one sequence on every save. */
+    position: integer('position').notNull(),
+    categoryId: bigint('category_id', { mode: 'number' }).references(() => category.id, {
+      onDelete: 'cascade',
+    }),
+    brandId: bigint('brand_id', { mode: 'number' }).references(() => brand.id, {
+      onDelete: 'cascade',
+    }),
+    productId: bigint('product_id', { mode: 'number' }).references(() => product.id, {
+      onDelete: 'cascade',
+    }),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+  },
+  (t) => [
+    check('storefront_pick_section_valid', colIn('section', STOREFRONT_SECTIONS)),
+    check('storefront_pick_position_non_negative', sql`${t.position} >= 0`),
+    /*
+     * Exactly the foreign key the section names, and none of the others: a row saying "brands" while
+     * carrying a product id would be two claims at once, and nothing downstream could read it.
+     */
+    check(
+      'storefront_pick_target_matches_section',
+      sql`(${t.section} = 'categories' and ${t.categoryId} is not null and ${t.brandId} is null and ${t.productId} is null)
+          or (${t.section} = 'brands' and ${t.brandId} is not null and ${t.categoryId} is null and ${t.productId} is null)
+          or (${t.section} = 'offers' and ${t.productId} is not null and ${t.categoryId} is null and ${t.brandId} is null)`,
+    ),
+    uniqueIndex('storefront_pick_position_unique').on(t.section, t.position),
+    // One row per target per section: a department cannot be listed twice in the same rail.
+    uniqueIndex('storefront_pick_category_unique')
+      .on(t.section, t.categoryId)
+      .where(sql`${t.categoryId} is not null`),
+    uniqueIndex('storefront_pick_brand_unique')
+      .on(t.section, t.brandId)
+      .where(sql`${t.brandId} is not null`),
+    uniqueIndex('storefront_pick_product_unique')
+      .on(t.section, t.productId)
+      .where(sql`${t.productId} is not null`),
   ],
 );

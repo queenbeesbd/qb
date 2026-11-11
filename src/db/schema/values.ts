@@ -13,6 +13,15 @@ import { sql, type SQL } from 'drizzle-orm';
 /** The two frames an offer popup accepts: a square or a 16:9 banner. */
 export const OFFER_POPUP_ASPECTS = ['square', 'wide'] as const;
 
+/**
+ * The three homepage rows an owner can curate (owner direction, 2026-11-12).
+ *
+ * One list, one table (`storefront_pick`), one editor: the category rail, the brand rail and the offer
+ * row are the same kind of decision - an ordered selection - and giving each its own table would have
+ * made three copies of the same code with three chances to drift.
+ */
+export const STOREFRONT_SECTIONS = ['categories', 'brands', 'offers'] as const;
+
 /** `order.status` - fulfilment position only (data-model 7.1). */
 export const ORDER_STATUS = [
   'pending',

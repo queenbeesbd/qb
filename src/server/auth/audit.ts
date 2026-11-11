@@ -87,6 +87,7 @@ export type AuditAction =
   | 'settings.hero_image_updated'
   | 'settings.hero_image_removed'
   | 'settings.hero_images_reordered'
+  | 'storefront.selection_updated'
   | 'delivery.default_updated'
   | 'delivery.district_saved'
   | 'delivery.district_deactivated'

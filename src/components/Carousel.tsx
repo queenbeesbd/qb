@@ -25,22 +25,12 @@ import styles from './Carousel.module.css';
 export function Carousel({
   label,
   size,
-  mobileLimit,
   controls = 'overlay',
   children,
 }: {
   /** Names the shelf for assistive technology, e.g. "On offer". */
   label: string;
   size: 'product' | 'circle' | 'brand';
-  /**
-   * How many slides a phone draws before the row stops (owner direction, 2026-11-12).
-   *
-   * Applied in CSS rather than by slicing the list, so the server renders one list and nothing has to
-   * be measured: `nth-child(n + 16)` hides the sixteenth slide and later below 720px, and the last
-   * child is exempt so a trailing control - the discovery rails' "View all" circle - stays reachable.
-   * The only value in use is 15; the rule is written once, next to the attribute it reads.
-   */
-  mobileLimit?: number;
   /**
    * Where the arrows sit: floating over the row's edges (`overlay`, the default) or beside the dots
    * (`pager`). See the note on `pager` in the body.
@@ -72,9 +62,9 @@ export function Carousel({
     };
 
     /**
-     * The slides that actually take space. A rail's `mobileLimit` removes some of them from the phone's
-     * layout (`display: none`), and counting those would promise a page the shopper cannot reach - one
-     * dot too many. Measured, like everything else here, rather than counted from the children.
+     * The slides that actually take space on screen. A caller can hide slides by its own markup, and
+     * counting a hidden one would promise a page the shopper cannot reach - one dot too many. Measured,
+     * like everything else here, rather than counted from the children.
      */
     const laidOutSlides = (): number => {
       const slides = [...track.children].filter((child) => child.getBoundingClientRect().width > 0);
@@ -163,12 +153,7 @@ export function Carousel({
   return (
     <div className={styles.carousel} role="group" aria-label={label}>
       <div className={styles.viewport}>
-        <ul
-          className={styles.track}
-          data-size={size}
-          data-mobile-limit={mobileLimit === undefined ? undefined : String(mobileLimit)}
-          ref={trackRef}
-        >
+        <ul className={styles.track} data-size={size} ref={trackRef}>
           {Children.map(children, (child, index) => (
             <li key={index} className={styles.slide}>
               {child}

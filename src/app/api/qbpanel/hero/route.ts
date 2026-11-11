@@ -10,7 +10,7 @@
  */
 
 import { withTransaction } from '@/db/client';
-import { HERO_SETTINGS_PATH } from '@/server/auth/constants';
+import { STOREFRONT_HERO_PATH } from '@/server/auth/constants';
 import { guardMutation } from '@/server/auth/guard';
 import { roleCodes } from '@/server/authz/principal';
 import { PERMISSIONS } from '@/server/authz/permissions';
@@ -29,7 +29,7 @@ export const dynamic = 'force-dynamic';
 const OPERATIONS = ['add', 'upload', 'update', 'remove', 'reorder'] as const;
 
 function backTo(notice: string): Response {
-  return redirectTo(`${HERO_SETTINGS_PATH}?notice=${notice}`);
+  return redirectTo(`${STOREFRONT_HERO_PATH}?notice=${notice}`);
 }
 
 export async function POST(request: Request): Promise<Response> {

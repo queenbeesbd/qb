@@ -46,6 +46,7 @@ export default async function HomePage() {
     featuredIds: catalog.featuredIds,
     collectionIds: catalog.collectionIds,
     bestSellerIds,
+    picks: catalog.picks,
   });
 
   return (

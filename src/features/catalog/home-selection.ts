@@ -1,7 +1,7 @@
 import { discountAmount } from '@/lib/money';
 import type { CatalogBrand, CatalogCategory, CatalogItem } from '@/lib/types';
 import { selectDepartments } from './departments';
-import { RAIL_DESKTOP_LIMIT, RAIL_MOBILE_LIMIT } from './home/rail-limits';
+import { RAIL_LIMIT } from './home/rail-limits';
 import { HOMEPAGE_SECTION_SIZE, selectRecentlyAdded } from './recent';
 
 /**
@@ -10,20 +10,20 @@ import { HOMEPAGE_SECTION_SIZE, selectRecentlyAdded } from './recent';
  * The carousel is a shelf, not a grid: it holds two desktop slides of five plus one slide on a
  * phone, so a shopper can swipe two or three times and still reach products that are on offer now.
  * Every entry is derived from a published comparison price, so the row is exactly as long as the
- * shop's real discounts make it.
+ * shop's real discounts make it - or exactly as long as the owner's own picks make it, filtered by
+ * the same rule.
  */
 const DEALS_LIMIT = 10;
 
 /**
- * How many categories and brands the two discovery rails publish before deferring to their index.
+ * How many departments and brands a discovery rail publishes.
  *
- * The owner's number (2026-11-12): twenty circles on a desktop, fifteen on a phone - the shelf shows
- * the range, and the trailing "View all" circle takes the shopper to the full index. Both numbers and
- * the reason live in `home/rail-limits.ts`; the phone cut is applied in CSS so the server renders one
- * list.
+ * Fifteen, on every width (owner direction, 2026-11-12): the number is a fact about the row rather
+ * than about the screen, and the owner chooses *which* fifteen in the admin panel. The trailing
+ * "View all" circle appears when the shop has more than the rail shows.
  */
-const CATEGORY_LIMIT = RAIL_DESKTOP_LIMIT;
-const BRAND_LIMIT = RAIL_DESKTOP_LIMIT;
+const CATEGORY_LIMIT = RAIL_LIMIT;
+const BRAND_LIMIT = RAIL_LIMIT;
 
 /** How many products the new-arrivals carousel publishes: two desktop rows, five phone pages. */
 const NEW_ARRIVALS_LIMIT = 10;
@@ -104,6 +104,7 @@ export function selectHomepage({
   featuredIds,
   collectionIds,
   bestSellerIds,
+  picks = { categorySlugs: [], brandSlugs: [], offerProductIds: [] },
 }: {
   products: readonly CatalogItem[];
   categories: readonly CatalogCategory[];
@@ -115,6 +116,19 @@ export function selectHomepage({
    * order lines, never from a curation - see `src/server/orders/best-sellers.ts`.
    */
   bestSellerIds: readonly string[];
+  /**
+   * The owner's own picks for the three curatable rows (`storefront_pick`, read into the snapshot).
+   *
+   * **An empty list means automatic** - the shop's own selection - so a shop that has never opened the
+   * editor still has a homepage. A pick that no longer resolves (archived, unpublished, no longer
+   * discounted) is dropped here rather than rendered: the editor's rule is re-applied at read time,
+   * because the catalog can change after the save.
+   */
+  picks?: {
+    readonly categorySlugs: readonly string[];
+    readonly brandSlugs: readonly string[];
+    readonly offerProductIds: readonly string[];
+  };
 }): HomepageSelection {
   /*
    * **The homepage never advertises something that cannot be ordered.** Availability is the only
@@ -139,15 +153,34 @@ export function selectHomepage({
   /** The busiest departments first, then everything else in the catalog's own order. */
   const primary = selectDepartments(roots, products, 4);
   const primarySlugs = new Set(primary.map((category) => category.slug));
-  const departments = [
+  const automaticDepartments = [
     ...primary,
     ...roots.filter((category) => !primarySlugs.has(category.slug)),
   ].slice(0, CATEGORY_LIMIT);
+
+  /*
+   * The owner's own departments, in the owner's order, when there are any. A slug that no longer names
+   * a live root drops out; the editor only offers roots, so nothing else can be stored.
+   */
+  const pickedDepartments = picks.categorySlugs.flatMap((slug) => {
+    const found = roots.find((category) => category.slug === slug);
+    return found === undefined ? [] : [found];
+  });
+  const departments =
+    pickedDepartments.length > 0 ? pickedDepartments.slice(0, CATEGORY_LIMIT) : automaticDepartments;
 
   const byCuratedId = (ids: readonly string[]): CatalogItem[] =>
     ids
       .map((id) => productById.get(id))
       .filter((product): product is CatalogItem => Boolean(product));
+
+  /* The owner's own brands, in the owner's order; a brand no longer sold simply drops out. */
+  const pickedBrands = picks.brandSlugs.flatMap((slug) => {
+    const found = brands.find((entry) => entry.slug === slug);
+    return found === undefined ? [] : [found];
+  });
+  const railBrands =
+    pickedBrands.length > 0 ? pickedBrands.slice(0, BRAND_LIMIT) : brands.slice(0, BRAND_LIMIT);
   /*
    * **Recency goes first, and the other rows yield to it.** New arrivals is a fact about the catalog
    * (`created_at`), not a choice, so it cannot be filtered to avoid a collision - the curated rows are
@@ -204,7 +237,23 @@ export function selectHomepage({
           discountAmount(a.priceMinor, a.compareAtPriceMinor)! ||
         a.id.localeCompare(b.id),
     );
-  const deals = offerable.slice(0, DEALS_LIMIT);
+
+  /*
+   * The owner's own offers, in the owner's order, when there are any.
+   *
+   * The two rules the editor enforces are re-applied here because the catalog moves after a save: the
+   * product must still be purchasable and must still carry a **genuine** saving (the rows above already
+   * dropped the ones drawn as new, most-selling or featured, so a pick cannot repeat a card). Anything
+   * that fails is skipped rather than rendered under a heading it no longer earns.
+   */
+  const pickedOffers = picks.offerProductIds.flatMap((id) => {
+    const product = productById.get(id);
+    if (product === undefined) return [];
+    if (discountAmount(product.priceMinor, product.compareAtPriceMinor) === null) return [];
+    if (!offerable.some((entry) => entry.id === id)) return [];
+    return [product];
+  });
+  const deals = (pickedOffers.length > 0 ? pickedOffers : offerable).slice(0, DEALS_LIMIT);
 
   const shownIds = new Set(
     [...newArrivals, ...bestSellers, ...featured, ...deals].map((product) => product.id),
@@ -218,9 +267,8 @@ export function selectHomepage({
 
   return {
     departments,
-    // The rail draws `min(total, 20)`; the phone hides everything past 15, so a shop with more than
-    // fifteen needs the trailing circle or those departments would be unreachable there.
-    departmentsHaveMore: roots.length > RAIL_MOBILE_LIMIT,
+    // The rail draws what the owner chose (or the automatic fifteen); the index is the way to the rest.
+    departmentsHaveMore: roots.length > departments.length,
     featured,
     bestSellers,
     /*
@@ -239,8 +287,8 @@ export function selectHomepage({
     newArrivals,
     newArrivalsHaveMore: recentlyAdded.length > newArrivals.length,
     browse,
-    brands: brands.slice(0, BRAND_LIMIT),
-    brandsHaveMore: brands.length > RAIL_MOBILE_LIMIT,
+    brands: railBrands,
+    brandsHaveMore: brands.length > railBrands.length,
     isEmpty: products.length === 0,
   };
 }

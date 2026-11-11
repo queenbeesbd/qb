@@ -8,7 +8,6 @@ import type { CatalogBrand } from '@/lib/types';
 import { Carousel } from '@/components/Carousel';
 import { DiscoveryPhoto } from '@/components/DiscoveryPhoto';
 import { LetterMark } from '@/components/LetterMark';
-import { RAIL_MOBILE_LIMIT } from './rail-limits';
 import { SeeAllCircle } from './SeeAllCircle';
 import styles from './BrandCircleRail.module.css';
 
@@ -48,7 +47,6 @@ export function BrandCircleRail({
     <Carousel
       label={t('home.brandTitle')}
       size="circle"
-      mobileLimit={RAIL_MOBILE_LIMIT}
       controls="pager"
     >
       {brands.map((brand) => {

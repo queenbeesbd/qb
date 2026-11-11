@@ -8,7 +8,13 @@ import type { AdminIconName } from './icons';
  * show a destination the request would refuse. Presentation only: every route re-checks its own
  * permission.
  */
-export type AdminNavGroup = 'overview' | 'commerce' | 'customers' | 'settings' | 'system';
+export type AdminNavGroup =
+  | 'overview'
+  | 'commerce'
+  | 'storefront'
+  | 'customers'
+  | 'settings'
+  | 'system';
 
 export type AdminNavItem = {
   href: string;

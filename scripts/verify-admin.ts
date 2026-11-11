@@ -700,7 +700,7 @@ async function main(): Promise<void> {
 
     console.log('\nunauthenticated access');
     {
-      for (const path of ['/qbpanel', '/qbpanel/analytics', '/qbpanel/traffic', '/qbpanel/catalog', '/qbpanel/categories', '/qbpanel/owners', '/qbpanel/audit', '/qbpanel/forbidden']) {
+      for (const path of ['/qbpanel', '/qbpanel/analytics', '/qbpanel/traffic', '/qbpanel/catalog', '/qbpanel/categories', '/qbpanel/storefront', '/qbpanel/storefront/hero', '/qbpanel/owners', '/qbpanel/audit', '/qbpanel/forbidden']) {
         const response = await call(base, path);
         record(
           `GET ${path} without a session redirects to sign-in`,
@@ -1843,7 +1843,8 @@ async function main(): Promise<void> {
               '/qbpanel/catalog',
               '/qbpanel/settings/delivery',
               '/qbpanel/settings/other',
-              '/qbpanel/settings/hero',
+              '/qbpanel/storefront',
+              '/qbpanel/storefront/hero',
               '/qbpanel/settings/integrations/telegram',
             ]) {
               await browser.navigate(route);

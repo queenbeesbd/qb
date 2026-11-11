@@ -715,7 +715,7 @@ source be added without touching the catalog tables.
 ### 5.7 `hero_image` (homepage carousel, Phase 51)
 
 **Why it exists.** The homepage's first screen is an **ordered image carousel** the owner manages at
-Settings -> Homepage hero. It is not `store_setting`: the carousel is a list with a unique image, a
+Storefront -> Homepage hero (`/qbpanel/storefront/hero` since 2026-11-12). It is not `store_setting`: the carousel is a list with a unique image, a
 dense manual position and two hard bounds, which a row can state and enforce.
 
 | Column | Type | Null | Notes |
@@ -800,6 +800,35 @@ the purchase, the stars, the words and the photo, and refuses any transition out
 stars a product draws come from `product.rating_halves`. A published review is labelled **Verified
 buyer** on the storefront - the only thing verifiably true about it - and the customer's name and email
 are never rendered.
+
+### 5.10 `storefront_pick` (homepage selections, 2026-11-12)
+
+**Why it exists.** Three homepage rows are the owner's to decide: the departments in "Shop By Category",
+the brands in "Shop By Brand", and the products in "On Offer". Each is an **ordered list of ids**, which
+`store_setting` cannot state and which three parallel tables would have made three copies of. One table,
+one row per pick.
+
+| Column | Type | Null | Notes |
+| --- | --- | --- | --- |
+| `id` | bigint identity | PK | |
+| `section` | text | NOT NULL | `categories` \| `brands` \| `offers` |
+| `position` | integer | NOT NULL | Dense 0..n-1 in the owner's order |
+| `category_id` | bigint | NULL | FK `category`, ON DELETE CASCADE |
+| `brand_id` | bigint | NULL | FK `brand`, ON DELETE CASCADE |
+| `product_id` | bigint | NULL | FK `product`, ON DELETE CASCADE |
+| `created_at` | timestamptz | NOT NULL | |
+
+**Constraints.** `CHECK section in (...)`; `CHECK position >= 0`; **exactly one target per section**
+(`categories` -> `category_id` set and the others NULL, and so on), so a row cannot make two claims;
+`UNIQUE (section, position)`; one partial unique index per target (`section, category_id` where not
+null, and likewise for brand and product) so a department cannot be listed twice in the same rail.
+
+**Authorisation and rules.** Read through the storefront snapshot. Write: `settings.write`, audited as
+`storefront.selection_updated` with the before/after id lists. The service enforces the caps
+(**15 / 15 / 10**), that each pick is showable now (live visible **top-level** department, live brand,
+published product with a **genuine** saving), and rewrites the rows under a transaction advisory lock.
+**No rows for a section means the shop's automatic selection** - the busiest departments, the busiest
+brands, the largest real savings - so the table is optional configuration, never a required one.
 
 ## 6. Inventory: balance, ledger and reservations
 
