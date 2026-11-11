@@ -6,7 +6,7 @@
  * only module that decides how a secret is represented at rest.
  */
 
-import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
+import { createHash, createHmac, randomBytes, randomInt, timingSafeEqual } from 'node:crypto';
 
 /**
  * Label mixed into the derived CSRF token. Versioned so the derivation can be rotated without
@@ -20,6 +20,20 @@ const TOKEN_PATTERN = /^[A-Za-z0-9_-]{43}$/;
 /** 256 bits of entropy, base64url so it is safe in a cookie value. */
 export function createOpaqueToken(): string {
   return randomBytes(32).toString('base64url');
+}
+
+/**
+ * A numeric one-time code, for delivery over a channel that can carry only a few digits.
+ *
+ * Six digits are small enough to type from an SMS and large enough that guessing needs a throttle; the
+ * digest that is stored is keyed (see the SMS integration), so the number space is not the only
+ * defence. `randomInt` is uniform, unlike `Math.random`, and every position including a leading zero
+ * is random.
+ */
+export function createNumericCode(length = 6): string {
+  let code = '';
+  for (let index = 0; index < length; index += 1) code += String(randomInt(0, 10));
+  return code;
 }
 
 /**

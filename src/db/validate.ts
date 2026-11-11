@@ -53,17 +53,36 @@ export type DeclaredObjects = {
 export function parseDeclaredObjects(folder = 'drizzle'): DeclaredObjects {
   const sql = migrationSql(folder);
 
+  /**
+   * A table may be created by one migration and dropped by a later one (0029 removes
+   * `customer_email_change`), so the declared set is "created minus dropped". Its indexes and check
+   * constraints go with it: PostgreSQL drops them implicitly, and keeping them here would report them
+   * as missing from a database that is in fact in step with the files.
+   */
+  const droppedTables = new Set(matchAll(sql, /DROP TABLE (?:IF EXISTS )?"([a-z0-9_]+)"/g));
+  const tables = matchAll(sql, /CREATE TABLE "([a-z0-9_]+)"/g);
+
   const indexes = matchAll(sql, /CREATE (?:UNIQUE )?INDEX "([a-z0-9_]+)"/g);
   const partialIndexes = matchAll(
     sql,
     /CREATE (?:UNIQUE )?INDEX "([a-z0-9_]+)"[^;]*?WHERE/g,
   );
+  /** The table an index is declared on, when the file states it as `ON "table"`. */
+  const indexTable = (name: string): string | null => {
+    const match = new RegExp(`CREATE (?:UNIQUE )?INDEX "${name}"[\\s\\S]*? ON "([a-z0-9_]+)"`).exec(sql);
+    return match?.[1] ?? null;
+  };
+  const kept = (name: string): boolean => droppedTables.size === 0 || ![...droppedTables].some((table) => name.startsWith(`${table}_`));
+  const onLiveTable = (name: string): boolean => {
+    const table = indexTable(name);
+    return table === null || !droppedTables.has(table);
+  };
 
   return {
-    tables: matchAll(sql, /CREATE TABLE "([a-z0-9_]+)"/g),
-    checkConstraints: matchAll(sql, /CONSTRAINT "([a-z0-9_]+)" CHECK/g),
-    indexes,
-    partialIndexes,
+    tables: tables.filter((table) => !droppedTables.has(table)),
+    checkConstraints: matchAll(sql, /CONSTRAINT "([a-z0-9_]+)" CHECK/g).filter(kept),
+    indexes: indexes.filter(onLiveTable),
+    partialIndexes: partialIndexes.filter(onLiveTable),
     triggers: matchAll(sql, /CREATE TRIGGER ([a-z0-9_]+)/g),
     functions: matchAll(sql, /CREATE OR REPLACE FUNCTION ([a-z0-9_]+)/g),
   };

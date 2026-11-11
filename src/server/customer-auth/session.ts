@@ -39,11 +39,14 @@ export type { SessionContext };
 export type CustomerPrincipal = {
   readonly sessionId: string;
   readonly customerId: number;
-  readonly email: string;
-  /** The second sign-in identifier, or null for an email-only account (2026-11-11). */
+  /** Null for a phone-only account; at least one of `email` / `phone` is always present. */
+  readonly email: string | null;
+  /** The other sign-in identifier, or null for an email-only account (2026-11-11). */
   readonly phone: string | null;
   /** Null until the address is confirmed; the account is usable either way. */
   readonly emailVerifiedAt: Date | null;
+  /** Null until the SMS code sent at registration is entered; the account is usable either way. */
+  readonly phoneVerifiedAt: Date | null;
   readonly displayName: string | null;
   readonly absoluteExpiresAt: Date;
   readonly idleExpiresAt: Date;
@@ -118,6 +121,7 @@ export async function resolveCustomerSession(
       status: customer.status,
       email: customer.email,
       phone: customer.phone,
+      phoneVerifiedAt: customer.phoneVerifiedAt,
       emailVerifiedAt: customer.emailVerifiedAt,
       displayName: customer.displayName,
     })
@@ -156,6 +160,7 @@ export async function resolveCustomerSession(
       email: row.email,
       phone: row.phone,
       emailVerifiedAt: row.emailVerifiedAt,
+      phoneVerifiedAt: row.phoneVerifiedAt,
       displayName: row.displayName,
       absoluteExpiresAt: row.absoluteExpiresAt,
       idleExpiresAt: row.idleExpiresAt,

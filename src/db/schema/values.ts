@@ -84,7 +84,12 @@ export const REFUND_METHOD = ['bkash', 'nagad', 'cash', 'other'] as const;
 export const CUSTOMER_STATUS = ['active', 'suspended', 'deleted'] as const;
 export const STAFF_STATUS = ['active', 'disabled'] as const;
 export const CREDENTIAL_KIND = ['password', 'passkey', 'oauth'] as const;
-export const RECOVERY_PURPOSE = ['password_reset', 'email_verify'] as const;
+/**
+ * What a customer token is for. `email_verify` and `phone_verify` settle a registration identifier;
+ * `password_reset` is the mailed link and `phone_reset` the six-digit SMS code sent to a phone-only
+ * (or phone-preferring) account.
+ */
+export const RECOVERY_PURPOSE = ['password_reset', 'email_verify', 'phone_verify', 'phone_reset'] as const;
 
 /**
  * `staff_recovery_token.purpose`.

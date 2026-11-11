@@ -92,7 +92,9 @@ export default async function StorefrontLayout({ children }: { children: React.R
       <Shell
         categories={byDepartmentSize}
         customer={
-          principal === null ? null : { email: principal.email, displayName: principal.displayName }
+          principal === null
+            ? null
+            : { email: principal.email, phone: principal.phone, displayName: principal.displayName }
         }
         announcements={announcements}
         help={help}

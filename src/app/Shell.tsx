@@ -32,7 +32,7 @@ export function Shell({
    */
   categories: readonly CatalogCategory[];
   /** Resolved on the server once per request; never re-derived in the browser. */
-  customer: { email: string; displayName: string | null } | null;
+  customer: { email: string | null; phone: string | null; displayName: string | null } | null;
   /**
    * Composed on the server: the owner's saved line, when it is switched on. The bar itself does not
    * decide policy.

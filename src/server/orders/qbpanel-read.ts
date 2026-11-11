@@ -308,7 +308,7 @@ export type CustomersQueueItem = CustomerQueueRow;
 
 export type FlaggedCustomer = {
   readonly customerId: number;
-  readonly email: string;
+  readonly email: string | null;
   readonly displayName: string | null;
   readonly reason: string;
   readonly raisedAt: Date;
@@ -400,7 +400,7 @@ export type CustomerOrderRow = {
 
 export type CustomerDetail = {
   readonly customerId: number;
-  readonly email: string;
+  readonly email: string | null;
   readonly phone: string | null;
   readonly displayName: string | null;
   readonly status: string;

@@ -10,15 +10,14 @@ import type { SignInMethod } from './LoginView';
 /**
  * Customer registration form.
  *
- * **Two identifiers, one account** (owner decision, 2026-11-11). The default is a Bangladeshi mobile
+ * **One identifier, one account** (owner decision, 2026-11-12). The default is a Bangladeshi mobile
  * number; the switch beside the heading asks for an email address instead. The switch is a link, so it
  * works without JavaScript and the server receives the same `method` the person chose.
  *
- * **An email address is required in both modes.** A phone-first account still needs one, because the
- * mailed recovery link is the only self-service way back in. **No verification code is sent to the
- * number** - no SMS provider is configured - while the address gets a Resend verification link. The
- * account is usable immediately either way: verification confirms the address, it does not gate the
- * account.
+ * **Neither mode asks for the other.** A phone-first account is opened with a number and gets a
+ * six-digit SMS code; an email-first account is opened with an address and gets a verification link.
+ * The account is usable immediately either way: verification confirms the identifier, it does not gate
+ * the account.
  */
 export function RegisterView({
   next,
@@ -112,7 +111,7 @@ export function RegisterView({
           />
         </label>
 
-        {method === 'phone' && (
+        {method === 'phone' ? (
           <label className={styles.field}>
             <span>{t('account.phone')}</span>
             <input
@@ -124,24 +123,22 @@ export function RegisterView({
               maxLength={20}
               placeholder={t('account.phonePlaceholder')}
             />
-            <small>{t('account.phoneHelp')}</small>
+            <small>{t('account.phoneVerifyHelp')}</small>
+          </label>
+        ) : (
+          <label className={styles.field}>
+            <span>{t('account.email')}</span>
+            <input
+              type="email"
+              name="email"
+              autoComplete="email"
+              required
+              maxLength={254}
+              placeholder={t('account.emailPlaceholder')}
+            />
+            <small>{t('account.emailVerifyHelp')}</small>
           </label>
         )}
-
-        <label className={styles.field}>
-          <span>
-            {method === 'phone' ? t('account.emailForRecovery') : t('account.email')}
-          </span>
-          <input
-            type="email"
-            name="email"
-            autoComplete="email"
-            required
-            maxLength={254}
-            placeholder={t('account.emailPlaceholder')}
-          />
-          <small>{t('account.emailVerifyHelp')}</small>
-        </label>
 
         <div className={styles.fieldPair}>
           <label className={styles.field}>

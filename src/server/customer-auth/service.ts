@@ -3,9 +3,9 @@
  *
  * The flows this phase supports:
  *
- * - **registerCustomer** - a password together with an email address, and optionally a Bangladeshi
- *   phone number that becomes a second sign-in identifier. Email is always collected (it is the only
- *   address a recovery link can reach); phone-first registration makes the number required.
+ * - **registerCustomer** - a password together with **either** a Bangladeshi mobile number **or** an
+ *   email address; whichever one is given becomes the account's sign-in identifier and the channel its
+ *   verification message and recovery code travel on (owner decision, 2026-11-12).
  * - **signInCustomer** - by phone **or** by email, throttled by account and by source, generic failure,
  *   and a new session issued on success (never a promoted one).
  * - **signOutCustomer** - revokes the row; the route clears the cookie.
@@ -44,7 +44,7 @@ import {
   CUSTOMER_LOGIN_THROTTLE,
   CUSTOMER_REGISTER_THROTTLE,
 } from './constants';
-import { issueEmailVerification } from './email-security';
+import { issueEmailVerification, issuePhoneVerification } from './account-security';
 import { createCustomerSession, revokeAllCustomerSessions, revokeCustomerSession } from './session';
 import { parseDisplayName, parseEmail, parsePassword, parsePhone } from './validation';
 
@@ -67,11 +67,18 @@ export type CustomerRegisterFailure =
   | 'phone_taken'
   | 'throttled';
 
-/** The verification mail a successful registration should schedule after its transaction commits. */
-export type CustomerVerificationDelivery = { readonly to: string; readonly token: string };
+/**
+ * What a successful registration should deliver after its transaction commits.
+ *
+ * Exactly one channel is used, because exactly one identifier was supplied: the address that opened
+ * the account is the address that is verified.
+ */
+export type CustomerRegistrationDelivery =
+  | { readonly channel: 'email'; readonly to: string; readonly token: string }
+  | { readonly channel: 'sms'; readonly to: string; readonly code: string };
 
 export type CustomerRegisterResult =
-  | { ok: true; customerId: number; verification: CustomerVerificationDelivery | null }
+  | { ok: true; customerId: number; verification: CustomerRegistrationDelivery | null }
   | { ok: false; failure: CustomerRegisterFailure; blockedUntil?: Date | null };
 
 /**
@@ -138,10 +145,10 @@ function registrationMethod(raw: unknown, phoneRaw: unknown): CustomerIdentifier
  * address or number is taken to choose another one, and unlike sign-in there is no credential to steal
  * by learning that one exists.
  *
- * **The email address is required in both modes** (owner decision, 2026-11-11): a phone-first account
- * still needs an address, because the mailed reset link is the only self-service way back in. The
- * address is not verified before the account is usable - the account works immediately, and a
- * verification mail is scheduled after the transaction commits.
+ * **One identifier is enough** (owner decision, 2026-11-12): phone-first collects a number, email-first
+ * an address, and neither mode asks for the other. The identifier is not verified before the account
+ * is usable - the account works immediately, and a verification mail or SMS code is scheduled after
+ * the transaction commits. Recovery works through whichever identifier the account holds.
  */
 export async function registerCustomer(
   tx: Transaction,
@@ -156,8 +163,11 @@ export async function registerCustomer(
 ): Promise<CustomerRegisterResult> {
   const method = registrationMethod(input.method, input.phone);
 
-  const email = parseEmail(input.email);
-  if (email === null) return { ok: false, failure: 'invalid_email' };
+  // One identifier opens the account (owner decision, 2026-11-12): phone-first asks for a number and
+  // email-first for an address. The other field is not collected, so it is stored as null rather than
+  // as an empty string, and the schema's `customer_contact_required` check keeps the pair honest.
+  const email = method === 'email' ? parseEmail(input.email) : null;
+  if (method === 'email' && email === null) return { ok: false, failure: 'invalid_email' };
 
   const phone = method === 'phone' ? parsePhone(input.phone) : null;
   if (method === 'phone' && phone === null) return { ok: false, failure: 'invalid_phone' };
@@ -182,11 +192,11 @@ export async function registerCustomer(
     .select({ email: customer.email, phone: customer.phone })
     .from(customer)
     .where(
-      phone === null
-        ? sql`lower(${customer.email}) = ${email}`
-        : sql`lower(${customer.email}) = ${email} or ${customer.phone} = ${phone}`,
+      email === null
+        ? sql`${customer.phone} = ${phone}`
+        : sql`lower(${customer.email}) = ${email}`,
     );
-  if (taken.some((row) => row.email.toLowerCase() === email)) {
+  if (email !== null && taken.some((row) => row.email !== null && row.email.toLowerCase() === email)) {
     return { ok: false, failure: 'email_taken' };
   }
   if (phone !== null && taken.some((row) => row.phone === phone)) {
@@ -231,8 +241,15 @@ export async function registerCustomer(
     hashAlgorithm: 'scrypt',
   });
 
-  // The account is usable now; the link only confirms the address the customer typed.
-  const verification = await issueEmailVerification(tx, { customerId, email });
+  // The account is usable now; verification only settles the identifier that opened it.
+  let verification: CustomerRegistrationDelivery | null = null;
+  if (email !== null) {
+    const delivery = await issueEmailVerification(tx, { customerId, email });
+    if (delivery !== null) verification = { channel: 'email', ...delivery };
+  } else if (phone !== null) {
+    const delivery = await issuePhoneVerification(tx, { customerId, phone });
+    if (delivery !== null) verification = { channel: 'sms', ...delivery };
+  }
 
   // A successful registration clears the source counter, so a person's own typos do not lock them out.
   await clearThrottle(tx, CUSTOMER_REGISTER_THROTTLE, [source]);

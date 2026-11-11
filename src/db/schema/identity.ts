@@ -27,11 +27,14 @@ export const customer = pgTable(
   'customer',
   {
     id: bigint('id', { mode: 'number' }).generatedAlwaysAsIdentity().primaryKey(),
-    email: text('email').notNull(),
+    /** Null for a phone-only account (2026-11-12). At least one of `email` / `phone` is required. */
+    email: text('email'),
     phone: text('phone'),
     displayName: text('display_name'),
     status: text('status').notNull().default('active'),
     emailVerifiedAt: timestamp('email_verified_at', { withTimezone: true, mode: 'date' }),
+    /** Set when the SMS code sent at registration is entered. Null until then, and after a change. */
+    phoneVerifiedAt: timestamp('phone_verified_at', { withTimezone: true, mode: 'date' }),
     createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
     deletedAt: timestamp('deleted_at', { withTimezone: true, mode: 'date' }),
@@ -51,6 +54,8 @@ export const customer = pgTable(
     check('customer_email_len', lenAtMost('email', 254)),
     check('customer_display_name_len', sql`${t.displayName} is null or char_length(${t.displayName}) <= 80`),
     check('customer_phone_format', sql`${t.phone} is null or ${t.phone} ~ '^01[3-9][0-9]{8}$'`),
+    /** One identifier is enough, but an account with neither could never be signed in to or recovered. */
+    check('customer_contact_required', sql`${t.email} is not null or ${t.phone} is not null`),
     check('customer_status_valid', colIn('status', CUSTOMER_STATUS)),
     check('customer_deleted_implies_status', sql`${t.deletedAt} is null or ${t.status} = 'deleted'`),
   ],
@@ -118,6 +123,8 @@ export const accountRecoveryToken = pgTable(
     expiresAt: timestamp('expires_at', { withTimezone: true, mode: 'date' }).notNull(),
     usedAt: timestamp('used_at', { withTimezone: true, mode: 'date' }),
     requestedIpHash: text('requested_ip_hash'),
+    /** Wrong guesses against an SMS code. A mailed link never uses it: the token space is 256 bits. */
+    attempts: integer('attempts').notNull().default(0),
   },
   (t) => [
     uniqueIndex('account_recovery_token_hash_unique').on(t.tokenHash),
@@ -305,44 +312,4 @@ export const staffRole = pgTable(
     grantedAt: timestamp('granted_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
   },
   (t) => [primaryKey({ columns: [t.staffUserId, t.roleId] })],
-);
-
-/**
- * A pending change of a customer's registered email address (ADR 0030).
- *
- * **The address on `customer.email` does not move when the customer types a new one.** This row holds
- * the address *requested*, the digest of the confirmation token mailed to it, and the instant it stops
- * being accepted; the update happens only when that link is used. So a typo cannot lock somebody out of
- * their own account, and a stolen session alone cannot move the login identifier to an address the
- * attacker controls - the confirmation is delivered to the new address, which the requester must own.
- *
- * One live row per customer (partial unique on `customer_id` where `used_at is null`), so requesting a
- * second change supersedes the first rather than leaving two links that both work.
- */
-export const customerEmailChange = pgTable(
-  'customer_email_change',
-  {
-    id: uuid('id').primaryKey().defaultRandom(),
-    customerId: bigint('customer_id', { mode: 'number' })
-      .notNull()
-      .references(() => customer.id, { onDelete: 'cascade' }),
-    /** The requested address, normalised. It is not the account's address until the link is used. */
-    newEmail: text('new_email').notNull(),
-    /** SHA-256 of the token mailed to `new_email`. The raw token exists only in that message. */
-    tokenHash: text('token_hash').notNull(),
-    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
-    expiresAt: timestamp('expires_at', { withTimezone: true, mode: 'date' }).notNull(),
-    usedAt: timestamp('used_at', { withTimezone: true, mode: 'date' }),
-    /** Digest of the requesting address, for correlation only. The address itself is never stored. */
-    requestedIpHash: text('requested_ip_hash'),
-  },
-  (t) => [
-    uniqueIndex('customer_email_change_token_unique').on(t.tokenHash),
-    uniqueIndex('customer_email_change_live_unique')
-      .on(t.customerId)
-      .where(sql`${t.usedAt} is null`),
-    index('customer_email_change_customer_idx').on(t.customerId, t.createdAt.desc()),
-    check('customer_email_change_email_len', sql`char_length(${t.newEmail}) between 3 and 254`),
-    check('customer_email_change_expiry_after_created', sql`${t.expiresAt} > ${t.createdAt}`),
-  ],
 );

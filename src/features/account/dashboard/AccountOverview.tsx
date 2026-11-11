@@ -65,18 +65,25 @@ export function AccountOverview({
         {customer.phone !== null && (
           <div>
             <dt>{t('account.phone')}</dt>
-            <dd>{customer.phone}</dd>
+            <dd>
+              {customer.phone}
+              {!customer.phoneVerified && (
+                <span className={styles.factNote}> {t('account.phoneUnverifiedShort')}</span>
+              )}
+            </dd>
           </div>
         )}
-        <div>
-          <dt>{t('account.email')}</dt>
-          <dd>
-            {customer.email}
-            {!customer.emailVerified && (
-              <span className={styles.factNote}> {t('account.emailUnverifiedShort')}</span>
-            )}
-          </dd>
-        </div>
+        {customer.email !== null && (
+          <div>
+            <dt>{t('account.email')}</dt>
+            <dd>
+              {customer.email}
+              {!customer.emailVerified && (
+                <span className={styles.factNote}> {t('account.emailUnverifiedShort')}</span>
+              )}
+            </dd>
+          </div>
+        )}
         {memberSince !== null && (
           <div>
             <dt>{t('account.details.memberSince')}</dt>

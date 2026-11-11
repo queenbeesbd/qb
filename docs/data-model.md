@@ -228,8 +228,9 @@ claims, returns and flags.
 | Column | Type | Null | Notes |
 | --- | --- | --- | --- |
 | `id` | bigint identity | PK | Internal only; never exposed |
-| `email` | text | NOT NULL | `CHECK (char_length(email) <= 254)`, stored trimmed and lower-cased by the application. Required in **both** registration modes (ADR 0036): it is the only address a recovery link can reach |
-| `phone` | text | NULL | A second sign-in identifier. Canonical `^01[3-9][0-9]{8}$`; required by phone-first registration, absent on an email-only account. **Not verified** - no SMS provider is configured (ADR 0036) |
+| `email` | text | NULL | `CHECK (char_length(email) <= 254)`, stored trimmed and lower-cased by the application. **Nullable since ADR 0037**: an email-first account has one, a phone-first account does not |
+| `phone` | text | NULL | A sign-in identifier. Canonical `^01[3-9][0-9]{8}$`; present on a phone-first account, absent on an email-only one |
+| `phone_verified_at` | timestamptz | NULL | Set when the six-digit SMS code sent at registration is entered (ADR 0037). Null means not proved; the account is usable either way |
 | `display_name` | text | NULL | `CHECK (char_length <= 80)` |
 | `status` | text | NOT NULL | `active` \| `suspended` \| `deleted`. Default `active` |
 | `email_verified_at` | timestamptz | NULL | NULL means not verified. Never guessed from a submission |
@@ -237,17 +238,21 @@ claims, returns and flags.
 | `deleted_at` | timestamptz | NULL | Soft delete; PII scrubbed per 14.6 |
 
 **Keys and constraints.** `UNIQUE (lower(email))`; partial `UNIQUE (phone) WHERE phone IS NOT NULL`;
-`CHECK (status IN (...))`; `CHECK (deleted_at IS NULL OR status = 'deleted')`.
+`CHECK (email IS NOT NULL OR phone IS NOT NULL)` (`customer_contact_required`, ADR 0037 - an account
+with neither could never be signed in to or recovered); `CHECK (status IN (...))`;
+`CHECK (deleted_at IS NULL OR status = 'deleted')`.
 
 **Indexes.** `UNIQUE` on `lower(email)` (email login lookup); partial `UNIQUE` on `phone` (phone login
 lookup, and the rule that one number names one account); `(status, created_at DESC)` for the admin
 customer list; partial `(id)` where `deleted_at IS NULL`.
 
-**Identity (ADR 0036, 2026-11-11).** An account signs in with either identifier: the email address or,
-when one is stored, the mobile number. The number is normalised before storage, so spacing, dashes and
-an `880` prefix do not create a second account. `email_verified_at` records only that the person
-clicked the mailed link; the account is usable before that, and a completed password reset also settles
-it because opening a mailed link proves control of the address.
+**Identity (ADR 0036, 2026-11-11; ADR 0037, 2026-11-12).** One identifier opens an account and the other
+is not required: phone-first collects a number, email-first an address. An account signs in with either
+identifier it holds. The number is normalised before storage, so spacing, dashes and an `880` prefix do
+not create a second account. `email_verified_at` and `phone_verified_at` record only that the person
+opened the mailed link or entered the SMS code; the account is usable before that. Verification happens
+**only at registration and in recovery**, and a completed password reset also settles the identifier it
+travelled on, because receiving the message proves control of it.
 
 **Authorization.** A customer reads and updates only their own row, resolved from the session, never
 from a request parameter. Staff read with `customer.read`; only an owner-level role changes
@@ -330,22 +335,14 @@ revoke their own sessions; staff with `customer.revoke_session` may revoke any.
 **Retention.** Rows are deleted after expiry plus a short grace window; the deletion is a maintenance
 job, not a state change.
 
-### 4.3a `customer_email_change` (implemented 2026-11-08, ADR 0030)
+### 4.3a `customer_email_change` (dropped 2026-11-12, ADR 0037)
 
-| Column | Type | Null | Notes |
-| --- | --- | --- | --- |
-| `id` | uuid | PK | `gen_random_uuid()` |
-| `customer_id` | bigint | NOT NULL | FK `customer(id)` `ON DELETE CASCADE` |
-| `new_email` | text | NOT NULL | The **requested** address. The account keeps `customer.email` until the link is used. `CHECK (3 .. 254)` |
-| `token_hash` | text | NOT NULL | `UNIQUE`. SHA-256 of the token mailed to `new_email`; the raw token exists only in that message |
-| `created_at` / `expires_at` | timestamptz | NOT NULL | `CHECK (expires_at > created_at)`; one day by policy |
-| `used_at` | timestamptz | NULL | Consumption is a guarded `UPDATE ... WHERE used_at IS NULL` |
-| `requested_ip_hash` | text | NULL | Digest only, for correlation |
-
-**Partial unique `customer_email_change_live_unique` on `customer_id` where `used_at is null`:** one
-live change per account, so a second request supersedes the first rather than leaving two working
-links. No address, token or digest is written to an audit row; `customer.email` moves only when the
-mailed link is confirmed, and every session is revoked at that moment (`revoked_reason = 'email_change'`).
+This table held a pending change of address and the digest of the confirmation link mailed to the new
+address (ADR 0030). **ADR 0037 removed the confirmation step**: a change of address is applied directly
+from the account page after the current password is re-entered, so the table, its indexes and the
+mailed confirmation are gone (migration `0029`). The direct update clears `email_verified_at`, revokes
+every session (`revoked_reason = 'email_change'`) and mails the previous address a notice. The heading
+number is kept so older references still resolve.
 
 ### 4.4 `account_recovery_token`
 
@@ -356,10 +353,11 @@ long-lived second password.
 | --- | --- | --- | --- |
 | `id` | uuid | PK | |
 | `customer_id` | bigint | NOT NULL | FK `customer(id)` `ON DELETE CASCADE` |
-| `purpose` | text | NOT NULL | `password_reset` \| `email_verify` |
-| `token_hash` | text | NOT NULL | SHA-256 of a random token; raw value never stored |
-| `created_at` / `expires_at` | timestamptz | NOT NULL | Short lifetime (proposal: 30 minutes) |
-| `used_at` | timestamptz | NULL | Single use |
+| `purpose` | text | NOT NULL | `password_reset` \| `email_verify` \| `phone_verify` \| `phone_reset` (ADR 0037) |
+| `token_hash` | text | NOT NULL | SHA-256 of a random token; for an SMS code, the **HMAC-SHA256** of the six digits under a server secret (`SMS_CODE_SECRET`, falling back to `BULKSMS_API_KEY`). Raw value never stored |
+| `created_at` / `expires_at` | timestamptz | NOT NULL | An hour for a mailed recovery link, 48 hours for a registration link, ten minutes for an SMS code |
+| `used_at` | timestamptz | NULL | Single use; a code is also consumed on its fifth wrong guess |
+| `attempts` | integer | NOT NULL | Default `0`. Wrong guesses against an SMS code; a mailed link never uses it |
 | `requested_ip_hash` | text | NULL | Abuse correlation |
 
 **Constraints.** `UNIQUE (token_hash)`; partial `UNIQUE (customer_id, purpose)` where
@@ -368,16 +366,13 @@ long-lived second password.
 **Authorization.** Created only by the recovery endpoint; consumed only by the reset endpoint.
 A successful use revokes every existing session on that account.
 
-**Actively written since Phase 23** - but only for an **owner-operated reset**, never self-service
-(ADR 0012). `issueCustomerRecovery` writes one `password_reset` row per issuance with the **digest** of a
-256-bit one-time credential, a **30-minute** expiry, and the same request that revokes every live session;
-`redeemCustomerRecovery` consumes it with a guarded `UPDATE ... WHERE used_at IS NULL` and forces a new
-password in one transaction.
-
-**Never self-service.** No customer-triggerable producer exists, so no mail or SMS path is implied, and the
-`email_verify` purpose stays **unused** (there is no provider authorized to verify an address). The
-`requested_ip_hash` column stays NULL: an owner-initiated issuance has no customer source address to
-record.
+**Written by the self-service flows since 2026-11-11 (ADR 0030) and by SMS since 2026-11-12 (ADR 0037).**
+One row per live credential: a mailed `email_verify` or `password_reset` token (256 bits, digest stored),
+or an SMS `phone_verify` / `phone_reset` six-digit code (keyed digest, ten-minute expiry, five attempts).
+Issuing supersedes any earlier live row for the same purpose; consuming is a guarded
+`UPDATE ... WHERE used_at IS NULL`; a successful password reset revokes every live session. The
+owner-issued code of Phase 23 was removed on 2026-11-08, so no `customer.credential_reset` producer
+exists.
 
 ### 4.5 `auth_throttle`
 
@@ -2751,7 +2746,7 @@ forbid.
 
 | Group | Tables |
 | --- | --- |
-| Identity and access | `customer`, `customer_credential`, `customer_session`, `account_recovery_token`, `customer_email_change`, `auth_throttle`, `staff_user`, `staff_credential`, `staff_session`, `staff_recovery_token`, `role`, `permission`, `role_permission`, `staff_role` |
+| Identity and access | `customer`, `customer_credential`, `customer_session`, `account_recovery_token`, `auth_throttle`, `staff_user`, `staff_credential`, `staff_session`, `staff_recovery_token`, `role`, `permission`, `role_permission`, `staff_role` |
 | Catalog | `brand`, `category`, `product`, `product_variant`, `product_image`, `product_image_derivative`, `hero_image`, `offer_popup`, `collection`, `collection_item`, `import_record` |
 | Inventory | `inventory_balance`, `inventory_movement`, `stock_reservation` |
 | Orders | `order`, `order_contact`, `order_item`, `order_event`, `cancellation_request`, `customer_return` |

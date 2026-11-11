@@ -9,7 +9,7 @@ import { useCart } from '@/features/cart/useCart';
 import { CartIcon, CloseIcon, MenuIcon, SearchIcon, UserIcon } from './icons';
 import styles from './Header.module.css';
 
-type Customer = { email: string; displayName: string | null } | null;
+type Customer = { email: string | null; phone: string | null; displayName: string | null } | null;
 
 /**
  * The storefront header.
@@ -155,7 +155,8 @@ export function Header({
   }, [menuOpen]);
 
   const cartLabel = `${t('nav.cart')} (${itemCount})`;
-  const accountIdentity = customer === null ? null : (customer.displayName ?? customer.email);
+  const accountIdentity =
+    customer === null ? null : (customer.displayName ?? customer.phone ?? customer.email);
   const accountLabel =
     accountIdentity === null ? t('nav.account') : t('nav.accountSignedInAs', { name: accountIdentity });
 

@@ -1,13 +1,14 @@
 /**
- * POST /api/account/email - request a change of the registered email address.
+ * POST /api/account/email - change the registered email address.
  *
  * Authenticated and CSRF-bound. The current password is required: a borrowed session is not evidence
- * that the person at the keyboard owns the account, and the address being changed is the login
- * identifier itself.
+ * that the person at the keyboard owns the account, and the address is a sign-in identifier.
  *
- * **The account address does not change here.** The service verifies the password, refuses an address
- * that is already taken or the same as the current one, stores the request with a hashed single-use
- * token, and this route mails the confirmation **to the new address**. Only that link moves the account.
+ * **The address changes here** (owner decision, 2026-11-12). There is no confirmation link to the new
+ * address and no verification step - verification exists only at registration and in recovery. The
+ * address is stored unverified, every session is revoked with the identifier, and this route mints one
+ * for the browser that made the change. The previous address is told what happened; that notice is a
+ * record, not a gate.
  */
 
 import { after } from 'next/server';
@@ -15,9 +16,13 @@ import { after } from 'next/server';
 import { withTransaction } from '@/db/client';
 import { deny, redirectTo } from '@/app/api/qbpanel/responses';
 import { CUSTOMER_SECURITY_PATH } from '@/server/customer-auth/constants';
-import { scheduleEmailChangeConfirmation } from '@/server/customer-auth/email-delivery';
-import { requestCustomerEmailChange } from '@/server/customer-auth/email-security';
-import { guardCustomerMutation } from '@/server/customer-auth/guard';
+import { scheduleEmailChanged } from '@/server/customer-auth/email-delivery';
+import { changeCustomerEmail } from '@/server/customer-auth/account-security';
+import {
+  guardCustomerMutation,
+  setCustomerSessionCookie,
+} from '@/server/customer-auth/guard';
+import { createCustomerSession } from '@/server/customer-auth/session';
 import { sessionContextFrom } from '@/server/auth/session';
 
 export const dynamic = 'force-dynamic';
@@ -32,6 +37,7 @@ const FAILURES: Record<string, string> = {
   same_email: 'emailSame',
   email_taken: 'emailTaken',
   throttled: 'emailThrottled',
+  unavailable: 'emailUnavailable',
 };
 
 export async function POST(request: Request): Promise<Response> {
@@ -40,7 +46,7 @@ export async function POST(request: Request): Promise<Response> {
 
   const context = sessionContextFrom(request.headers);
   const result = await withTransaction((tx) =>
-    requestCustomerEmailChange(tx, {
+    changeCustomerEmail(tx, {
       customerId: guard.principal.customerId,
       newEmail: guard.form.get('newEmail'),
       currentPassword: guard.form.get('currentPassword'),
@@ -50,10 +56,20 @@ export async function POST(request: Request): Promise<Response> {
 
   if (!result.ok) return backTo(FAILURES[result.failure] ?? 'emailInvalid');
 
-  scheduleEmailChangeConfirmation((task) => after(task), {
-    to: result.newEmail,
-    token: result.token,
-  });
+  // The address changed, so every session established against the old one was revoked; keep the browser
+  // that made the change signed in.
+  const session = await withTransaction((tx) =>
+    createCustomerSession(tx, guard.principal.customerId, context),
+  );
+  await setCustomerSessionCookie(session.token);
 
-  return backTo('emailConfirmSent');
+  if (result.previousEmail !== null) {
+    scheduleEmailChanged((task) => after(task), {
+      previousEmail: result.previousEmail,
+      newEmail: result.newEmail,
+      changedAt: new Date(),
+    });
+  }
+
+  return backTo('emailChanged');
 }

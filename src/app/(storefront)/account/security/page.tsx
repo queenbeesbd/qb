@@ -12,11 +12,11 @@ export const metadata: Metadata = {
 export const dynamic = 'force-dynamic';
 
 /**
- * Password and email, one screen.
+ * Password, number and email, one screen.
  *
- * Both routes on this page (`/api/account/password` and `/api/account/email`) return their result
- * code to **this** path, so a refusal is read beside the form that produced it rather than on the
- * dashboard, where the fields it refers to are not on screen.
+ * Both routes on this page (`/api/account/password` and `/api/account/email`) and the two verification
+ * resends return their result code to **this** path, so a refusal is read beside the form that produced
+ * it rather than on the dashboard, where the fields it refers to are not on screen.
  */
 export default async function SecurityPage({
   searchParams,
@@ -41,6 +41,7 @@ export default async function SecurityPage({
         email={principal.email}
         phone={principal.phone}
         emailVerified={principal.emailVerifiedAt !== null}
+        phoneVerified={principal.phoneVerifiedAt !== null}
         csrfToken={principal.csrfToken}
         notice={notice}
       />

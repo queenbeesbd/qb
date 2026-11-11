@@ -50,11 +50,9 @@ describe('schema constraints against real PostgreSQL', { skip: toolingAvailable 
     const report = await validateSchema(fixture.cluster.url);
     const failures = report.checks.filter((check) => !check.ok);
     assert.deepEqual(failures, [], `schema validation failed: ${JSON.stringify(failures)}`);
-    // 46 was the count at Phase 39. The schema has since added the visit log, the SteadFast
-    // consignment, the pricing rules and the review table; `tests/unit/schema-integrity.test.ts` is
-    // the authority on the number, and this assertion only proves the live catalog agrees with the
-    // migration files.
-    assert.equal(report.counts.tables, 53);
+    // `tests/unit/schema-integrity.test.ts` is the authority on the number; this assertion only proves
+    // the live catalog agrees with the migration files. 0029 dropped `customer_email_change`.
+    assert.equal(report.counts.tables, 52);
   });
 
   it('seeds a complete order graph', async () => {

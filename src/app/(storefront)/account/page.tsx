@@ -44,6 +44,7 @@ export default async function AccountPage() {
           email: principal.email,
           phone: principal.phone,
           emailVerified: principal.emailVerifiedAt !== null,
+          phoneVerified: principal.phoneVerifiedAt !== null,
           displayName: principal.displayName,
           memberSince: profile.createdAt?.toISOString() ?? null,
         }}

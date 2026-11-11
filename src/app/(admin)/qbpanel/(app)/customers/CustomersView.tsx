@@ -16,7 +16,7 @@ import { INTL_LOCALE } from '@/i18n/config';
 
 export type CustomerRow = {
   customerId: number;
-  email: string;
+  email: string | null;
   phone: string | null;
   displayName: string | null;
   status: string;
@@ -119,7 +119,7 @@ export function CustomersView({
             return (
               <li className={styles.record} key={row.customerId}>
                 <span className={styles.recordThumb} aria-hidden="true">
-                  {(row.displayName ?? row.email).slice(0, 1).toUpperCase()}
+                  {(row.displayName ?? row.phone ?? row.email ?? '?').slice(0, 1).toUpperCase()}
                 </span>
                 <div className={styles.recordMain}>
                   <span className={styles.recordTitle}>
@@ -127,7 +127,7 @@ export function CustomersView({
                   </span>
                   <span className={styles.recordMeta}>
                     {row.phone !== null && <span>{row.phone}</span>}
-                    <span>{row.email}</span>
+                    {row.email !== null && <span>{row.email}</span>}
                     <span>{t('admin.customers.joinedValue', { date: dateFormat.format(new Date(row.createdAt)) })}</span>
                     <span>{t('admin.customers.ordersValue', { count: row.orderCount })}</span>
                   </span>

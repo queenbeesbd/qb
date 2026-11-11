@@ -1,31 +1,37 @@
-'use client';
-
 import { CUSTOMER_PASSWORD_MIN_LENGTH } from '@/lib/password-policy';
 import { useTranslation } from '@/i18n/useTranslation';
 import styles from '@/app/account-dashboard.module.css';
 import { securityNotice } from './notices';
 
 /**
- * Password and email, on one screen (ADR 0030).
+ * Password, number and email, on one screen (ADR 0030, amended 2026-11-12).
  *
- * **The screen's one question** is "is this account still only mine?" - so the two facts that decide it
- * sit beside each other, each with the field that changes it. The panel states the rule that is easy
- * to miss before an action is taken rather than after: a change signs the other devices out.
+ * **The screen's one question** is "is this account still only mine?" - so the facts that decide it sit
+ * beside each other, each with the control that changes it. The panel states the rule that is easy to
+ * miss before an action is taken rather than after: a password or address change signs the other
+ * devices out.
  *
- * Both forms post natively with the session-bound CSRF token, so they work before any script runs and
- * a password is never held in component state. A refusal returns to this page and is rendered beside
- * the form that produced it.
+ * Verification appears here **only as a state and a resend**: it exists at registration and in recovery,
+ * so changing the address applies immediately and needs no confirmation link. An account opened with a
+ * number has no email address at all until one is added, and the screen says that rather than showing a
+ * blank line.
+ *
+ * Every form posts natively with the session-bound CSRF token, so they work before any script runs and
+ * a password is never held in component state. A refusal returns to this page and is rendered beside the
+ * form that produced it.
  */
 export function AccountSecurity({
   email,
   phone,
   emailVerified,
+  phoneVerified,
   csrfToken,
   notice,
 }: {
-  email: string;
+  email: string | null;
   phone: string | null;
   emailVerified: boolean;
+  phoneVerified: boolean;
   csrfToken: string;
   notice: string | null;
 }) {
@@ -114,7 +120,19 @@ export function AccountSecurity({
             </div>
             <div className={styles.settingsPanel}>
               <p className={styles.fieldHint}>{phone}</p>
-              <p className={styles.fieldHint}>{t('account.security.phoneUnverified')}</p>
+              <p className={styles.fieldHint}>
+                {phoneVerified
+                  ? t('account.security.phoneVerified')
+                  : t('account.security.phoneUnverified')}
+              </p>
+              {!phoneVerified && (
+                <form className={styles.form} action="/api/account/phone-verification" method="post">
+                  <input type="hidden" name="csrf" value={csrfToken} />
+                  <button type="submit" className={styles.button}>
+                    {t('account.security.resendCode')}
+                  </button>
+                </form>
+              )}
             </div>
           </section>
         )}
@@ -122,26 +140,34 @@ export function AccountSecurity({
         <section className={styles.settingsRow} aria-labelledby="security-email">
           <div className={styles.settingsText}>
             <h2 id="security-email" className={styles.settingsTitle}>
-              {t('account.changeEmailTitle')}
+              {email === null ? t('account.addEmailTitle') : t('account.changeEmailTitle')}
             </h2>
-            <p className={styles.settingsBody}>{t('account.changeEmailBody')}</p>
+            <p className={styles.settingsBody}>
+              {email === null ? t('account.addEmailBody') : t('account.changeEmailBody')}
+            </p>
             <p className={styles.fieldHint}>
-              {t('account.security.currentEmail')} {email}
+              {email === null
+                ? t('account.security.noEmail')
+                : `${t('account.security.currentEmail')} ${email}`}
             </p>
           </div>
           <div className={styles.settingsPanel}>
-            <p className={styles.fieldHint}>
-              {emailVerified
-                ? t('account.security.emailVerified')
-                : t('account.security.emailUnverified')}
-            </p>
-            {!emailVerified && (
-              <form className={styles.form} action="/api/account/verification" method="post">
-                <input type="hidden" name="csrf" value={csrfToken} />
-                <button type="submit" className={styles.button}>
-                  {t('account.security.resendVerification')}
-                </button>
-              </form>
+            {email !== null && (
+              <>
+                <p className={styles.fieldHint}>
+                  {emailVerified
+                    ? t('account.security.emailVerified')
+                    : t('account.security.emailUnverified')}
+                </p>
+                {!emailVerified && (
+                  <form className={styles.form} action="/api/account/verification" method="post">
+                    <input type="hidden" name="csrf" value={csrfToken} />
+                    <button type="submit" className={styles.button}>
+                      {t('account.security.resendVerification')}
+                    </button>
+                  </form>
+                )}
+              </>
             )}
             <form className={styles.form} action="/api/account/email" method="post">
               <input type="hidden" name="csrf" value={csrfToken} />
@@ -168,7 +194,7 @@ export function AccountSecurity({
               </label>
               <p className={styles.fieldHint}>{t('account.emailHelp')}</p>
               <button type="submit" className={styles.button}>
-                {t('account.changeEmailSubmit')}
+                {email === null ? t('account.addEmailSubmit') : t('account.changeEmailSubmit')}
               </button>
             </form>
           </div>

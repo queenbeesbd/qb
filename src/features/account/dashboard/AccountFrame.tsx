@@ -28,14 +28,14 @@ export function AccountFrame({
   active,
   children,
 }: {
-  customer: { email: string; phone: string | null; displayName: string | null };
+  customer: { email: string | null; phone: string | null; displayName: string | null };
   /** Present whenever the customer is signed in; the sign-out form posts it. */
   csrfToken: string;
   active: AccountSection;
   children: React.ReactNode;
 }) {
   const { t } = useTranslation();
-  const identity = customer.displayName ?? customer.phone ?? customer.email;
+  const identity = customer.displayName ?? customer.phone ?? customer.email ?? t('account.sidebar.member');
 
   const destinations: { section: AccountSection; href: string; label: TranslationKey }[] = [
     { section: 'overview', href: '/account', label: 'account.nav.overview' },

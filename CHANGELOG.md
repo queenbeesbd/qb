@@ -14,6 +14,37 @@ An entry may describe a deployment only once it has actually happened and been o
 
 ## [Unreleased]
 
+### Added / Changed - 2026-11-12: SMS verification and one-identifier accounts (ADR 0037)
+
+Owner direction: SMS is connected through BulkSMSBD, verification happens **only at registration and in
+recovery**, and opening an account with a phone number no longer requires an email address (or the
+reverse).
+
+- **Registration collects one identifier.** Phone mode asks for a Bangladeshi mobile number; email mode
+  asks for an address. `customer.email` is nullable, and `customer_contact_required` refuses a row with
+  neither. A phone-first account has no email until one is added from Security.
+- **SMS codes.** `src/server/integrations/sms.ts` is the only provider module, env-configured
+  (`BULKSMS_API_KEY`, `BULKSMS_SENDER_ID`, optional `SMS_CODE_SECRET`, development-only
+  `BULKSMS_API_URL`). **A missing sender id means nothing is sent** - the provider has not issued one
+  yet. A six-digit code is stored as a keyed HMAC digest, expires in ten minutes, is superseded by each
+  new code, and is consumed after five wrong guesses.
+- **Verification.** Registration sends a code (phone) or link (email) and does not gate the account; the
+  account page offers one throttled resend per identifier.
+- **Recovery** accepts either identifier: the mailed link for an address, a six-digit code entered at
+  `/account/reset` for a number. The answer is identical for every outcome.
+- **No verification outside those two flows.** A password change needs only the current password; a
+  change of email address is applied directly (current password, sessions revoked, one re-minted,
+  `email_verified_at` cleared, previous address notified). The `customer_email_change` table and the
+  mailed confirmation are removed.
+- Migration `0029_dazzling_blur`: nullable `customer.email`, `phone_verified_at`,
+  `account_recovery_token.attempts`, new purposes, `customer_email_change` dropped. Schema **53 -> 52
+  tables**, 30 migrations.
+
+Verified 2026-11-12: `typecheck`, `lint` (0 errors), `check:i18n` (1911 keys), unit **312/312**,
+`test:db` **289/289** (including phone registration code, SMS recovery, direct address change and the
+contact-required check). `npm run build`, `verify:admin`, `verify:browser` and real devices were not run
+for this change. Nothing is deployed, and production needs `0029` applied before this code ships.
+
 ### Changed - 2026-11-11: every product shows four stars unless the owner rates it
 
 Owner direction: the stars on a product are the shop's own figure, set by hand on the product form -

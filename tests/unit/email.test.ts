@@ -9,9 +9,7 @@ import {
   type EmailOptions,
 } from '../../src/server/integrations/email';
 import {
-  emailChangeConfirmationEmail,
   emailChangedEmail,
-  escapeHtml,
   passwordChangedEmail,
   passwordRecoveryEmail,
 } from '../../src/server/integrations/email-templates';
@@ -147,16 +145,6 @@ describe('sendEmail', () => {
 });
 
 describe('email templates', () => {
-  it('escapes a value that came from a request', () => {
-    assert.equal(escapeHtml('<script>"x" & \'y\''), '&lt;script&gt;&quot;x&quot; &amp; &#39;y&#39;');
-    const template = emailChangeConfirmationEmail({
-      confirmUrl: 'https://shop.example.test/account/confirm-email?token=abc',
-      newEmail: '<b>bad@example.test</b>',
-      expiresHours: 24,
-    });
-    assert.equal(template.html.includes('<b>bad@example.test</b>'), false);
-    assert.equal(template.html.includes('&lt;b&gt;bad@example.test&lt;/b&gt;'), true);
-  });
 
   it('carries the recovery link, its single use and its expiry', () => {
     const template = passwordRecoveryEmail({
@@ -186,7 +174,6 @@ describe('email templates', () => {
     for (const template of [
       passwordRecoveryEmail({ resetUrl: 'https://x.test/a', expiresMinutes: 60 }),
       passwordChangedEmail({ changedAt: 'now' }),
-      emailChangeConfirmationEmail({ confirmUrl: 'https://x.test/a', newEmail: 'a@b.test', expiresHours: 24 }),
       emailChangedEmail({ newEmail: 'a@b.test', changedAt: 'now' }),
     ]) {
       assert.ok(template.html.includes('#A680FF'), 'primary purple');

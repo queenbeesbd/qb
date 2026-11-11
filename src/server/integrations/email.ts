@@ -2,9 +2,10 @@
  * Transactional email, sent through Resend (ADR 0030).
  *
  * **Server-only, and only for account security.** The customer surface sends mail for exactly four
- * things: a password-recovery link, a "your password changed" notice, a new-address confirmation link,
- * and a "your address changed" notice to the previous address. Registration sends nothing - there is no
- * email verification in this product - and no order, marketing or analytics message exists here.
+ * things: a password-recovery link, a registration verification link, a "your password changed" notice
+ * and a "your address changed" notice to the previous address. A change of address no longer mails a
+ * confirmation to the new address (owner decision, 2026-11-12); no order, marketing or analytics
+ * message exists here.
  *
  * The API key comes from the process environment (`RESEND_API_KEY`) and is never read from the
  * database, a committed file, a client bundle or a form. `EMAIL_FROM` is the verified sender Resend

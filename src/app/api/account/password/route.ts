@@ -15,7 +15,7 @@ import { withTransaction } from '@/db/client';
 import { deny, redirectTo } from '@/app/api/qbpanel/responses';
 import { CUSTOMER_SECURITY_PATH } from '@/server/customer-auth/constants';
 import { schedulePasswordChanged } from '@/server/customer-auth/email-delivery';
-import { changeCustomerPassword } from '@/server/customer-auth/email-security';
+import { changeCustomerPassword } from '@/server/customer-auth/account-security';
 import {
   guardCustomerMutation,
   setCustomerSessionCookie,
@@ -67,7 +67,10 @@ export async function POST(request: Request): Promise<Response> {
   );
   await setCustomerSessionCookie(session.token);
 
-  schedulePasswordChanged((task) => after(task), { to: result.email, changedAt: new Date() });
+  // An account with no address has nowhere to send the notice; the change is still recorded.
+  if (result.email !== null) {
+    schedulePasswordChanged((task) => after(task), { to: result.email, changedAt: new Date() });
+  }
 
   return backTo('passwordChanged');
 }

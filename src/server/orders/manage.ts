@@ -234,7 +234,7 @@ export async function decideCod(
 
 export type CustomerQueueRow = {
   readonly customerId: number;
-  readonly email: string;
+  readonly email: string | null;
   /** The second sign-in identifier, when the account has one. */
   readonly phone: string | null;
   readonly displayName: string | null;

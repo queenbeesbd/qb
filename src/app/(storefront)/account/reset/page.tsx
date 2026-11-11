@@ -8,7 +8,7 @@ export const metadata: Metadata = {
 };
 export const dynamic = 'force-dynamic';
 
-const NOTICES: readonly ResetNotice[] = ['invalid', 'weak', 'mismatch', 'throttled', 'missing'];
+const NOTICES: readonly ResetNotice[] = ['invalid', 'weak', 'mismatch', 'throttled'];
 
 function single(value: string | string[] | undefined): string {
   const candidate = Array.isArray(value) ? value[0] : value;
@@ -16,10 +16,11 @@ function single(value: string | string[] | undefined): string {
 }
 
 /**
- * The recovery link's destination.
+ * Two entries to the same form: a mailed recovery link (a token in the query string) and the code a
+ * phone-first account receives (the number in the query string, the digits typed).
  *
- * The token is read from the query string and posted back by the form; nothing here validates it - the
- * server does that when the form is submitted, and a dead token is one generic sentence.
+ * Nothing here validates either - the server does that when the form is submitted, and a dead credential
+ * is one generic sentence.
  */
 export default async function ResetPasswordPage({
   searchParams,
@@ -27,11 +28,13 @@ export default async function ResetPasswordPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const params = await searchParams;
-  const raw = single(params.token).trim();
+  const rawToken = single(params.token).trim();
+  const rawPhone = single(params.phone).trim();
   const notice = single(params.error);
   return (
     <ResetPasswordView
-      token={raw.length === 0 ? null : raw.slice(0, 200)}
+      token={rawToken.length === 0 ? null : rawToken.slice(0, 200)}
+      phone={rawPhone.length === 0 ? null : rawPhone.slice(0, 20)}
       notice={(NOTICES as readonly string[]).includes(notice) ? (notice as ResetNotice) : null}
     />
   );

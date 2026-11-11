@@ -24,7 +24,7 @@ type OrderRow = {
 
 type Customer = {
   customerId: number;
-  email: string;
+  email: string | null;
   phone: string | null;
   displayName: string | null;
   status: string;
@@ -67,9 +67,9 @@ export function CustomerDetailView({
   return (
     <>
       <PageHeader
-        title={customer.displayName ?? customer.phone ?? customer.email}
+        title={customer.displayName ?? customer.phone ?? customer.email ?? ''}
         description={
-          customer.phone === null ? customer.email : `${customer.phone} · ${customer.email}`
+          [customer.phone, customer.email].filter((value) => value !== null).join(' · ')
         }
         actions={
           <Link className={`${styles.button} ${styles.buttonSecondary}`} href="/qbpanel/customers">

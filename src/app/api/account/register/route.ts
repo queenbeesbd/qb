@@ -6,9 +6,10 @@
  * issues the session, so a new customer does not have to sign in again immediately - which matters
  * because the cart lives in the browser and must survive the step.
  *
- * **Registration is not gated on email verification** (owner decision, 2026-11-11). The account works
- * now; the verification message is scheduled after the transaction commits and only confirms the
- * address. A provider failure therefore cannot cost a registration.
+ * **Registration is not gated on verification** (owner decision, 2026-11-11). The account works now;
+ * the verification message is scheduled after the transaction commits and only confirms the identifier
+ * that opened it - a mail link for an email-first account, a six-digit SMS code for a phone-first one.
+ * A provider failure therefore cannot cost a registration.
  *
  * The password is never echoed, never logged and never placed in the redirect target.
  */
@@ -17,7 +18,7 @@ import { after } from 'next/server';
 
 import { withTransaction } from '@/db/client';
 import { CUSTOMER_REGISTER_PATH } from '@/server/customer-auth/constants';
-import { scheduleEmailVerification } from '@/server/customer-auth/email-delivery';
+import { scheduleRegistrationVerification } from '@/server/customer-auth/email-delivery';
 import { safeCustomerNext, setCustomerSessionCookie } from '@/server/customer-auth/guard';
 import { registerCustomer } from '@/server/customer-auth/service';
 import { createCustomerSession } from '@/server/customer-auth/session';
@@ -70,11 +71,19 @@ export async function POST(request: Request): Promise<Response> {
     );
   }
 
-  // After the response: a mail outage never turns a created account into a failed registration.
+  // After the response: a mail or SMS outage never turns a created account into a failed registration.
   if (result.verification !== null) {
-    scheduleEmailVerification((task) => after(task), result.verification);
+    scheduleRegistrationVerification((task) => after(task), result.verification);
   }
 
   await setCustomerSessionCookie(result.token);
+
+  // A phone-first account is taken to the code it was just sent; skipping is one link away, because the
+  // account is already usable. An email-first account goes straight on - the link waits in the inbox.
+  if (result.verification?.channel === 'sms') {
+    const back = `phone=${encodeURIComponent(result.verification.to)}&next=${encodeURIComponent(next)}`;
+    return redirectTo(`/account/verify-phone?sent=1&${back}`);
+  }
+
   return redirectTo(next);
 }

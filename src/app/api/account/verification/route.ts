@@ -14,7 +14,7 @@ import { withTransaction } from '@/db/client';
 import { deny, redirectTo } from '@/app/api/qbpanel/responses';
 import { CUSTOMER_SECURITY_PATH } from '@/server/customer-auth/constants';
 import { scheduleEmailVerification } from '@/server/customer-auth/email-delivery';
-import { requestCustomerEmailVerification } from '@/server/customer-auth/email-security';
+import { requestCustomerEmailVerification } from '@/server/customer-auth/account-security';
 import { guardCustomerMutation } from '@/server/customer-auth/guard';
 import { sessionContextFrom } from '@/server/auth/session';
 

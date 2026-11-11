@@ -10,7 +10,7 @@ import { withTransaction } from '@/db/client';
 import { deny, redirectTo } from '@/app/api/qbpanel/responses';
 import { isSameOrigin } from '@/server/auth/request-guards';
 import { CUSTOMER_VERIFY_EMAIL_PATH } from '@/server/customer-auth/constants';
-import { confirmCustomerEmailVerification } from '@/server/customer-auth/email-security';
+import { confirmCustomerEmailVerification } from '@/server/customer-auth/account-security';
 
 export const dynamic = 'force-dynamic';
 

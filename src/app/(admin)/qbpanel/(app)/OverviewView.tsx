@@ -13,7 +13,7 @@ import { PageHeader } from '../_ui/PageHeader';
 import { StatusPill } from '../_ui/StatusPill';
 import styles from '../qbpanel.module.css';
 
-type FlagRow = { customerId: number; email: string; displayName: string | null; reason: string };
+type FlagRow = { customerId: number; email: string | null; displayName: string | null; reason: string };
 
 type RecentRow = {
   orderId: number;

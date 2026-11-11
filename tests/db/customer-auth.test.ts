@@ -16,9 +16,13 @@ import {
   suspendCustomer,
 } from '../../src/server/customer-auth/service';
 import {
+  changeCustomerEmail,
   confirmCustomerEmailVerification,
+  confirmCustomerPhoneVerification,
   requestCustomerEmailVerification,
-} from '../../src/server/customer-auth/email-security';
+  requestCustomerPasswordReset,
+  resetCustomerPasswordWithCode,
+} from '../../src/server/customer-auth/account-security';
 import {
   createCustomerSession,
   resolveCustomerSession,
@@ -85,6 +89,10 @@ describe('customer authentication', { skip: toolingAvailable ? false : SKIP_REAS
   }
 
   before(async () => {
+    // The SMS flows read the provider configuration from the environment. No message is sent: only the
+    // code issued and stored is exercised.
+    process.env.BULKSMS_API_KEY = 'test-key';
+    process.env.BULKSMS_SENDER_ID = 'test-sender';
     fixture = await startMigratedDatabase();
     const inserted = await fixture.pool.query<{ id: string }>(
       `insert into staff_user (email, display_name) values ('ban-actor@example.test', 'Ban Actor') returning id`,
@@ -93,6 +101,8 @@ describe('customer authentication', { skip: toolingAvailable ? false : SKIP_REAS
   });
 
   after(async () => {
+    delete process.env.BULKSMS_API_KEY;
+    delete process.env.BULKSMS_SENDER_ID;
     await fixture.close();
   });
 
@@ -139,9 +149,9 @@ describe('customer authentication', { skip: toolingAvailable ? false : SKIP_REAS
     assert.equal(rows.rows[0]?.total, '0');
   });
 
-  it('registers a phone-first account, normalises the number, and signs in with it', async () => {
+  it('registers a phone-first account with no email, normalises the number, and signs in with it', async () => {
     const registered = await register(
-      'phone-first@example.test',
+      'ignored@example.test',
       'a-long-enough-password',
       undefined,
       '+880 1712-345678',
@@ -149,21 +159,21 @@ describe('customer authentication', { skip: toolingAvailable ? false : SKIP_REAS
     assert.equal(registered.ok, true);
     if (!registered.ok) return;
 
-    const rows = await fixture.pool.query<{ phone: string; email: string }>(
+    const rows = await fixture.pool.query<{ phone: string; email: string | null }>(
       'select phone, email from customer where id = $1',
       [registered.customerId],
     );
     assert.equal(rows.rows[0]?.phone, '01712345678');
-    assert.equal(rows.rows[0]?.email, 'phone-first@example.test');
+    // Phone-first collects no address at all (owner decision, 2026-11-12).
+    assert.equal(rows.rows[0]?.email, null);
 
-    // The number is the identifier; the email still signs the same account in.
     const byPhone = await signIn('', 'a-long-enough-password', context(), '01712345678');
     assert.equal(byPhone.ok, true);
     if (byPhone.ok) assert.equal(byPhone.customerId, registered.customerId);
 
-    const byEmail = await signIn('phone-first@example.test', 'a-long-enough-password', context());
-    assert.equal(byEmail.ok, true);
-    if (byEmail.ok) assert.equal(byEmail.customerId, registered.customerId);
+    // There is no address on the account, so an address cannot sign it in.
+    const byEmail = await signIn('ignored@example.test', 'a-long-enough-password', context());
+    assert.equal(byEmail.ok, false);
   });
 
   it('refuses a duplicate phone number, an invalid number, and a missing number in phone mode', async () => {
@@ -214,11 +224,12 @@ describe('customer authentication', { skip: toolingAvailable ? false : SKIP_REAS
     // The account is usable before the link is opened - verification confirms, it does not gate.
     assert.equal((await signIn('verify-me@example.test', 'a-long-enough-password', context())).ok, true);
     assert.ok(registered.verification !== null);
-    if (registered.verification === null) return;
+    if (registered.verification?.channel !== 'email') return;
+    const verificationToken = registered.verification.token;
     assert.equal(registered.verification.to, 'verify-me@example.test');
 
     const confirmed = await fixture.db.transaction((tx) =>
-      confirmCustomerEmailVerification(tx, { rawToken: registered.verification?.token }),
+      confirmCustomerEmailVerification(tx, { rawToken: verificationToken }),
     );
     assert.equal(confirmed.ok, true);
 
@@ -230,7 +241,7 @@ describe('customer authentication', { skip: toolingAvailable ? false : SKIP_REAS
 
     // Single use: a second click is a dead link, and only one system audit row was written.
     const again = await fixture.db.transaction((tx) =>
-      confirmCustomerEmailVerification(tx, { rawToken: registered.verification?.token }),
+      confirmCustomerEmailVerification(tx, { rawToken: verificationToken }),
     );
     assert.deepEqual(again.ok, false);
     const audit = await fixture.pool.query<{ total: string }>(
@@ -503,6 +514,156 @@ describe('customer authentication', { skip: toolingAvailable ? false : SKIP_REAS
           }),
         ),
       ConflictError,
+    );
+  });
+
+  it('issues a six-digit SMS code at phone registration and settles the number on entry', async () => {
+    const registered = await fixture.db.transaction((tx) =>
+      registerCustomer(tx, {
+        method: 'phone',
+        email: null,
+        phone: '01711111111',
+        password: 'a-long-enough-password',
+        displayName: null,
+        context: context(),
+      }),
+    );
+    assert.equal(registered.ok, true);
+    if (!registered.ok) return;
+    assert.equal(registered.verification?.channel, 'sms');
+    if (registered.verification?.channel !== 'sms') return;
+    assert.match(registered.verification.code, /^[0-9]{6}$/);
+
+    // The stored row is a keyed digest, never the six digits themselves.
+    const stored = await fixture.pool.query<{ token_hash: string; attempts: number }>(
+      `select token_hash, attempts from account_recovery_token
+        where customer_id = $1 and purpose = 'phone_verify'`,
+      [registered.customerId],
+    );
+    assert.notEqual(stored.rows[0]?.token_hash, registered.verification.code);
+    assert.equal(stored.rows[0]?.attempts, 0);
+
+    const wrong = await fixture.db.transaction((tx) =>
+      confirmCustomerPhoneVerification(tx, {
+        phone: '01711111111',
+        code: registered.verification?.channel === 'sms' && registered.verification.code === '000000' ? '111111' : '000000',
+        context: context(),
+      }),
+    );
+    assert.equal(wrong.ok, false);
+
+    const confirmed = await fixture.db.transaction((tx) =>
+      confirmCustomerPhoneVerification(tx, {
+        phone: '01711111111',
+        code: registered.verification?.channel === 'sms' ? registered.verification.code : '',
+        context: context(),
+      }),
+    );
+    assert.equal(confirmed.ok, true);
+
+    const rows = await fixture.pool.query<{ phone_verified_at: Date | null }>(
+      'select phone_verified_at from customer where id = $1',
+      [registered.customerId],
+    );
+    assert.ok(rows.rows[0]?.phone_verified_at !== null);
+  });
+
+  it('recovers a phone-only account with an SMS code, and refuses the wrong one', async () => {
+    const registered = await fixture.db.transaction((tx) =>
+      registerCustomer(tx, {
+        method: 'phone',
+        email: null,
+        phone: '01722222222',
+        password: 'a-long-enough-password',
+        displayName: null,
+        context: context(),
+      }),
+    );
+    assert.equal(registered.ok, true);
+    if (!registered.ok) return;
+
+    const requested = await fixture.db.transaction((tx) =>
+      requestCustomerPasswordReset(tx, { identifier: '01722222222', context: context() }),
+    );
+    assert.equal(requested.delivery?.channel, 'sms');
+    if (requested.delivery?.channel !== 'sms') return;
+    assert.equal(requested.delivery.to, '01722222222');
+
+    const wrong = await fixture.db.transaction((tx) =>
+      resetCustomerPasswordWithCode(tx, {
+        phone: '01722222222',
+        code: requested.delivery?.channel === 'sms' && requested.delivery.code === '000000' ? '111111' : '000000',
+        password: 'another-long-password',
+        context: context(),
+      }),
+    );
+    assert.deepEqual(wrong, { ok: false, failure: 'invalid_code' });
+
+    const changed = await fixture.db.transaction((tx) =>
+      resetCustomerPasswordWithCode(tx, {
+        phone: '01722222222',
+        code: requested.delivery?.channel === 'sms' ? requested.delivery.code : '',
+        password: 'another-long-password',
+        context: context(),
+      }),
+    );
+    assert.equal(changed.ok, true);
+
+    // The new password signs in; the old one does not. The number now counts as proved.
+    assert.equal((await signIn('', 'another-long-password', context(), '01722222222')).ok, true);
+    assert.equal((await signIn('', 'a-long-enough-password', context(), '01722222222')).ok, false);
+    const rows = await fixture.pool.query<{ phone_verified_at: Date | null }>(
+      'select phone_verified_at from customer where id = $1',
+      [registered.customerId],
+    );
+    assert.ok(rows.rows[0]?.phone_verified_at !== null);
+  });
+
+  it('changes the email address directly, without a confirmation link, and signs other devices out', async () => {
+    assert.equal((await register('before-change@example.test', 'a-long-enough-password')).ok, true);
+    const signedIn = await signIn('before-change@example.test', 'a-long-enough-password', context());
+    assert.equal(signedIn.ok, true);
+    if (!signedIn.ok) return;
+
+    const changed = await fixture.db.transaction((tx) =>
+      changeCustomerEmail(tx, {
+        customerId: signedIn.customerId,
+        newEmail: 'after-change@example.test',
+        currentPassword: 'a-long-enough-password',
+        context: context(),
+      }),
+    );
+    assert.equal(changed.ok, true);
+    if (!changed.ok) return;
+    assert.equal(changed.previousEmail, 'before-change@example.test');
+    assert.ok(changed.sessionsRevoked >= 1);
+
+    const rows = await fixture.pool.query<{ email: string; email_verified_at: Date | null }>(
+      'select email, email_verified_at from customer where id = $1',
+      [signedIn.customerId],
+    );
+    assert.equal(rows.rows[0]?.email, 'after-change@example.test');
+    // The new address has not been proved, and no verification exists outside registration/recovery.
+    assert.equal(rows.rows[0]?.email_verified_at, null);
+
+    // The old address no longer signs in; the new one does.
+    assert.equal((await signIn('before-change@example.test', 'a-long-enough-password', context())).ok, false);
+    assert.equal((await signIn('after-change@example.test', 'a-long-enough-password', context())).ok, true);
+
+    const taken = await fixture.db.transaction((tx) =>
+      changeCustomerEmail(tx, {
+        customerId: signedIn.customerId,
+        newEmail: 'taken@example.test',
+        currentPassword: 'wrong-password',
+        context: context(),
+      }),
+    );
+    assert.deepEqual(taken, { ok: false, failure: 'wrong_password' });
+  });
+
+  it('refuses a customer row with neither an email address nor a number', async () => {
+    await assert.rejects(() =>
+      fixture.pool.query(`insert into customer (email, phone) values (null, null)`),
     );
   });
   it('writes no audit row for registration or sign-in: a customer is never an audit actor', async () => {

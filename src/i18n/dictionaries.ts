@@ -1737,6 +1737,7 @@ export const dictionary = {
   'account.nav.orders': 'Orders',
   'account.nav.security': 'Security',
   'account.nav.contact': 'Contact the shop',
+  'account.sidebar.member': 'Customer',
   'account.sidebar.scope': 'Signed in as',
   'account.lead.noOrders': 'No order has been placed with this account yet.',
   'account.fact.orders': 'Orders placed',
@@ -1801,7 +1802,7 @@ export const dictionary = {
     'At least {min} characters, including at least one letter or special character.',
   'account.registerTitle': 'Create an account',
   'account.registerBody':
-    'Create an account with a mobile number or an email address. A verification link is emailed to the address you give; it does not hold up your account.',
+    'Create an account with a mobile number or an email address. A code or link confirms the one you give; it does not hold up your account.',
   'account.registerSubmit': 'Create account',
   'account.noAccount': 'No account yet?',
   'account.haveAccount': 'Already have an account?',
@@ -1814,8 +1815,7 @@ export const dictionary = {
   'account.forgotPassword': 'Forgotten your password?',
   'account.emailPlaceholder': 'you@example.com',
   'account.phonePlaceholder': '01XXXXXXXXX',
-  'account.phoneHelp': 'A Bangladeshi mobile number. No code is sent to it yet.',
-  'account.emailForRecovery': 'Email address',
+  'account.phoneVerifyHelp': 'We text a six-digit code to this number. It is also how you recover a forgotten password.',
   'account.emailVerifyHelp': 'We email a verification link. It is also how you recover a forgotten password.',
   'account.namePlaceholder': 'How we should address you',
   'account.errors.invalid': 'The mobile number or email, or the password, did not match.',
@@ -1832,40 +1832,38 @@ export const dictionary = {
   /* ---- Password recovery and account security by email (ADR 0030) ---- */
   'account.forgotTitle': 'Forgot your password?',
   'account.forgotBody':
-    'Enter the email address on your account. If it is registered, a link to choose a new password is sent to it.',
-  'account.authForgotAside': 'A link by email, and you choose a new password.',
+    'Enter the mobile number or email address on your account. If it is registered, a recovery link or code is sent to it.',
+  'account.authForgotAside': 'A link by email or a code by SMS, and you choose a new password.',
   'account.forgotSent':
-    'If that address belongs to an account, a recovery link is on its way. Check the inbox and the spam folder.',
-  'account.forgotHint': 'The link works once and expires in one hour.',
-  'account.forgotSubmit': 'Send the recovery link',
+    'If that number or address belongs to an account, a recovery link or code is on its way. Check your messages, including the spam folder.',
+  'account.forgotCodeHint': 'Received a six-digit code?',
+  'account.forgotHint': 'A link works once and expires in one hour; a code expires in ten minutes.',
+  'account.forgotSubmit': 'Send the recovery link or code',
+  'account.recoveryIdentifier': 'Mobile number or email address',
+  'account.recoveryIdentifierPlaceholder': '01XXXXXXXXX or you@example.com',
   'account.resetTitle': 'Choose a new password',
   'account.resetBody':
     'Set a new password for your account. Every other device is signed out at the same time.',
-  'account.resetInvalid': 'That link is no longer valid. Ask for a new one.',
+  'account.resetCodeBody':
+    'Enter the number the code was sent to, the six digits from the message, and a new password.',
+  'account.resetCode': 'Six-digit code',
+  'account.resetInvalid': 'That link or code is no longer valid. Ask for a new one.',
   'account.resetMismatch': 'The two passwords did not match.',
-  'account.resetMissing': 'Open the link from the email to choose a new password.',
-  'account.resetNoToken': 'This page needs the link from the recovery email.',
   'account.resetSubmit': 'Save the new password',
-  'account.confirmEmailTitle': 'Confirm your new email address',
-  'account.confirmEmailBody':
-    'Confirm the address below. Your account keeps its current address until you do.',
-  'account.confirmEmailHint':
-    'Confirming signs you out everywhere; sign in again with the new address.',
-  'account.confirmEmailSubmit': 'Confirm this address',
-  'account.confirmEmailInvalid':
-    'That link is no longer valid. Request the change again from your account.',
-  'account.confirmEmailTaken':
-    'That address is already used by another account. Request a different one.',
   'account.changePasswordTitle': 'Change your password',
   'account.changePasswordBody': 'Enter your current password, then the new one.',
   'account.currentPassword': 'Current password',
   'account.changePasswordSubmit': 'Change password',
   'account.changeEmailTitle': 'Change your email address',
   'account.changeEmailBody':
-    'A confirmation link is sent to the new address. The address changes only when that link is used, and the current address is told afterwards.',
-  'account.changeEmailSubmit': 'Send the confirmation link',
+    'The new address is saved straight away. Your other devices are signed out, and the current address is told afterwards.',
+  'account.changeEmailSubmit': 'Change email address',
+  'account.addEmailTitle': 'Add an email address',
+  'account.addEmailBody':
+    'This account has no email address. Add one to sign in with it and to receive account notices.',
+  'account.addEmailSubmit': 'Add email address',
   'account.newEmail': 'New email address',
-  'account.emailHelp': 'Nothing changes before you confirm the link.',
+  'account.emailHelp': 'The address is saved unverified; it can be confirmed later.',
   'account.login.resetDone': 'Password changed. Sign in with the new password.',
   'account.login.emailChanged': 'Email address changed. Sign in with the new address.',
   'account.login.emailVerified': 'Email address confirmed.',
@@ -1877,13 +1875,14 @@ export const dictionary = {
   'account.notice.passwordUnavailable':
     'The password could not be changed. Sign in again and try once more.',
   'account.notice.throttled': 'Too many attempts. Try again later.',
-  'account.notice.emailConfirmSent':
-    'Confirmation sent to the new address. Open the link in that message.',
+  'account.notice.emailChanged': 'Email address changed. Other devices are signed out.',
   'account.notice.emailWrongPassword': 'The current password did not match.',
   'account.notice.emailInvalid': 'Enter a valid email address.',
   'account.notice.emailSame': 'That is already the address on this account.',
   'account.notice.emailTaken': 'That address is already used by another account.',
   'account.notice.emailThrottled': 'Too many requests. Try again later.',
+  'account.notice.emailUnavailable':
+    'The address could not be changed. Sign in again and try once more.',
   'account.verifyEmailTitle': 'Confirm your email address',
   'account.verifyEmailBody':
     'Confirm the address you gave when you created the account. Your account already works; this only settles the address.',
@@ -1892,16 +1891,32 @@ export const dictionary = {
   'account.verifyEmailDone': 'Your email address is confirmed. You can sign in as usual.',
   'account.verifyEmailInvalid':
     'That link is no longer valid. Sign in and request another one from Security.',
+  'account.verifyPhoneTitle': 'Verify your mobile number',
+  'account.verifyPhoneBody':
+    'We sent a six-digit code to {phone}. Your account already works; this only settles the number.',
+  'account.verifyPhoneSent': 'Code sent. It expires in ten minutes.',
+  'account.verifyPhoneHint': 'Five wrong attempts cancel the code; ask for a new one from Security.',
+  'account.verifyPhoneSubmit': 'Confirm this number',
+  'account.verifyPhoneDone': 'Your mobile number is confirmed. You can sign in as usual.',
+  'account.verifyPhoneInvalid':
+    'That code is no longer valid. Ask for a new one from Security and try again.',
+  'account.verifyPhoneSkip': 'Skip for now',
   'account.security.phoneTitle': 'Mobile number',
   'account.security.phoneBody': 'This is the number you can sign in with.',
-  'account.security.phoneUnverified': 'No code is sent to this number yet.',
+  'account.security.phoneUnverified': 'This number is not confirmed yet.',
+  'account.security.phoneVerified': 'This number is confirmed.',
+  'account.security.resendCode': 'Send a new code',
+  'account.security.noEmail': 'No email address on this account.',
   'account.security.emailVerified': 'This email address is confirmed.',
   'account.security.emailUnverified': 'This email address is not confirmed yet.',
   'account.security.resendVerification': 'Send the verification link',
   'account.emailUnverifiedShort': '(not confirmed)',
+  'account.phoneUnverifiedShort': '(not confirmed)',
   'account.notice.verificationSent':
     'Verification link sent to your email address. Open the link in that message.',
   'account.notice.emailAlreadyVerified': 'That email address is already confirmed.',
+  'account.notice.phoneAlreadyVerified': 'That mobile number is already confirmed.',
+  'account.notice.smsUnavailable': 'SMS is not configured, so no code could be sent.',
   'account.notice.verificationUnavailable':
     'The verification link could not be sent. Sign in again and try once more.',
   'account.notice.verificationThrottled': 'Too many requests. Try again later.',

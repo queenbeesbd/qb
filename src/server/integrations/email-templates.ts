@@ -174,36 +174,6 @@ export function passwordChangedEmail(input: { readonly changedAt: string }): Ema
   };
 }
 
-/** "Confirm your new email address" - sent to the **new** address, which is the proof of ownership. */
-export function emailChangeConfirmationEmail(input: {
-  readonly confirmUrl: string;
-  readonly newEmail: string;
-  readonly expiresHours: number;
-}): EmailTemplate {
-  const heading = 'Confirm your new email address';
-  return {
-    subject: `${heading} - ${BRAND}`,
-    html: layout({
-      preheader: `Confirm ${input.newEmail} as the address for your account.`,
-      heading,
-      body: [
-        `A request was made to use <strong style="color:${INK};">${escapeHtml(input.newEmail)}</strong> as the email address for a ${escapeHtml(BRAND)} account.`,
-        `Confirm it using the button below. The link works once and expires in ${input.expiresHours} hours.`,
-        'If you did not ask for this, ignore this message - the address on the account does not change until the link is used.',
-      ],
-      action: { url: input.confirmUrl, label: 'Confirm this address' },
-      footnote: 'For your security, never share this link with anyone.',
-    }),
-    text: text([
-      `${heading} - ${BRAND}`,
-      `A request was made to use ${input.newEmail} as the email address for a ${BRAND} account.`,
-      `Confirm it here (expires in ${input.expiresHours} hours, works once):`,
-      input.confirmUrl,
-      'If you did not ask for this, ignore this message.',
-    ]),
-  };
-}
-
 /**
  * "Confirm your email address" - the registration verification link (2026-11-11).
  *

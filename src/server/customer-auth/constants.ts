@@ -68,17 +68,17 @@ export const CUSTOMER_RECOVERY_REDEEM_THROTTLE: ThrottlePolicy = {
 };
 
 // ------------------------------------------------------------------
-// Emailed account security (ADR 0030)
+// Account security over email and SMS (ADR 0030, amended 2026-11-12)
 // ------------------------------------------------------------------
 
-/** Ask for a recovery link. */
+/** Ask for a recovery link or code. */
 export const CUSTOMER_FORGOT_PATH = '/account/forgot-password';
-/** Choose a new password from a recovery link. */
+/** Choose a new password from a recovery link or code. */
 export const CUSTOMER_RESET_PATH = '/account/reset';
-/** Confirm a requested change of email address. */
-export const CUSTOMER_CONFIRM_EMAIL_PATH = '/account/confirm-email';
 /** The destination of a registration verification link (2026-11-11). */
 export const CUSTOMER_VERIFY_EMAIL_PATH = '/account/verify-email';
+/** Enter the six-digit code sent to the number given at registration (2026-11-12). */
+export const CUSTOMER_VERIFY_PHONE_PATH = '/account/verify-phone';
 
 /**
  * Lifetime of a **mailed** recovery link.
@@ -89,8 +89,16 @@ export const CUSTOMER_VERIFY_EMAIL_PATH = '/account/verify-email';
  */
 export const CUSTOMER_RESET_TOKEN_MS = 60 * 60 * 1000;
 
-/** Lifetime of a mailed change-of-address confirmation. A day: the address may be checked later. */
-export const CUSTOMER_EMAIL_CHANGE_TOKEN_MS = 24 * 60 * 60 * 1000;
+/**
+ * Lifetime of a six-digit SMS code, for a registration verification or a password reset.
+ *
+ * Ten minutes: long enough for a code to arrive and be typed, short enough that a misdialled number is
+ * not a standing key. A new code supersedes the previous one.
+ */
+export const CUSTOMER_SMS_CODE_MS = 10 * 60 * 1000;
+
+/** Wrong guesses allowed against one code. The row is consumed after this many. */
+export const CUSTOMER_SMS_CODE_ATTEMPTS = 5;
 
 /**
  * Lifetime of a registration verification link. Two days: a new account is usable before the link is
@@ -119,11 +127,19 @@ export const CUSTOMER_PASSWORD_CHANGE_THROTTLE: ThrottlePolicy = {
   blockMs: 60 * 60 * 1000,
 };
 
-/** Change-of-address requests: five an hour, keyed on the account. */
+/** Changing the address from the account page: five an hour, keyed on the account. */
 export const CUSTOMER_EMAIL_CHANGE_THROTTLE: ThrottlePolicy = {
   scope: 'recovery',
   windowMs: 60 * 60 * 1000,
   maxAttempts: 5,
+  blockMs: 60 * 60 * 1000,
+};
+
+/** Re-sending a registration verification code: three an hour, keyed on the account. */
+export const CUSTOMER_PHONE_VERIFY_THROTTLE: ThrottlePolicy = {
+  scope: 'recovery',
+  windowMs: 60 * 60 * 1000,
+  maxAttempts: 3,
   blockMs: 60 * 60 * 1000,
 };
 
