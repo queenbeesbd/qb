@@ -16,7 +16,7 @@ import { RatingStars } from '@/components/RatingStars';
 import { GalleryCarousel } from './product/GalleryCarousel';
 import { ProductReviews, type OwnReviewView, type ReviewListItem } from './product/ProductReviews';
 import { ZoomModal } from './product/ZoomModal';
-import { CheckIcon } from '@/components/icons';
+import { CheckIcon, WhatsAppIcon } from '@/components/icons';
 import styles from '@/app/product.module.css';
 
 /**
@@ -41,6 +41,7 @@ export function ProductDetailView({
   csrfToken,
   reviewAction,
   reviewNotice,
+  orderWhatsappHref,
 }: {
   product: CatalogItem;
   /**
@@ -68,6 +69,11 @@ export function ProductDetailView({
   reviewAction: string;
   /** A fixed notice code from the POST's redirect (`submitted`, `already`, ...), never free text. */
   reviewNotice: string | null;
+  /**
+   * The owner's WhatsApp conversation with this product prefilled, or `null` when no usable
+   * `support.whatsapp_url` is stored. Built on the server; the view never composes a number.
+   */
+  orderWhatsappHref: string | null;
 }) {
   const { t, pick, price } = useTranslation();
   const cart = useCart();
@@ -356,6 +362,24 @@ export function ProductDetailView({
                 {t('product.addToCart')}
               </button>
             </div>
+
+            {/*
+              A second, clearly different way to buy: the conversation opens with this product's name,
+              pack and page already written. Rendered only when the owner has stored a usable WhatsApp
+              address and the product is orderable - an out-of-stock product has nothing to offer here.
+            */}
+            {orderWhatsappHref !== null && (
+              <a
+                className={styles.whatsappOrder}
+                href={orderWhatsappHref}
+                target="_blank"
+                rel="noopener noreferrer"
+                data-order-whatsapp
+              >
+                <WhatsAppIcon width={18} height={18} />
+                {t('product.orderOnWhatsapp')}
+              </a>
+            )}
 
             {/*
               The live region is always mounted so a change is announced, and it carries the

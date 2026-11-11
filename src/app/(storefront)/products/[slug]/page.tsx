@@ -3,6 +3,9 @@ import { notFound } from 'next/navigation';
 import { ProductDetailView } from '@/features/catalog/ProductDetailView';
 import { withTransaction } from '@/db/client';
 import { getProductDescription, getStorefrontCatalog } from '@/server/catalog/storefront';
+import { publicBaseUrl } from '@/server/integrations/email';
+import { loadSupportLinks } from '@/server/settings/support';
+import { productOrderMessage, whatsappOrderHref } from '@/lib/whatsapp-order';
 import { currentCustomerPrincipal } from '@/server/customer-auth/guard';
 import {
   countPublishedReviews,
@@ -72,6 +75,24 @@ export default async function ProductPage({
    * snapshot. A signed-out visitor reads the public list and is offered no form - the form has to be
    * earned by an order, and the POST re-checks that from the database anyway.
    */
+  /**
+   * The "Order on WhatsApp" link (owner direction, 2026-11-12).
+   *
+   * It is built from the owner's own `support.whatsapp_url` and nothing else: no number is stored in
+   * code, and a link that is not WhatsApp's own host yields `null`, so no button is drawn. The product
+   * name, pack and absolute URL are the message, so the shop can answer without asking which item.
+   */
+  const support = await withTransaction((tx) => loadSupportLinks(tx));
+  const base = publicBaseUrl();
+  const orderWhatsappHref = whatsappOrderHref(
+    support.whatsappUrl,
+    productOrderMessage({
+      name: product.name.en ?? product.name.bn ?? product.slug,
+      pack: product.pack,
+      url: base === null ? null : `${base}/products/${encodeURIComponent(product.slug)}`,
+    }),
+  );
+
   const principal = await currentCustomerPrincipal();
   const productId = Number(product.id);
   const reviewData = await withTransaction(async (tx) => {
@@ -120,6 +141,7 @@ export default async function ProductPage({
       csrfToken={principal?.csrfToken ?? null}
       reviewAction={`/api/products/${encodeURIComponent(product.slug)}/reviews`}
       reviewNotice={reviewNotice ?? null}
+      orderWhatsappHref={orderWhatsappHref}
     />
   );
 }

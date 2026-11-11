@@ -357,6 +357,38 @@
 }
 
 /**
+ * "Order on WhatsApp" (owner direction, 2026-11-12).
+ *
+ * The provider's own green is allowed **only** on the provider's own channel, and the label is ink:
+ * white on #25d366 is 1.9:1 and unreadable, while ink on it is 8:1. It sits under the add button as a
+ * second, clearly different way to buy - not as a twin of the lavender primary action.
+ */
+.whatsappOrder {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-height: 44px;
+  padding: 0 var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--whatsapp-green);
+  color: var(--color-ink);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  text-decoration: none;
+  transition: filter var(--transition-fast);
+}
+
+.whatsappOrder:hover {
+  filter: brightness(0.96);
+}
+
+.whatsappOrder svg {
+  flex: none;
+  color: var(--color-ink);
+}
+
+/**
  * The unavailable state replaces the purchase controls entirely. It states the owner's binary state
  * and gives one way forward, instead of a disabled button with no explanation.
  */

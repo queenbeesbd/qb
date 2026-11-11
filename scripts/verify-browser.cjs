@@ -568,8 +568,14 @@ async function main() {
 
     // 8 - product detail
     await nav(client, samplePath);
-    const detail = await evaluate(client, `(() => { const p = window.__qb.pdpPrices(); return { h1: document.querySelector('h1')?.textContent?.trim(), current: p.current, compare: p.compare, saving: [...document.querySelectorAll('main p')].map((n) => n.innerText).find((t) => /Save/.test(t)), imagesLoaded: [...document.querySelectorAll('main img')].every((i) => i.complete && i.naturalWidth > 0), imageCount: document.querySelectorAll('main img').length, hasQuantity: !!document.getElementById('pdp-quantity'), externalLinks: document.querySelectorAll('main a[href^="http"]').length, captions: document.querySelectorAll('main figure figcaption').length }; })()`);
-    record('8. product page shows the same price the listing does, with loaded images', detail.current === samplePrice && detail.compare === (sample.compare === null ? null : sample.compare) && detail.imagesLoaded && detail.imageCount > 0 && detail.hasQuantity && detail.externalLinks === 0 && detail.captions === 0, detail);
+    /*
+     * The only outbound link a product page may carry is the owner's "Order on WhatsApp" control
+     * (2026-11-12). Everything else - a merchant source URL, a demo note, a social link - is still a
+     * failure, which is what this check has always protected.
+     */
+    const WA_HOSTS = ['wa.me', 'www.wa.me', 'api.whatsapp.com'];
+    const detail = await evaluate(client, `(() => { const p = window.__qb.pdpPrices(); return { h1: document.querySelector('h1')?.textContent?.trim(), current: p.current, compare: p.compare, saving: [...document.querySelectorAll('main p')].map((n) => n.innerText).find((t) => /Save/.test(t)), imagesLoaded: [...document.querySelectorAll('main img')].every((i) => i.complete && i.naturalWidth > 0), imageCount: document.querySelectorAll('main img').length, hasQuantity: !!document.getElementById('pdp-quantity'), externalHosts: [...new Set([...document.querySelectorAll('main a[href^="http"]')].map((a) => new URL(a.href).hostname))], captions: document.querySelectorAll('main figure figcaption').length }; })()`);
+    record('8. product page shows the same price the listing does, with loaded images', detail.current === samplePrice && detail.compare === (sample.compare === null ? null : sample.compare) && detail.imagesLoaded && detail.imageCount > 0 && detail.hasQuantity && detail.externalHosts.every((host) => WA_HOSTS.includes(host)) && detail.captions === 0, detail);
 
     // 9 - add to cart
     await setValue(client, '#pdp-quantity', 2);

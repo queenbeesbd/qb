@@ -135,6 +135,7 @@ export const dictionary = {
   'catalog.pageSummary': 'Page {page} of {pages}',
 
   'product.addToCart': 'Add to cart',
+  'product.orderOnWhatsapp': 'Order on WhatsApp',
   'product.unavailableBody': 'This product can be ordered again once it is back in stock. Browse other products meanwhile.',
   'product.availabilityUnknownBody':
     'The stock state of this product has not been verified, so it cannot be ordered right now.',

@@ -14,6 +14,25 @@ An entry may describe a deployment only once it has actually happened and been o
 
 ## [Unreleased]
 
+### Added - 2026-11-12: "Order on WhatsApp" on the product page
+
+Owner direction: a product page offers a WhatsApp button, placed like the reference's (under the
+add-to-cart action).
+
+- `src/lib/whatsapp-order.ts` builds the conversation from the owner's `support.whatsapp_url` only -
+  `wa.me` and `api.whatsapp.com` are accepted, everything else (a shortener, another host, `http:`, an
+  empty setting) yields no button. The message carries the product's name, pack and absolute page URL;
+  an owner-written `text` parameter is preserved.
+- The control sits under Add to cart, only when the product is **in stock** (availability is the only
+  ordering gate), filled with `--whatsapp-green` and ink text - white on that green is 1.9:1.
+- `verify:browser` check 8 now allows an outbound link only when its host is one of those two, instead
+  of forbidding every external link on a product page.
+
+Verified 2026-11-12: `typecheck`, `lint` (0 errors), `check:i18n` (1912 keys), unit **316/316**;
+against a dev server and the seeded local catalog the in-stock product renders
+`data-order-whatsapp` with `?text=Hello%20QueenBee's...`, and an out-of-stock product renders none.
+`verify:browser` was not run end to end.
+
 ### Added / Changed - 2026-11-12: SMS verification and one-identifier accounts (ADR 0037)
 
 Owner direction: SMS is connected through BulkSMSBD, verification happens **only at registration and in
