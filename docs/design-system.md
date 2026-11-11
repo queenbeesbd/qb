@@ -166,14 +166,28 @@ the grid are the same width at every breakpoint.
 | section | cards | phone | desktop |
 | --- | --- | --- | --- |
 | On offer | 10 | 5 pages of 2 | 2 pages of 5 |
-| Shop by category | 10 | 5 circles a page | 8 + a page |
-| Shop by brand | 10 | 2 cards a page | 4 cards a page |
+| Shop by category | 20 | 15 circles, then "View all" | 20 circles, then "View all" |
+| Shop by brand | 20 | 15 circles, then "View all" | 20 circles, then "View all" |
 | Recently added | 10 | 5 pages of 2 | 2 pages of 5 |
 
 It is a CSS scroll-snap track, not a JavaScript slider: the browser supplies momentum, keyboard arrows and
 focus order, and the previous/next buttons only call `scrollBy`. Dots are buttons and state `aria-current`;
 they appear whenever there is more than one page, at every width. The track **measures its own geometry**
 (slide width and `column-gap`) to decide the page count, so a caller never declares a page size.
+
+**The two discovery rails are carousels at every width, with their arrows beside the dots** (owner
+direction, 2026-11-12). `controls="pager"` moves the pair out of the artwork: floating a 40px button on a
+116px circle covered the tile's own initial or logo, which read as a defect rather than a control. A
+product shelf keeps the overlay pair, where the button sits over a card's photograph.
+
+**Twenty circles on a desktop, fifteen on a phone, then the way out.** `RAIL_DESKTOP_LIMIT` /
+`RAIL_MOBILE_LIMIT` live in `src/features/catalog/home/rail-limits.ts`; the server sends the desktop list
+and `Carousel`'s `mobileLimit` hides everything from the sixteenth slide below 720px in CSS
+(`:nth-child(n + 16):not(:last-child)`), so nothing measures the viewport and the hidden photographs are
+never fetched. When the shop has more than the phone draws, the last slide is the shared `SeeAllCircle` -
+same 116px/62px geometry, a pale lavender field with a drawn arrow and the "View all" label - linking to
+`/categories` or `/brands`. It reads as a control, never as a tile with a missing photograph, and a shop
+with fewer than sixteen items shows them all with no control at all.
 
 **Featured and "More to explore" are the two sections that are not carousels**, and on a phone they publish
 an **even** number of cards so the two-column grid fills its rows: featured draws four of five
@@ -1148,9 +1162,10 @@ absolute `https` URLs at save time. They open in a new tab with `rel="noopener n
 
 **Homepage order and headings.** Hero, Shop By Category, Shop By Brand, On Offer, Most Selling, Recently
 Added, More To Explore. Every section heading is centred and title-cased, with at most one link into its
-full listing beneath it. **Most Selling is derived from real `order_item` units** - cancelled orders
-excluded, recency given priority - and it is **omitted entirely when the shop has sold nothing** (owner
-direction, 2026-11-07), rather than drawing a heading over an empty shelf.
+full listing - beneath the rail for the product rows, and **as the discovery rails' last circle** for the
+categories and brands (owner direction, 2026-11-12). **Most Selling is derived from real `order_item` units**
+- cancelled orders excluded, recency given priority - and it is **omitted entirely when the shop has sold
+nothing** (owner direction, 2026-11-07), rather than drawing a heading over an empty shelf.
 
 ## Storefront discovery (2026-11-02)
 
@@ -1169,7 +1184,9 @@ previous/next controls and slide dots appear. The hero advances every 9 seconds,
 **Category rail.** The homepage draws categories as **five circles on a phone row** (owner direction,
 2026-11-05; 62px at 390px, 48px at 320px), five or more from 720px where the circle is fixed at 104px,
 and the same component `size="circle"` as the brand rail. The circle is the subject: the photograph
-fills it with a centre crop and the name sits beneath.
+fills it with a centre crop and the name sits beneath. **Since 2026-11-12 the row is a carousel at every
+width that publishes twenty circles on a desktop and fifteen on a phone, ending in the "View all" circle
+when the shop has more** (see the carousel table above).
 
 **Brand index.** The brand index draws the **same circle** as the category index, with the logo
 contained at 92% of an 8%-inset circle; `npm run assets:logos` trims each logo's empty border before

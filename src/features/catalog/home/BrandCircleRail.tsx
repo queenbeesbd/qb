@@ -8,6 +8,8 @@ import type { CatalogBrand } from '@/lib/types';
 import { Carousel } from '@/components/Carousel';
 import { DiscoveryPhoto } from '@/components/DiscoveryPhoto';
 import { LetterMark } from '@/components/LetterMark';
+import { RAIL_MOBILE_LIMIT } from './rail-limits';
+import { SeeAllCircle } from './SeeAllCircle';
 import styles from './BrandCircleRail.module.css';
 
 /**
@@ -28,11 +30,27 @@ import styles from './BrandCircleRail.module.css';
  * initials in a 100px circle read as truncated text, which is what the rail looked like before
  * (owner feedback, 2026-11-05). The letter is the first character of the stored name and is never
  * invented. The count comes from the same snapshot the tile links into.
+ *
+ * **Twenty brands on a desktop, fifteen on a phone, then the way out** (owner direction, 2026-11-12).
+ * When the shop has more brands than the phone draws, the last circle is `SeeAllCircle` -> `/brands`;
+ * a shop with fewer shows them all and no control.
  */
-export function BrandCircleRail({ brands }: { brands: readonly CatalogBrand[] }) {
+export function BrandCircleRail({
+  brands,
+  hasMore,
+}: {
+  brands: readonly CatalogBrand[];
+  /** The shop has more brands than the phone rail draws - see `home-selection.ts`. */
+  hasMore: boolean;
+}) {
   const { t, pick } = useTranslation();
   return (
-    <Carousel label={t('home.brandTitle')} size="circle">
+    <Carousel
+      label={t('home.brandTitle')}
+      size="circle"
+      mobileLimit={RAIL_MOBILE_LIMIT}
+      controls="pager"
+    >
       {brands.map((brand) => {
         const name = pick(brand.name) ?? brand.slug;
         return (
@@ -56,6 +74,7 @@ export function BrandCircleRail({ brands }: { brands: readonly CatalogBrand[] })
           </Link>
         );
       })}
+      {hasMore && <SeeAllCircle href="/brands" />}
     </Carousel>
   );
 }

@@ -25,11 +25,27 @@ import styles from './Carousel.module.css';
 export function Carousel({
   label,
   size,
+  mobileLimit,
+  controls = 'overlay',
   children,
 }: {
   /** Names the shelf for assistive technology, e.g. "On offer". */
   label: string;
   size: 'product' | 'circle' | 'brand';
+  /**
+   * How many slides a phone draws before the row stops (owner direction, 2026-11-12).
+   *
+   * Applied in CSS rather than by slicing the list, so the server renders one list and nothing has to
+   * be measured: `nth-child(n + 16)` hides the sixteenth slide and later below 720px, and the last
+   * child is exempt so a trailing control - the discovery rails' "View all" circle - stays reachable.
+   * The only value in use is 15; the rule is written once, next to the attribute it reads.
+   */
+  mobileLimit?: number;
+  /**
+   * Where the arrows sit: floating over the row's edges (`overlay`, the default) or beside the dots
+   * (`pager`). See the note on `pager` in the body.
+   */
+  controls?: 'overlay' | 'pager';
   children: React.ReactNode;
 }) {
   const { t } = useTranslation();
@@ -55,8 +71,18 @@ export function Carousel({
       return Math.max(1, Math.floor((track.clientWidth + gap()) / (first.offsetWidth + gap())));
     };
 
+    /**
+     * The slides that actually take space. A rail's `mobileLimit` removes some of them from the phone's
+     * layout (`display: none`), and counting those would promise a page the shopper cannot reach - one
+     * dot too many. Measured, like everything else here, rather than counted from the children.
+     */
+    const laidOutSlides = (): number => {
+      const slides = [...track.children].filter((child) => child.getBoundingClientRect().width > 0);
+      return Math.max(1, slides.length);
+    };
+
     const measure = (): void => {
-      const pageCount = Math.max(1, Math.ceil(Children.count(children) / perPage()));
+      const pageCount = Math.max(1, Math.ceil(laidOutSlides() / perPage()));
       setSlides(pageCount);
       setCanScroll(track.scrollWidth - track.clientWidth > 4);
       setActiveSlide(
@@ -86,10 +112,63 @@ export function Carousel({
     track.scrollTo({ left: index * track.clientWidth, behavior: 'smooth' });
   };
 
+  /*
+   * Where the arrows live. `overlay` floats them at the row's edges, which is right for a shelf of
+   * cards - the control sits over a card's own photograph and reads as an overlay. `pager` puts them
+   * either side of the dots instead, which is what a **circle rail** needs (owner direction,
+   * 2026-11-12): a 40px button over a 116px circle covers the tile's own letter or logo and looks like
+   * a defect rather than a control. Both are desktop affordances - the swipe is the phone's control.
+   */
+  const pager = controls === 'pager';
+
+  /* One rendering of the page marks, shared by the pager row and the dots-only row. */
+  const dots = () => (
+    <>
+      {Array.from({ length: slides }, (_, index) => (
+        <button
+          key={index}
+          type="button"
+          className={styles.dot}
+          data-active={index === activeSlide ? 'true' : undefined}
+          aria-label={t('home.slideLabel', { index: index + 1, count: slides })}
+          aria-current={index === activeSlide ? 'true' : undefined}
+          onClick={() => goToSlide(index)}
+        />
+      ))}
+    </>
+  );
+
+  const previousButton = (extra?: string) => (
+    <button
+      type="button"
+      className={[styles.control, styles.flip, extra].filter(Boolean).join(' ')}
+      onClick={() => scrollByPage(-1)}
+      aria-label={t('home.carouselPrev')}
+    >
+      <ArrowIcon width={18} height={18} />
+    </button>
+  );
+
+  const nextButton = (extra?: string) => (
+    <button
+      type="button"
+      className={[styles.control, extra].filter(Boolean).join(' ')}
+      onClick={() => scrollByPage(1)}
+      aria-label={t('home.carouselNext')}
+    >
+      <ArrowIcon width={18} height={18} />
+    </button>
+  );
+
   return (
     <div className={styles.carousel} role="group" aria-label={label}>
       <div className={styles.viewport}>
-        <ul className={styles.track} data-size={size} ref={trackRef}>
+        <ul
+          className={styles.track}
+          data-size={size}
+          data-mobile-limit={mobileLimit === undefined ? undefined : String(mobileLimit)}
+          ref={trackRef}
+        >
           {Children.map(children, (child, index) => (
             <li key={index} className={styles.slide}>
               {child}
@@ -97,42 +176,22 @@ export function Carousel({
           ))}
         </ul>
 
-        {canScroll && (
+        {canScroll && !pager && (
           <>
-            <button
-              type="button"
-              className={`${styles.control} ${styles.previous}`}
-              onClick={() => scrollByPage(-1)}
-              aria-label={t('home.carouselPrev')}
-            >
-              <ArrowIcon width={18} height={18} />
-            </button>
-            <button
-              type="button"
-              className={`${styles.control} ${styles.next}`}
-              onClick={() => scrollByPage(1)}
-              aria-label={t('home.carouselNext')}
-            >
-              <ArrowIcon width={18} height={18} />
-            </button>
+            {previousButton(styles.overlayStart)}
+            {nextButton(styles.overlayEnd)}
           </>
         )}
       </div>
 
-      {canScroll && slides > 1 && (
-        <div className={styles.dots}>
-          {Array.from({ length: slides }, (_, index) => (
-            <button
-              key={index}
-              type="button"
-              className={styles.dot}
-              data-active={index === activeSlide ? 'true' : undefined}
-              aria-label={t('home.slideLabel', { index: index + 1, count: slides })}
-              aria-current={index === activeSlide ? 'true' : undefined}
-              onClick={() => goToSlide(index)}
-            />
-          ))}
+      {pager && canScroll && slides > 1 ? (
+        <div className={styles.pager}>
+          {previousButton('')}
+          {dots()}
+          {nextButton('')}
         </div>
+      ) : (
+        canScroll && slides > 1 && <div className={styles.dots}>{dots()}</div>
       )}
     </div>
   );

@@ -8,6 +8,8 @@ import type { CatalogCategory } from '@/lib/types';
 import { Carousel } from '@/components/Carousel';
 import { DiscoveryPhoto } from '@/components/DiscoveryPhoto';
 import { LetterMark } from '@/components/LetterMark';
+import { RAIL_MOBILE_LIMIT } from './rail-limits';
+import { SeeAllCircle } from './SeeAllCircle';
 import styles from './CategoryCircleRail.module.css';
 
 /**
@@ -27,11 +29,28 @@ import styles from './CategoryCircleRail.module.css';
  * The category photograph is already square (the asset pipeline generates 1:1 masters), so the circle
  * costs no new asset and crops nothing the owner did not choose. A department with no photograph
  * draws its icon glyph inside a tinted circle, so one missing image cannot break the rail's rhythm.
+ *
+ * **The rail is a carousel at every width, and it ends with the way out** (owner direction,
+ * 2026-11-12). Twenty circles on a desktop, fifteen on a phone; when the shop has more departments
+ * than the phone draws, the last circle is `SeeAllCircle` -> `/categories`. A shop with five
+ * departments shows five and no control, because there is nothing behind it.
  */
-export function CategoryCircleRail({ categories }: { categories: readonly CatalogCategory[] }) {
+export function CategoryCircleRail({
+  categories,
+  hasMore,
+}: {
+  categories: readonly CatalogCategory[];
+  /** The shop has more departments than the phone rail draws - see `home-selection.ts`. */
+  hasMore: boolean;
+}) {
   const { t, pick } = useTranslation();
   return (
-    <Carousel label={t('home.categoriesTitle')} size="circle">
+    <Carousel
+      label={t('home.categoriesTitle')}
+      size="circle"
+      mobileLimit={RAIL_MOBILE_LIMIT}
+      controls="pager"
+    >
       {categories.map((category) => {
         const name = pick(category.name) ?? category.slug;
         return (
@@ -49,6 +68,7 @@ export function CategoryCircleRail({ categories }: { categories: readonly Catalo
           </Link>
         );
       })}
+      {hasMore && <SeeAllCircle href="/categories" />}
     </Carousel>
   );
 }

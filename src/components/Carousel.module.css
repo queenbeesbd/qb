@@ -82,15 +82,36 @@
 }
 
 /* ---------------------------------------------------------------------------
+ * The phone cut (owner direction, 2026-11-12)
+ *
+ * A discovery rail asks for `mobileLimit={15}`; below 720px everything from the sixteenth slide on is
+ * not drawn, and the row keeps its trailing control. The number is written twice because CSS cannot
+ * add one to an attribute - keep them in step (`RAIL_MOBILE_LIMIT` in
+ * `src/features/catalog/home/rail-limits.ts` is the source of both). `display: none` also means those
+ * photographs are never fetched on a phone.
+ *
+ * `:not(:last-child)` is what leaves the "View all" circle visible: it is always the last child of a
+ * rail that has more to show, and a rail without one never reaches the sixteenth slide.
+ * ------------------------------------------------------------------------- */
+@media (max-width: 719px) {
+  .track[data-mobile-limit='15'] > .slide:nth-child(n + 16):not(:last-child) {
+    display: none;
+  }
+}
+
+/* ---------------------------------------------------------------------------
  * Controls
+ *
+ * Two placements, one look. `overlay` floats the pair at the row's edges, over the artwork, which is
+ * right for a shelf of cards; `pager` puts them either side of the dots instead, which is right for a
+ * circle rail - a 40px button sitting on a 116px circle covers the tile's own letter or logo.
+ *
+ * Both are desktop affordances: on a phone the swipe is the control, so the arrows are hidden and only
+ * the page marks remain.
  * ------------------------------------------------------------------------- */
 
-/* A desktop affordance: on a phone the swipe is the control. */
 .control {
   display: none;
-  position: absolute;
-  top: 40%;
-  z-index: 2;
   width: 40px;
   height: 40px;
   padding: 0;
@@ -114,17 +135,34 @@
   transform: scale(0.94);
 }
 
-.previous {
-  left: -14px;
+/* The left-hand button is the same glyph turned around, in both placements. */
+.flip {
   transform: rotate(180deg);
 }
 
-.next {
-  right: -14px;
+.flip:active {
+  transform: rotate(180deg) scale(0.94);
 }
 
-.previous:active {
-  transform: rotate(180deg) scale(0.94);
+.overlayStart {
+  position: absolute;
+  top: 40%;
+  left: -14px;
+  z-index: 2;
+}
+
+.overlayEnd {
+  position: absolute;
+  top: 40%;
+  right: -14px;
+  z-index: 2;
+}
+
+.pager {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
 }
 
 .dots {

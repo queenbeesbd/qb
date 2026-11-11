@@ -37,17 +37,21 @@ import styles from '@/app/home.module.css';
  */
 export function HomeView({
   departments,
+  departmentsHaveMore,
   heroImages,
   deals,
   bestSellers,
   newArrivals,
   browse,
   brands,
+  brandsHaveMore,
   isEmpty,
   campaign,
   support,
 }: {
   departments: readonly CatalogCategory[];
+  /** True when the shop has more departments than the phone rail draws - it then ends in "View all". */
+  departmentsHaveMore: boolean;
   heroImages: readonly HeroSlide[];
   deals: readonly CatalogItem[];
   /** Products with real order lines, most units first. Empty until the shop has sold something. */
@@ -55,6 +59,8 @@ export function HomeView({
   newArrivals: readonly CatalogItem[];
   browse: readonly CatalogItem[];
   brands: readonly CatalogBrand[];
+  /** The brand rail's own "View all" condition - see `departmentsHaveMore`. */
+  brandsHaveMore: boolean;
   isEmpty: boolean;
   /**
    * The owner's campaign, resolved server-side from `store_setting`. `null` renders
@@ -93,7 +99,7 @@ export function HomeView({
           {departments.length > 0 && (
             <section className={styles.section} aria-labelledby="categories-title" id="categories">
               <SectionHeader id="categories-title" title={t('home.categoriesTitle')} />
-              <CategoryCircleRail categories={departments} />
+              <CategoryCircleRail categories={departments} hasMore={departmentsHaveMore} />
             </section>
           )}
 
@@ -103,7 +109,7 @@ export function HomeView({
           {brands.length > 0 && (
             <section className={styles.section} aria-labelledby="brands-title">
               <SectionHeader id="brands-title" title={t('home.brandTitle')} />
-              <BrandCircleRail brands={brands} />
+              <BrandCircleRail brands={brands} hasMore={brandsHaveMore} />
             </section>
           )}
 

@@ -1,6 +1,7 @@
 import { discountAmount } from '@/lib/money';
 import type { CatalogBrand, CatalogCategory, CatalogItem } from '@/lib/types';
 import { selectDepartments } from './departments';
+import { RAIL_DESKTOP_LIMIT, RAIL_MOBILE_LIMIT } from './home/rail-limits';
 import { HOMEPAGE_SECTION_SIZE, selectRecentlyAdded } from './recent';
 
 /**
@@ -14,16 +15,15 @@ import { HOMEPAGE_SECTION_SIZE, selectRecentlyAdded } from './recent';
 const DEALS_LIMIT = 10;
 
 /**
- * How many categories the homepage carousel publishes.
+ * How many categories and brands the two discovery rails publish before deferring to their index.
  *
- * Ten: two pages of circles on a phone and one page of eight-plus on a desktop, which is enough of
- * the range for a shopper to find the department they want without leaving the page, and still a
- * carousel rather than a directory.
+ * The owner's number (2026-11-12): twenty circles on a desktop, fifteen on a phone - the shelf shows
+ * the range, and the trailing "View all" circle takes the shopper to the full index. Both numbers and
+ * the reason live in `home/rail-limits.ts`; the phone cut is applied in CSS so the server renders one
+ * list.
  */
-const CATEGORY_LIMIT = 10;
-
-/** How many brands the carousel shows before deferring to the brand index. */
-const BRAND_LIMIT = 10;
+const CATEGORY_LIMIT = RAIL_DESKTOP_LIMIT;
+const BRAND_LIMIT = RAIL_DESKTOP_LIMIT;
 
 /** How many products the new-arrivals carousel publishes: two desktop rows, five phone pages. */
 const NEW_ARRIVALS_LIMIT = 10;
@@ -46,6 +46,11 @@ const BROWSE_LIMIT = HOMEPAGE_SECTION_SIZE * 2;
 
 export type HomepageSelection = {
   departments: CatalogCategory[];
+  /**
+   * True when the shop has more departments than the **phone** rail draws, so the rail ends with a
+   * "View all" circle. Derived from the category list, not counted in the browser.
+   */
+  departmentsHaveMore: boolean;
   /** The owner's curated selection. Kept in the snapshot; the homepage rows no longer draw it. */
   featured: CatalogItem[];
   /** Real ordered units, most first. Empty until the shop has sold something. */
@@ -54,6 +59,8 @@ export type HomepageSelection = {
   newArrivals: CatalogItem[];
   browse: CatalogItem[];
   brands: CatalogBrand[];
+  /** The brand rail's own "View all" condition - see `departmentsHaveMore`. */
+  brandsHaveMore: boolean;
   isEmpty: boolean;
 };
 
@@ -179,12 +186,16 @@ export function selectHomepage({
 
   return {
     departments,
+    // The rail draws `min(total, 20)`; the phone hides everything past 15, so a shop with more than
+    // fifteen needs the trailing circle or those departments would be unreachable there.
+    departmentsHaveMore: roots.length > RAIL_MOBILE_LIMIT,
     featured,
     bestSellers,
     deals,
     newArrivals,
     browse,
     brands: brands.slice(0, BRAND_LIMIT),
+    brandsHaveMore: brands.length > RAIL_MOBILE_LIMIT,
     isEmpty: products.length === 0,
   };
 }

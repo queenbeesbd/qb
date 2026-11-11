@@ -14,6 +14,38 @@ An entry may describe a deployment only once it has actually happened and been o
 
 ## [Unreleased]
 
+### Changed - 2026-11-12: the discovery rails are carousels everywhere, twenty circles on a desktop and fifteen on a phone
+
+Owner direction: "Shop By Category" and "Shop By Brand" must be carousels on a PC too, show twenty
+circles there and fifteen on a phone, and end with a "View all" circle that leads to `/categories` or
+`/brands`.
+
+- **The two rails publish more and stop earlier per width.** `RAIL_DESKTOP_LIMIT` (20) and
+  `RAIL_MOBILE_LIMIT` (15) live in `src/features/catalog/home/rail-limits.ts`; `selectHomepage` sends the
+  desktop list and now also reports `departmentsHaveMore` / `brandsHaveMore`, so the view never counts
+  anything in the browser.
+- **The phone cut is CSS.** `Carousel` gained `mobileLimit`, which hides from the sixteenth slide down to
+  720px (`:nth-child(n + 16):not(:last-child)`) - one server-rendered list, no viewport read, and the
+  hidden photographs are never fetched.
+- **A new last circle: `SeeAllCircle`.** Same 116px/62px geometry as the others, a pale lavender field, a
+  1px brand border and a drawn arrow with the "View all" label; it links to `/categories` or `/brands` and
+  appears only when the shop has more than the phone rail draws. It reads as a control, not as a tile with
+  a missing photograph.
+- **The rails' arrows moved off the artwork.** `Carousel` gained `controls="pager"`: the previous/next pair
+  now sits either side of the dots under the row instead of floating over the first and last circle, where
+  a 40px button covered the tile's own initial or logo. Product shelves keep the overlay pair.
+- `verify:browser` check 27d now asserts the new contract: no section names two routes into one listing,
+  and a rail's "View all" circle is its last slide and points at an index.
+
+No schema change and no migration.
+
+Verified 2026-11-12: `typecheck`, `lint` (0 errors), a new unit test (`tests/unit/home-rail.test.ts`:
+twenty published, no control at fifteen, one at sixteen); against the dev cluster with temporary rows
+(19 departments, 20 brands with products, removed afterwards) the desktop rail rendered **20 slides + the
+"View all" tile**, `tileIsLast` true, `/categories` and `/brands` hrefs, the pager's two arrows visible and
+not overlapping a tile, no horizontal overflow; the phone rendered **15 circles + the tile** with the arrow
+pair hidden and no overflow.
+
 ### Changed - 2026-11-12: the product page shows a photograph at its own shape, uncropped
 
 Owner direction: an upload that is landscape (or any other shape) must appear as it is on the product

@@ -51,6 +51,7 @@ export default async function HomePage() {
   return (
     <HomeView
       departments={selection.departments}
+      departmentsHaveMore={selection.departmentsHaveMore}
       heroImages={heroImages.map((image) => ({
         id: image.id,
         imageKey: image.imageKey,
@@ -61,6 +62,7 @@ export default async function HomePage() {
       newArrivals={selection.newArrivals}
       browse={selection.browse}
       brands={selection.brands}
+      brandsHaveMore={selection.brandsHaveMore}
       isEmpty={selection.isEmpty}
       support={support}
       campaign={

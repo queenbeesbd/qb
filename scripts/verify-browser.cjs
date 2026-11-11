@@ -985,8 +985,12 @@ async function main() {
      *
      * The featured row is the owner's complete selection, so it carries no link and no controls. The
      * offers, the category rail, the brand rail and "Recently added" each hold more than one row, so
-     * each has one route into its full listing, and "More to explore" ends with its own button instead
-     * of a header link. The check counts links rather than matching wording, so the copy can change.
+     * each has at most one route into its full listing, and "More to explore" ends with its own button
+     * instead of a header link. **Since 2026-11-12 the two discovery rails carry their route as the
+     * last circle** (`View all` -> `/categories` or `/brands`), and a shop with fewer departments or
+     * brands than the phone rail draws carries none, because everything is already on the row. The
+     * check counts links rather than matching wording, and a route is either the trailing circle or a
+     * link beneath the rail.
      */
     const viewAllSections = await evaluate(client, `[...document.querySelectorAll('main section')]
       .map((s) => {
@@ -994,31 +998,36 @@ async function main() {
         const rail = s.querySelector('ul');
         /*
          * A section's own link, not a card. Card and circle links live inside a list item or an article,
-         * so both are excluded; what is left is the one route into the full listing (or the button).
+         * so both are excluded - except the rail's trailing "View all" circle, which is exactly the one
+         * route a rail can carry.
          */
         const links = [...s.querySelectorAll('a')].filter((a) =>
-          !a.closest('article') && !a.closest('li') && (a.textContent || '').trim().length > 0);
+          a.hasAttribute('data-see-all') ||
+          (!a.closest('article') && !a.closest('li') && (a.textContent || '').trim().length > 0));
+        const circles = links.filter((a) => a.hasAttribute('data-see-all'));
         return {
           id: h ? h.id : 'unknown',
-          sectionLinks: links.length,
-          afterRail: links.every((a) => !!rail && (rail.compareDocumentPosition(a) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0),
+          routes: links.length,
+          circles: circles.length,
+          // A trailing circle must be the rail's **last** slide, and must lead to an index.
+          circleIsLast: circles.every((a) => {
+            const item = a.closest('li');
+            return !!item && !!item.parentElement && item.parentElement.lastElementChild === item &&
+              /^\\/(categories|brands)$/.test(new URL(a.href).pathname);
+          }),
+          afterRail: links.every((a) => !!rail &&
+            (rail.compareDocumentPosition(a) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0),
         };
       })
-      .filter((entry) => entry.sectionLinks > 0)`);
+      .filter((entry) => entry.routes > 0)`);
     /*
-     * 27d - every section with more to show names exactly one route into it, **beneath its rail**
-     * (owner direction, 2026-11-05). "Most Selling" has no link (its ranking is the whole list).
+     * 27d - no section offers two ways into one listing, and the discovery rails' route is the last
+     * circle and nothing else (owner direction, 2026-11-12).
      */
-    const expectedLinked = [
-      'categories-title',
-      'brands-title',
-      'deals-title',
-      'recently-added-title',
-      'collection-title',
-    ];
-    record('27d. each section with more to show names exactly one route into it, under the rail',
-      JSON.stringify(viewAllSections.map((entry) => entry.id)) === JSON.stringify(expectedLinked) &&
-      viewAllSections.every((entry) => entry.sectionLinks === 1 && entry.afterRail),
+    record('27d. no section names two routes into the same listing, and a rail’s "View all" circle is its last slide',
+      viewAllSections.every((entry) => entry.routes === 1) &&
+      viewAllSections.every((entry) => entry.circles === 0 ? entry.afterRail : entry.circleIsLast) &&
+      viewAllSections.some((entry) => entry.id === 'collection-title'),
       { sections: viewAllSections });
 
     /*
