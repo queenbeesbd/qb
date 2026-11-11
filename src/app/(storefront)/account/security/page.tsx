@@ -29,12 +29,18 @@ export default async function SecurityPage({
 
   return (
     <AccountFrame
-      customer={{ email: principal.email, displayName: principal.displayName }}
+      customer={{
+        email: principal.email,
+        phone: principal.phone,
+        displayName: principal.displayName,
+      }}
       csrfToken={principal.csrfToken}
       active="security"
     >
       <AccountSecurity
         email={principal.email}
+        phone={principal.phone}
+        emailVerified={principal.emailVerifiedAt !== null}
         csrfToken={principal.csrfToken}
         notice={notice}
       />

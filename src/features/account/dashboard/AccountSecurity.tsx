@@ -18,10 +18,14 @@ import { securityNotice } from './notices';
  */
 export function AccountSecurity({
   email,
+  phone,
+  emailVerified,
   csrfToken,
   notice,
 }: {
   email: string;
+  phone: string | null;
+  emailVerified: boolean;
   csrfToken: string;
   notice: string | null;
 }) {
@@ -100,6 +104,21 @@ export function AccountSecurity({
           </div>
         </section>
 
+        {phone !== null && (
+          <section className={styles.settingsRow} aria-labelledby="security-phone">
+            <div className={styles.settingsText}>
+              <h2 id="security-phone" className={styles.settingsTitle}>
+                {t('account.security.phoneTitle')}
+              </h2>
+              <p className={styles.settingsBody}>{t('account.security.phoneBody')}</p>
+            </div>
+            <div className={styles.settingsPanel}>
+              <p className={styles.fieldHint}>{phone}</p>
+              <p className={styles.fieldHint}>{t('account.security.phoneUnverified')}</p>
+            </div>
+          </section>
+        )}
+
         <section className={styles.settingsRow} aria-labelledby="security-email">
           <div className={styles.settingsText}>
             <h2 id="security-email" className={styles.settingsTitle}>
@@ -111,6 +130,19 @@ export function AccountSecurity({
             </p>
           </div>
           <div className={styles.settingsPanel}>
+            <p className={styles.fieldHint}>
+              {emailVerified
+                ? t('account.security.emailVerified')
+                : t('account.security.emailUnverified')}
+            </p>
+            {!emailVerified && (
+              <form className={styles.form} action="/api/account/verification" method="post">
+                <input type="hidden" name="csrf" value={csrfToken} />
+                <button type="submit" className={styles.button}>
+                  {t('account.security.resendVerification')}
+                </button>
+              </form>
+            )}
             <form className={styles.form} action="/api/account/email" method="post">
               <input type="hidden" name="csrf" value={csrfToken} />
               <label className={styles.field}>

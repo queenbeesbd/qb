@@ -49,6 +49,7 @@ export default async function AdminCustomerDetailPage({
       customer={{
         customerId: customer.customerId,
         email: customer.email,
+        phone: customer.phone,
         displayName: customer.displayName,
         status: customer.status,
         createdAt: customer.createdAt.toISOString(),

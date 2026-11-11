@@ -173,6 +173,49 @@
   text-decoration: underline;
 }
 
+/*
+ * The identifier switch on sign-in and registration: two links in one sunken track, the chosen one on
+ * the surface. A link rather than a checked radio, because the choice must survive a POST refusal and
+ * work before any script runs.
+ */
+.methodSwitch {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-sunken, var(--color-surface));
+}
+
+.methodOption {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+  padding: 0 var(--space-3);
+  border-radius: calc(var(--radius-md) - 3px);
+  color: var(--color-ink-muted);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  text-align: center;
+}
+
+.methodOption:hover {
+  color: var(--color-ink);
+}
+
+.methodOption[data-active='true'] {
+  background: var(--color-surface);
+  color: var(--color-ink);
+  box-shadow: var(--shadow-sm);
+}
+
+.methodOption:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 1px;
+}
+
 /* ---------- Forms ---------- */
 
 .form {

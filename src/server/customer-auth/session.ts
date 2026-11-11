@@ -40,6 +40,10 @@ export type CustomerPrincipal = {
   readonly sessionId: string;
   readonly customerId: number;
   readonly email: string;
+  /** The second sign-in identifier, or null for an email-only account (2026-11-11). */
+  readonly phone: string | null;
+  /** Null until the address is confirmed; the account is usable either way. */
+  readonly emailVerifiedAt: Date | null;
   readonly displayName: string | null;
   readonly absoluteExpiresAt: Date;
   readonly idleExpiresAt: Date;
@@ -113,6 +117,8 @@ export async function resolveCustomerSession(
       lastSeenAt: customerSession.lastSeenAt,
       status: customer.status,
       email: customer.email,
+      phone: customer.phone,
+      emailVerifiedAt: customer.emailVerifiedAt,
       displayName: customer.displayName,
     })
     .from(customerSession)
@@ -148,6 +154,8 @@ export async function resolveCustomerSession(
       sessionId: row.sessionId,
       customerId: row.customerId,
       email: row.email,
+      phone: row.phone,
+      emailVerifiedAt: row.emailVerifiedAt,
       displayName: row.displayName,
       absoluteExpiresAt: row.absoluteExpiresAt,
       idleExpiresAt: row.idleExpiresAt,

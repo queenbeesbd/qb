@@ -40,6 +40,8 @@ import { createOpaqueToken, looksLikeToken, sha256Hex } from '../auth/tokens';
 import {
   CUSTOMER_EMAIL_CHANGE_THROTTLE,
   CUSTOMER_EMAIL_CHANGE_TOKEN_MS,
+  CUSTOMER_EMAIL_VERIFY_THROTTLE,
+  CUSTOMER_EMAIL_VERIFY_TOKEN_MS,
   CUSTOMER_PASSWORD_CHANGE_THROTTLE,
   CUSTOMER_RECOVERY_REDEEM_THROTTLE,
   CUSTOMER_RESET_REQUEST_THROTTLE,
@@ -68,6 +70,165 @@ async function countRequest(
     await recordFailedAttempt(tx, policy, subject);
   }
   return true;
+}
+
+// ------------------------------------------------------------------
+// Registration email verification (2026-11-11)
+// ------------------------------------------------------------------
+
+/**
+ * A verification link, ready to be mailed after the transaction commits.
+ *
+ * **The account does not wait for it.** Registration returns a usable session, and this link only
+ * records that the person controls the address they typed. A phone-first account still has an address
+ * for exactly this reason: the mailed reset link is the only self-service way back in.
+ */
+export type EmailVerificationDelivery = { readonly to: string; readonly token: string };
+
+/**
+ * Issues a fresh verification token for an account whose address is still unverified.
+ *
+ * Returns `null` when the account is missing or already verified - the caller treats both as "nothing
+ * to send" rather than as a failure. Any earlier unused link is superseded, so only one message works.
+ */
+export async function issueEmailVerification(
+  tx: Transaction,
+  input: { readonly customerId: number; readonly email: string },
+): Promise<EmailVerificationDelivery | null> {
+  const rows = await tx
+    .select({ verifiedAt: customer.emailVerifiedAt })
+    .from(customer)
+    .where(sql`${customer.id} = ${input.customerId} and ${customer.deletedAt} is null`);
+  const target = rows[0];
+  if (target === undefined || target.verifiedAt !== null) return null;
+
+  const token = createOpaqueToken();
+  const now = new Date();
+
+  await tx
+    .update(accountRecoveryToken)
+    .set({ usedAt: now })
+    .where(
+      sql`${accountRecoveryToken.customerId} = ${input.customerId}
+          and ${accountRecoveryToken.purpose} = 'email_verify'
+          and ${accountRecoveryToken.usedAt} is null`,
+    );
+
+  await tx.insert(accountRecoveryToken).values({
+    customerId: input.customerId,
+    purpose: 'email_verify',
+    tokenHash: sha256Hex(token),
+    expiresAt: new Date(now.getTime() + CUSTOMER_EMAIL_VERIFY_TOKEN_MS),
+  });
+
+  return { to: input.email, token };
+}
+
+export type EmailVerificationResendFailure = 'verified' | 'unavailable' | 'throttled';
+
+export type EmailVerificationResendResult =
+  | { readonly ok: true; readonly delivery: EmailVerificationDelivery }
+  | { readonly ok: false; readonly failure: EmailVerificationResendFailure };
+
+/**
+ * Re-sends the verification link from the signed-in account page.
+ *
+ * Keyed and throttled on the account, so one customer cannot flood an inbox and a stolen session
+ * cannot be used as a mail relay. Already-verified is a stated outcome, not an error.
+ */
+export async function requestCustomerEmailVerification(
+  tx: Transaction,
+  input: { readonly customerId: number; readonly context: SessionContext },
+): Promise<EmailVerificationResendResult> {
+  const rows = await tx
+    .select({
+      email: customer.email,
+      status: customer.status,
+      verifiedAt: customer.emailVerifiedAt,
+    })
+    .from(customer)
+    .where(sql`${customer.id} = ${input.customerId} and ${customer.deletedAt} is null`);
+  const target = rows[0];
+  if (target === undefined || target.status !== 'active') return { ok: false, failure: 'unavailable' };
+  if (target.verifiedAt !== null) return { ok: false, failure: 'verified' };
+
+  const subject = accountSubjectFor('verify', String(input.customerId));
+  const state = await throttleState(tx, CUSTOMER_EMAIL_VERIFY_THROTTLE, subject);
+  if (state.blocked) return { ok: false, failure: 'throttled' };
+
+  const delivery = await issueEmailVerification(tx, {
+    customerId: input.customerId,
+    email: target.email,
+  });
+  if (delivery === null) return { ok: false, failure: 'verified' };
+
+  await recordFailedAttempt(tx, CUSTOMER_EMAIL_VERIFY_THROTTLE, subject);
+  return { ok: true, delivery };
+}
+
+export type EmailVerificationConfirmFailure = 'invalid_token';
+
+export type EmailVerificationConfirmResult =
+  | { readonly ok: true; readonly customerId: number; readonly email: string }
+  | { readonly ok: false; readonly failure: EmailVerificationConfirmFailure };
+
+/**
+ * Consumes a verification token and marks the address verified.
+ *
+ * Every failure - expired, already used, unknown, or belonging to an account that is no longer active
+ * - answers as one `invalid_token`, so a token holder learns nothing about account state. Marking an
+ * already-verified address is not an error: the first click won.
+ */
+export async function confirmCustomerEmailVerification(
+  tx: Transaction,
+  input: { readonly rawToken: unknown },
+): Promise<EmailVerificationConfirmResult> {
+  const rawToken = typeof input.rawToken === 'string' ? input.rawToken.trim() : '';
+  if (!looksLikeToken(rawToken)) return { ok: false, failure: 'invalid_token' };
+
+  const rows = await tx
+    .select({
+      tokenId: accountRecoveryToken.id,
+      customerId: accountRecoveryToken.customerId,
+      email: customer.email,
+    })
+    .from(accountRecoveryToken)
+    .innerJoin(customer, sql`${customer.id} = ${accountRecoveryToken.customerId}`)
+    .where(
+      sql`${accountRecoveryToken.tokenHash} = ${sha256Hex(rawToken)}
+          and ${accountRecoveryToken.purpose} = 'email_verify'
+          and ${accountRecoveryToken.usedAt} is null
+          and ${accountRecoveryToken.expiresAt} > now()
+          and ${customer.status} = 'active'
+          and ${customer.deletedAt} is null`,
+    );
+
+  const target = rows[0];
+  if (target === undefined) return { ok: false, failure: 'invalid_token' };
+
+  const now = new Date();
+  const consumed = await tx
+    .update(accountRecoveryToken)
+    .set({ usedAt: now })
+    .where(sql`${accountRecoveryToken.id} = ${target.tokenId} and ${accountRecoveryToken.usedAt} is null`)
+    .returning({ id: accountRecoveryToken.id });
+  if (consumed.length === 0) return { ok: false, failure: 'invalid_token' };
+
+  await tx
+    .update(customer)
+    .set({ emailVerifiedAt: sql`coalesce(${customer.emailVerifiedAt}, now())`, updatedAt: now })
+    .where(sql`${customer.id} = ${target.customerId}`);
+
+  await recordAudit(tx, {
+    actorType: 'system',
+    actorRoleCodes: [],
+    action: 'customer.email_verified',
+    entityType: 'customer',
+    entityId: target.customerId,
+    after: { verified: true },
+  });
+
+  return { ok: true, customerId: target.customerId, email: target.email };
 }
 
 // ------------------------------------------------------------------
@@ -196,6 +357,13 @@ export async function resetCustomerPasswordWithToken(
     .where(
       sql`${customerCredential.customerId} = ${target.customerId} and ${customerCredential.kind} = 'password' and ${customerCredential.revokedAt} is null`,
     );
+
+  // Opening a mailed link proves control of the address, so a completed reset also settles the
+  // registration verification for an account that had not clicked its first link yet.
+  await tx
+    .update(customer)
+    .set({ emailVerifiedAt: sql`coalesce(${customer.emailVerifiedAt}, now())`, updatedAt: now })
+    .where(sql`${customer.id} = ${target.customerId}`);
 
   const sessionsRevoked = await revokeAllCustomerSessions(tx, target.customerId, 'password_change');
   await clearThrottle(tx, CUSTOMER_RECOVERY_REDEEM_THROTTLE, [source]);

@@ -235,6 +235,8 @@ export async function decideCod(
 export type CustomerQueueRow = {
   readonly customerId: number;
   readonly email: string;
+  /** The second sign-in identifier, when the account has one. */
+  readonly phone: string | null;
   readonly displayName: string | null;
   readonly status: string;
   readonly createdAt: Date;
@@ -262,11 +264,14 @@ export async function listCustomers(
   const searchClause =
     search === ''
       ? sql`true`
-      : sql`(${customer.email} ilike ${likeTerm(search)} or coalesce(${customer.displayName}, '') ilike ${likeTerm(search)})`;
+      : sql`(${customer.email} ilike ${likeTerm(search)}
+          or coalesce(${customer.phone}, '') ilike ${likeTerm(search)}
+          or coalesce(${customer.displayName}, '') ilike ${likeTerm(search)})`;
   const rows = await tx
     .select({
       customerId: customer.id,
       email: customer.email,
+      phone: customer.phone,
       displayName: customer.displayName,
       status: customer.status,
       createdAt: customer.createdAt,

@@ -7,12 +7,20 @@
  *
  * The email is normalised for storage, lookup and throttling (trimmed, lower-cased). The address the
  * person typed is never used as an identity key: the schema's unique index is on `lower(email)`.
+ *
+ * A phone number is the other sign-in identifier (2026-11-11). It is normalised to the schema's own
+ * 11-digit Bangladeshi form - `01[3-9]` then eight digits - so `+880 1712-345678`, `01712345678`
+ * and `1712345678` all name the same account. There is **no verification of the number yet**: no SMS
+ * provider is configured, so the account claims only that the number was typed.
  */
 
 import { normalizeEmail } from '../auth/tokens';
 
 /** `customer.email` is bounded at 254 by a CHECK constraint; mirror it here. */
 export const MAX_EMAIL_LENGTH = 254;
+
+/** The schema's `customer_phone_format` check, mirrored here. */
+const PHONE_PATTERN = /^01[3-9][0-9]{8}$/;
 
 /** `customer.display_name` is bounded at 80 by a CHECK constraint. */
 export const MAX_DISPLAY_NAME_LENGTH = 80;
@@ -33,6 +41,23 @@ export function parseEmail(value: unknown): string | null {
   if (email === '' || email.length > MAX_EMAIL_LENGTH) return null;
   if (!EMAIL_PATTERN.test(email)) return null;
   return email;
+}
+
+/**
+ * A Bangladeshi mobile number in the schema's 11-digit form, or `null`.
+ *
+ * Deliberately strict about the digits and permissive about how a person types them: spaces, dashes
+ * and brackets are dropped, an `880` country prefix is removed, and a bare 10-digit subscriber number
+ * gains its leading zero. What is stored is the canonical form, so the unique index on `phone` is the
+ * same value for the same number however it was entered.
+ */
+export function parsePhone(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  let digits = value.replace(/[^0-9]/g, '');
+  if (digits.startsWith('880')) digits = digits.slice(3);
+  if (digits.length === 10 && digits.startsWith('1')) digits = `0${digits}`;
+  if (!PHONE_PATTERN.test(digits)) return null;
+  return digits;
 }
 
 /**

@@ -50,6 +50,7 @@ export type AuditAction =
   | 'customer.password_changed'
   | 'customer.email_change_requested'
   | 'customer.email_changed'
+  | 'customer.email_verified'
   | 'cod.approved'
   | 'cod.cancelled'
   | 'cod.collected'

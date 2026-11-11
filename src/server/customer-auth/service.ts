@@ -3,10 +3,11 @@
  *
  * The flows this phase supports:
  *
- * - **registerCustomer** - email and password, hashed with scrypt, creating the account and its first
- *   credential. Email is the sole registration identifier; a phone number is not collected here at all.
- * - **signInCustomer** - throttled by account and by source, generic failure, and a new session issued
- *   on success (never a promoted one).
+ * - **registerCustomer** - a password together with an email address, and optionally a Bangladeshi
+ *   phone number that becomes a second sign-in identifier. Email is always collected (it is the only
+ *   address a recovery link can reach); phone-first registration makes the number required.
+ * - **signInCustomer** - by phone **or** by email, throttled by account and by source, generic failure,
+ *   and a new session issued on success (never a promoted one).
  * - **signOutCustomer** - revokes the row; the route clears the cookie.
  * - **suspendCustomer** - the **D20 ban primitive**: status becomes `suspended`, every live session is
  *   revoked at that moment, and an audited reason and actor are recorded.
@@ -21,7 +22,7 @@
  *    control is `auth_throttle`. A ban is different: it is an administrative, staff-actor record.
  * 3. **Sign-in reveals nothing.** Every credential failure returns one code, performs comparable work
  *    whether or not the account exists (a dummy verification runs when it does not), and never names the
- *    address in a row or a log.
+ *    identifier in a row or a log.
  */
 
 import { sql } from 'drizzle-orm';
@@ -43,8 +44,12 @@ import {
   CUSTOMER_LOGIN_THROTTLE,
   CUSTOMER_REGISTER_THROTTLE,
 } from './constants';
+import { issueEmailVerification } from './email-security';
 import { createCustomerSession, revokeAllCustomerSessions, revokeCustomerSession } from './session';
-import { parseDisplayName, parseEmail, parsePassword } from './validation';
+import { parseDisplayName, parseEmail, parsePassword, parsePhone } from './validation';
+
+/** The two identifiers an account can be signed in with (2026-11-11). */
+export type CustomerIdentifierKind = 'email' | 'phone';
 
 /** One code for every credential failure. The caller maps it to one localized message. */
 export type CustomerSignInFailure = 'invalid' | 'throttled';
@@ -55,13 +60,18 @@ export type CustomerSignInResult =
 
 export type CustomerRegisterFailure =
   | 'invalid_email'
+  | 'invalid_phone'
   | 'weak_password'
   | 'invalid_name'
   | 'email_taken'
+  | 'phone_taken'
   | 'throttled';
 
+/** The verification mail a successful registration should schedule after its transaction commits. */
+export type CustomerVerificationDelivery = { readonly to: string; readonly token: string };
+
 export type CustomerRegisterResult =
-  | { ok: true; customerId: number }
+  | { ok: true; customerId: number; verification: CustomerVerificationDelivery | null }
   | { ok: false; failure: CustomerRegisterFailure; blockedUntil?: Date | null };
 
 /**
@@ -93,24 +103,64 @@ function isUniqueViolation(error: unknown): boolean {
  * attempt and an owner attempt on the same address cannot share a counter, even though both flows use
  * the `login` scope (the `(scope, subject_hash, window_start)` key keeps the rows apart).
  */
-function customerAccountSubject(email: string): string {
-  return sha256Hex(`customer-account:${email}`);
+function customerAccountSubject(kind: CustomerIdentifierKind, value: string): string {
+  return sha256Hex(`customer-account:${kind}:${value}`);
+}
+
+/** The name PostgreSQL gave the constraint a unique violation broke, if the driver exposes it. */
+function uniqueViolationConstraint(error: unknown): string | null {
+  let current: unknown = error;
+  for (let depth = 0; current !== null && current !== undefined && depth < 5; depth += 1) {
+    const constraint = (current as { constraint?: unknown }).constraint;
+    if (typeof constraint === 'string') return constraint;
+    current = (current as { cause?: unknown }).cause;
+  }
+  return null;
+}
+
+/**
+ * Which identifier the registration form was on.
+ *
+ * The storefront sends `method` explicitly; a caller that sends neither defaults to the form's own
+ * default (phone) when a number was supplied, and to email otherwise. Validation of the number itself
+ * still happens below - this only decides whether one is required.
+ */
+function registrationMethod(raw: unknown, phoneRaw: unknown): CustomerIdentifierKind {
+  if (raw === 'email' || raw === 'phone') return raw;
+  return typeof phoneRaw === 'string' && phoneRaw.trim() !== '' ? 'phone' : 'email';
 }
 
 /**
  * Registers a customer account.
  *
- * Registration is throttled **by source only** - there is no account yet - and a duplicate address is
- * reported explicitly. That is a deliberate, accepted enumeration surface: a person must be told the
- * address is taken to choose another one, and unlike sign-in there is no credential to steal by
- * learning that an address exists.
+ * Registration is throttled **by source only** - there is no account yet - and a duplicate identifier
+ * is reported explicitly. That is a deliberate, accepted enumeration surface: a person must be told the
+ * address or number is taken to choose another one, and unlike sign-in there is no credential to steal
+ * by learning that one exists.
+ *
+ * **The email address is required in both modes** (owner decision, 2026-11-11): a phone-first account
+ * still needs an address, because the mailed reset link is the only self-service way back in. The
+ * address is not verified before the account is usable - the account works immediately, and a
+ * verification mail is scheduled after the transaction commits.
  */
 export async function registerCustomer(
   tx: Transaction,
-  input: { email: unknown; password: unknown; displayName: unknown; context: SessionContext },
+  input: {
+    method?: unknown;
+    email: unknown;
+    phone?: unknown;
+    password: unknown;
+    displayName: unknown;
+    context: SessionContext;
+  },
 ): Promise<CustomerRegisterResult> {
+  const method = registrationMethod(input.method, input.phone);
+
   const email = parseEmail(input.email);
   if (email === null) return { ok: false, failure: 'invalid_email' };
+
+  const phone = method === 'phone' ? parsePhone(input.phone) : null;
+  if (method === 'phone' && phone === null) return { ok: false, failure: 'invalid_phone' };
 
   const password = parsePassword(input.password);
   if (password === null || customerPasswordPolicyError(password) !== null) {
@@ -126,20 +176,38 @@ export async function registerCustomer(
     return { ok: false, failure: 'throttled', blockedUntil: state.blockedUntil };
   }
 
+  // An explicit read first, so the refusal names the identifier that is actually taken. The unique
+  // indexes remain the authority below; this check only improves the notice.
+  const taken = await tx
+    .select({ email: customer.email, phone: customer.phone })
+    .from(customer)
+    .where(
+      phone === null
+        ? sql`lower(${customer.email}) = ${email}`
+        : sql`lower(${customer.email}) = ${email} or ${customer.phone} = ${phone}`,
+    );
+  if (taken.some((row) => row.email.toLowerCase() === email)) {
+    return { ok: false, failure: 'email_taken' };
+  }
+  if (phone !== null && taken.some((row) => row.phone === phone)) {
+    return { ok: false, failure: 'phone_taken' };
+  }
+
   const secretHash = await hashPassword(password);
 
   // The insert runs inside a **savepoint** (a nested transaction), because a unique-violation is a
   // normal outcome here and PostgreSQL aborts the whole transaction on any error. Catching it in the
   // outer transaction would leave the transaction unusable, so the loser is rolled back to the
   // savepoint and the caller can still record the throttled attempt. The unique index remains the
-  // authority: a concurrent registration of the same address loses the race rather than creating a
+  // authority: a concurrent registration of the same identifier loses the race rather than creating a
   // second account.
   let customerId: number | null = null;
+  let conflict: 'email_taken' | 'phone_taken' = 'email_taken';
   try {
     customerId = await tx.transaction(async (inner) => {
       const rows = await inner
         .insert(customer)
-        .values({ email, displayName: name.value })
+        .values({ email, phone, displayName: name.value })
         .returning({ id: customer.id });
       const inserted = rows[0]?.id;
       if (inserted === undefined) throw new Error('customer insert returned no id');
@@ -147,12 +215,13 @@ export async function registerCustomer(
     });
   } catch (error) {
     if (!isUniqueViolation(error)) throw error;
+    conflict = uniqueViolationConstraint(error) === 'customer_phone_unique' ? 'phone_taken' : 'email_taken';
   }
 
   if (customerId === null) {
-    // A duplicate attempt is counted, so probing addresses is bounded like any other failure.
+    // A duplicate attempt is counted, so probing identifiers is bounded like any other failure.
     await recordFailedAttempt(tx, CUSTOMER_REGISTER_THROTTLE, source);
-    return { ok: false, failure: 'email_taken' };
+    return { ok: false, failure: conflict };
   }
 
   await tx.insert(customerCredential).values({
@@ -162,10 +231,13 @@ export async function registerCustomer(
     hashAlgorithm: 'scrypt',
   });
 
+  // The account is usable now; the link only confirms the address the customer typed.
+  const verification = await issueEmailVerification(tx, { customerId, email });
+
   // A successful registration clears the source counter, so a person's own typos do not lock them out.
   await clearThrottle(tx, CUSTOMER_REGISTER_THROTTLE, [source]);
 
-  return { ok: true, customerId };
+  return { ok: true, customerId, verification };
 }
 
 /**
@@ -178,17 +250,27 @@ export async function registerCustomer(
 export async function signInCustomer(
   tx: Transaction,
   input: {
-    email: string;
+    /** `phone` or `email`; when absent, an `@` in the identifier selects email and anything else phone. */
+    method?: unknown;
+    identifier: unknown;
     password: string;
     context: SessionContext;
     createSession: (customerId: number) => Promise<{ token: string; absoluteExpiresAt: Date }>;
   },
 ): Promise<CustomerSignInResult> {
-  const email = parseEmail(input.email);
+  const raw = typeof input.identifier === 'string' ? input.identifier.trim() : '';
+  const kind: CustomerIdentifierKind =
+    input.method === 'phone' || input.method === 'email'
+      ? input.method
+      : raw.includes('@')
+        ? 'email'
+        : 'phone';
+  const identifier = kind === 'email' ? parseEmail(raw) : parsePhone(raw);
+
   const subjects =
-    email === null
+    identifier === null
       ? [sourceSubject(input.context.ipHash)]
-      : [customerAccountSubject(email), sourceSubject(input.context.ipHash)];
+      : [customerAccountSubject(kind, identifier), sourceSubject(input.context.ipHash)];
 
   for (const subject of subjects) {
     const state = await throttleState(tx, CUSTOMER_LOGIN_THROTTLE, subject);
@@ -198,7 +280,7 @@ export async function signInCustomer(
   }
 
   const rows =
-    email === null
+    identifier === null
       ? []
       : await tx
           .select({
@@ -214,7 +296,11 @@ export async function signInCustomer(
                 and ${customerCredential.kind} = 'password'
                 and ${customerCredential.revokedAt} is null`,
           )
-          .where(sql`lower(${customer.email}) = ${email}`);
+          .where(
+            kind === 'email'
+              ? sql`lower(${customer.email}) = ${identifier}`
+              : sql`${customer.phone} = ${identifier}`,
+          );
 
   const row = rows[0];
 

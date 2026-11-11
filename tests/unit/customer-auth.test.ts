@@ -2,7 +2,12 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
 import { customerLoginUrl, safeCustomerNext } from '../../src/server/customer-auth/paths';
-import { parseDisplayName, parseEmail, parsePassword } from '../../src/server/customer-auth/validation';
+import {
+  parseDisplayName,
+  parseEmail,
+  parsePassword,
+  parsePhone,
+} from '../../src/server/customer-auth/validation';
 
 /**
  * Customer authentication input rules (ADR 0012).
@@ -28,6 +33,42 @@ describe('customer email parsing', () => {
     assert.equal(parseEmail(undefined), null);
     assert.equal(parseEmail(42), null);
     assert.equal(parseEmail(`${'a'.repeat(250)}@example.com`), null);
+  });
+});
+
+describe('customer phone parsing', () => {
+  it('normalises the ways a Bangladeshi mobile number is written to one stored form', () => {
+    for (const value of [
+      '01712345678',
+      ' 0171 234 5678 ',
+      '0171-234-5678',
+      '+8801712345678',
+      '+880 1712-345678',
+      '8801712345678',
+      '1712345678',
+    ]) {
+      assert.equal(parsePhone(value), '01712345678', value);
+    }
+  });
+
+  it('refuses a number that is not a Bangladeshi mobile', () => {
+    for (const value of [
+      '',
+      '   ',
+      '0123456789',
+      '0171234567',
+      '017123456789',
+      '0171234567a',
+      'not-a-number',
+      '+1 202 555 0143',
+    ]) {
+      assert.equal(parsePhone(value), null, value);
+    }
+  });
+
+  it('rejects a non-string', () => {
+    assert.equal(parsePhone(undefined), null);
+    assert.equal(parsePhone(1712345678), null);
   });
 });
 

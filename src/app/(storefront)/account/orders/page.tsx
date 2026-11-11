@@ -32,7 +32,11 @@ export default async function OrdersPage({
 
   return (
     <AccountFrame
-      customer={{ email: principal.email, displayName: principal.displayName }}
+      customer={{
+        email: principal.email,
+        phone: principal.phone,
+        displayName: principal.displayName,
+      }}
       csrfToken={principal.csrfToken}
       active="orders"
     >

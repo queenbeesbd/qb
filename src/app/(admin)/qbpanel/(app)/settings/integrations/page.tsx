@@ -4,6 +4,7 @@ import { translate } from '@/i18n/config';
 import { requireAdminPage } from '@/server/auth/guard';
 import { PERMISSIONS } from '@/server/authz/permissions';
 import { withTransaction } from '@/db/client';
+import { emailConfigured } from '@/server/integrations/email';
 import { loadSteadfastSettings, publicStatus } from '@/server/integrations/steadfast';
 import { listTelegramRecipients, telegramStatus } from '@/server/integrations/telegram';
 import { AdminIcon } from '../../../_ui/icons';
@@ -27,6 +28,7 @@ export default async function IntegrationsPage() {
   await requireAdminPage(PERMISSIONS.settingsWrite);
 
   const status = telegramStatus();
+  const mailReady = emailConfigured();
   const { recipients, steadfast } = await withTransaction(async (tx) => ({
     recipients: await listTelegramRecipients(tx),
     steadfast: publicStatus(await loadSteadfastSettings(tx)),
@@ -94,6 +96,24 @@ export default async function IntegrationsPage() {
                   {translate('admin.integrations.open')}
                 </Link>
               </div>
+            </div>
+          </li>
+          <li className={styles.record}>
+            <span className={styles.recordThumb} aria-hidden="true">
+              <AdminIcon name="audit" width={18} height={18} />
+            </span>
+            <div className={styles.recordMain}>
+              <span className={styles.recordTitle}>{translate('admin.integrations.emailTitle')}</span>
+              <span className={styles.recordMeta}>
+                <span>{translate('admin.integrations.emailSummary')}</span>
+              </span>
+            </div>
+            <div className={styles.recordSide}>
+              <StatusPill tone={mailReady ? 'success' : 'warning'}>
+                {mailReady
+                  ? translate('admin.integrations.emailReady')
+                  : translate('admin.integrations.emailNotReady')}
+              </StatusPill>
             </div>
           </li>
         </ul>

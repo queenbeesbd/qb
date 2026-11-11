@@ -5,34 +5,48 @@ import { useTranslation } from '@/i18n/useTranslation';
 import { CUSTOMER_PASSWORD_MIN_LENGTH } from '@/lib/password-policy';
 import styles from '@/app/account.module.css';
 import { AuthShell } from './AuthShell';
+import type { SignInMethod } from './LoginView';
 
 /**
  * Customer registration form.
  *
- * Email and password only. A phone number is not collected here: it is optional contact information and
- * capturing it at sign-up would collect personal data the account does not need yet. There is **no email
- * verification step and no verification mail** (ADR 0012, unchanged by ADR 0030): the account works the
- * moment it is created, and mail is sent only for a deliberate account-security action.
+ * **Two identifiers, one account** (owner decision, 2026-11-11). The default is a Bangladeshi mobile
+ * number; the switch beside the heading asks for an email address instead. The switch is a link, so it
+ * works without JavaScript and the server receives the same `method` the person chose.
+ *
+ * **An email address is required in both modes.** A phone-first account still needs one, because the
+ * mailed recovery link is the only self-service way back in. **No verification code is sent to the
+ * number** - no SMS provider is configured - while the address gets a Resend verification link. The
+ * account is usable immediately either way: verification confirms the address, it does not gate the
+ * account.
  */
 export function RegisterView({
   next,
   notice,
+  method,
 }: {
   next: string;
   notice: string | null;
+  method: SignInMethod;
 }) {
   const { t } = useTranslation();
+  const phoneHref = `/account/register?next=${encodeURIComponent(next)}`;
+  const emailHref = `/account/register?next=${encodeURIComponent(next)}&method=email`;
 
   const message = (): string | null => {
     switch (notice) {
       case 'invalid_email':
         return t('account.errors.invalidEmail');
+      case 'invalid_phone':
+        return t('account.errors.invalidPhone');
       case 'weak_password':
         return t('account.errors.weakPassword', { min: CUSTOMER_PASSWORD_MIN_LENGTH });
       case 'mismatch':
         return t('account.errors.passwordMismatch');
       case 'email_taken':
         return t('account.errors.emailTaken');
+      case 'phone_taken':
+        return t('account.errors.phoneTaken');
       case 'invalid_name':
         return t('account.errors.invalidName');
       case 'throttled':
@@ -63,8 +77,28 @@ export function RegisterView({
         </p>
       )}
 
+      <nav className={styles.methodSwitch} aria-label={t('account.methodLabel')}>
+        <Link
+          className={styles.methodOption}
+          href={phoneHref}
+          data-active={method === 'phone' ? 'true' : 'false'}
+          aria-current={method === 'phone' ? 'true' : undefined}
+        >
+          {t('account.methodPhone')}
+        </Link>
+        <Link
+          className={styles.methodOption}
+          href={emailHref}
+          data-active={method === 'email' ? 'true' : 'false'}
+          aria-current={method === 'email' ? 'true' : undefined}
+        >
+          {t('account.methodEmail')}
+        </Link>
+      </nav>
+
       <form className={styles.form} action="/api/account/register" method="post">
         <input type="hidden" name="next" value={next} />
+        <input type="hidden" name="method" value={method} />
         <label className={styles.field}>
           <span>
             {t('account.displayName')} <em>{t('common.optional')}</em>
@@ -77,8 +111,27 @@ export function RegisterView({
             placeholder={t('account.namePlaceholder')}
           />
         </label>
+
+        {method === 'phone' && (
+          <label className={styles.field}>
+            <span>{t('account.phone')}</span>
+            <input
+              type="tel"
+              name="phone"
+              autoComplete="tel"
+              inputMode="tel"
+              required
+              maxLength={20}
+              placeholder={t('account.phonePlaceholder')}
+            />
+            <small>{t('account.phoneHelp')}</small>
+          </label>
+        )}
+
         <label className={styles.field}>
-          <span>{t('account.email')}</span>
+          <span>
+            {method === 'phone' ? t('account.emailForRecovery') : t('account.email')}
+          </span>
           <input
             type="email"
             name="email"
@@ -87,7 +140,9 @@ export function RegisterView({
             maxLength={254}
             placeholder={t('account.emailPlaceholder')}
           />
+          <small>{t('account.emailVerifyHelp')}</small>
         </label>
+
         <div className={styles.fieldPair}>
           <label className={styles.field}>
             <span>{t('account.password')}</span>

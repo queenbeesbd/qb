@@ -16,6 +16,10 @@ import {
   suspendCustomer,
 } from '../../src/server/customer-auth/service';
 import {
+  confirmCustomerEmailVerification,
+  requestCustomerEmailVerification,
+} from '../../src/server/customer-auth/email-security';
+import {
   createCustomerSession,
   resolveCustomerSession,
 } from '../../src/server/customer-auth/session';
@@ -47,16 +51,29 @@ describe('customer authentication', { skip: toolingAvailable ? false : SKIP_REAS
   let fixture: DbFixture;
   let staffId: number;
 
-  async function register(email: string, password: string, displayName?: string) {
+  async function register(
+    email: string,
+    password: string,
+    displayName?: string,
+    phone?: string,
+  ) {
     return fixture.db.transaction((tx) =>
-      registerCustomer(tx, { email, password, displayName: displayName ?? null, context: context() }),
+      registerCustomer(tx, {
+        method: phone === undefined ? 'email' : 'phone',
+        email,
+        phone: phone ?? null,
+        password,
+        displayName: displayName ?? null,
+        context: context(),
+      }),
     );
   }
 
-  async function signIn(email: string, password: string, ctx: SessionContext) {
+  async function signIn(email: string, password: string, ctx: SessionContext, phone?: string) {
     return fixture.db.transaction((tx) =>
       signInCustomer(tx, {
-        email,
+        method: phone === undefined ? 'email' : 'phone',
+        identifier: phone ?? email,
         password,
         context: ctx,
         createSession: async (customerId) => {
@@ -120,6 +137,137 @@ describe('customer authentication', { skip: toolingAvailable ? false : SKIP_REAS
       `select count(*)::text as total from customer where email = 'weak@example.test'`,
     );
     assert.equal(rows.rows[0]?.total, '0');
+  });
+
+  it('registers a phone-first account, normalises the number, and signs in with it', async () => {
+    const registered = await register(
+      'phone-first@example.test',
+      'a-long-enough-password',
+      undefined,
+      '+880 1712-345678',
+    );
+    assert.equal(registered.ok, true);
+    if (!registered.ok) return;
+
+    const rows = await fixture.pool.query<{ phone: string; email: string }>(
+      'select phone, email from customer where id = $1',
+      [registered.customerId],
+    );
+    assert.equal(rows.rows[0]?.phone, '01712345678');
+    assert.equal(rows.rows[0]?.email, 'phone-first@example.test');
+
+    // The number is the identifier; the email still signs the same account in.
+    const byPhone = await signIn('', 'a-long-enough-password', context(), '01712345678');
+    assert.equal(byPhone.ok, true);
+    if (byPhone.ok) assert.equal(byPhone.customerId, registered.customerId);
+
+    const byEmail = await signIn('phone-first@example.test', 'a-long-enough-password', context());
+    assert.equal(byEmail.ok, true);
+    if (byEmail.ok) assert.equal(byEmail.customerId, registered.customerId);
+  });
+
+  it('refuses a duplicate phone number, an invalid number, and a missing number in phone mode', async () => {
+    const first = await register(
+      'phone-one@example.test',
+      'a-long-enough-password',
+      undefined,
+      '01712345679',
+    );
+    assert.equal(first.ok, true);
+
+    const duplicate = await register(
+      'phone-two@example.test',
+      'a-long-enough-password',
+      undefined,
+      '01712345679',
+    );
+    assert.deepEqual(duplicate.ok, false);
+    if (!duplicate.ok) assert.equal(duplicate.failure, 'phone_taken');
+
+    const invalid = await register(
+      'phone-bad@example.test',
+      'a-long-enough-password',
+      undefined,
+      '0123456789',
+    );
+    assert.deepEqual(invalid.ok, false);
+    if (!invalid.ok) assert.equal(invalid.failure, 'invalid_phone');
+
+    const missing = await fixture.db.transaction((tx) =>
+      registerCustomer(tx, {
+        method: 'phone',
+        email: 'phone-missing@example.test',
+        password: 'a-long-enough-password',
+        displayName: null,
+        context: context(),
+      }),
+    );
+    assert.deepEqual(missing.ok, false);
+    if (!missing.ok) assert.equal(missing.failure, 'invalid_phone');
+  });
+
+  it('sends a verification link without gating the account, and records the confirmation', async () => {
+    const registered = await register('verify-me@example.test', 'a-long-enough-password');
+    assert.equal(registered.ok, true);
+    if (!registered.ok) return;
+
+    // The account is usable before the link is opened - verification confirms, it does not gate.
+    assert.equal((await signIn('verify-me@example.test', 'a-long-enough-password', context())).ok, true);
+    assert.ok(registered.verification !== null);
+    if (registered.verification === null) return;
+    assert.equal(registered.verification.to, 'verify-me@example.test');
+
+    const confirmed = await fixture.db.transaction((tx) =>
+      confirmCustomerEmailVerification(tx, { rawToken: registered.verification?.token }),
+    );
+    assert.equal(confirmed.ok, true);
+
+    const rows = await fixture.pool.query<{ email_verified_at: Date | null }>(
+      'select email_verified_at from customer where id = $1',
+      [registered.customerId],
+    );
+    assert.ok(rows.rows[0]?.email_verified_at !== null);
+
+    // Single use: a second click is a dead link, and only one system audit row was written.
+    const again = await fixture.db.transaction((tx) =>
+      confirmCustomerEmailVerification(tx, { rawToken: registered.verification?.token }),
+    );
+    assert.deepEqual(again.ok, false);
+    const audit = await fixture.pool.query<{ total: string }>(
+      `select count(*)::text as total from audit_event
+        where entity_type = 'customer' and entity_id = $1 and action = 'customer.email_verified'`,
+      [registered.customerId],
+    );
+    assert.equal(audit.rows[0]?.total, '1');
+  });
+
+  it('re-sends verification only while the address is unconfirmed, throttled on the account', async () => {
+    const registered = await register('resend-me@example.test', 'a-long-enough-password');
+    assert.equal(registered.ok, true);
+    if (!registered.ok) return;
+
+    const first = await fixture.db.transaction((tx) =>
+      requestCustomerEmailVerification(tx, {
+        customerId: registered.customerId,
+        context: context(),
+      }),
+    );
+    assert.equal(first.ok, true);
+
+    // Confirming the address makes a later request a stated outcome, not another message.
+    await fixture.db.transaction((tx) =>
+      confirmCustomerEmailVerification(tx, {
+        rawToken: first.ok ? first.delivery.token : '',
+      }),
+    );
+    const after = await fixture.db.transaction((tx) =>
+      requestCustomerEmailVerification(tx, {
+        customerId: registered.customerId,
+        context: context(),
+      }),
+    );
+    assert.deepEqual(after.ok, false);
+    if (!after.ok) assert.equal(after.failure, 'verified');
   });
 
   it('signs in and stores only a digest of the session token', async () => {

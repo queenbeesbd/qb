@@ -62,9 +62,20 @@ export function AccountOverview({
             <dd>{customer.displayName}</dd>
           </div>
         )}
+        {customer.phone !== null && (
+          <div>
+            <dt>{t('account.phone')}</dt>
+            <dd>{customer.phone}</dd>
+          </div>
+        )}
         <div>
           <dt>{t('account.email')}</dt>
-          <dd>{customer.email}</dd>
+          <dd>
+            {customer.email}
+            {!customer.emailVerified && (
+              <span className={styles.factNote}> {t('account.emailUnverifiedShort')}</span>
+            )}
+          </dd>
         </div>
         {memberSince !== null && (
           <div>

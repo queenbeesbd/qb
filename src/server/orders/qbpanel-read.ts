@@ -401,6 +401,7 @@ export type CustomerOrderRow = {
 export type CustomerDetail = {
   readonly customerId: number;
   readonly email: string;
+  readonly phone: string | null;
   readonly displayName: string | null;
   readonly status: string;
   readonly createdAt: Date;
@@ -423,6 +424,7 @@ export async function customerDetail(tx: Transaction, customerId: number): Promi
     .select({
       customerId: customer.id,
       email: customer.email,
+      phone: customer.phone,
       displayName: customer.displayName,
       status: customer.status,
       createdAt: customer.createdAt,

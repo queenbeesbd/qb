@@ -77,6 +77,8 @@ export const CUSTOMER_FORGOT_PATH = '/account/forgot-password';
 export const CUSTOMER_RESET_PATH = '/account/reset';
 /** Confirm a requested change of email address. */
 export const CUSTOMER_CONFIRM_EMAIL_PATH = '/account/confirm-email';
+/** The destination of a registration verification link (2026-11-11). */
+export const CUSTOMER_VERIFY_EMAIL_PATH = '/account/verify-email';
 
 /**
  * Lifetime of a **mailed** recovery link.
@@ -89,6 +91,12 @@ export const CUSTOMER_RESET_TOKEN_MS = 60 * 60 * 1000;
 
 /** Lifetime of a mailed change-of-address confirmation. A day: the address may be checked later. */
 export const CUSTOMER_EMAIL_CHANGE_TOKEN_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Lifetime of a registration verification link. Two days: a new account is usable before the link is
+ * opened, so the message may sit in an inbox until the next time the person signs in.
+ */
+export const CUSTOMER_EMAIL_VERIFY_TOKEN_MS = 48 * 60 * 60 * 1000;
 
 /**
  * Recovery **requests**: by account and by source, five an hour.
@@ -116,6 +124,14 @@ export const CUSTOMER_EMAIL_CHANGE_THROTTLE: ThrottlePolicy = {
   scope: 'recovery',
   windowMs: 60 * 60 * 1000,
   maxAttempts: 5,
+  blockMs: 60 * 60 * 1000,
+};
+
+/** Resending a registration verification mail: three an hour, keyed on the account. */
+export const CUSTOMER_EMAIL_VERIFY_THROTTLE: ThrottlePolicy = {
+  scope: 'recovery',
+  windowMs: 60 * 60 * 1000,
+  maxAttempts: 3,
   blockMs: 60 * 60 * 1000,
 };
 

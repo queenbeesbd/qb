@@ -22,6 +22,9 @@ export type DashboardOrder = {
 /** The signed-in customer, as the shell prints them. */
 export type DashboardCustomer = {
   readonly email: string;
+  readonly phone: string | null;
+  /** False until the address is confirmed; the account is usable either way. */
+  readonly emailVerified: boolean;
   readonly displayName: string | null;
   /** ISO 8601, or null when the row's timestamp could not be read. */
   readonly memberSince: string | null;

@@ -38,6 +38,14 @@ export const customer = pgTable(
   },
   (t) => [
     uniqueIndex('customer_email_lower_unique').on(sql`lower(${t.email})`),
+    /**
+     * A phone number is a second sign-in identifier (2026-11-11), so it must name exactly one account.
+     * Partial, because an email-only account legitimately has none and a plain unique index would still
+     * allow only one such row.
+     */
+    uniqueIndex('customer_phone_unique')
+      .on(t.phone)
+      .where(sql`${t.phone} is not null`),
     index('customer_status_created_idx').on(t.status, t.createdAt.desc()),
     index('customer_not_deleted_idx').on(t.id).where(sql`${t.deletedAt} is null`),
     check('customer_email_len', lenAtMost('email', 254)),

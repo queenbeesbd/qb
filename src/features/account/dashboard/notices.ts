@@ -20,6 +20,10 @@ export const SECURITY_NOTICES: Record<string, { key: TranslationKey; error: bool
   emailSame: { key: 'account.notice.emailSame', error: true },
   emailTaken: { key: 'account.notice.emailTaken', error: true },
   emailThrottled: { key: 'account.notice.emailThrottled', error: true },
+  verificationSent: { key: 'account.notice.verificationSent', error: false },
+  emailAlreadyVerified: { key: 'account.notice.emailAlreadyVerified', error: false },
+  verificationUnavailable: { key: 'account.notice.verificationUnavailable', error: true },
+  verificationThrottled: { key: 'account.notice.verificationThrottled', error: true },
 };
 
 export function securityNotice(code: string | null) {

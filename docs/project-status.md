@@ -1039,3 +1039,29 @@ conflict, audit). The moderation route on production is reachable and gated: `/q
 **Two rows are left for the owner to decide** (each one tap, both keep the shop clean): reject the COD
 order `QB69C2E1B72A3997A4`, and refuse the pending test review at `/qbpanel/reviews` - a refusal keeps
 the row but never shows it to a customer.
+
+## Phone or email account identity (2026-11-11)
+
+Registration and sign-in now accept a **Bangladeshi mobile number** (the default) or an **email
+address**, through a switch that is a link rather than client state (ADR 0036, amending ADR 0012 and
+ADR 0030). An account carries an email in both modes - it is the only address a recovery link can
+reach - and a phone-first registration also stores a canonical 11-digit number. Either identifier signs
+the account in, with the same scrypt credential, throttling and generic failure.
+
+**Email verification is sent, but does not gate.** Registration creates the account and session
+immediately; the Resend verification message is scheduled with `after()` once the transaction commits.
+`GET /account/verify-email` renders a confirmation button (so a link scanner cannot consume the token),
+`POST /api/account/verify-email` consumes the single-use 48-hour token, and the Security screen offers
+one throttled resend. A completed password reset also marks the address confirmed, because opening a
+mailed link proves control of it. **No SMS provider, code or phone-verification step exists**; the
+number is recorded as typed, and the Security screen says so.
+
+**Schema:** migration `0028_account_phone_identifier` adds the partial unique index
+`customer_phone_unique` where `phone is not null`. No table was added, `customer.email` stays
+`NOT NULL`, and existing accounts, orders, sessions and credentials are untouched.
+
+**Mail configuration still needs the owner's Resend values.** The code reads `RESEND_API_KEY`,
+`EMAIL_FROM` and `APP_BASE_URL` from the environment only. A key alone is not enough: `EMAIL_FROM` must
+be a sender on a domain verified in Resend, and `APP_BASE_URL` must be the deployed origin or no link is
+sent. Production now sends five messages (four account-security messages plus registration
+verification). Nothing in this change writes, logs or stores any of those values.

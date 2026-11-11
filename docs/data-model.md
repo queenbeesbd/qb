@@ -228,19 +228,26 @@ claims, returns and flags.
 | Column | Type | Null | Notes |
 | --- | --- | --- | --- |
 | `id` | bigint identity | PK | Internal only; never exposed |
-| `email` | text | NOT NULL | `CHECK (char_length(email) <= 254)`, stored trimmed and lower-cased by the application |
-| `phone` | text | NULL | Optional on the account; `CHECK` on `^01[3-9][0-9]{8}$` when present |
+| `email` | text | NOT NULL | `CHECK (char_length(email) <= 254)`, stored trimmed and lower-cased by the application. Required in **both** registration modes (ADR 0036): it is the only address a recovery link can reach |
+| `phone` | text | NULL | A second sign-in identifier. Canonical `^01[3-9][0-9]{8}$`; required by phone-first registration, absent on an email-only account. **Not verified** - no SMS provider is configured (ADR 0036) |
 | `display_name` | text | NULL | `CHECK (char_length <= 80)` |
 | `status` | text | NOT NULL | `active` \| `suspended` \| `deleted`. Default `active` |
 | `email_verified_at` | timestamptz | NULL | NULL means not verified. Never guessed from a submission |
 | `created_at` / `updated_at` | timestamptz | NOT NULL | `now()` |
 | `deleted_at` | timestamptz | NULL | Soft delete; PII scrubbed per 14.6 |
 
-**Keys and constraints.** `UNIQUE (lower(email))`; `CHECK (status IN (...))`;
-`CHECK (deleted_at IS NULL OR status = 'deleted')`.
+**Keys and constraints.** `UNIQUE (lower(email))`; partial `UNIQUE (phone) WHERE phone IS NOT NULL`;
+`CHECK (status IN (...))`; `CHECK (deleted_at IS NULL OR status = 'deleted')`.
 
-**Indexes.** `UNIQUE` on `lower(email)` (login lookup); `(status, created_at DESC)` for the admin
+**Indexes.** `UNIQUE` on `lower(email)` (email login lookup); partial `UNIQUE` on `phone` (phone login
+lookup, and the rule that one number names one account); `(status, created_at DESC)` for the admin
 customer list; partial `(id)` where `deleted_at IS NULL`.
+
+**Identity (ADR 0036, 2026-11-11).** An account signs in with either identifier: the email address or,
+when one is stored, the mobile number. The number is normalised before storage, so spacing, dashes and
+an `880` prefix do not create a second account. `email_verified_at` records only that the person
+clicked the mailed link; the account is usable before that, and a completed password reset also settles
+it because opening a mailed link proves control of the address.
 
 **Authorization.** A customer reads and updates only their own row, resolved from the session, never
 from a request parameter. Staff read with `customer.read`; only an owner-level role changes
@@ -2440,11 +2447,12 @@ below are retained as the record of what was considered. The decision is: email 
 **scrypt** hashing, **opaque 256-bit session tokens stored only as a SHA-256 hash**, httpOnly
 `SameSite=Lax` cookies with idle and absolute expiry, account- and source-keyed throttling,
 customer-scoped CSRF, and **strict separation from owner/qbpanel credentials, sessions and
-permissions**. **Email is the sole registration and sign-in identifier**; a phone number stays optional
-contact. **Email verification is deferred**, and **there is no self-service password recovery at
-launch** - any reset is an owner-operated process with one-time credentials, audit logging and session
-revocation. **No external authentication provider, mail service, OAuth client or SMS gateway is
-authorized.**
+permissions**. **Amended by ADR 0036 (2026-11-11):** a Bangladeshi mobile number or an email address is
+a sign-in identifier, phone-first registration is the default, an email address is required in both
+modes for recovery, and registration sends a non-gating Resend verification link. The number itself is
+**not verified** while no SMS gateway is authorized. Self-service recovery by mailed link exists
+(ADR 0030); the owner-issued code was removed on 2026-11-08. **No external authentication provider,
+OAuth client or SMS gateway is authorized.**
 
 | Option | Cost | Operational burden | Security | Integration fit | Migration implications |
 | --- | --- | --- | --- | --- | --- |

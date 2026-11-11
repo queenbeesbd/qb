@@ -31,13 +31,19 @@ export default async function AccountPage() {
 
   return (
     <AccountFrame
-      customer={{ email: principal.email, displayName: principal.displayName }}
+      customer={{
+        email: principal.email,
+        phone: principal.phone,
+        displayName: principal.displayName,
+      }}
       csrfToken={principal.csrfToken}
       active="overview"
     >
       <AccountOverview
         customer={{
           email: principal.email,
+          phone: principal.phone,
+          emailVerified: principal.emailVerifiedAt !== null,
           displayName: principal.displayName,
           memberSince: profile.createdAt?.toISOString() ?? null,
         }}

@@ -204,6 +204,41 @@ export function emailChangeConfirmationEmail(input: {
   };
 }
 
+/**
+ * "Confirm your email address" - the registration verification link (2026-11-11).
+ *
+ * The account already works when this lands; the button only confirms the address, so the copy says
+ * so rather than implying the account is waiting. The wording also survives a second click: the first
+ * one wins and a later one is simply a dead link.
+ */
+export function emailVerificationEmail(input: {
+  readonly verifyUrl: string;
+  readonly expiresHours: number;
+}): EmailTemplate {
+  const heading = 'Confirm your email address';
+  return {
+    subject: `${heading} - ${BRAND}`,
+    html: layout({
+      preheader: `Confirm the email address on your ${BRAND} account.`,
+      heading,
+      body: [
+        'Your account is ready to use. Confirming this address lets us reach you about your account, and lets you recover a forgotten password by email.',
+        `Use the button below to confirm it. The link works once and expires in ${input.expiresHours} hours.`,
+        'If you did not create this account, ignore this message - nothing changes without the link.',
+      ],
+      action: { url: input.verifyUrl, label: 'Confirm this address' },
+      footnote: 'For your security, never share this link with anyone.',
+    }),
+    text: text([
+      `${heading} - ${BRAND}`,
+      'Your account is ready to use. Confirming this address lets you recover a forgotten password by email.',
+      `Confirm it here (expires in ${input.expiresHours} hours, works once):`,
+      input.verifyUrl,
+      'If you did not create this account, ignore this message.',
+    ]),
+  };
+}
+
 /** "Your email address was changed" - sent to the **previous** address after the change. */
 export function emailChangedEmail(input: {
   readonly newEmail: string;

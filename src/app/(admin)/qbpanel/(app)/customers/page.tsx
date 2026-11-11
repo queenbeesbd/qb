@@ -62,6 +62,7 @@ export default async function AdminCustomersPage({
       rows={data.rows.map((row) => ({
         customerId: row.customerId,
         email: row.email,
+        phone: row.phone,
         displayName: row.displayName,
         status: row.status,
         createdAt: row.createdAt.toISOString(),

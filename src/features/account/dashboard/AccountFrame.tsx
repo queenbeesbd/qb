@@ -28,13 +28,14 @@ export function AccountFrame({
   active,
   children,
 }: {
-  customer: { email: string; displayName: string | null };
+  customer: { email: string; phone: string | null; displayName: string | null };
   /** Present whenever the customer is signed in; the sign-out form posts it. */
   csrfToken: string;
   active: AccountSection;
   children: React.ReactNode;
 }) {
   const { t } = useTranslation();
+  const identity = customer.displayName ?? customer.phone ?? customer.email;
 
   const destinations: { section: AccountSection; href: string; label: TranslationKey }[] = [
     { section: 'overview', href: '/account', label: 'account.nav.overview' },
@@ -47,7 +48,7 @@ export function AccountFrame({
       <nav className={styles.sidebar} aria-label={t('account.nav.label')}>
         <div className={styles.sidebarTop}>
           <p className={styles.sidebarScope}>{t('account.sidebar.scope')}</p>
-          <p className={styles.sidebarIdentity}>{customer.displayName ?? customer.email}</p>
+          <p className={styles.sidebarIdentity}>{identity}</p>
         </div>
 
         {/*
@@ -84,7 +85,7 @@ export function AccountFrame({
         */}
         <div className={styles.phoneIdentity}>
           <span className={styles.phoneIdentityName}>
-            {customer.displayName ?? customer.email}
+            {identity}
           </span>
           <form action="/api/account/logout" method="post">
             <input type="hidden" name="csrf" value={csrfToken} />

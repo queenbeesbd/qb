@@ -6,11 +6,18 @@
  * issues the session, so a new customer does not have to sign in again immediately - which matters
  * because the cart lives in the browser and must survive the step.
  *
+ * **Registration is not gated on email verification** (owner decision, 2026-11-11). The account works
+ * now; the verification message is scheduled after the transaction commits and only confirms the
+ * address. A provider failure therefore cannot cost a registration.
+ *
  * The password is never echoed, never logged and never placed in the redirect target.
  */
 
+import { after } from 'next/server';
+
 import { withTransaction } from '@/db/client';
 import { CUSTOMER_REGISTER_PATH } from '@/server/customer-auth/constants';
+import { scheduleEmailVerification } from '@/server/customer-auth/email-delivery';
 import { safeCustomerNext, setCustomerSessionCookie } from '@/server/customer-auth/guard';
 import { registerCustomer } from '@/server/customer-auth/service';
 import { createCustomerSession } from '@/server/customer-auth/session';
@@ -40,20 +47,32 @@ export async function POST(request: Request): Promise<Response> {
 
   const context = sessionContextFrom(request.headers);
 
+  const method = form.get('method');
+
   const result = await withTransaction(async (tx) => {
     const registered = await registerCustomer(tx, {
+      method,
       email: form.get('email'),
+      phone: form.get('phone'),
       password,
       displayName: form.get('displayName'),
       context,
     });
     if (!registered.ok) return registered;
     const session = await createCustomerSession(tx, registered.customerId, context);
-    return { ok: true as const, token: session.token };
+    return { ok: true as const, token: session.token, verification: registered.verification };
   });
 
   if (!result.ok) {
-    return redirectTo(`${CUSTOMER_REGISTER_PATH}?error=${result.failure}&next=${encodeURIComponent(next)}`);
+    const back = typeof method === 'string' && method === 'email' ? '&method=email' : '';
+    return redirectTo(
+      `${CUSTOMER_REGISTER_PATH}?error=${result.failure}&next=${encodeURIComponent(next)}${back}`,
+    );
+  }
+
+  // After the response: a mail outage never turns a created account into a failed registration.
+  if (result.verification !== null) {
+    scheduleEmailVerification((task) => after(task), result.verification);
   }
 
   await setCustomerSessionCookie(result.token);

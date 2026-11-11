@@ -14,11 +14,13 @@ import { publicBaseUrl, sendEmail } from '@/server/integrations/email';
 import {
   emailChangeConfirmationEmail,
   emailChangedEmail,
+  emailVerificationEmail,
   passwordChangedEmail,
   passwordRecoveryEmail,
 } from '@/server/integrations/email-templates';
 import {
   CUSTOMER_EMAIL_CHANGE_TOKEN_MS,
+  CUSTOMER_EMAIL_VERIFY_TOKEN_MS,
   CUSTOMER_RESET_TOKEN_MS,
 } from './constants';
 
@@ -54,6 +56,27 @@ export function schedulePasswordRecovery(
   const url = absolute(`/account/reset?token=${encodeURIComponent(delivery.token)}`);
   if (url === null) return;
   const template = passwordRecoveryEmail({ resetUrl: url, expiresMinutes: minutes(CUSTOMER_RESET_TOKEN_MS) });
+  schedule(async () => {
+    await deliver({ ...template, to: delivery.to });
+  });
+}
+
+/**
+ * The registration verification link (2026-11-11).
+ *
+ * Sent after the account is already usable, so a mail failure never blocks a registration. The link
+ * only records that the person controls the address - it changes no password and needs no session.
+ */
+export function scheduleEmailVerification(
+  schedule: TaskScheduler,
+  delivery: { readonly to: string; readonly token: string },
+): void {
+  const url = absolute(`/account/verify-email?token=${encodeURIComponent(delivery.token)}`);
+  if (url === null) return;
+  const template = emailVerificationEmail({
+    verifyUrl: url,
+    expiresHours: Math.round(CUSTOMER_EMAIL_VERIFY_TOKEN_MS / 3_600_000),
+  });
   schedule(async () => {
     await deliver({ ...template, to: delivery.to });
   });

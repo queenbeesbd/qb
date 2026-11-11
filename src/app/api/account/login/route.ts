@@ -32,17 +32,25 @@ export async function POST(request: Request): Promise<Response> {
 
   const rawNext = form.get('next');
   const next = safeCustomerNext(typeof rawNext === 'string' ? rawNext : null);
-  const email = form.get('email');
+  const method = form.get('method');
+  const identifier = form.get('identifier');
   const password = form.get('password');
-  if (typeof email !== 'string' || typeof password !== 'string' || email === '' || password === '') {
-    return redirectTo(`${CUSTOMER_LOGIN_PATH}?error=invalid&next=${encodeURIComponent(next)}`);
+  if (
+    typeof identifier !== 'string' ||
+    identifier.trim() === '' ||
+    typeof password !== 'string' ||
+    password === ''
+  ) {
+    const back = typeof method === 'string' && method === 'email' ? '&method=email' : '';
+    return redirectTo(`${CUSTOMER_LOGIN_PATH}?error=invalid&next=${encodeURIComponent(next)}${back}`);
   }
 
   const context = sessionContextFrom(request.headers);
 
   const result = await withTransaction((tx) =>
     signInCustomer(tx, {
-      email,
+      method,
+      identifier,
       password,
       context,
       createSession: async (customerId) => {
@@ -54,7 +62,8 @@ export async function POST(request: Request): Promise<Response> {
 
   if (!result.ok) {
     const code = result.failure === 'throttled' ? 'throttled' : 'invalid';
-    return redirectTo(`${CUSTOMER_LOGIN_PATH}?error=${code}&next=${encodeURIComponent(next)}`);
+    const back = typeof method === 'string' && method === 'email' ? '&method=email' : '';
+    return redirectTo(`${CUSTOMER_LOGIN_PATH}?error=${code}&next=${encodeURIComponent(next)}${back}`);
   }
 
   // The raw token is placed in the cookie here and nowhere else.
