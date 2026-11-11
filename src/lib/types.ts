@@ -127,6 +127,16 @@ export type CatalogImage = {
   key: string;
   alt: LocalizedText;
   rights: ImageRights | ImageRightsStatus;
+  /**
+   * The stored master's pixel size, when the source can state it.
+   *
+   * A layout fact, not decoration: the product page renders a photograph at its **own** ratio rather
+   * than cropping it, and `<img width height>` is what reserves the right box before the bytes arrive.
+   * `null` (the captured fixture records none) falls back to the catalog's portrait hint; the loaded
+   * file still decides the ratio, so nothing is ever cropped into a guess.
+   */
+  width?: number | null;
+  height?: number | null;
 };
 
 /**

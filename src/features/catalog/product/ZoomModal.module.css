@@ -55,15 +55,24 @@
   min-height: 0;
   overflow: auto;
   border-radius: var(--radius-md);
-  /* The uncropped 3:4 photograph; the frame scrolls if a short viewport needs it to. */
+  /* The photograph at its own stored ratio, scaled to fit; the frame scrolls if the viewport is short. */
   max-height: calc(100vh - 160px);
 }
 
+/*
+ * The zoom shows the whole photograph, whatever its shape.
+ *
+ * `width: auto` with both caps lets the browser scale it down **proportionally**, so a portrait stays
+ * portrait and a landscape stays landscape - the same rule the page itself follows since 2026-11-12.
+ * `object-fit: contain` is the belt to that brace; it can only letterbox inside a box that is already
+ * the right shape.
+ */
 .figure img,
 .figure picture {
   display: block;
-  width: 100%;
+  width: auto;
   height: auto;
+  max-width: 100%;
   max-height: calc(100vh - 160px);
   object-fit: contain;
 }

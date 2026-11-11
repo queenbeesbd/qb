@@ -57,6 +57,7 @@ export function GalleryCarousel({ images, name }: { images: readonly CatalogImag
               alt={index === 0 ? name : ''}
               sizes={DETAIL_SIZES}
               priority={index === 0}
+              uncropped
               fallbackLabel={t('product.imagePlaceholder')}
             />
           </figure>

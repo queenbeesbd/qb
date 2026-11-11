@@ -208,11 +208,18 @@ byte size are produced from the decoded bytes - the browser supplies no path, UR
 
 | Surface | Output (WebP only) | Route |
 | --- | --- | --- |
-| Product | 320x427, 600x800 and 1050x1400 | `POST /api/qbpanel/catalog/product` (`images` field) |
+| Product | 320, 600 and 1050 **wide, at the file's own ratio** (a 3:2 upload is 600x400; the old crop to 600x800 is gone) | `POST /api/qbpanel/catalog/product` (`images` field) |
 | Category | 320, 600 and 1050 squares | `POST /api/qbpanel/catalog/category` (`image` field) |
 | Brand | 320, 600 and 1050 squares | `POST /api/qbpanel/catalog/brand` (`image` field) |
 | Hero | 800x450 and 1600x900 | `POST /api/qbpanel/hero` (`operation=upload`) |
 | Offer popup | square (320/600/1050) or wide (800/1600) | `POST /api/qbpanel/settings/offer-popup` (`image` field) |
+
+**A product keeps its owner's shape (2026-11-12).** The product set is resized **by width only**, so a
+landscape photograph stays landscape; the square and hero sets are still cropped to the frame their surface
+reserves. The recorded `product_image.width`/`height` are the encoder's own output, which is what the product
+page uses to reserve the right box before the bytes arrive. The product page draws that shape uncropped; a card
+still crops it into 4:5. Do not restore `fit: 'cover'` on the product branch: it re-crops the file itself, and
+the page cannot undo it.
 
 **Why three widths.** The storefront picks by rendered size: a 116px circle downloads 320, a product card
 downloads 600, and only the detail photograph asks for 1050. `npm run assets:optimize` re-encodes the whole

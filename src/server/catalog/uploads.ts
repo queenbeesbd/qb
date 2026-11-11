@@ -47,6 +47,9 @@ type Variant = {
   readonly file: string;
   readonly bytes: Buffer;
   readonly contentType: string;
+  /** The encoded pixels. The bytes are the authority on a variant's size, never the request. */
+  readonly width: number;
+  readonly height: number;
 };
 
 /** The descriptor an upload is recorded as, built exactly like a generated asset's. */
@@ -68,18 +71,28 @@ function newKey(kind: UploadKind): string {
 }
 
 /**
- * One re-encoded variant, cropped to the frame the storefront reserves.
+ * One re-encoded variant.
  *
- * `fit: 'cover'` is the crop the CSS already draws (`object-fit: cover`): the owner's photograph
- * fills the frame instead of leaving a letterbox inside it. `rotate()` applies the EXIF orientation
- * before anything else, so a phone photo taken sideways is stored upright.
+ * A **product** variant is resized by width only, so the stored file keeps the owner's own shape: a
+ * landscape upload stays landscape, and the product page can show it whole (owner direction,
+ * 2026-11-12). The square and hero sets are still cropped to the frame their surface reserves -
+ * `fit: 'cover'` is the crop the CSS already draws (`object-fit: cover`), and a circle tile or a
+ * 16:9 banner has no room for a letterbox. `rotate()` applies the EXIF orientation before anything
+ * else, so a phone photo taken sideways is stored upright.
  */
-async function renderVariant(input: Buffer, width: number, height: number): Promise<Buffer> {
-  return sharp(input, { failOn: 'error', limitInputPixels: 40_000_000 })
-    .rotate()
-    .resize(width, height, { fit: 'cover', position: 'centre' })
-    .webp({ quality: 78, effort: 5 })
-    .toBuffer();
+async function renderVariant(
+  input: Buffer,
+  width: number,
+  height: number,
+  crop: boolean,
+): Promise<{ bytes: Buffer; width: number; height: number }> {
+  const pipeline = sharp(input, { failOn: 'error', limitInputPixels: 40_000_000 }).rotate();
+  const resized = crop
+    ? pipeline.resize(width, height, { fit: 'cover', position: 'centre' })
+    : pipeline.resize({ width });
+  const { data, info } = await resized.webp({ quality: 78, effort: 5 }).toBuffer({ resolveWithObject: true });
+  // The encoded bytes are the authority on a variant's size, never the request or the frame.
+  return { bytes: data, width: info.width, height: info.height };
 }
 
 /** Writes the local copies, or reports that this filesystem cannot hold them. */
@@ -115,20 +128,26 @@ export async function saveUpload(file: unknown, kind: UploadKind): Promise<Uploa
 
   const key = newKey(kind);
 
-  const sizes: readonly { width: number; height: number }[] =
-    kind === 'product'
-      ? IMAGE_WIDTHS.map((width) => ({ width, height: Math.round((width * 4) / 3) }))
-      : kind === 'hero'
-        ? HERO_IMAGE_WIDTHS.map((width) => ({ width, height: Math.round((width * 9) / 16) }))
-        : IMAGE_WIDTHS.map((width) => ({ width, height: width }));
+  /*
+   * A product keeps its own shape; a square or a hero frame is still filled.
+   *
+   * `crop` is one flag for the whole set, so a product's three variants cannot disagree with each
+   * other, and the frame height is only consulted when something is actually being filled.
+   */
+  const crop = kind !== 'product';
+  const widths: readonly number[] = kind === 'hero' ? HERO_IMAGE_WIDTHS : IMAGE_WIDTHS;
 
   const variants: Variant[] = [];
-  for (const size of sizes) {
-    const bytes = await renderVariant(input, size.width, size.height);
+  for (const width of widths) {
+    // A square fills width x width; a hero fills 16:9. A product crops to neither.
+    const frameHeight = kind === 'hero' ? Math.round((width * 9) / 16) : width;
+    const rendered = await renderVariant(input, width, frameHeight, crop);
     variants.push({
-      file: `${key}-${size.width}.${FORMAT}`,
-      bytes,
+      file: `${key}-${width}.${FORMAT}`,
+      bytes: rendered.bytes,
       contentType: 'image/webp',
+      width: rendered.width,
+      height: rendered.height,
     });
   }
 
@@ -157,17 +176,19 @@ export async function saveUpload(file: unknown, kind: UploadKind): Promise<Uploa
   const primary = variants.find((variant) => variant.file === `${key}-${primaryWidth}.${FORMAT}`);
   if (primary === undefined) throw new Error('the image could not be encoded');
 
-  const primarySize = sizes.find((size) => size.width === primaryWidth);
-  if (primarySize === undefined) throw new Error('the image frame is not declared');
-
   return {
     key,
     contentType: primary.contentType,
-    width: primarySize.width,
-    height: primarySize.height,
+    /*
+     * The stored pixels of the 600px file, taken from the encoder. For a product that is the
+     * photograph's **own** shape - a landscape upload reports 600x400, not a 600x800 frame it was cut
+     * into - and these are the numbers the product page reserves its box with.
+     */
+    width: primary.width,
+    height: primary.height,
     byteSize: primary.bytes.byteLength,
     variants: variants.map((variant) => ({
-      width: Number(/(\d+)\.webp$/.exec(variant.file)?.[1] ?? '0'),
+      width: variant.width,
       format: 'webp' as const,
       storageKey: `/catalog/${variant.file}`,
       byteSize: variant.bytes.byteLength,

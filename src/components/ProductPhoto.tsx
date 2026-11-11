@@ -20,6 +20,15 @@ type Props = {
    * text. The source files are unchanged - only the crop inside the frame is tighter.
    */
   frame?: string;
+  /**
+   * Draw the photograph at its **own** stored shape instead of cropping it into a frame.
+   *
+   * The product page uses this (owner direction, 2026-11-12): a landscape upload stays landscape and
+   * nothing is cut off the sides, which is what the reference does and what a shopper checking what
+   * arrives expects. Cards keep cropping - a grid needs one frame - so this is opt-in per surface and
+   * never the default.
+   */
+  uncropped?: boolean;
 };
 
 /**
@@ -39,11 +48,14 @@ export function ProductPhoto({
   className,
   fallbackLabel,
   frame,
+  uncropped = false,
 }: Props) {
+  const shape = `${styles.img}${uncropped ? ` ${styles.uncropped}` : ''} ${className ?? ''}`.trim();
+
   if (!image) {
     return (
       <span
-        className={`${styles.fallback} ${className ?? ''}`.trim()}
+        className={`${styles.fallback} ${uncropped ? styles.fallbackUncropped : ''} ${className ?? ''}`.trim()}
         style={frame ? { aspectRatio: frame } : undefined}
       >
         {fallbackLabel ?? ''}
@@ -56,7 +68,7 @@ export function ProductPhoto({
 
   return (
     <img
-      className={`${styles.img} ${className ?? ''} `.trim()}
+      className={shape}
       style={frame ? { aspectRatio: frame } : undefined}
       src={placeholder ? sources.fallbackSrc.replace('.webp', '.svg') : sources.fallbackSrc}
       srcSet={placeholder ? undefined : sources.webpSrcSet}

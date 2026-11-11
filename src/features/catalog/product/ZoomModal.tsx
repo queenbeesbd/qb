@@ -69,10 +69,11 @@ export function ZoomModal({
         </button>
         <figure className={styles.figure}>
           {/*
-            No `frame` prop: the photograph renders at its stored 3:4 ratio, the
-            one crop this surface is for.
+            No `frame` prop: the photograph renders at its own stored ratio, and `uncropped` is what
+            says so - the same rule the page follows (2026-11-12), which is why this is now a
+            confirm-the-whole-image surface rather than the only one that showed it uncropped.
           */}
-          <ProductPhoto image={image} alt={name} sizes="90vw" priority fallbackLabel={t('product.imagePlaceholder')} />
+          <ProductPhoto image={image} alt={name} sizes="90vw" priority uncropped fallbackLabel={t('product.imagePlaceholder')} />
         </figure>
         <p className={styles.hint}>{t('product.zoomHint')}</p>
       </div>

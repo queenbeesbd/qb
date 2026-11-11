@@ -178,21 +178,17 @@
 }
 
 /*
- * The gallery frame is a **square on a phone**, not 3:4.
+ * The product page no longer crops its photograph (owner direction, 2026-11-12).
  *
- * Catalog photography is 3:4 portrait, and rendering the full frame at 390px produced a 520px-tall
- * photograph: the price and the add button sat a full screen below the product, which is the
- * "imagery occupies too much space" the redesign is answering. A square crop keeps the subject large,
- * shows the shape of the bottle, jar or box, and puts the price on the first screen. It widens to 4:5
- * from 480px, where there is room to show the whole product, and the desktop column caps its height.
+ * Every upload used to be forced into a square or 4:5 frame with `object-fit: cover`, which cut the
+ * sides off a landscape photograph - the shop's own reference shows the whole image, and a shopper
+ * checking what arrives should not have to open a zoom to see it. `ProductPhoto` is asked for an
+ * **uncropped** render here, so the frame follows the file's own shape; `width`/`height` reserve the
+ * correct box up front because a database image reports its stored pixels.
+ *
+ * A **card** keeps its 4:5 crop (`CARD_FRAME`): a grid needs one frame, and that is still where
+ * cropping helps. Do not put a fixed `aspect-ratio` or `object-fit: cover` back on the figure.
  */
-.figure img {
-  display: block;
-  width: 100%;
-  height: auto;
-  aspect-ratio: 1 / 1;
-  object-fit: cover;
-}
 
 .info {
   display: grid;
@@ -558,20 +554,13 @@
   padding-top: var(--space-5);
 }
 
-@media (min-width: 480px) {
-  .figure img {
-    aspect-ratio: 4 / 5;
-  }
-}
-
 @media (min-width: 880px) {
   /*
    * The two-column layout, with the gallery deliberately **smaller than its column**.
    *
-   * The rebalance: the media column is capped at 480px and the main frame is a **square**, so a 3:4
-   * master never produces a photograph taller than the information beside it. The crop is presentation
-   * only — `ZoomModal` shows the uncropped stored photograph on demand, which is what lets the page
-   * stay compact without ever hiding the product's real shape.
+   * The media column is capped at 480px because the information beside it is the other half of the
+   * decision. The photograph is drawn at its own shape (see `.figure`), so a tall upload is simply
+   * taller than a wide one - uncropped, and never larger than the column that holds it.
    */
   .layout {
     grid-template-columns: minmax(0, 480px) minmax(0, 1fr);
@@ -593,10 +582,6 @@
   .mediaDesktop {
     position: sticky;
     top: var(--space-5);
-  }
-
-  .figure img {
-    aspect-ratio: 1 / 1;
   }
 
   /*

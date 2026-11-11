@@ -75,6 +75,9 @@ export type CatalogProduct = {
     alt: { bn: string | null; en: string | null };
     /** Database rights status; never treated as cleared unless the row says so. */
     rights: ImageRightsStatus;
+    /** The stored master's pixel size, so a surface can draw it at its own shape. */
+    width: number;
+    height: number;
   }[];
   /**
    * When the product row was created, in UTC.
@@ -313,6 +316,10 @@ async function listImagesForProducts(
       altBn: productImage.altBn,
       altEn: productImage.altEn,
       rightsStatus: productImage.rightsStatus,
+      // Read from the decoded bytes at upload time, so the frame can reserve the photograph's real
+      // shape before a byte of it arrives.
+      width: productImage.width,
+      height: productImage.height,
     })
     .from(productImage)
     .where(sql`${productImage.productId} in ${productIds} and ${productImage.deletedAt} is null`)
@@ -321,7 +328,14 @@ async function listImagesForProducts(
   for (const row of rows) {
     const id = String(row.productId);
     const list = grouped.get(id);
-    const image = { key: row.key, altBn: row.altBn, altEn: row.altEn, rightsStatus: row.rightsStatus };
+    const image = {
+      key: row.key,
+      altBn: row.altBn,
+      altEn: row.altEn,
+      rightsStatus: row.rightsStatus,
+      width: row.width,
+      height: row.height,
+    };
     if (list === undefined) grouped.set(id, [image]);
     else list.push(image);
   }
@@ -535,6 +549,9 @@ type CatalogImageRow = {
   readonly altBn: string | null;
   readonly altEn: string | null;
   readonly rightsStatus: string;
+  /** The stored master's pixel size, from the upload's decoded bytes. */
+  readonly width: number;
+  readonly height: number;
 };
 
 /** Projects one product row into the customer-facing shape. Images are supplied, never fetched here. */
@@ -593,6 +610,8 @@ function projectProduct(
       key: image.key,
       alt: { bn: image.altBn, en: image.altEn },
       rights: toRightsStatus(image.rightsStatus),
+      width: image.width,
+      height: image.height,
     })),
     isDemo: false,
     provenance: 'database',

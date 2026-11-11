@@ -1190,12 +1190,20 @@ it (`object-fit: cover`, centre crop) instead of sitting inside a square tile.
 tile shows the photograph, the name, a one-line label and the product count as a small chip on the
 photograph. A category with no photograph draws the same shared letter mark in its circle.
 
-**Product page.** Gallery **square** on a phone (a 3:4 frame at 390px is 520px tall - a full screen
-above the price), 4:5 from 480px. From 880px the media column is capped at **480px** and the gallery is
-sticky, so the price, the facts and the actions sit beside the photograph rather than below it. The
-purchase block is observed with `IntersectionObserver`; a fixed purchase bar appears only once the
-gallery has scrolled away **and** the in-page block is off screen, so the first screen is never covered
-by a duplicate control. The breadcrumb is one line and may shorten only its last level.
+**Product page.** The photograph is drawn **uncropped, at the file's own shape** (owner direction,
+2026-11-12): a landscape upload is landscape, nothing is cut off the sides, and the frame simply follows
+the image. `ProductPhoto`'s `uncropped` prop is what selects this, and the `<img>` `width`/`height` come
+from the stored pixels (`product_image.width`/`height`, recorded by the upload from its own encoder), so
+the box is reserved before the bytes arrive and the page does not shift. The desktop frame, the phone
+carousel's slides and the zoom all follow the same rule; the **thumbnail strip** stays a uniform 4:5
+crop, because a picker reads as one row of one size. Cards keep their 4:5 `CARD_FRAME` crop - the two
+decisions are opposites on purpose. A gallery mixing shapes makes the phone strip as tall as its tallest
+slide and centres the shorter one; that is the accepted cost of never cropping. From 880px the media
+column is capped at **480px** and is sticky, so the price, the facts and the actions sit beside the
+photograph rather than below it. The purchase block is observed with `IntersectionObserver`; a fixed
+purchase bar appears only once the gallery has scrolled away **and** the in-page block is off screen, so
+the first screen is never covered by a duplicate control. The breadcrumb is one line and may shorten
+only its last level.
 
 **Discovery imagery is an asset key, never a URL.** `category.image_key` and `brand.logo_key` hold keys
 validated against the server's own inventory; every rendered path comes from `src/lib/images.ts`. The

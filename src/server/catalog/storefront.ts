@@ -118,6 +118,8 @@ function toCatalogItem(record: CatalogProduct): CatalogItem {
       key: image.key,
       alt: image.alt,
       rights: image.rights,
+      width: image.width,
+      height: image.height,
     })),
     source: 'database',
     // A database row always carries a real creation instant; the column is NOT NULL.

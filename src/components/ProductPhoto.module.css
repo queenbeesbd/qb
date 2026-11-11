@@ -26,3 +26,22 @@
   font-size: var(--text-xs);
   background: var(--color-surface-sunken);
 }
+
+/*
+ * Uncropped: the photograph keeps its own shape (owner direction, 2026-11-12).
+ *
+ * `aspect-ratio: auto` undoes the 3:4 frame and, with `height: auto`, lets the browser use the file's
+ * intrinsic ratio - so a landscape upload renders landscape and nothing is cut off. The `<img>`
+ * `width`/`height` attributes still reserve the right box, because a database image reports its stored
+ * pixels. Only the product page opts in; a card needs one frame and keeps cropping.
+ */
+.uncropped {
+  aspect-ratio: auto;
+  object-fit: contain;
+}
+
+/* The empty frame has no photograph to follow, so it keeps a shape rather than collapsing to nothing. */
+.fallbackUncropped {
+  aspect-ratio: 4 / 3;
+  min-height: 8rem;
+}

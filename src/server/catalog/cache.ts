@@ -25,9 +25,10 @@ export const STOREFRONT_CATALOG_TAG = 'storefront-catalog';
  * `CatalogItem`, `CatalogCategory` or `CatalogBrand`** - a new key means the new build reads fresh rows
  * on its first request instead of serving a payload it no longer understands.
  *
- * 1 - Phase 14 shape. 2 - `ratingHalves` added (2026-11-11).
+ * 1 - Phase 14 shape. 2 - `ratingHalves` added (2026-11-11). 3 - `CatalogImage` carries the stored
+ * `width`/`height` (2026-11-12), which the product page needs to draw a photograph at its own shape.
  */
-export const STOREFRONT_CATALOG_KEY_VERSION = 'v2';
+export const STOREFRONT_CATALOG_KEY_VERSION = 'v3';
 
 /**
  * Backstop revalidation interval, in seconds. Catalog writes invalidate the tag immediately.

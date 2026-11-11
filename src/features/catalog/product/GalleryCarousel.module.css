@@ -11,6 +11,12 @@
 
 .strip {
   display: flex;
+  /*
+   * Slides keep their own height, so a set with mixed shapes makes the strip as tall as its tallest
+   * photograph. Centring the shorter ones (`align-items: center`) reads as a centred photograph rather
+   * than as a hole under it - which is what a top-aligned flex row did on a landscape-then-portrait set.
+   */
+  align-items: center;
   overflow-x: auto;
   scroll-snap-type: x mandatory;
   overscroll-behavior-x: contain;
@@ -35,8 +41,6 @@
   display: block;
   width: 100%;
   height: auto;
-  aspect-ratio: 1 / 1;
-  object-fit: cover;
   border-radius: var(--radius-lg);
   border: 1px solid var(--color-border);
   background: var(--color-surface);

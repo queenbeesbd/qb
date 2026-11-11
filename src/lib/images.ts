@@ -182,13 +182,18 @@ function buildSrcSet(key: string): string {
 /**
  * Derives every rendered image path for one catalog image. Paths are computed
  * from the key rather than stored, so a record cannot drift from its assets.
+ *
+ * `width`/`height` are the stored master's own pixels when the record states them, which is what lets
+ * a photograph reserve its real box before it loads - the product page draws it at that shape rather
+ * than cropping. The catalog's portrait ratio is only a hint for a record that states nothing (the
+ * captured fixture); the loaded file always decides.
  */
 export function imageSources(image: CatalogImage): ImageSources {
   return {
     webpSrcSet: buildSrcSet(image.key),
     fallbackSrc: catalogPath(`${image.key}-${IMAGE_FALLBACK_WIDTH}.webp`),
-    width: IMAGE_ASPECT.width,
-    height: IMAGE_ASPECT.height,
+    width: image.width ?? IMAGE_ASPECT.width,
+    height: image.height ?? IMAGE_ASPECT.height,
   };
 }
 

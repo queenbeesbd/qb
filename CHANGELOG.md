@@ -14,6 +14,37 @@ An entry may describe a deployment only once it has actually happened and been o
 
 ## [Unreleased]
 
+### Changed - 2026-11-12: the product page shows a photograph at its own shape, uncropped
+
+Owner direction: an upload that is landscape (or any other shape) must appear as it is on the product
+page, the way the reference does, while a product **card** keeps cropping.
+
+- **The upload pipeline stopped cropping product photographs.** `saveUpload` resized a `product` image
+  to 320x427 / 600x800 / 1050x1400 with `fit: 'cover'`, so a landscape file was already cut to 4:3 before
+  the page saw it. It now resizes **by width only** for that surface; the square set (category, brand,
+  review) and the hero set still fill their frames. The recorded `width`/`height` come from the encoder's
+  own output rather than from the frame.
+- **The product page draws the photograph uncropped.** `ProductPhoto` gained an `uncropped` prop
+  (`aspect-ratio: auto; object-fit: contain`) used by the desktop figure, the phone carousel slides and
+  the zoom. The fixed 1:1 / 4:5 / 1:1 frame and its `object-fit: cover` were removed from
+  `product.module.css`; the thumbnail strip keeps its uniform crop.
+- **A card still crops.** `CARD_FRAME`/`LISTING_CARD_FRAME` (4:5) are untouched, so a homepage or
+  listing card looks exactly as it did.
+- **The stored pixels now reach the view.** `CatalogImage` carries the stored `width`/`height`
+  (`product_image.width/height`), `imageSources` uses them for the `<img>` attributes, and
+  `STOREFRONT_CATALOG_KEY_VERSION` is bumped to `v3` so a cached snapshot is not served with the old
+  shape.
+- A phone gallery whose photographs have different shapes is as tall as its tallest slide, with the
+  shorter one centred; that is the accepted cost of never cropping.
+
+No schema change and no migration.
+
+Verified 2026-11-12: `typecheck`, `lint` (0 errors), unit **317/317** including a new case that uploads a
+1200x800 landscape and asserts the stored 600px file is 600x400 (and that a square frame is still
+filled); a generated landscape upload attached to a product rendered at **478x319 (1.50)** on the
+desktop page, **358x239** in the phone carousel and **70x94 (cover)** in the thumbnail strip, while
+related cards stayed **222x278 (0.80)**.
+
 ### Changed - 2026-11-12: catalog list search is live and fuzzy, and the product list is newest first
 
 Owner direction: `/qbpanel/categories` and `/qbpanel/brands` must search like `/qbpanel/catalog`, and

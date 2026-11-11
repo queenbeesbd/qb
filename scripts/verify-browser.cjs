@@ -849,17 +849,35 @@ async function main() {
 
     await nav(client, samplePath);
     const detailImg = await evaluate(client, `(() => {
-      const img = document.querySelector('main img');
+      /*
+       * The **rendered** photograph, not the first node in the DOM: at a desktop width the phone
+       * carousel is still in the markup and is \`display: none\`, so its box is 0x0 and its ratio is
+       * meaningless. Pick the first image that actually has a box.
+       */
+      const shown = [...document.querySelectorAll('main img')].find((node) => node.getBoundingClientRect().width > 0)
+        ?? document.querySelector('main img');
       const caption = document.querySelector('main figure figcaption');
+      const box = shown ? shown.getBoundingClientRect() : null;
       return {
-        loaded: !!img && img.complete && img.naturalWidth > 0,
-        eager: img ? img.getAttribute('loading') === 'eager' : false,
-        alt: img ? (img.getAttribute('alt') || '').trim() : null,
+        loaded: !!shown && shown.complete && shown.naturalWidth > 0,
+        eager: shown ? shown.getAttribute('loading') === 'eager' : false,
+        alt: shown ? (shown.getAttribute('alt') || '').trim() : null,
         caption: caption ? caption.innerText.trim() : null,
-        ratio: img ? Number((img.naturalWidth / img.naturalHeight).toFixed(3)) : null,
+        ratio: shown ? Number((shown.naturalWidth / shown.naturalHeight).toFixed(3)) : null,
+        frameRatio: box && box.height > 0 ? Number((box.width / box.height).toFixed(3)) : null,
       };
     })()`);
-    record('26b. detail photo loads eagerly with descriptive alt and no audit caption', detailImg.loaded && detailImg.eager && (detailImg.alt || '').length > 3 && detailImg.caption === null && detailImg.ratio === 0.75, detailImg);
+    /*
+     * The frame must follow the **file's** shape (owner direction, 2026-11-12): the product page no
+     * longer crops into a fixed frame, so a landscape upload renders landscape. Comparing the rendered
+     * box against the file's own ratio is the assertion that survives a landscape photograph; the
+     * seeded catalog is portrait, so it proves the crop is gone rather than that landscape passes
+     * through - that was checked by hand with a landscape upload.
+     */
+    record('26b. the detail photo loads eagerly at its own stored ratio, with descriptive alt and no audit caption',
+      detailImg.loaded && detailImg.eager && (detailImg.alt || '').length > 3 && detailImg.caption === null &&
+      detailImg.ratio === 0.75 && Math.abs((detailImg.frameRatio ?? 0) - detailImg.ratio) < 0.02,
+      detailImg);
 
     // 26c - the served page is the database catalog, and the retired fixture
     // wording is gone. The 22 products come from the seeded database read, and

@@ -7,10 +7,15 @@
  */
 
 import assert from 'node:assert/strict';
+import { rm } from 'node:fs/promises';
+import { join } from 'node:path';
 import { describe, it } from 'node:test';
 
+import sharp from 'sharp';
+
 import { readImageMetadata, detectFormat } from '../../src/server/catalog/image-metadata';
-import { listAssetKeys, readAsset } from '../../src/server/catalog/assets';
+import { CATALOG_ASSET_DIR, listAssetKeys, readAsset } from '../../src/server/catalog/assets';
+import { saveUpload } from '../../src/server/catalog/uploads';
 import {
   MAX_PRICE_MINOR,
   parseAvailability,
@@ -235,5 +240,55 @@ describe('image metadata read from the file', () => {
     first.length = 0;
     const third = await listAssetKeys();
     assert.deepEqual(third, second, 'mutating a returned array cannot empty the cache');
+  });
+
+  /*
+   * The product page draws a photograph at its **own** shape (owner direction, 2026-11-12), which is
+   * only possible if the upload pipeline stores it that way. A landscape file used to be cropped to
+   * the 4:3 catalog frame before the bytes ever reached the page - so this pins the stored file, not
+   * the CSS: a 1200x800 upload must come back as 600x400, and a square upload must still be filled.
+   */
+  it('stores a product photograph at its own shape and still fills a square frame', async () => {
+    const bytes = await sharp({
+      create: { width: 1200, height: 800, channels: 3, background: { r: 200, g: 180, b: 240 } },
+    })
+      .png()
+      .toBuffer();
+
+    const uploaded = await saveUpload(new File([bytes], 'landscape.png', { type: 'image/png' }), 'product');
+    try {
+      assert.equal(uploaded.width, 600);
+      // 1200x800 is 3:2, so the 600px file is 400 tall - not the 800 the old cover-crop produced.
+      assert.equal(uploaded.height, 400, 'a landscape upload stays landscape');
+      assert.equal(uploaded.variants.length, 3);
+
+      const stored = await readAsset(uploaded.key);
+      assert.ok(stored !== null, 'the written asset is readable');
+      assert.equal(stored.width, 600);
+      assert.equal(stored.height, 400);
+    } finally {
+      await Promise.all(
+        uploaded.variants.map((variant) =>
+          rm(join(CATALOG_ASSET_DIR, variant.storageKey.replace('/catalog/', '')), { force: true }),
+        ),
+      );
+    }
+
+    const squareBytes = await sharp({
+      create: { width: 900, height: 900, channels: 3, background: { r: 20, g: 20, b: 20 } },
+    })
+      .png()
+      .toBuffer();
+    const square = await saveUpload(new File([squareBytes], 'square.png', { type: 'image/png' }), 'square');
+    try {
+      assert.equal(square.width, 600);
+      assert.equal(square.height, 600, 'a square frame is still filled');
+    } finally {
+      await Promise.all(
+        square.variants.map((variant) =>
+          rm(join(CATALOG_ASSET_DIR, variant.storageKey.replace('/catalog/', '')), { force: true }),
+        ),
+      );
+    }
   });
 });

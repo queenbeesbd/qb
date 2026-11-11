@@ -183,10 +183,13 @@ export function ProductDetailView({
           - **Below 880px**: `GalleryCarousel` — a full-width snap carousel with dot
             indicators, the phone's native pattern for photograph sets.
           - **From 880px**: the clicked-thumbnail composition — a horizontal thumb
-            strip under a square main frame, and the frame is a real button that
-            opens `ZoomModal`, where the photograph shows at its uncropped stored
-            3:4 ratio. The crop on the page is presentation; the zoom is the
-            customer's way to see the whole product.
+            strip under a main frame, and the frame is a real button that opens
+            `ZoomModal`.
+
+          **Neither composition crops** (owner direction, 2026-11-12). The main photograph is drawn
+          at its own stored shape, so a landscape upload stays landscape; the thumbnail strip keeps a
+          uniform crop because a picker reads best as one row of one size, and a card keeps its 4:5
+          frame. `ProductPhoto`'s `uncropped` prop is what selects this, per surface.
         */}
         {images.length > 1 ? (
           <>
@@ -206,6 +209,7 @@ export function ProductDetailView({
                     alt={pick(image?.alt) ?? name}
                     sizes={DETAIL_SIZES}
                     priority
+                    uncropped
                     fallbackLabel={t('product.imagePlaceholder')}
                   />
                 </figure>
@@ -253,6 +257,7 @@ export function ProductDetailView({
                   alt={pick(image?.alt) ?? name}
                   sizes={DETAIL_SIZES}
                   priority
+                  uncropped
                   fallbackLabel={t('product.imagePlaceholder')}
                 />
               </figure>
