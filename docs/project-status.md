@@ -1102,6 +1102,15 @@ soft-deleted (`status = 'deleted'`, `deleted_at = now()`), after which signing i
 answers the generic **`?error=invalid`** - no disclosure that the account ever existed. **Nothing else on
 production was written** by this check: no order, no address, no catalog row.
 
-**One configuration observation, not changed here:** `APP_BASE_URL` is `https://queenbees.vercel.app`,
-so mailed links carry that host rather than the shop's own `https://www.queenbeesbd.com`. Both serve the
-same deployment, so the links work; pointing them at the branded domain is an owner decision.
+**`APP_BASE_URL` was then pointed at the shop's own domain (owner action, 2026-11-11).** It read
+`https://queenbees.vercel.app`, so every mailed link carried that host; both hostnames serve the same
+deployment, but a shop mailing `*.vercel.app` reads as a redirect in a customer's inbox. It is now
+`https://www.queenbeesbd.com` (Production, preview and development), the env change was picked up by a
+redeploy of `daee68d` (`dpl_H2aDN1sRjBFyKjnUFb2mkJzD4wtX`, READY), and a fresh email-mode registration
+was exercised against it: Resend delivered a second confirmation from `mail@queenbeesbd.com`, **both**
+the plain-text and HTML link now read
+`https://www.queenbeesbd.com/account/verify-email?token=...`, the button page still rendered the form,
+`POST /api/account/verify-email` answered **303 `?verified=1`**, a reuse answered **303
+`?error=invalid`**, and `customer.email_verified_at` was set once. That probe was then **deleted
+outright** (customer row with its cascaded credential, session and token; no order, flag or review
+referenced it), so production is back to five customers and no `deleted` rows.
