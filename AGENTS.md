@@ -334,6 +334,16 @@ that adds a migration.** If a production build fails at this step, the site is s
 previous deployment; do not reach for a way around the gate. See `docs/database.md` (Rollout
 sequencing).
 
+**Apply production migrations through the Neon MCP, always (owner instruction, 2026-11-12).** There is no
+production connection string in the shell, and there does not need to be: use the Neon MCP
+`run_sql_transaction` on project `autumn-wave-01272789`, branch `br-hidden-rice-az3zuopi`, database
+`queenbees`, sending each statement of the committed SQL in order, and then insert the record the runner
+would have written - `insert into drizzle.__drizzle_migrations (hash, created_at) values (<sha256 of the
+committed .sql file>, <the journal entry's `when`>)`. One transaction, so a failure leaves the schema and
+the record consistent. Verify afterwards that every recorded hash matches a file and that no file is
+unrecorded. **A push is still a deploy, so apply first, push second** - and expect an already-pushed
+commit to have been refused by the gate, which needs an empty deploy commit once the migration lands.
+
 **Production stands at 29 migrations / 53 tables (2026-11-11).** `0028_account_phone_identifier` was
 applied to the production branch in one transaction (its `UPDATE` matched no row - five customers, none
 with a phone - plus `CREATE UNIQUE INDEX customer_phone_unique`) and its hash recorded in
@@ -343,14 +353,19 @@ applied with the Neon MCP `run_sql_transaction` on branch `br-hidden-rice-az3zuo
 `queenbees`, followed by the `__drizzle_migrations` insert (sha256 of the committed SQL, the journal's
 `when`)** - that is how this one was done without a production connection string in the shell.
 
-**SMS verification and one-identifier accounts (2026-11-12, ADR 0037) are implemented locally and are not
-deployed.** BulkSMSBD is the SMS channel (`src/server/integrations/sms.ts`, env-only, sender id optional
+**SMS verification and one-identifier accounts (2026-11-12, ADR 0037) and the product page's "Order on
+WhatsApp" control are deployed (2026-11-12).** BulkSMSBD is the SMS channel (`src/server/integrations/sms.ts`, env-only, sender id optional
 until the provider issues one). Registration is phone-only or email-only; verification (SMS code or mailed
 link) exists only at registration and recovery; a password change needs only the current password; a change
 of address applies directly with no confirmation link. Migration `0029_dazzling_blur` makes
 `customer.email` nullable, adds `phone_verified_at` and `account_recovery_token.attempts`, widens the token
-purposes, and **drops `customer_email_change`** - schema 53 -> 52 tables, 30 migrations. **Apply `0029`
-before deploying this code** (`npm run check:migrations`); production is still at 29 migrations until it is.
+purposes, and **drops `customer_email_change`** - schema 53 -> 52 tables, 30 migrations. It was applied to
+the production branch through the Neon MCP on 2026-11-12, so **production is at 30 migrations / 52 tables**,
+every recorded hash matches a file, and `b485dff` is READY on `www.queenbeesbd.com` (verified by HTTP:
+`/account/verify-phone` 200, `/account/confirm-email` 404, register/forgot/reset 200, a product page 200).
+**Production has no `support.whatsapp_url` stored**, so neither the floating support rail nor the product
+page's WhatsApp button is rendered there until the owner sets a `wa.me` address at Settings -> Support
+links; the button is implemented, not yet visible.
 
 **A `prebuild` step may only reference files the deployment actually contains.** The gate first lived
 at `scripts/check-migrations.ts`, but `.vercelignore` excludes `scripts/`, so Vercel never received it

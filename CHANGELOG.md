@@ -33,6 +33,9 @@ against a dev server and the seeded local catalog the in-stock product renders
 `data-order-whatsapp` with `?text=Hello%20QueenBee's...`, and an out-of-stock product renders none.
 `verify:browser` was not run end to end.
 
+**Deployed 2026-11-12 with the deploy above.** Production currently renders no WhatsApp control because
+`support.whatsapp_url` is not set there; the button appears as soon as the owner saves a `wa.me` address.
+
 ### Added / Changed - 2026-11-12: SMS verification and one-identifier accounts (ADR 0037)
 
 Owner direction: SMS is connected through BulkSMSBD, verification happens **only at registration and in
@@ -61,8 +64,17 @@ reverse).
 
 Verified 2026-11-12: `typecheck`, `lint` (0 errors), `check:i18n` (1911 keys), unit **312/312**,
 `test:db` **289/289** (including phone registration code, SMS recovery, direct address change and the
-contact-required check). `npm run build`, `verify:admin`, `verify:browser` and real devices were not run
-for this change. Nothing is deployed, and production needs `0029` applied before this code ships.
+contact-required check). `npm run build` succeeded; `verify:admin`, `verify:browser` and real devices were
+not run for this change.
+
+**Deployed 2026-11-12 (owner-authorized).** The first production builds of this code were refused by the
+migration gate, as designed, because `0029` was pending. It was applied to the production branch through
+the Neon MCP `run_sql_transaction` (one transaction, plus the `drizzle.__drizzle_migrations` record), so
+production stands at **30 migrations / 52 tables** and every recorded hash matches a file. The deploy
+commit `b485dff` is READY on `www.queenbeesbd.com`; `/account/verify-phone` answers 200,
+`/account/confirm-email` 404, and register/forgot/reset and a product page answer 200. **The owner still has
+to set the BulkSMS key and sender id, and a `wa.me` support link, for codes to be sent and for the
+WhatsApp controls to appear.**
 
 ### Changed - 2026-11-11: every product shows four stars unless the owner rates it
 

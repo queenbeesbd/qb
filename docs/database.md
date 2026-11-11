@@ -171,6 +171,21 @@ sequence remains: `npm run db:status` against the target (it prints every pendin
 `npm run db:migrate`, `npm run db:validate`, **then** push. Applied history is per database, so a
 migration applied locally is applied nowhere else.
 
+**Production is migrated through the Neon MCP (owner instruction, 2026-11-12).** No production connection
+string is kept in any shell, so `npm run db:migrate` is for local and disposable targets only. For the
+production branch - project `autumn-wave-01272789`, branch `br-hidden-rice-az3zuopi`, database
+`queenbees` - send the committed migration's statements in order with `run_sql_transaction`, then write
+the row the runner would have written:
+
+```sql
+insert into drizzle.__drizzle_migrations (hash, created_at)
+values ('<sha256 of drizzle/0029_...sql>', <the journal entry's "when">);
+```
+
+Both in one transaction, so the schema and its record cannot disagree. `0029_dazzling_blur` was applied
+this way on 2026-11-12 (30 migrations, 52 tables), after which an empty deploy commit re-ran the build
+the gate had refused.
+
 **The pre-deploy gate (Phase 60, item 2, 2026-11-10).** `npm run prebuild` runs
 `src/db/check-migrations.ts --build` before every `next build`. On a Vercel **production** build it
 compares the journal in `drizzle/` with `drizzle.__drizzle_migrations` on the deployed database: a
