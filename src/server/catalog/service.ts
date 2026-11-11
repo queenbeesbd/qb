@@ -25,7 +25,6 @@ import { inArray, sql } from 'drizzle-orm';
 import type { Transaction } from '@/db/client';
 import { fuzzyScoreAcross } from '@/lib/fuzzy';
 import { DEFAULT_PRODUCT_RATING_HALVES, parseRatingHalves } from '@/lib/rating';
-import { likeTerm } from '@/lib/search';
 import {
   brand,
   category,
@@ -195,15 +194,60 @@ export async function updateBrand(
   });
 }
 
+/**
+ * How many live rows a fuzzy search may read before ranking. The catalog is ~1,500 rows; the bound
+ * exists so a pathological catalog cannot make one keystroke read the whole table's worth of detail.
+ */
+const SEARCH_CANDIDATES = 5000;
+
+/**
+ * Score a bounded candidate set against a search term, keeping only the candidates that match.
+ *
+ * `fuzzyScoreAcross` is the one definition of "matches" (ADR 0011 amendment): a term finds a row by
+ * name, Bangla name, slug - and, for a product, its SKU - whether it starts the field, sits inside it,
+ * appears as letters in order, or differs by one character. SQL `ilike` cannot express any of that, so
+ * a non-empty search reads the live rows' searchable fields and matches here instead.
+ *
+ * Ordering is the caller's business and deliberately not decided here: products rank by score and then
+ * by recency, categories keep a child beside its parent, brands stay alphabetical.
+ */
+function matchCandidates<T extends { id: number }>(
+  search: string,
+  candidates: readonly T[],
+  fieldsOf: (candidate: T) => readonly (string | null | undefined)[],
+): { candidate: T; score: number }[] {
+  return candidates
+    .map((candidate) => ({ candidate, score: fuzzyScoreAcross(search, fieldsOf(candidate)) }))
+    .filter((entry): entry is { candidate: T; score: number } => entry.score !== null);
+}
+
 /** Rows per page for the admin brand list. */
 export const BRAND_PAGE_SIZE = 25;
+
+const brandListColumns = {
+  id: brand.id,
+  slug: brand.slug,
+  nameBn: brand.nameBn,
+  nameEn: brand.nameEn,
+  logoKey: brand.logoKey,
+  productCount: sql<number>`(
+    select count(*)::int from "product"
+    where "product"."brand_id" = "brand"."id" and "product"."deleted_at" is null
+  )`,
+} as const;
 
 /**
  * Brands, for the admin list.
  *
  * The product count is a correlated `count(*)` over live product rows - never a stored counter - so a
- * row cannot advertise a number the catalog does not hold. `search` matches the English name, the
- * Bangla name and the slug; the footer's total runs over the same predicate as the page.
+ * row cannot advertise a number the catalog does not hold. `search` is **fuzzy** over the English name,
+ * the Bangla name and the slug, and the footer's total counts the matching rows, so it cannot disagree
+ * with the page.
+ *
+ * The list stays alphabetical, search or not: a brand list is a reference index, and where a brand sits
+ * in it should not move because the owner typed. A non-empty search reads the live rows' searchable
+ * fields, matches them in memory and then pages the matching rows by name, because the matcher
+ * forgives a prefix, letters in order and one wrong character that `ilike` cannot express.
  */
 export async function listBrandsForAdmin(
   tx: Transaction,
@@ -224,35 +268,47 @@ export async function listBrandsForAdmin(
   readonly total: number;
 }> {
   const search = options.search?.trim() ?? '';
-  const searchClause =
-    search === ''
-      ? sql`true`
-      : sql`(${brand.nameEn} ilike ${likeTerm(search)}
-          or ${brand.nameBn} ilike ${likeTerm(search)}
-          or ${brand.slug} ilike ${likeTerm(search)})`;
-  const where = sql`${brand.deletedAt} is null and ${searchClause}`;
   const limit = Math.min(Math.max(options.limit ?? BRAND_PAGE_SIZE, 1), 100);
   const offset = Math.max(options.offset ?? 0, 0);
 
+  const liveRows = sql`${brand.deletedAt} is null`;
+
+  if (search !== '') {
+    const candidates = await tx
+      .select({ id: brand.id, nameEn: brand.nameEn, nameBn: brand.nameBn, slug: brand.slug })
+      .from(brand)
+      .where(liveRows)
+      .limit(SEARCH_CANDIDATES);
+
+    const matchingIds = matchCandidates(search, candidates, (candidate) => [
+      candidate.nameEn,
+      candidate.nameBn,
+      candidate.slug,
+    ]).map((entry) => entry.candidate.id);
+
+    if (matchingIds.length === 0) return { rows: [], total: 0 };
+
+    const where = sql`${liveRows} and ${inArray(brand.id, matchingIds)}`;
+    const rows = await tx
+      .select(brandListColumns)
+      .from(brand)
+      .where(where)
+      .orderBy(brand.nameEn, brand.id)
+      .limit(limit)
+      .offset(offset);
+
+    return { rows, total: matchingIds.length };
+  }
+
   const rows = await tx
-    .select({
-      id: brand.id,
-      slug: brand.slug,
-      nameBn: brand.nameBn,
-      nameEn: brand.nameEn,
-      logoKey: brand.logoKey,
-      productCount: sql<number>`(
-        select count(*)::int from "product"
-        where "product"."brand_id" = "brand"."id" and "product"."deleted_at" is null
-      )`,
-    })
+    .select(brandListColumns)
     .from(brand)
-    .where(where)
-    .orderBy(brand.nameEn)
+    .where(liveRows)
+    .orderBy(brand.nameEn, brand.id)
     .limit(limit)
     .offset(offset);
 
-  const counted = await tx.select({ total: sql<number>`count(*)::int` }).from(brand).where(where);
+  const counted = await tx.select({ total: sql<number>`count(*)::int` }).from(brand).where(liveRows);
 
   return { rows, total: counted[0]?.total ?? 0 };
 }
@@ -403,9 +459,14 @@ export const CATEGORY_PAGE_SIZE = 25;
  * Categories, for the admin list.
  *
  * The product count per category is a correlated `count(*)` over live rows - never a stored counter -
- * so it cannot disagree with the catalog. `search` matches the English name, the Bangla name and the
- * slug; `visibility` narrows to visible or hidden. The count for the footer runs over the same
+ * so it cannot disagree with the catalog. `search` is **fuzzy** over the English name, the Bangla name
+ * and the slug; `visibility` narrows to visible or hidden. The count for the footer runs over the same
  * predicate as the page.
+ *
+ * **A search narrows the list, it does not re-order it.** A child stays beside its parent and roots stay
+ * in their own order, because what this list is for is finding a category's place, and a relevance sort
+ * would scatter a department's children away from it. The matcher decides *which* rows survive; the
+ * hierarchy decides where they sit.
  */
 export async function listCategoriesForAdmin(
   tx: Transaction,
@@ -433,20 +494,33 @@ export async function listCategoriesForAdmin(
   readonly total: number;
 }> {
   const search = options.search?.trim() ?? '';
-  const searchClause =
-    search === ''
-      ? sql`true`
-      : sql`(${category.nameEn} ilike ${likeTerm(search)}
-          or ${category.nameBn} ilike ${likeTerm(search)}
-          or ${category.slug} ilike ${likeTerm(search)})`;
   const visibility = options.visibility ?? null;
-  const where = sql`${category.deletedAt} is null
+  const liveRows = sql`${category.deletedAt} is null
           and (${visibility}::text is null
                or (${visibility} = 'visible' and ${category.isVisible})
-               or (${visibility} = 'hidden' and not ${category.isVisible}))
-          and ${searchClause}`;
+               or (${visibility} = 'hidden' and not ${category.isVisible}))`;
   const limit = Math.min(Math.max(options.limit ?? CATEGORY_PAGE_SIZE, 1), 100);
   const offset = Math.max(options.offset ?? 0, 0);
+
+  let where = liveRows;
+
+  if (search !== '') {
+    const candidates = await tx
+      .select({ id: category.id, nameEn: category.nameEn, nameBn: category.nameBn, slug: category.slug })
+      .from(category)
+      .where(liveRows)
+      .limit(SEARCH_CANDIDATES);
+
+    const matchingIds = matchCandidates(search, candidates, (candidate) => [
+      candidate.nameEn,
+      candidate.nameBn,
+      candidate.slug,
+    ]).map((entry) => entry.candidate.id);
+
+    if (matchingIds.length === 0) return { rows: [], total: 0 };
+
+    where = sql`${liveRows} and ${inArray(category.id, matchingIds)}`;
+  }
 
   const rows = await tx
     .select({
@@ -940,25 +1014,25 @@ const adminProductColumns = {
 } as const;
 
 /**
- * How many live rows a fuzzy search may read before ranking. The catalog is ~1,500 rows; the bound
- * exists so a pathological catalog cannot make one keystroke read the whole table's worth of detail.
- */
-const ADMIN_SEARCH_CANDIDATES = 5000;
-
-/**
  * A product as the admin list needs it. Prices come from the product's default variant, which is where
  * the schema puts them - the storefront's `Product.priceMinor` is the same value projected through the
  * read layer.
  *
+ * **Newest first** (owner direction, 2026-11-12). The list opens on the product the owner just added,
+ * not on an alphabetical ruler through a 1,500-row catalog: `product.created_at` descending, with
+ * `product.id` descending as the deterministic tie-breaker, exactly as the storefront's "Recently added"
+ * row reads recency. `created_at` is the database's own column - never a fixture constant, a list
+ * position or a slug ordering.
+ *
  * The list is **paged with an exact total** (Phase 30). The count runs over the same predicate as the
- * page, so the footer cannot disagree with the rows it describes, and the order ends with `id` so a
- * page boundary is stable when two products share a name.
+ * page, so the footer cannot disagree with the rows it describes.
  *
  * **Search is fuzzy** (2026-11-10), and shared with the storefront's matcher: a term finds a product by
  * name, Bangla name, slug or SKU whether it starts the field, sits inside it, appears as letters in
  * order, or differs by one character. SQL `ilike` cannot express any of that, so a non-empty search
  * reads the live rows' searchable fields, ranks them in memory, pages the ranked ids and then loads the
- * full rows for that page only. A blank search keeps the single paged query it always used.
+ * full rows for that page only. Ranking puts the best match first and then falls back to recency, so a
+ * search never re-introduces the alphabetical order this list deliberately dropped.
  */
 export async function listProductsForAdmin(
   tx: Transaction,
@@ -1004,7 +1078,7 @@ export async function listProductsForAdmin(
       .innerJoin(category, sql`${category.id} = ${product.categoryId}`)
       .innerJoin(brand, sql`${brand.id} = ${product.brandId}`)
       .where(liveRows)
-      .orderBy(product.nameEn, product.id)
+      .orderBy(sql`${product.createdAt} desc`, sql`${product.id} desc`)
       .limit(limit)
       .offset(offset);
 
@@ -1021,11 +1095,13 @@ export async function listProductsForAdmin(
   /*
    * Fuzzy search, in two reads: the candidates' searchable fields are small enough to rank, and only
    * the page's winners need the full row (prices, counts and the thumbnail subqueries). The order is
-   * score first, then name and id, so the same term always produces the same pages.
+   * score first, then recency and id - the same recency the unfiltered list uses - so the same term
+   * always produces the same pages and a search never falls back to alphabetical order.
    */
   const candidates = await tx
     .select({
       id: product.id,
+      createdAt: product.createdAt,
       nameEn: product.nameEn,
       nameBn: product.nameBn,
       slug: product.slug,
@@ -1037,27 +1113,21 @@ export async function listProductsForAdmin(
     })
     .from(product)
     .where(liveRows)
-    .limit(ADMIN_SEARCH_CANDIDATES);
+    .limit(SEARCH_CANDIDATES);
 
-  const ranked = candidates
-    .map((candidate) => ({
-      id: candidate.id,
-      nameEn: candidate.nameEn,
-      score: fuzzyScoreAcross(search, [candidate.nameEn, candidate.nameBn, candidate.slug, candidate.sku]),
-    }))
-    .filter(
-      (
-        candidate,
-      ): candidate is { id: number; nameEn: string; score: number } => candidate.score !== null,
-    )
-    .sort(
-      (a, b) =>
-        b.score - a.score ||
-        a.nameEn.localeCompare(b.nameEn, 'en') ||
-        a.id - b.id,
-    );
+  const ranked = matchCandidates(search, candidates, (candidate) => [
+    candidate.nameEn,
+    candidate.nameBn,
+    candidate.slug,
+    candidate.sku,
+  ]).sort(
+    (a, b) =>
+      b.score - a.score ||
+      b.candidate.createdAt.getTime() - a.candidate.createdAt.getTime() ||
+      b.candidate.id - a.candidate.id,
+  );
 
-  const pageIds = ranked.slice(offset, offset + limit).map((candidate) => candidate.id);
+  const pageIds = ranked.slice(offset, offset + limit).map((entry) => entry.candidate.id);
   if (pageIds.length === 0) return { rows: [], total: ranked.length };
 
   const pageRows = await tx

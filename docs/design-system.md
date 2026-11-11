@@ -476,6 +476,17 @@ instead of six screens that happen to share a rail:
    on the page.** A total repeated in the header and the toolbar is how a screen ends up showing three
    different numbers for the same list.
 
+**Search on the three catalog lists is live and fuzzy (owner direction, 2026-11-12).** Products,
+categories and brands narrow 300ms after typing stops, through the same `src/lib/fuzzy.ts` matcher the
+storefront uses, so a misspelt word still finds the row. It is a `replace` on the URL, so the address
+still states what is shown; the submit button and the plain `GET` form stay for Enter and no-JavaScript.
+An order list is read once rather than scanned, so it keeps the explicit submit.
+
+**The product list is newest first.** `/qbpanel/catalog` opens on `created_at` descending, not on an
+alphabetical ruler, so the row the owner just added is the one at the top. The category list keeps a
+child beside its parent and the brand list stays alphabetical: those two lists are reference indexes,
+and where a row sits in them should not move because the owner typed in the search field.
+
 **Filter tabs wrap rather than overflow.** Eight status labels are roughly 700px of text; without
 wrapping they push the search field and the date row off the edge at phone widths, which is a control an
 owner cannot reach. Below 720px the toolbar stacks - tabs full width, search and date range on their own

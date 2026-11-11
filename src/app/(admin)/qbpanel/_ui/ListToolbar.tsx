@@ -37,9 +37,9 @@ export function ListToolbar({ children }: { children: React.ReactNode }) {
  *
  * `live` turns it into a **search-as-you-type** field: a third of a second after typing stops, the
  * form's own values are written into the URL with `replace`, so the list narrows without pressing
- * Search. It is opt-in because each live search is a server render: the products list is the one that
- * benefits from it (the owner is looking for one row in a long catalog), while an order list is read
- * once rather than scanned. The button stays for Enter and for a browser without JavaScript.
+ * Search. It is opt-in because each live search is a server render: the three catalog lists use it -
+ * products, categories and brands are long lists the owner scans for one row - while an order list is
+ * read once rather than searched. The button stays for Enter and for a browser without JavaScript.
  */
 export function ListSearch({
   action,

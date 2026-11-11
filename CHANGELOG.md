@@ -14,6 +14,33 @@ An entry may describe a deployment only once it has actually happened and been o
 
 ## [Unreleased]
 
+### Changed - 2026-11-12: catalog list search is live and fuzzy, and the product list is newest first
+
+Owner direction: `/qbpanel/categories` and `/qbpanel/brands` must search like `/qbpanel/catalog`, and
+`/qbpanel/catalog` must open on the last product added rather than alphabetically.
+
+- **Categories and brands search as you type.** Both lists pass `live` to the shared `ListSearch`, so
+  they narrow 300ms after typing stops with a `replace` on the URL (the product list already did). The
+  submit button and the plain `GET` form stay for Enter and no-JavaScript.
+- **Both are fuzzy.** `listCategoriesForAdmin` and `listBrandsForAdmin` no longer build an `ilike`
+  clause: they read the live rows' searchable fields, score them with `src/lib/fuzzy.ts` and page the
+  matching rows, so a misspelling, a prefix or letters in order still find the row. `matchCandidates` in
+  `src/server/catalog/service.ts` is the one helper for all three lists, and the footer's total counts
+  the matching rows.
+- **A search narrows these two lists without re-ordering them.** A category child stays beside its
+  parent and brands stay alphabetical - they are reference indexes, and where a row sits should not move
+  because the owner typed.
+- **The product list is newest first.** `/qbpanel/catalog` orders by `product.created_at` descending
+  with `product.id` descending as the tie-breaker, so the row the owner just added is at the top. A fuzzy
+  search ranks by score and then falls back to the same recency, replacing the alphabetical rank.
+
+No schema change and no migration.
+
+Verified 2026-11-12: `typecheck`, `lint` (0 errors); against the seeded local cluster
+`listProductsForAdmin` returned ids 22 -> 1 in `created_at` order, `search: 'shampo'` returned three
+shampoos, `'haircre'` found Haircare and `'skincar'` found Skincare, `'mamarth'` found Mamaearth, and an
+unmatched term returned nothing on both short lists with the visibility filter still applied.
+
 ### Changed - 2026-11-12: verification now happens before the account exists (ADR 0038)
 
 Owner direction: the code must be entered **during** registration, on both channels, because verifying

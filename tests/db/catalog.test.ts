@@ -43,6 +43,7 @@ import {
   createBrand,
   createCategory,
   createProduct,
+  listBrandsForAdmin,
   listCategoriesForAdmin,
   listProductsForAdmin,
   reorderImages,
@@ -1008,6 +1009,31 @@ describe('catalog management', { skip: toolingAvailable ? false : SKIP_REASON },
     assert.equal(afterArchive.total, 0);
   });
 
+  it('lists products newest first, and keeps that order behind a search score', async () => {
+    // Created first, sorts last alphabetically: if the list went back to `name_en` this pair would
+    // swap, which is exactly the regression the owner reported.
+    const older = await withTransaction((tx) =>
+      createProduct(tx, owner, productInput({ nameEn: 'Zzz Oldest Of The Pair' })),
+    );
+    const newer = await withTransaction((tx) =>
+      createProduct(tx, owner, productInput({ nameEn: 'Aaa Newest Of The Pair' })),
+    );
+
+    const { rows } = await withTransaction((tx) => listProductsForAdmin(tx, { limit: 100 }));
+    const olderIndex = rows.findIndex((row) => row.id === older.productId);
+    const newerIndex = rows.findIndex((row) => row.id === newer.productId);
+    assert.ok(olderIndex !== -1 && newerIndex !== -1, 'both products are listed');
+    assert.ok(newerIndex < olderIndex, `newest first: ${newerIndex} < ${olderIndex}`);
+    assert.equal(rows[0]?.id, newer.productId, 'the first row is the last product added');
+
+    // A search ranks by score first, and its tie-break is recency - never the alphabet.
+    const searched = await withTransaction((tx) =>
+      listProductsForAdmin(tx, { search: 'Of The Pair' }),
+    );
+    assert.equal(searched.total, 2);
+    assert.equal(searched.rows[0]?.id, newer.productId);
+  });
+
   it('pages and filters the category list, with a live product count per row', async () => {
     const created = await withTransaction((tx) =>
       createCategory(tx, owner, { nameBn: 'পেজ', nameEn: 'Paged Category', sortOrder: '5', isVisible: 'on' }),
@@ -1032,6 +1058,50 @@ describe('catalog management', { skip: toolingAvailable ? false : SKIP_REASON },
     assert.equal(first.rows.length, 1);
     assert.equal(first.total, second.total);
     assert.notEqual(first.rows[0]?.id, second.rows[0]?.id, 'consecutive pages are different rows');
+  });
+
+  it('finds a category and a brand by a misspelt term, and refuses a term that matches nothing', async () => {
+    const category = await withTransaction((tx) =>
+      createCategory(tx, owner, { nameBn: 'বানান', nameEn: 'Spelling Category', isVisible: 'on' }),
+    );
+    const miscategorised = await withTransaction((tx) =>
+      createCategory(tx, owner, { nameBn: 'লুকানো বানান', nameEn: 'Spelling Hidden', isVisible: 'hidden' }),
+    );
+    const brand = await withTransaction((tx) =>
+      createBrand(tx, owner, { nameBn: 'ব্র্যান্ড', nameEn: 'Typo Target Brand', slug: 'typo-target-brand' }),
+    );
+
+    // One wrong character is forgiven, which `ilike` could never do.
+    const byTypo = await withTransaction((tx) => listCategoriesForAdmin(tx, { search: 'Speling Category' }));
+    assert.deepEqual(
+      byTypo.rows.map((row) => row.id),
+      [category.categoryId],
+      'only the real match, not the other row that shares a word',
+    );
+
+    // A prefix is a match too, and the visibility filter still applies to it.
+    const byPrefix = await withTransaction((tx) =>
+      listCategoriesForAdmin(tx, { search: 'Spel Cat', visibility: 'visible' }),
+    );
+    assert.deepEqual(byPrefix.rows.map((row) => row.id), [category.categoryId]);
+    const hiddenOnly = await withTransaction((tx) =>
+      listCategoriesForAdmin(tx, { search: 'Speling Category', visibility: 'hidden' }),
+    );
+    assert.equal(hiddenOnly.total, 0);
+    assert.notEqual(miscategorised.categoryId, category.categoryId);
+
+    const brandByTypo = await withTransaction((tx) =>
+      listBrandsForAdmin(tx, { search: 'Typo Targt Brand' }),
+    );
+    assert.deepEqual(brandByTypo.rows.map((row) => row.id), [brand.brandId]);
+
+    const nothing = await withTransaction((tx) => listBrandsForAdmin(tx, { search: 'qqq zzz' }));
+    assert.equal(nothing.total, 0);
+    assert.equal(nothing.rows.length, 0);
+    const nothingCategory = await withTransaction((tx) =>
+      listCategoriesForAdmin(tx, { search: 'qqq zzz' }),
+    );
+    assert.equal(nothingCategory.total, 0);
   });
 
   it('refuses a catalog mutation from a principal without catalog.write, and leaves no row', async () => {

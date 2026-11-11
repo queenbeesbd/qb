@@ -126,6 +126,7 @@ export function CategoriesView({
             }}
             clearHref={clearHref}
             dirty={filtering}
+            live
           />
         </ListToolbar>
 

@@ -3251,6 +3251,29 @@ async function main(): Promise<void> {
               catalogPage.rows === 10 && catalogPage.sizeLinks >= 1 && catalogPage.total === true,
               JSON.stringify(catalogPage),
             );
+
+            /*
+             * The product list opens on the newest product (owner direction, 2026-11-12), not on an
+             * alphabetical ruler through the catalog. Asserted against the database's own `created_at`
+             * rather than a fixture constant, because the whole point of the order is that it reads a
+             * real stored fact.
+             */
+            const newestProduct = await withTransaction((tx) =>
+              tx
+                .select({ nameEn: product.nameEn })
+                .from(product)
+                .where(sql`${product.deletedAt} is null`)
+                .orderBy(sql`${product.createdAt} desc`, sql`${product.id} desc`)
+                .limit(1),
+            );
+            const catalogFirstRow = await browser.evaluate<string>(
+              `document.querySelector('[data-admin-list] > li:first-child')?.textContent ?? ''`,
+            );
+            record(
+              'the catalog list shows the last added product first',
+              newestProduct[0] !== undefined && catalogFirstRow.includes(newestProduct[0].nameEn),
+              `newest ${newestProduct[0]?.nameEn ?? 'missing'} / first row ${catalogFirstRow.slice(0, 70)}`,
+            );
             await browser.screenshot('/tmp/qb-admin-catalog-paged.png');
 
             await browser.navigate('/qbpanel/categories?size=10');
@@ -3284,6 +3307,57 @@ async function main(): Promise<void> {
                 categoryHidden.rows === 0 &&
                 categoryHidden.empty === true,
               JSON.stringify({ search: categorySearch.rows, hidden: categoryHidden.rows }),
+            );
+
+            /*
+             * Category and brand search are **fuzzy** and **live**, like the product list (owner
+             * direction, 2026-11-12). A misspelt term must still find the row - one wrong character is
+             * forgiven - and typing must narrow the list without pressing Search.
+             */
+            await browser.navigate('/qbpanel/categories?q=' + encodeURIComponent('Verfy Category'));
+            const fuzzyCategory = await browser.evaluate<{ rows: number; text: string }>(`(() => ({
+              rows: document.querySelectorAll('[data-admin-list] > li').length,
+              text: document.querySelector('[data-admin-list]')?.textContent ?? '',
+            }))()`);
+            record(
+              'a misspelt category search still finds the category',
+              fuzzyCategory.rows === 1 && fuzzyCategory.text.includes('Verify Category'),
+              JSON.stringify({ rows: fuzzyCategory.rows }),
+            );
+
+            await browser.navigate('/qbpanel/categories');
+            await browser.type('#category-search', 'Verfy');
+            const liveCategory = await browser.waitFor(
+              `location.search.includes('q=Verfy') && document.querySelectorAll('[data-admin-list] > li').length === 1`,
+              5000,
+            );
+            record(
+              'the category search narrows while typing, without pressing Search',
+              liveCategory === true,
+              await browser.evaluate<string>('location.search'),
+            );
+
+            await browser.navigate('/qbpanel/catalog/brands?q=' + encodeURIComponent('Verfy Brand'));
+            const fuzzyBrand = await browser.evaluate<{ rows: number; text: string }>(`(() => ({
+              rows: document.querySelectorAll('[data-admin-list] > li').length,
+              text: document.querySelector('[data-admin-list]')?.textContent ?? '',
+            }))()`);
+            record(
+              'a misspelt brand search still finds the brand',
+              fuzzyBrand.rows === 1 && fuzzyBrand.text.includes('Verify Brand'),
+              JSON.stringify({ rows: fuzzyBrand.rows }),
+            );
+
+            await browser.navigate('/qbpanel/catalog/brands');
+            await browser.type('#brand-search', 'Verfy');
+            const liveBrand = await browser.waitFor(
+              `location.search.includes('q=Verfy') && document.querySelectorAll('[data-admin-list] > li').length === 1`,
+              5000,
+            );
+            record(
+              'the brand search narrows while typing, without pressing Search',
+              liveBrand === true,
+              await browser.evaluate<string>('location.search'),
             );
             await browser.screenshot('/tmp/qb-admin-categories.png');
 

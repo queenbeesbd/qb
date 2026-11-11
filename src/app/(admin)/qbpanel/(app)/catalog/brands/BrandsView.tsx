@@ -86,6 +86,7 @@ export function BrandsView({
             hidden={{ size: size === defaultSize ? '' : String(size) }}
             clearHref={clearHref}
             dirty={filtering}
+            live
           />
         </ListToolbar>
 
