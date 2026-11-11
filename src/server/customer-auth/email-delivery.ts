@@ -15,16 +15,16 @@
  */
 
 import { publicBaseUrl, sendEmail } from '@/server/integrations/email';
-import { smsConfigured, sendSms } from '@/server/integrations/sms';
+import { sendSms } from '@/server/integrations/sms';
 import {
   emailChangedEmail,
-  emailVerificationEmail,
   passwordChangedEmail,
   passwordRecoveryEmail,
+  registrationCodeEmail,
 } from '@/server/integrations/email-templates';
 import type { PasswordRecoveryDelivery } from './account-security';
-import type { CustomerRegistrationDelivery } from './service';
-import { CUSTOMER_EMAIL_VERIFY_TOKEN_MS, CUSTOMER_RESET_TOKEN_MS, CUSTOMER_SMS_CODE_MS } from './constants';
+import type { RegistrationDelivery } from './registration';
+import { CUSTOMER_REGISTRATION_CODE_MS, CUSTOMER_RESET_TOKEN_MS, CUSTOMER_SMS_CODE_MS } from './constants';
 
 /** `after()` from `next/server`, narrowed to what this module needs. */
 export type TaskScheduler = (task: () => Promise<void>) => void;
@@ -50,12 +50,12 @@ function minutes(ms: number): number {
 }
 
 /** The shop's name appears in the body because the sender id is not always a readable wordmark. */
-function smsCodeBody(kind: 'verify' | 'reset', code: string): string {
+function smsCodeBody(kind: 'register' | 'reset', code: string, lifetimeMs: number): string {
   const lead =
-    kind === 'verify'
-      ? "QueenBee's: your verification code is"
+    kind === 'register'
+      ? "QueenBee's: your registration code is"
       : "QueenBee's: your password reset code is";
-  return `${lead} ${code}. It expires in ${minutes(CUSTOMER_SMS_CODE_MS)} minutes.`;
+  return `${lead} ${code}. It expires in ${minutes(lifetimeMs)} minutes.`;
 }
 
 export function schedulePasswordRecovery(
@@ -63,7 +63,7 @@ export function schedulePasswordRecovery(
   delivery: PasswordRecoveryDelivery,
 ): void {
   if (delivery.channel === 'sms') {
-    const body = smsCodeBody('reset', delivery.code);
+    const body = smsCodeBody('reset', delivery.code, CUSTOMER_SMS_CODE_MS);
     schedule(async () => {
       await deliverSms(delivery.to, body);
     });
@@ -79,49 +79,31 @@ export function schedulePasswordRecovery(
 }
 
 /**
- * The message sent at registration: the link for an email-first account, the code for a phone-first
- * one. Sent after the account is already usable, so a provider failure never costs a registration.
+ * The code sent at registration, on whichever channel the identifier uses (ADR 0038).
+ *
+ * Sent after the pending row commits and **before** any account exists: the account is created only
+ * when this code comes back, so a provider failure means nothing was registered - the form says so and
+ * the code can be asked for again.
  */
-export function scheduleRegistrationVerification(
+export function scheduleRegistrationCode(
   schedule: TaskScheduler,
-  delivery: CustomerRegistrationDelivery,
+  delivery: RegistrationDelivery,
 ): void {
-  if (delivery.channel === 'sms') {
-    const body = smsCodeBody('verify', delivery.code);
+  if (delivery.channel === 'phone') {
+    const body = smsCodeBody('register', delivery.code, CUSTOMER_REGISTRATION_CODE_MS);
     schedule(async () => {
       await deliverSms(delivery.to, body);
     });
     return;
   }
-  scheduleEmailVerification(schedule, { to: delivery.to, token: delivery.token });
-}
 
-export function scheduleEmailVerification(
-  schedule: TaskScheduler,
-  delivery: { readonly to: string; readonly token: string },
-): void {
-  const url = absolute(`/account/verify-email?token=${encodeURIComponent(delivery.token)}`);
-  if (url === null) return;
-  const template = emailVerificationEmail({
-    verifyUrl: url,
-    expiresHours: Math.round(CUSTOMER_EMAIL_VERIFY_TOKEN_MS / 3_600_000),
+  const template = registrationCodeEmail({
+    code: delivery.code,
+    expiresMinutes: minutes(CUSTOMER_REGISTRATION_CODE_MS),
   });
   schedule(async () => {
     await deliver({ ...template, to: delivery.to });
   });
-}
-
-/** The resend from the account page. Returns false when SMS cannot send in this deployment. */
-export function schedulePhoneVerification(
-  schedule: TaskScheduler,
-  delivery: { readonly to: string; readonly code: string },
-): boolean {
-  if (!smsConfigured()) return false;
-  const body = smsCodeBody('verify', delivery.code);
-  schedule(async () => {
-    await deliverSms(delivery.to, body);
-  });
-  return true;
 }
 
 export function schedulePasswordChanged(

@@ -175,36 +175,34 @@ export function passwordChangedEmail(input: { readonly changedAt: string }): Ema
 }
 
 /**
- * "Confirm your email address" - the registration verification link (2026-11-11).
+ * "Your QueenBee's code" - the six-digit code that must be entered **before** the account is created
+ * (ADR 0038).
  *
- * The account already works when this lands; the button only confirms the address, so the copy says
- * so rather than implying the account is waiting. The wording also survives a second click: the first
- * one wins and a later one is simply a dead link.
+ * It is a code, not a link, for the same reason the SMS is: the person is already on the form, and a
+ * code cannot be opened by a mail scanner or forwarded as a working key to an account.
  */
-export function emailVerificationEmail(input: {
-  readonly verifyUrl: string;
-  readonly expiresHours: number;
+export function registrationCodeEmail(input: {
+  readonly code: string;
+  readonly expiresMinutes: number;
 }): EmailTemplate {
-  const heading = 'Confirm your email address';
+  const heading = 'Your registration code';
   return {
     subject: `${heading} - ${BRAND}`,
     html: layout({
-      preheader: `Confirm the email address on your ${BRAND} account.`,
+      preheader: `Your ${BRAND} registration code is ${input.code}.`,
       heading,
       body: [
-        'Your account is ready to use. Confirming this address lets us reach you about your account, and lets you recover a forgotten password by email.',
-        `Use the button below to confirm it. The link works once and expires in ${input.expiresHours} hours.`,
-        'If you did not create this account, ignore this message - nothing changes without the link.',
+        `Enter <strong style="color:${INK};font-size:22px;letter-spacing:2px;">${escapeHtml(input.code)}</strong> on the registration page to finish creating your account.`,
+        `The code works once and expires in ${input.expiresMinutes} minutes. Your account is not created until it is entered.`,
+        'If you did not ask for this, ignore this message - no account is created without the code.',
       ],
-      action: { url: input.verifyUrl, label: 'Confirm this address' },
-      footnote: 'For your security, never share this link with anyone.',
+      footnote: 'For your security, never share this code with anyone.',
     }),
     text: text([
       `${heading} - ${BRAND}`,
-      'Your account is ready to use. Confirming this address lets you recover a forgotten password by email.',
-      `Confirm it here (expires in ${input.expiresHours} hours, works once):`,
-      input.verifyUrl,
-      'If you did not create this account, ignore this message.',
+      `Enter this code on the registration page: ${input.code}`,
+      `It works once and expires in ${input.expiresMinutes} minutes. No account is created without it.`,
+      'If you did not ask for this, ignore this message.',
     ]),
   };
 }

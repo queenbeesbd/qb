@@ -7,26 +7,34 @@ import styles from '@/app/account.module.css';
 import { AuthShell } from './AuthShell';
 import type { SignInMethod } from './LoginView';
 
+export type RegisterStep = 'identifier' | 'code' | 'password';
+
 /**
- * Customer registration form.
+ * Customer registration - one identifier, a code, then a password (ADR 0038).
  *
- * **One identifier, one account** (owner decision, 2026-11-12). The default is a Bangladeshi mobile
- * number; the switch beside the heading asks for an email address instead. The switch is a link, so it
- * works without JavaScript and the server receives the same `method` the person chose.
+ * **The account is created last.** Step 1 asks for a number (default) or an address and sends a
+ * six-digit code; step 2 enters it; step 3 sets the password and name. Until step 3 finishes there is
+ * no customer row, so a registration flood costs one message per attempt and never an account - which
+ * is why the owner moved verification **before** registration.
  *
- * **Neither mode asks for the other.** A phone-first account is opened with a number and gets a
- * six-digit SMS code; an email-first account is opened with an address and gets a verification link.
- * The account is usable immediately either way: verification confirms the identifier, it does not gate
- * the account.
+ * The switch between number and address is a link, so it works without JavaScript. Every step posts
+ * natively, and the server derives the step from its own httpOnly cookie rather than from the URL.
  */
 export function RegisterView({
+  step,
+  method,
+  identifier,
   next,
   notice,
-  method,
+  sent,
 }: {
+  step: RegisterStep;
+  method: SignInMethod;
+  /** The canonical number or address the code went to; shown back in steps 2 and 3. */
+  identifier: string | null;
   next: string;
   notice: string | null;
-  method: SignInMethod;
+  sent: boolean;
 }) {
   const { t } = useTranslation();
   const phoneHref = `/account/register?next=${encodeURIComponent(next)}`;
@@ -50,6 +58,18 @@ export function RegisterView({
         return t('account.errors.invalidName');
       case 'throttled':
         return t('account.errors.throttled');
+      case 'channel_unavailable':
+        return method === 'phone'
+          ? t('account.errors.smsUnavailable')
+          : t('account.errors.emailUnavailable');
+      case 'invalid_code':
+        return t('account.errors.invalidCode');
+      case 'expired':
+        return t('account.errors.codeExpired');
+      case 'not_found':
+        return t('account.errors.codeNotFound');
+      case 'session':
+        return t('account.errors.signupSession');
       case 'invalid':
         return t('account.errors.invalid');
       default:
@@ -58,10 +78,24 @@ export function RegisterView({
   };
   const text = message();
 
+  const heading =
+    step === 'identifier'
+      ? t('account.registerTitle')
+      : step === 'code'
+        ? t('account.registerCodeTitle')
+        : t('account.registerFinishTitle');
+
+  const lead =
+    step === 'identifier'
+      ? t('account.registerBody')
+      : step === 'code'
+        ? t('account.registerCodeBody', { identifier: identifier ?? '' })
+        : t('account.registerFinishBody', { identifier: identifier ?? '' });
+
   return (
     <AuthShell
-      heading={t('account.registerTitle')}
-      lead={t('account.registerBody')}
+      heading={heading}
+      lead={lead}
       asideTitle={t('account.authRegisterAside')}
       footer={
         <p className={styles.muted}>
@@ -76,98 +110,147 @@ export function RegisterView({
         </p>
       )}
 
-      <nav className={styles.methodSwitch} aria-label={t('account.methodLabel')}>
-        <Link
-          className={styles.methodOption}
-          href={phoneHref}
-          data-active={method === 'phone' ? 'true' : 'false'}
-          aria-current={method === 'phone' ? 'true' : undefined}
-        >
-          {t('account.methodPhone')}
-        </Link>
-        <Link
-          className={styles.methodOption}
-          href={emailHref}
-          data-active={method === 'email' ? 'true' : 'false'}
-          aria-current={method === 'email' ? 'true' : undefined}
-        >
-          {t('account.methodEmail')}
-        </Link>
-      </nav>
+      {step === 'identifier' && (
+        <>
+          <nav className={styles.methodSwitch} aria-label={t('account.methodLabel')}>
+            <Link
+              className={styles.methodOption}
+              href={phoneHref}
+              data-active={method === 'phone' ? 'true' : 'false'}
+              aria-current={method === 'phone' ? 'true' : undefined}
+            >
+              {t('account.methodPhone')}
+            </Link>
+            <Link
+              className={styles.methodOption}
+              href={emailHref}
+              data-active={method === 'email' ? 'true' : 'false'}
+              aria-current={method === 'email' ? 'true' : undefined}
+            >
+              {t('account.methodEmail')}
+            </Link>
+          </nav>
 
-      <form className={styles.form} action="/api/account/register" method="post">
-        <input type="hidden" name="next" value={next} />
-        <input type="hidden" name="method" value={method} />
-        <label className={styles.field}>
-          <span>
-            {t('account.displayName')} <em>{t('common.optional')}</em>
-          </span>
-          <input
-            type="text"
-            name="displayName"
-            autoComplete="name"
-            maxLength={80}
-            placeholder={t('account.namePlaceholder')}
-          />
-        </label>
+          <form className={styles.form} action="/api/account/register/start" method="post">
+            <input type="hidden" name="next" value={next} />
+            <input type="hidden" name="method" value={method} />
+            {method === 'phone' ? (
+              <label className={styles.field}>
+                <span>{t('account.phone')}</span>
+                <input
+                  type="tel"
+                  name="identifier"
+                  autoComplete="tel"
+                  inputMode="tel"
+                  required
+                  maxLength={20}
+                  placeholder={t('account.phonePlaceholder')}
+                />
+                <small>{t('account.phoneVerifyHelp')}</small>
+              </label>
+            ) : (
+              <label className={styles.field}>
+                <span>{t('account.email')}</span>
+                <input
+                  type="email"
+                  name="identifier"
+                  autoComplete="email"
+                  required
+                  maxLength={254}
+                  placeholder={t('account.emailPlaceholder')}
+                />
+                <small>{t('account.emailCodeHelp')}</small>
+              </label>
+            )}
+            <p className={styles.fieldHint}>{t('account.registerCodeHint')}</p>
+            <button type="submit" className={styles.primaryAction}>
+              {t('account.registerSendCode')}
+            </button>
+          </form>
+        </>
+      )}
 
-        {method === 'phone' ? (
-          <label className={styles.field}>
-            <span>{t('account.phone')}</span>
-            <input
-              type="tel"
-              name="phone"
-              autoComplete="tel"
-              inputMode="tel"
-              required
-              maxLength={20}
-              placeholder={t('account.phonePlaceholder')}
-            />
-            <small>{t('account.phoneVerifyHelp')}</small>
-          </label>
-        ) : (
-          <label className={styles.field}>
-            <span>{t('account.email')}</span>
-            <input
-              type="email"
-              name="email"
-              autoComplete="email"
-              required
-              maxLength={254}
-              placeholder={t('account.emailPlaceholder')}
-            />
-            <small>{t('account.emailVerifyHelp')}</small>
-          </label>
-        )}
+      {step === 'code' && (
+        <>
+          {sent && notice === null && (
+            <p className={styles.fieldHint} role="status">
+              {t('account.registerCodeSent')}
+            </p>
+          )}
+          <form className={styles.form} action="/api/account/register/verify" method="post">
+            <label className={styles.field}>
+              <span>{t('account.resetCode')}</span>
+              <input
+                type="text"
+                name="code"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                required
+                minLength={6}
+                maxLength={6}
+                pattern="[0-9]{6}"
+                placeholder="000000"
+                autoFocus
+              />
+            </label>
+            <p className={styles.fieldHint}>{t('account.registerCodeExpiry')}</p>
+            <button type="submit" className={styles.primaryAction}>
+              {t('account.registerVerifyCode')}
+            </button>
+          </form>
+          <form action="/api/account/register/restart" method="post">
+            <button type="submit" className={styles.linkButton}>
+              {t('account.registerRestart')}
+            </button>
+          </form>
+        </>
+      )}
 
-        <div className={styles.fieldPair}>
+      {step === 'password' && (
+        <form className={styles.form} action="/api/account/register" method="post">
           <label className={styles.field}>
-            <span>{t('account.password')}</span>
+            <span>
+              {t('account.displayName')} <em>{t('common.optional')}</em>
+            </span>
             <input
-              type="password"
-              name="password"
-              autoComplete="new-password"
-              required
-              minLength={CUSTOMER_PASSWORD_MIN_LENGTH}
-              placeholder="••••••••"
+              type="text"
+              name="displayName"
+              autoComplete="name"
+              maxLength={80}
+              placeholder={t('account.namePlaceholder')}
             />
           </label>
-          <label className={styles.field}>
-            <span>{t('account.confirmPassword')}</span>
-            <input
-              type="password"
-              name="confirmPassword"
-              autoComplete="new-password"
-              required
-              placeholder="••••••••"
-            />
-          </label>
-        </div>
-        <p className={styles.fieldHint}>{t('account.passwordHelp', { min: CUSTOMER_PASSWORD_MIN_LENGTH })}</p>
-        <button type="submit" className={styles.primaryAction}>
-          {t('account.registerSubmit')}
-        </button>
-      </form>
+          <div className={styles.fieldPair}>
+            <label className={styles.field}>
+              <span>{t('account.password')}</span>
+              <input
+                type="password"
+                name="password"
+                autoComplete="new-password"
+                required
+                minLength={CUSTOMER_PASSWORD_MIN_LENGTH}
+                placeholder="••••••••"
+              />
+            </label>
+            <label className={styles.field}>
+              <span>{t('account.confirmPassword')}</span>
+              <input
+                type="password"
+                name="confirmPassword"
+                autoComplete="new-password"
+                required
+                placeholder="••••••••"
+              />
+            </label>
+          </div>
+          <p className={styles.fieldHint}>
+            {t('account.passwordHelp', { min: CUSTOMER_PASSWORD_MIN_LENGTH })}
+          </p>
+          <button type="submit" className={styles.primaryAction}>
+            {t('account.registerSubmit')}
+          </button>
+        </form>
+      )}
     </AuthShell>
   );
 }

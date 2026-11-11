@@ -9,7 +9,6 @@ import { hashPassword } from '../../src/server/auth/password';
 import type { SessionContext } from '../../src/server/auth/session';
 import { sha256Hex } from '../../src/server/auth/tokens';
 import {
-  registerCustomer,
   restoreCustomer,
   signInCustomer,
   signOutCustomer,
@@ -17,12 +16,14 @@ import {
 } from '../../src/server/customer-auth/service';
 import {
   changeCustomerEmail,
-  confirmCustomerEmailVerification,
-  confirmCustomerPhoneVerification,
-  requestCustomerEmailVerification,
   requestCustomerPasswordReset,
   resetCustomerPasswordWithCode,
 } from '../../src/server/customer-auth/account-security';
+import {
+  completeRegistration,
+  startRegistration,
+  verifyRegistrationCode,
+} from '../../src/server/customer-auth/registration';
 import {
   createCustomerSession,
   resolveCustomerSession,
@@ -55,22 +56,36 @@ describe('customer authentication', { skip: toolingAvailable ? false : SKIP_REAS
   let fixture: DbFixture;
   let staffId: number;
 
+  type RegisterOutcome = { ok: true; customerId: number } | { ok: false; failure: string };
+
+  /**
+   * Registers the way the shop does (ADR 0038): ask for a code, enter it, then choose the password.
+   * The code is read from the start result, never from an inbox or a phone.
+   */
   async function register(
     email: string,
     password: string,
     displayName?: string,
     phone?: string,
-  ) {
-    return fixture.db.transaction((tx) =>
-      registerCustomer(tx, {
-        method: phone === undefined ? 'email' : 'phone',
-        email,
-        phone: phone ?? null,
+  ): Promise<RegisterOutcome> {
+    const method = phone === undefined ? 'email' : 'phone';
+    const identifier = phone ?? email;
+    return fixture.db.transaction(async (tx) => {
+      const started = await startRegistration(tx, { method, identifier, context: context() });
+      if (!started.ok) return { ok: false as const, failure: started.failure };
+      const verified = await verifyRegistrationCode(tx, {
+        identifier: started.delivery.to,
+        code: started.delivery.code,
+        context: context(),
+      });
+      if (!verified.ok) return { ok: false as const, failure: verified.failure };
+      return completeRegistration(tx, {
+        ticket: verified.ticket,
         password,
         displayName: displayName ?? null,
         context: context(),
-      }),
-    );
+      });
+    });
   }
 
   async function signIn(email: string, password: string, ctx: SessionContext, phone?: string) {
@@ -93,6 +108,8 @@ describe('customer authentication', { skip: toolingAvailable ? false : SKIP_REAS
     // code issued and stored is exercised.
     process.env.BULKSMS_API_KEY = 'test-key';
     process.env.BULKSMS_SENDER_ID = 'test-sender';
+    process.env.RESEND_API_KEY = 're_test_key';
+    process.env.EMAIL_FROM = "QueenBee's <no-reply@example.test>";
     fixture = await startMigratedDatabase();
     const inserted = await fixture.pool.query<{ id: string }>(
       `insert into staff_user (email, display_name) values ('ban-actor@example.test', 'Ban Actor') returning id`,
@@ -103,6 +120,8 @@ describe('customer authentication', { skip: toolingAvailable ? false : SKIP_REAS
   after(async () => {
     delete process.env.BULKSMS_API_KEY;
     delete process.env.BULKSMS_SENDER_ID;
+    delete process.env.RESEND_API_KEY;
+    delete process.env.EMAIL_FROM;
     await fixture.close();
   });
 
@@ -204,11 +223,9 @@ describe('customer authentication', { skip: toolingAvailable ? false : SKIP_REAS
     if (!invalid.ok) assert.equal(invalid.failure, 'invalid_phone');
 
     const missing = await fixture.db.transaction((tx) =>
-      registerCustomer(tx, {
+      startRegistration(tx, {
         method: 'phone',
-        email: 'phone-missing@example.test',
-        password: 'a-long-enough-password',
-        displayName: null,
+        identifier: null,
         context: context(),
       }),
     );
@@ -216,69 +233,98 @@ describe('customer authentication', { skip: toolingAvailable ? false : SKIP_REAS
     if (!missing.ok) assert.equal(missing.failure, 'invalid_phone');
   });
 
-  it('sends a verification link without gating the account, and records the confirmation', async () => {
-    const registered = await register('verify-me@example.test', 'a-long-enough-password');
-    assert.equal(registered.ok, true);
-    if (!registered.ok) return;
-
-    // The account is usable before the link is opened - verification confirms, it does not gate.
-    assert.equal((await signIn('verify-me@example.test', 'a-long-enough-password', context())).ok, true);
-    assert.ok(registered.verification !== null);
-    if (registered.verification?.channel !== 'email') return;
-    const verificationToken = registered.verification.token;
-    assert.equal(registered.verification.to, 'verify-me@example.test');
-
-    const confirmed = await fixture.db.transaction((tx) =>
-      confirmCustomerEmailVerification(tx, { rawToken: verificationToken }),
+  it('creates no account until the emailed code is entered, and records the address as verified', async () => {
+    const started = await fixture.db.transaction((tx) =>
+      startRegistration(tx, { method: 'email', identifier: 'verify-me@example.test', context: context() }),
     );
-    assert.equal(confirmed.ok, true);
+    assert.equal(started.ok, true);
+    if (!started.ok) return;
+    assert.equal(started.delivery.channel, 'email');
+    assert.match(started.delivery.code, /^[0-9]{6}$/);
 
-    const rows = await fixture.pool.query<{ email_verified_at: Date | null }>(
-      'select email_verified_at from customer where id = $1',
-      [registered.customerId],
+    // Nothing exists yet: the pending row is the only record, and the code is stored as a hash.
+    const pending = await fixture.pool.query<{ total: string }>(
+      `select count(*)::text as total from customer where email = 'verify-me@example.test'`,
     );
+    assert.equal(pending.rows[0]?.total, '0');
+    const row = await fixture.pool.query<{ code_hash: string; attempts: number }>(
+      `select code_hash, attempts from customer_registration where identifier = 'verify-me@example.test'`,
+    );
+    assert.match(String(row.rows[0]?.code_hash), /^scrypt\$/);
+    assert.notEqual(row.rows[0]?.code_hash, started.delivery.code);
+
+    const wrong = await fixture.db.transaction((tx) =>
+      verifyRegistrationCode(tx, {
+        identifier: 'verify-me@example.test',
+        code: started.delivery.code === '000000' ? '111111' : '000000',
+        context: context(),
+      }),
+    );
+    assert.deepEqual(wrong, { ok: false, failure: 'invalid_code' });
+
+    const verified = await fixture.db.transaction((tx) =>
+      verifyRegistrationCode(tx, {
+        identifier: 'verify-me@example.test',
+        code: started.delivery.code,
+        context: context(),
+      }),
+    );
+    assert.equal(verified.ok, true);
+    if (!verified.ok) return;
+
+    const completed = await fixture.db.transaction((tx) =>
+      completeRegistration(tx, {
+        ticket: verified.ticket,
+        password: 'a-long-enough-password',
+        displayName: null,
+        context: context(),
+      }),
+    );
+    assert.equal(completed.ok, true);
+    if (!completed.ok) return;
+
+    const rows = await fixture.pool.query<{ email: string; email_verified_at: Date | null; phone: string | null }>(
+      'select email, email_verified_at, phone from customer where id = $1',
+      [completed.customerId],
+    );
+    assert.equal(rows.rows[0]?.email, 'verify-me@example.test');
+    assert.equal(rows.rows[0]?.phone, null);
     assert.ok(rows.rows[0]?.email_verified_at !== null);
 
-    // Single use: a second click is a dead link, and only one system audit row was written.
-    const again = await fixture.db.transaction((tx) =>
-      confirmCustomerEmailVerification(tx, { rawToken: verificationToken }),
+    // The ticket is single use: a replayed completion cannot create a second account.
+    const replay = await fixture.db.transaction((tx) =>
+      completeRegistration(tx, {
+        ticket: verified.ticket,
+        password: 'a-long-enough-password',
+        displayName: null,
+        context: context(),
+      }),
     );
-    assert.deepEqual(again.ok, false);
-    const audit = await fixture.pool.query<{ total: string }>(
-      `select count(*)::text as total from audit_event
-        where entity_type = 'customer' and entity_id = $1 and action = 'customer.email_verified'`,
-      [registered.customerId],
+    assert.deepEqual(replay, { ok: false, failure: 'invalid_ticket' });
+    const accounts = await fixture.pool.query<{ total: string }>(
+      `select count(*)::text as total from customer where email = 'verify-me@example.test'`,
     );
-    assert.equal(audit.rows[0]?.total, '1');
+    assert.equal(accounts.rows[0]?.total, '1');
   });
 
-  it('re-sends verification only while the address is unconfirmed, throttled on the account', async () => {
-    const registered = await register('resend-me@example.test', 'a-long-enough-password');
-    assert.equal(registered.ok, true);
-    if (!registered.ok) return;
+  it('refuses a registration whose code is never entered, and a duplicate identifier at the start', async () => {
+    const started = await fixture.db.transaction((tx) =>
+      startRegistration(tx, { method: 'email', identifier: 'abandoned@example.test', context: context() }),
+    );
+    assert.equal(started.ok, true);
 
-    const first = await fixture.db.transaction((tx) =>
-      requestCustomerEmailVerification(tx, {
-        customerId: registered.customerId,
-        context: context(),
-      }),
+    // The account was never created, so the same address can be started again.
+    const again = await fixture.db.transaction((tx) =>
+      startRegistration(tx, { method: 'email', identifier: 'abandoned@example.test', context: context() }),
     );
-    assert.equal(first.ok, true);
+    assert.equal(again.ok, true);
 
-    // Confirming the address makes a later request a stated outcome, not another message.
-    await fixture.db.transaction((tx) =>
-      confirmCustomerEmailVerification(tx, {
-        rawToken: first.ok ? first.delivery.token : '',
-      }),
+    // An identifier that already names an account is refused before any code is sent.
+    assert.equal((await register('taken@example.test', 'a-long-enough-password')).ok, true);
+    const duplicate = await fixture.db.transaction((tx) =>
+      startRegistration(tx, { method: 'email', identifier: 'taken@example.test', context: context() }),
     );
-    const after = await fixture.db.transaction((tx) =>
-      requestCustomerEmailVerification(tx, {
-        customerId: registered.customerId,
-        context: context(),
-      }),
-    );
-    assert.deepEqual(after.ok, false);
-    if (!after.ok) assert.equal(after.failure, 'verified');
+    assert.deepEqual(duplicate, { ok: false, failure: 'email_taken' });
   });
 
   it('signs in and stores only a digest of the session token', async () => {
@@ -517,68 +563,54 @@ describe('customer authentication', { skip: toolingAvailable ? false : SKIP_REAS
     );
   });
 
-  it('issues a six-digit SMS code at phone registration and settles the number on entry', async () => {
-    const registered = await fixture.db.transaction((tx) =>
-      registerCustomer(tx, {
-        method: 'phone',
-        email: null,
-        phone: '01711111111',
+  it('registers a phone-first account only after its SMS code is entered', async () => {
+    const started = await fixture.db.transaction((tx) =>
+      startRegistration(tx, { method: 'phone', identifier: '01711111111', context: context() }),
+    );
+    assert.equal(started.ok, true);
+    if (!started.ok) return;
+    assert.equal(started.delivery.channel, 'phone');
+    assert.equal(started.delivery.to, '01711111111');
+    assert.match(started.delivery.code, /^[0-9]{6}$/);
+
+    const before = await fixture.pool.query<{ total: string }>(
+      `select count(*)::text as total from customer where phone = '01711111111'`,
+    );
+    assert.equal(before.rows[0]?.total, '0');
+
+    const verified = await fixture.db.transaction((tx) =>
+      verifyRegistrationCode(tx, {
+        identifier: '01711111111',
+        code: started.delivery.code,
+        context: context(),
+      }),
+    );
+    assert.equal(verified.ok, true);
+    if (!verified.ok) return;
+    assert.equal(verified.channel, 'phone');
+
+    const completed = await fixture.db.transaction((tx) =>
+      completeRegistration(tx, {
+        ticket: verified.ticket,
         password: 'a-long-enough-password',
         displayName: null,
         context: context(),
       }),
     );
-    assert.equal(registered.ok, true);
-    if (!registered.ok) return;
-    assert.equal(registered.verification?.channel, 'sms');
-    if (registered.verification?.channel !== 'sms') return;
-    assert.match(registered.verification.code, /^[0-9]{6}$/);
+    assert.equal(completed.ok, true);
+    if (!completed.ok) return;
 
-    // The stored row is a keyed digest, never the six digits themselves.
-    const stored = await fixture.pool.query<{ token_hash: string; attempts: number }>(
-      `select token_hash, attempts from account_recovery_token
-        where customer_id = $1 and purpose = 'phone_verify'`,
-      [registered.customerId],
+    const rows = await fixture.pool.query<{ phone: string; email: string | null; phone_verified_at: Date | null }>(
+      'select phone, email, phone_verified_at from customer where id = $1',
+      [completed.customerId],
     );
-    assert.notEqual(stored.rows[0]?.token_hash, registered.verification.code);
-    assert.equal(stored.rows[0]?.attempts, 0);
-
-    const wrong = await fixture.db.transaction((tx) =>
-      confirmCustomerPhoneVerification(tx, {
-        phone: '01711111111',
-        code: registered.verification?.channel === 'sms' && registered.verification.code === '000000' ? '111111' : '000000',
-        context: context(),
-      }),
-    );
-    assert.equal(wrong.ok, false);
-
-    const confirmed = await fixture.db.transaction((tx) =>
-      confirmCustomerPhoneVerification(tx, {
-        phone: '01711111111',
-        code: registered.verification?.channel === 'sms' ? registered.verification.code : '',
-        context: context(),
-      }),
-    );
-    assert.equal(confirmed.ok, true);
-
-    const rows = await fixture.pool.query<{ phone_verified_at: Date | null }>(
-      'select phone_verified_at from customer where id = $1',
-      [registered.customerId],
-    );
+    assert.equal(rows.rows[0]?.phone, '01711111111');
+    assert.equal(rows.rows[0]?.email, null);
     assert.ok(rows.rows[0]?.phone_verified_at !== null);
   });
 
   it('recovers a phone-only account with an SMS code, and refuses the wrong one', async () => {
-    const registered = await fixture.db.transaction((tx) =>
-      registerCustomer(tx, {
-        method: 'phone',
-        email: null,
-        phone: '01722222222',
-        password: 'a-long-enough-password',
-        displayName: null,
-        context: context(),
-      }),
-    );
+    const registered = await register('', 'a-long-enough-password', undefined, '01722222222');
     assert.equal(registered.ok, true);
     if (!registered.ok) return;
 

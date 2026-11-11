@@ -135,6 +135,59 @@ export const accountRecoveryToken = pgTable(
   ],
 );
 
+
+/**
+ * A registration that has proved its identifier but has not created the account yet (ADR 0038).
+ *
+ * **The account does not exist until the six-digit code sent to the number or address is entered**
+ * (owner decision, 2026-11-12): verification happens *before* registration, so an account cannot be
+ * created with an address or number somebody else controls, and a registration flood costs the sender
+ * one code per attempt rather than a row per attempt.
+ *
+ * The code is stored with the same scrypt hash as a password - six digits are only a million values,
+ * so an unkeyed digest would be reversible offline, and scrypt needs no extra secret to key. A
+ * verified row also holds the digest of a short-lived ticket; that ticket is what the final step
+ * presents, and consuming it is a guarded `UPDATE ... WHERE consumed_at IS NULL`, so a replay cannot
+ * create a second account.
+ */
+export const customerRegistration = pgTable(
+  'customer_registration',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    /** `phone` or `email` - the one identifier this registration will become an account with. */
+    channel: text('channel').notNull(),
+    /** The canonical form: an 11-digit number, or a lower-cased address. */
+    identifier: text('identifier').notNull(),
+    /** scrypt hash of the six-digit code. The raw code exists only in the message. */
+    codeHash: text('code_hash').notNull(),
+    /** Wrong guesses against the code. The row is dead at five. */
+    attempts: integer('attempts').notNull().default(0),
+    expiresAt: timestamp('expires_at', { withTimezone: true, mode: 'date' }).notNull(),
+    /** Set when the code is entered. Only then is a ticket issued. */
+    verifiedAt: timestamp('verified_at', { withTimezone: true, mode: 'date' }),
+    /** SHA-256 of the ticket the verified row handed to the browser. Consumed by the final step. */
+    ticketHash: text('ticket_hash'),
+    /** Set when the account is created. A consumed row is never used again. */
+    consumedAt: timestamp('consumed_at', { withTimezone: true, mode: 'date' }),
+    requestedIpHash: text('requested_ip_hash'),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex('customer_registration_ticket_unique')
+      .on(t.ticketHash)
+      .where(sql`${t.ticketHash} is not null`),
+    /** One live registration per identifier, so a new request supersedes the previous row. */
+    uniqueIndex('customer_registration_live_unique')
+      .on(t.identifier)
+      .where(sql`${t.consumedAt} is null`),
+    index('customer_registration_expiry_idx').on(t.expiresAt).where(sql`${t.consumedAt} is null`),
+    check('customer_registration_channel_valid', sql`${t.channel} in ('phone', 'email')`),
+    check('customer_registration_identifier_len', sql`char_length(${t.identifier}) between 5 and 254`),
+    check('customer_registration_attempts_non_negative', sql`${t.attempts} >= 0`),
+    check('customer_registration_expiry_after_created', sql`${t.expiresAt} > ${t.createdAt}`),
+  ],
+);
+
 export const authThrottle = pgTable(
   'auth_throttle',
   {

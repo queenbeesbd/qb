@@ -11,10 +11,10 @@ import { securityNotice } from './notices';
  * miss before an action is taken rather than after: a password or address change signs the other
  * devices out.
  *
- * Verification appears here **only as a state and a resend**: it exists at registration and in recovery,
- * so changing the address applies immediately and needs no confirmation link. An account opened with a
- * number has no email address at all until one is added, and the screen says that rather than showing a
- * blank line.
+ * Verification appears here **only as a state**: it happens once, before the account exists (ADR 0038),
+ * and in recovery, so changing the address applies immediately and needs no confirmation link. An
+ * account opened with a number has no email address at all until one is added, and the screen says that
+ * rather than showing a blank line.
  *
  * Every form posts natively with the session-bound CSRF token, so they work before any script runs and
  * a password is never held in component state. A refusal returns to this page and is rendered beside the
@@ -125,14 +125,6 @@ export function AccountSecurity({
                   ? t('account.security.phoneVerified')
                   : t('account.security.phoneUnverified')}
               </p>
-              {!phoneVerified && (
-                <form className={styles.form} action="/api/account/phone-verification" method="post">
-                  <input type="hidden" name="csrf" value={csrfToken} />
-                  <button type="submit" className={styles.button}>
-                    {t('account.security.resendCode')}
-                  </button>
-                </form>
-              )}
             </div>
           </section>
         )}
@@ -159,14 +151,6 @@ export function AccountSecurity({
                     ? t('account.security.emailVerified')
                     : t('account.security.emailUnverified')}
                 </p>
-                {!emailVerified && (
-                  <form className={styles.form} action="/api/account/verification" method="post">
-                    <input type="hidden" name="csrf" value={csrfToken} />
-                    <button type="submit" className={styles.button}>
-                      {t('account.security.resendVerification')}
-                    </button>
-                  </form>
-                )}
               </>
             )}
             <form className={styles.form} action="/api/account/email" method="post">

@@ -246,13 +246,13 @@ with neither could never be signed in to or recovered); `CHECK (status IN (...))
 lookup, and the rule that one number names one account); `(status, created_at DESC)` for the admin
 customer list; partial `(id)` where `deleted_at IS NULL`.
 
-**Identity (ADR 0036, 2026-11-11; ADR 0037, 2026-11-12).** One identifier opens an account and the other
+**Identity (ADR 0036; ADR 0037; ADR 0038, 2026-11-12).** One identifier opens an account and the other
 is not required: phone-first collects a number, email-first an address. An account signs in with either
 identifier it holds. The number is normalised before storage, so spacing, dashes and an `880` prefix do
-not create a second account. `email_verified_at` and `phone_verified_at` record only that the person
-opened the mailed link or entered the SMS code; the account is usable before that. Verification happens
-**only at registration and in recovery**, and a completed password reset also settles the identifier it
-travelled on, because receiving the message proves control of it.
+not create a second account. **Verification happens before the account exists** (section 4.3b): the
+six-digit code is entered during registration, so `email_verified_at` / `phone_verified_at` are already
+set when the row is written. Recovery proves the identifier again and settles the same flag; a change of
+address clears `email_verified_at`, and nothing re-proves it (ADR 0038).
 
 **Authorization.** A customer reads and updates only their own row, resolved from the session, never
 from a request parameter. Staff read with `customer.read`; only an owner-level role changes
@@ -335,6 +335,28 @@ revoke their own sessions; staff with `customer.revoke_session` may revoke any.
 **Retention.** Rows are deleted after expiry plus a short grace window; the deletion is a maintenance
 job, not a state change.
 
+### 4.3b `customer_registration` (implemented 2026-11-12, ADR 0038)
+
+A registration that has proved its identifier but has **not** created the account yet.
+
+| Column | Type | Null | Notes |
+| --- | --- | --- | --- |
+| `id` | uuid | PK | `gen_random_uuid()` |
+| `channel` | text | NOT NULL | `phone` \| `email` |
+| `identifier` | text | NOT NULL | Canonical 11-digit number, or lower-cased address. `CHECK (5 .. 254)` |
+| `code_hash` | text | NOT NULL | **scrypt** hash of a random six-digit code; the raw code exists only in the message |
+| `attempts` | integer | NOT NULL | Default 0; the row is consumed on the fifth wrong guess |
+| `expires_at` | timestamptz | NOT NULL | Ten minutes for the code; extended to thirty for the ticket |
+| `verified_at` | timestamptz | NULL | Set when the code was entered; only then is a ticket issued |
+| `ticket_hash` | text | NULL | SHA-256 of the 256-bit ticket the browser carries. `UNIQUE` where not null |
+| `consumed_at` | timestamptz | NULL | Set when the account is created. A consumed row is never usable again |
+| `requested_ip_hash` | text | NULL | Digest only, for abuse correlation |
+| `created_at` | timestamptz | NOT NULL | `now()`; `CHECK (expires_at > created_at)` |
+
+**Partial unique `customer_registration_live_unique` on `identifier` where `consumed_at is null`:** one
+live registration per number or address, so asking for a new code supersedes the last one. Nothing is
+written to `customer` until the ticket is consumed, so an unverified registration costs no account.
+
 ### 4.3a `customer_email_change` (dropped 2026-11-12, ADR 0037)
 
 This table held a pending change of address and the digest of the confirmation link mailed to the new
@@ -353,7 +375,7 @@ long-lived second password.
 | --- | --- | --- | --- |
 | `id` | uuid | PK | |
 | `customer_id` | bigint | NOT NULL | FK `customer(id)` `ON DELETE CASCADE` |
-| `purpose` | text | NOT NULL | `password_reset` \| `email_verify` \| `phone_verify` \| `phone_reset` (ADR 0037) |
+| `purpose` | text | NOT NULL | `password_reset` \| `phone_reset` are written; `email_verify` / `phone_verify` remain in the constraint for rows written before ADR 0038 |
 | `token_hash` | text | NOT NULL | SHA-256 of a random token; for an SMS code, the **HMAC-SHA256** of the six digits under a server secret (`SMS_CODE_SECRET`, falling back to `BULKSMS_API_KEY`). Raw value never stored |
 | `created_at` / `expires_at` | timestamptz | NOT NULL | An hour for a mailed recovery link, 48 hours for a registration link, ten minutes for an SMS code |
 | `used_at` | timestamptz | NULL | Single use; a code is also consumed on its fifth wrong guess |
@@ -366,9 +388,10 @@ long-lived second password.
 **Authorization.** Created only by the recovery endpoint; consumed only by the reset endpoint.
 A successful use revokes every existing session on that account.
 
-**Written by the self-service flows since 2026-11-11 (ADR 0030) and by SMS since 2026-11-12 (ADR 0037).**
-One row per live credential: a mailed `email_verify` or `password_reset` token (256 bits, digest stored),
-or an SMS `phone_verify` / `phone_reset` six-digit code (keyed digest, ten-minute expiry, five attempts).
+**Written by recovery since 2026-11-11 (ADR 0030) and by SMS recovery since 2026-11-12 (ADR 0037).**
+One row per live credential: a mailed `password_reset` token (256 bits, digest stored) or an SMS
+`phone_reset` six-digit code (scrypt hash, ten-minute expiry, five attempts). Registration verification
+moved to `customer_registration` (ADR 0038), so `email_verify` / `phone_verify` are no longer written.
 Issuing supersedes any earlier live row for the same purpose; consuming is a guarded
 `UPDATE ... WHERE used_at IS NULL`; a successful password reset revokes every live session. The
 owner-issued code of Phase 23 was removed on 2026-11-08, so no `customer.credential_reset` producer
@@ -2746,7 +2769,7 @@ forbid.
 
 | Group | Tables |
 | --- | --- |
-| Identity and access | `customer`, `customer_credential`, `customer_session`, `account_recovery_token`, `auth_throttle`, `staff_user`, `staff_credential`, `staff_session`, `staff_recovery_token`, `role`, `permission`, `role_permission`, `staff_role` |
+| Identity and access | `customer`, `customer_credential`, `customer_session`, `account_recovery_token`, `customer_registration`, `auth_throttle`, `staff_user`, `staff_credential`, `staff_session`, `staff_recovery_token`, `role`, `permission`, `role_permission`, `staff_role` |
 | Catalog | `brand`, `category`, `product`, `product_variant`, `product_image`, `product_image_derivative`, `hero_image`, `offer_popup`, `collection`, `collection_item`, `import_record` |
 | Inventory | `inventory_balance`, `inventory_movement`, `stock_reservation` |
 | Orders | `order`, `order_contact`, `order_item`, `order_event`, `cancellation_request`, `customer_return` |

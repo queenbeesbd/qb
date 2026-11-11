@@ -14,6 +14,31 @@ An entry may describe a deployment only once it has actually happened and been o
 
 ## [Unreleased]
 
+### Changed - 2026-11-12: verification now happens before the account exists (ADR 0038)
+
+Owner direction: the code must be entered **during** registration, on both channels, because verifying
+afterwards does nothing to stop account spam.
+
+- Registration is three requests: **start** (identifier -> a pending row with an scrypt digest of a
+  random six-digit code), **verify** (code -> a 256-bit ticket, wrong guesses dead at five) and
+  **finish** (ticket consumed, then the customer and credential written with `email_verified_at` or
+  `phone_verified_at` already set). Nothing is written to `customer` until the code is entered.
+- New table `customer_registration` (migration `0030_even_frog_thor`, schema 52 -> 53 tables): one live
+  row per identifier, ten-minute code, thirty-minute ticket. The browser carries `qb_signup`
+  (httpOnly, 30 minutes), never the password or the code.
+- The post-registration verification page, link, route and resend controls are **removed**;
+  `/account/verify-phone` and `/account/verify-email` are gone. Emails now carry a code, not a link.
+- A six-digit code is stored with the **scrypt** password hash, so `SMS_CODE_SECRET` no longer exists.
+- **A channel that cannot send cannot register**: with no `BULKSMS_SENDER_ID` the phone step is refused
+  as unavailable and the form points at an email address; the reverse holds without Resend.
+
+Verified 2026-11-12: `typecheck`, `lint` (0 errors), `check:i18n` (1906 keys), unit **316/316**,
+`test:db` **289/289**, `build`; and both channels driven end to end against a dev server with stubbed
+providers - an account existed only after the real code was entered (`phone_verified_at` /
+`email_verified_at` set, session issued, `/account` 200), a wrong code was refused, and a completion
+without the cookie answered `?error=session`. Migration `0030` was applied to production through the
+Neon MCP (31 migrations / 53 tables).
+
 ### Added - 2026-11-12: "Order on WhatsApp" on the product page
 
 Owner direction: a product page offers a WhatsApp button, placed like the reference's (under the

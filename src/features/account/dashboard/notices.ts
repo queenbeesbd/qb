@@ -4,8 +4,8 @@ import type { TranslationKey } from '@/i18n/dictionaries';
  * The result of an account-security action, as the server reports it on the redirect.
  *
  * One map, so a code a route can produce is either rendered with the right tone or is not produced at
- * all: the confirmations are `passwordChanged`, `emailChanged` and the two verification resends, and
- * every other entry is a refusal the route only sends back to the form that caused it.
+ * all: the confirmations are `passwordChanged` and `emailChanged`, and every other entry is a
+ * refusal the route only sends back to the form that caused it.
  */
 export const SECURITY_NOTICES: Record<string, { key: TranslationKey; error: boolean }> = {
   passwordChanged: { key: 'account.notice.passwordChanged', error: false },
@@ -21,12 +21,6 @@ export const SECURITY_NOTICES: Record<string, { key: TranslationKey; error: bool
   emailTaken: { key: 'account.notice.emailTaken', error: true },
   emailThrottled: { key: 'account.notice.emailThrottled', error: true },
   emailUnavailable: { key: 'account.notice.emailUnavailable', error: true },
-  verificationSent: { key: 'account.notice.verificationSent', error: false },
-  emailAlreadyVerified: { key: 'account.notice.emailAlreadyVerified', error: false },
-  phoneAlreadyVerified: { key: 'account.notice.phoneAlreadyVerified', error: false },
-  smsUnavailable: { key: 'account.notice.smsUnavailable', error: true },
-  verificationUnavailable: { key: 'account.notice.verificationUnavailable', error: true },
-  verificationThrottled: { key: 'account.notice.verificationThrottled', error: true },
 };
 
 export function securityNotice(code: string | null) {

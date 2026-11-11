@@ -28,8 +28,6 @@
  * address, a number, a password or a digest.
  */
 
-import { createHmac } from 'node:crypto';
-
 import { sql } from 'drizzle-orm';
 
 import type { Transaction } from '@/db/client';
@@ -45,13 +43,10 @@ import {
   type ThrottlePolicy,
 } from '../auth/throttle';
 import { createNumericCode, createOpaqueToken, looksLikeToken, sha256Hex } from '../auth/tokens';
-import { smsCodeKey, smsConfigured } from '../integrations/sms';
+import { smsConfigured } from '../integrations/sms';
 import {
   CUSTOMER_EMAIL_CHANGE_THROTTLE,
-  CUSTOMER_EMAIL_VERIFY_THROTTLE,
-  CUSTOMER_EMAIL_VERIFY_TOKEN_MS,
   CUSTOMER_PASSWORD_CHANGE_THROTTLE,
-  CUSTOMER_PHONE_VERIFY_THROTTLE,
   CUSTOMER_RECOVERY_REDEEM_THROTTLE,
   CUSTOMER_RESET_REQUEST_THROTTLE,
   CUSTOMER_RESET_TOKEN_MS,
@@ -66,18 +61,12 @@ function accountSubjectFor(label: string, value: string): string {
 }
 
 /**
- * The stored form of a six-digit code.
+ * A six-digit code is stored exactly like a password: scrypt with a per-row salt.
  *
- * Keyed rather than plainly hashed: one million SHA-256 values are a few seconds of work, so an
- * unkeyed digest would be plaintext to anyone holding the table. The key never leaves the server and
- * the customer id and purpose are mixed in, so the same code on two accounts hashes differently.
+ * One million scrypt derivations is not an offline attack anyone runs, so no separate key is needed -
+ * and that matters, because a new required secret would have to exist in every environment before a
+ * code could be issued. Guessing is bounded online by the attempt counter and the source throttle.
  */
-function smsCodeDigest(customerId: number, purpose: string, code: string): string | null {
-  const key = smsCodeKey();
-  if (key === null) return null;
-  return createHmac('sha256', key).update(`${customerId}:${purpose}:${code}`).digest('hex');
-}
-
 /** Issues a code for a live account, superseding any earlier one for the same purpose. */
 async function issueSmsCode(
   tx: Transaction,
@@ -85,9 +74,7 @@ async function issueSmsCode(
 ): Promise<string | null> {
   if (!smsConfigured()) return null;
   const code = createNumericCode(6);
-  const digest = smsCodeDigest(input.customerId, input.purpose, code);
-  if (digest === null) return null;
-
+  const codeHash = await hashPassword(code);
   const now = new Date();
   await tx
     .update(accountRecoveryToken)
@@ -101,7 +88,7 @@ async function issueSmsCode(
   await tx.insert(accountRecoveryToken).values({
     customerId: input.customerId,
     purpose: input.purpose,
-    tokenHash: digest,
+    tokenHash: codeHash,
     expiresAt: new Date(now.getTime() + CUSTOMER_SMS_CODE_MS),
     requestedIpHash: input.requestedIpHash ?? null,
   });
@@ -125,331 +112,6 @@ async function countRequest(
     await recordFailedAttempt(tx, policy, subject);
   }
   return true;
-}
-
-// ------------------------------------------------------------------
-// Registration email verification (2026-11-11)
-// ------------------------------------------------------------------
-
-/**
- * A verification link, ready to be mailed after the transaction commits.
- *
- * **The account does not wait for it.** Registration returns a usable session, and this link only
- * records that the person controls the address they typed. A phone-first account still has an address
- * for exactly this reason: the mailed reset link is the only self-service way back in.
- */
-export type EmailVerificationDelivery = { readonly to: string; readonly token: string };
-
-/**
- * Issues a fresh verification token for an account whose address is still unverified.
- *
- * Returns `null` when the account is missing or already verified - the caller treats both as "nothing
- * to send" rather than as a failure. Any earlier unused link is superseded, so only one message works.
- */
-export async function issueEmailVerification(
-  tx: Transaction,
-  input: { readonly customerId: number; readonly email: string | null },
-): Promise<EmailVerificationDelivery | null> {
-  if (input.email === null) return null;
-  const rows = await tx
-    .select({ verifiedAt: customer.emailVerifiedAt, email: customer.email })
-    .from(customer)
-    .where(sql`${customer.id} = ${input.customerId} and ${customer.deletedAt} is null`);
-  const target = rows[0];
-  if (target === undefined || target.verifiedAt !== null || target.email === null) return null;
-
-  const token = createOpaqueToken();
-  const now = new Date();
-
-  await tx
-    .update(accountRecoveryToken)
-    .set({ usedAt: now })
-    .where(
-      sql`${accountRecoveryToken.customerId} = ${input.customerId}
-          and ${accountRecoveryToken.purpose} = 'email_verify'
-          and ${accountRecoveryToken.usedAt} is null`,
-    );
-
-  await tx.insert(accountRecoveryToken).values({
-    customerId: input.customerId,
-    purpose: 'email_verify',
-    tokenHash: sha256Hex(token),
-    expiresAt: new Date(now.getTime() + CUSTOMER_EMAIL_VERIFY_TOKEN_MS),
-  });
-
-  return { to: input.email, token };
-}
-
-export type EmailVerificationResendFailure = 'verified' | 'unavailable' | 'throttled';
-
-export type EmailVerificationResendResult =
-  | { readonly ok: true; readonly delivery: EmailVerificationDelivery }
-  | { readonly ok: false; readonly failure: EmailVerificationResendFailure };
-
-/**
- * Re-sends the verification link from the signed-in account page.
- *
- * Keyed and throttled on the account, so one customer cannot flood an inbox and a stolen session
- * cannot be used as a mail relay. Already-verified is a stated outcome, not an error.
- */
-export async function requestCustomerEmailVerification(
-  tx: Transaction,
-  input: { readonly customerId: number; readonly context: SessionContext },
-): Promise<EmailVerificationResendResult> {
-  const rows = await tx
-    .select({
-      email: customer.email,
-      status: customer.status,
-      verifiedAt: customer.emailVerifiedAt,
-    })
-    .from(customer)
-    .where(sql`${customer.id} = ${input.customerId} and ${customer.deletedAt} is null`);
-  const target = rows[0];
-  if (target === undefined || target.status !== 'active') return { ok: false, failure: 'unavailable' };
-  if (target.verifiedAt !== null) return { ok: false, failure: 'verified' };
-
-  const subject = accountSubjectFor('verify', String(input.customerId));
-  const state = await throttleState(tx, CUSTOMER_EMAIL_VERIFY_THROTTLE, subject);
-  if (state.blocked) return { ok: false, failure: 'throttled' };
-
-  const delivery = await issueEmailVerification(tx, {
-    customerId: input.customerId,
-    email: target.email,
-  });
-  if (delivery === null) return { ok: false, failure: 'verified' };
-
-  await recordFailedAttempt(tx, CUSTOMER_EMAIL_VERIFY_THROTTLE, subject);
-  return { ok: true, delivery };
-}
-
-export type EmailVerificationConfirmFailure = 'invalid_token';
-
-export type EmailVerificationConfirmResult =
-  | { readonly ok: true; readonly customerId: number; readonly email: string | null }
-  | { readonly ok: false; readonly failure: EmailVerificationConfirmFailure };
-
-/**
- * Consumes a verification token and marks the address verified.
- *
- * Every failure - expired, already used, unknown, or belonging to an account that is no longer active
- * - answers as one `invalid_token`, so a token holder learns nothing about account state. Marking an
- * already-verified address is not an error: the first click won.
- */
-export async function confirmCustomerEmailVerification(
-  tx: Transaction,
-  input: { readonly rawToken: unknown },
-): Promise<EmailVerificationConfirmResult> {
-  const rawToken = typeof input.rawToken === 'string' ? input.rawToken.trim() : '';
-  if (!looksLikeToken(rawToken)) return { ok: false, failure: 'invalid_token' };
-
-  const rows = await tx
-    .select({
-      tokenId: accountRecoveryToken.id,
-      customerId: accountRecoveryToken.customerId,
-      email: customer.email,
-    })
-    .from(accountRecoveryToken)
-    .innerJoin(customer, sql`${customer.id} = ${accountRecoveryToken.customerId}`)
-    .where(
-      sql`${accountRecoveryToken.tokenHash} = ${sha256Hex(rawToken)}
-          and ${accountRecoveryToken.purpose} = 'email_verify'
-          and ${accountRecoveryToken.usedAt} is null
-          and ${accountRecoveryToken.expiresAt} > now()
-          and ${customer.status} = 'active'
-          and ${customer.deletedAt} is null`,
-    );
-
-  const target = rows[0];
-  if (target === undefined) return { ok: false, failure: 'invalid_token' };
-
-  const now = new Date();
-  const consumed = await tx
-    .update(accountRecoveryToken)
-    .set({ usedAt: now })
-    .where(sql`${accountRecoveryToken.id} = ${target.tokenId} and ${accountRecoveryToken.usedAt} is null`)
-    .returning({ id: accountRecoveryToken.id });
-  if (consumed.length === 0) return { ok: false, failure: 'invalid_token' };
-
-  await tx
-    .update(customer)
-    .set({ emailVerifiedAt: sql`coalesce(${customer.emailVerifiedAt}, now())`, updatedAt: now })
-    .where(sql`${customer.id} = ${target.customerId}`);
-
-  await recordAudit(tx, {
-    actorType: 'system',
-    actorRoleCodes: [],
-    action: 'customer.email_verified',
-    entityType: 'customer',
-    entityId: target.customerId,
-    after: { verified: true },
-  });
-
-  return { ok: true, customerId: target.customerId, email: target.email };
-}
-
-
-// ------------------------------------------------------------------
-// Registration phone verification (2026-11-12)
-// ------------------------------------------------------------------
-
-/** A six-digit code, ready to be sent after the transaction commits. */
-export type PhoneVerificationDelivery = { readonly to: string; readonly code: string };
-
-/**
- * Issues a fresh code for an account whose number is still unverified.
- *
- * Returns `null` when the account is missing, has no number, is already verified, or SMS is not
- * configured - the caller treats all of them as "nothing to send" rather than as a failure. Any
- * earlier unused code is superseded, so only the newest message works.
- */
-export async function issuePhoneVerification(
-  tx: Transaction,
-  input: { readonly customerId: number; readonly phone: string },
-): Promise<PhoneVerificationDelivery | null> {
-  const rows = await tx
-    .select({ verifiedAt: customer.phoneVerifiedAt, phone: customer.phone })
-    .from(customer)
-    .where(sql`${customer.id} = ${input.customerId} and ${customer.deletedAt} is null`);
-  const target = rows[0];
-  if (target === undefined || target.verifiedAt !== null || target.phone !== input.phone) return null;
-
-  const code = await issueSmsCode(tx, { customerId: input.customerId, purpose: 'phone_verify' });
-  return code === null ? null : { to: input.phone, code };
-}
-
-export type PhoneVerificationResendFailure = 'verified' | 'unavailable' | 'throttled' | 'not_configured';
-
-export type PhoneVerificationResendResult =
-  | { readonly ok: true; readonly delivery: PhoneVerificationDelivery }
-  | { readonly ok: false; readonly failure: PhoneVerificationResendFailure };
-
-/**
- * Re-sends the registration code from the signed-in account page.
- *
- * Keyed and throttled on the account, so one customer cannot turn the shop's SMS credit into a
- * personal messaging service. Already verified is a stated outcome, not an error.
- */
-export async function requestCustomerPhoneVerification(
-  tx: Transaction,
-  input: { readonly customerId: number },
-): Promise<PhoneVerificationResendResult> {
-  const rows = await tx
-    .select({ phone: customer.phone, status: customer.status, verifiedAt: customer.phoneVerifiedAt })
-    .from(customer)
-    .where(sql`${customer.id} = ${input.customerId} and ${customer.deletedAt} is null`);
-  const target = rows[0];
-  if (target === undefined || target.status !== 'active' || target.phone === null) {
-    return { ok: false, failure: 'unavailable' };
-  }
-  if (target.verifiedAt !== null) return { ok: false, failure: 'verified' };
-  if (!smsConfigured()) return { ok: false, failure: 'not_configured' };
-
-  const subject = accountSubjectFor('phone-verify', String(input.customerId));
-  const state = await throttleState(tx, CUSTOMER_PHONE_VERIFY_THROTTLE, subject);
-  if (state.blocked) return { ok: false, failure: 'throttled' };
-
-  const delivery = await issuePhoneVerification(tx, { customerId: input.customerId, phone: target.phone });
-  if (delivery === null) return { ok: false, failure: 'verified' };
-
-  await recordFailedAttempt(tx, CUSTOMER_PHONE_VERIFY_THROTTLE, subject);
-  return { ok: true, delivery };
-}
-
-export type PhoneVerificationConfirmFailure = 'invalid_code' | 'throttled';
-
-export type PhoneVerificationConfirmResult =
-  | { readonly ok: true; readonly customerId: number }
-  | { readonly ok: false; readonly failure: PhoneVerificationConfirmFailure };
-
-/**
- * Consumes a registration code and marks the number verified.
- *
- * Every refusal is `invalid_code`: expired, used up, unknown, or belonging to an account that is no
- * longer active. The number identifies the account here, so a caller who only knows a number still
- * has to possess the code that was sent to it.
- */
-export async function confirmCustomerPhoneVerification(
-  tx: Transaction,
-  input: { readonly phone: unknown; readonly code: unknown; readonly context: SessionContext },
-): Promise<PhoneVerificationConfirmResult> {
-  const phone = parsePhone(input.phone);
-  const code = typeof input.code === 'string' ? input.code.trim() : '';
-  if (phone === null || !/^[0-9]{6}$/.test(code)) return { ok: false, failure: 'invalid_code' };
-
-  const source = sourceSubject(input.context.ipHash);
-  const state = await throttleState(tx, CUSTOMER_RECOVERY_REDEEM_THROTTLE, source);
-  if (state.blocked) return { ok: false, failure: 'throttled' };
-
-  const rows = await tx
-    .select({
-      customerId: customer.id,
-      status: customer.status,
-      verifiedAt: customer.phoneVerifiedAt,
-    })
-    .from(customer)
-    .where(sql`${customer.phone} = ${phone}`);
-  const account = rows[0];
-  if (account === undefined || account.status !== 'active') {
-    await recordFailedAttempt(tx, CUSTOMER_RECOVERY_REDEEM_THROTTLE, source);
-    return { ok: false, failure: 'invalid_code' };
-  }
-
-  const digest = smsCodeDigest(account.customerId, 'phone_verify', code);
-  const live = digest === null ? [] : await tx
-    .select({ tokenId: accountRecoveryToken.id, attempts: accountRecoveryToken.attempts })
-    .from(accountRecoveryToken)
-    .where(
-      sql`${accountRecoveryToken.customerId} = ${account.customerId}
-          and ${accountRecoveryToken.purpose} = 'phone_verify'
-          and ${accountRecoveryToken.usedAt} is null
-          and ${accountRecoveryToken.expiresAt} > now()`,
-    );
-  const target = live[0];
-
-  if (target === undefined || digest === null || target.attempts >= CUSTOMER_SMS_CODE_ATTEMPTS) {
-    await recordFailedAttempt(tx, CUSTOMER_RECOVERY_REDEEM_THROTTLE, source);
-    return { ok: false, failure: 'invalid_code' };
-  }
-
-  const matches = target !== undefined && (await tx
-    .select({ id: accountRecoveryToken.id })
-    .from(accountRecoveryToken)
-    .where(sql`${accountRecoveryToken.id} = ${target.tokenId} and ${accountRecoveryToken.tokenHash} = ${digest}`))[0] !== undefined;
-
-  if (!matches) {
-    const spent = target.attempts + 1 >= CUSTOMER_SMS_CODE_ATTEMPTS;
-    await tx
-      .update(accountRecoveryToken)
-      .set({ attempts: target.attempts + 1, usedAt: spent ? new Date() : null })
-      .where(sql`${accountRecoveryToken.id} = ${target.tokenId} and ${accountRecoveryToken.usedAt} is null`);
-    await recordFailedAttempt(tx, CUSTOMER_RECOVERY_REDEEM_THROTTLE, source);
-    return { ok: false, failure: 'invalid_code' };
-  }
-
-  const now = new Date();
-  const consumed = await tx
-    .update(accountRecoveryToken)
-    .set({ usedAt: now })
-    .where(sql`${accountRecoveryToken.id} = ${target.tokenId} and ${accountRecoveryToken.usedAt} is null`)
-    .returning({ id: accountRecoveryToken.id });
-  if (consumed.length === 0) return { ok: false, failure: 'invalid_code' };
-
-  await tx
-    .update(customer)
-    .set({ phoneVerifiedAt: sql`coalesce(${customer.phoneVerifiedAt}, now())`, updatedAt: now })
-    .where(sql`${customer.id} = ${account.customerId}`);
-  await clearThrottle(tx, CUSTOMER_RECOVERY_REDEEM_THROTTLE, [source]);
-
-  await recordAudit(tx, {
-    actorType: 'system',
-    actorRoleCodes: [],
-    action: 'customer.phone_verified',
-    entityType: 'customer',
-    entityId: account.customerId,
-    after: { verified: true },
-  });
-
-  return { ok: true, customerId: account.customerId };
 }
 
 // ------------------------------------------------------------------
@@ -696,9 +358,8 @@ export async function resetCustomerPasswordWithCode(
     .from(customer)
     .where(sql`${customer.phone} = ${phone} and ${customer.deletedAt} is null`);
   const account = rows[0];
-  const digest = account === undefined ? null : smsCodeDigest(account.customerId, 'phone_reset', code);
 
-  if (account === undefined || account.status !== 'active' || digest === null) {
+  if (account === undefined || account.status !== 'active') {
     await recordFailedAttempt(tx, CUSTOMER_RECOVERY_REDEEM_THROTTLE, source);
     return { ok: false, failure: 'invalid_code' };
   }
@@ -723,7 +384,7 @@ export async function resetCustomerPasswordWithCode(
     return { ok: false, failure: 'invalid_code' };
   }
 
-  if (target.tokenHash !== digest) {
+  if (!(await verifyPassword(code, target.tokenHash))) {
     const spent = target.attempts + 1 >= CUSTOMER_SMS_CODE_ATTEMPTS;
     await tx
       .update(accountRecoveryToken)

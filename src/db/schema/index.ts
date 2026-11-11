@@ -5,7 +5,7 @@
  * here or it will silently not be migrated.
  *
  * 53 tables across eleven groups:
- * - identity (14)   principals, credentials, sessions, recovery, throttle, roles, an email change
+ * - identity (14)   principals, credentials, sessions, recovery, throttle, roles, a pending registration
  * - catalog (10)    brands, categories, products, variants, imagery, hero banner, curation,
  *                   import provenance
  * - inventory (3)   balance, append-only movement ledger, reservations

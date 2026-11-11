@@ -75,10 +75,14 @@ export const CUSTOMER_RECOVERY_REDEEM_THROTTLE: ThrottlePolicy = {
 export const CUSTOMER_FORGOT_PATH = '/account/forgot-password';
 /** Choose a new password from a recovery link or code. */
 export const CUSTOMER_RESET_PATH = '/account/reset';
-/** The destination of a registration verification link (2026-11-11). */
-export const CUSTOMER_VERIFY_EMAIL_PATH = '/account/verify-email';
-/** Enter the six-digit code sent to the number given at registration (2026-11-12). */
-export const CUSTOMER_VERIFY_PHONE_PATH = '/account/verify-phone';
+/**
+ * The transient sign-up cookie (ADR 0038).
+ *
+ * It carries the identifier a code was sent to and, once the code is entered, the ticket the final
+ * step presents. HttpOnly, `SameSite=Lax`, clear on completion; it is **not** authoritative - every
+ * value is re-read from `customer_registration` before it is trusted.
+ */
+export const CUSTOMER_SIGNUP_COOKIE = 'qb_signup';
 
 /**
  * Lifetime of a **mailed** recovery link.
@@ -100,11 +104,19 @@ export const CUSTOMER_SMS_CODE_MS = 10 * 60 * 1000;
 /** Wrong guesses allowed against one code. The row is consumed after this many. */
 export const CUSTOMER_SMS_CODE_ATTEMPTS = 5;
 
+/** Lifetime of the six-digit code that must be entered before an account is created. */
+export const CUSTOMER_REGISTRATION_CODE_MS = 10 * 60 * 1000;
+
 /**
- * Lifetime of a registration verification link. Two days: a new account is usable before the link is
- * opened, so the message may sit in an inbox until the next time the person signs in.
+ * Lifetime of the ticket a verified registration holds.
+ *
+ * Half an hour: long enough to choose a password after finding the code, short enough that a shared
+ * device does not leave a usable registration behind.
  */
-export const CUSTOMER_EMAIL_VERIFY_TOKEN_MS = 48 * 60 * 60 * 1000;
+export const CUSTOMER_REGISTRATION_TICKET_MS = 30 * 60 * 1000;
+
+/** Wrong guesses allowed against a registration code before the row dies. */
+export const CUSTOMER_REGISTRATION_CODE_ATTEMPTS = 5;
 
 /**
  * Recovery **requests**: by account and by source, five an hour.
@@ -135,21 +147,14 @@ export const CUSTOMER_EMAIL_CHANGE_THROTTLE: ThrottlePolicy = {
   blockMs: 60 * 60 * 1000,
 };
 
-/** Re-sending a registration verification code: three an hour, keyed on the account. */
-export const CUSTOMER_PHONE_VERIFY_THROTTLE: ThrottlePolicy = {
-  scope: 'recovery',
+/** Starting a registration for one identifier: three an hour, keyed on that identifier. */
+export const CUSTOMER_REGISTRATION_IDENTIFIER_THROTTLE: ThrottlePolicy = {
+  scope: 'register',
   windowMs: 60 * 60 * 1000,
   maxAttempts: 3,
   blockMs: 60 * 60 * 1000,
 };
 
-/** Resending a registration verification mail: three an hour, keyed on the account. */
-export const CUSTOMER_EMAIL_VERIFY_THROTTLE: ThrottlePolicy = {
-  scope: 'recovery',
-  windowMs: 60 * 60 * 1000,
-  maxAttempts: 3,
-  blockMs: 60 * 60 * 1000,
-};
 
 /**
  * Paths a post-authentication redirect may resolve to.

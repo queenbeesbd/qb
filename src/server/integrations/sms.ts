@@ -11,8 +11,9 @@
  * - `BULKSMS_SENDER_ID` - required to send, but may legitimately be empty while the provider has not
  *   issued one yet. A missing sender means "nothing is sent", never "send with a guessed sender".
  * - `BULKSMS_API_URL` - a development-only test seam, refused outside a development environment.
- * - `SMS_CODE_SECRET` - optional. Pecks the on-disk digest of a six-digit code; falls back to the API
- *   key, which exists only where sending exists.
+ *
+ * A six-digit code is stored with the same **scrypt** hash as a password (ADR 0038), so no separate
+ * signing secret is needed here or anywhere else.
  *
  * **Nothing in this module may leak a number, a code or the provider's response** into a redirect, a
  * log line or a return value: failures are one of four closed reasons.
@@ -56,17 +57,6 @@ function env(source: Readonly<Record<string, string | undefined>>, key: string):
  */
 export function smsConfigured(source: Readonly<Record<string, string | undefined>> = process.env): boolean {
   return env(source, 'BULKSMS_API_KEY') !== null && env(source, 'BULKSMS_SENDER_ID') !== null;
-}
-
-/**
- * The key a six-digit code is digested under.
- *
- * Six digits are a one-in-a-million space, so a plain SHA-256 would be reversible from a database
- * dump in seconds. Keying the digest with a server-only secret makes the dump worthless on its own,
- * and a wrong guess still has to be submitted one attempt at a time.
- */
-export function smsCodeKey(source: Readonly<Record<string, string | undefined>> = process.env): string | null {
-  return env(source, 'SMS_CODE_SECRET') ?? env(source, 'BULKSMS_API_KEY');
 }
 
 /**
