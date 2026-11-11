@@ -329,9 +329,10 @@ The storefront obtains its catalog **server-side only**, through the typed read 
 `src/server/catalog/read.ts`, projected into the source-agnostic view shape by
 `src/server/catalog/storefront.ts`. The rules that shape it:
 
-- **One snapshot per request.** The loader is wrapped in React `cache()`, so the layout, the page and the
-  cart read **one** catalog snapshot per request rather than one query each. The read runs inside a
-  single transaction.
+- **One snapshot per render, reused across requests in production.** The loader is wrapped in React
+  `cache()`, so the layout, the page and the cart read **one** catalog snapshot per request rather than
+  one query each, and the database branch is additionally cached across requests by `unstable_cache` -
+  see the cache note below. The read runs inside a single transaction.
 - **Server-only.** The loader transitively imports `src/db/client.ts`, which throws if it reaches a
   browser bundle. No view component imports it; the catalog reaches the client views as serializable
   **props**.
@@ -343,6 +344,35 @@ The storefront obtains its catalog **server-side only**, through the typed read 
   catalog surface is the authenticated admin read API.
 - **Empty, not faked.** An empty catalog is returned as empty and stated in the interface; a read failure
   propagates to the storefront error boundary rather than substituting the fixture.
+
+### The storefront catalog snapshot cache
+
+The projected snapshot (`StorefrontCatalog` in `src/server/catalog/storefront.ts`) is cached across
+requests so the full catalog query does not run on every page view:
+
+- **Cache key and tag.** The cached function is keyed `['storefront-catalog', STOREFRONT_CATALOG_KEY_VERSION]`
+  and tagged `STOREFRONT_CATALOG_TAG = 'storefront-catalog'`. The version suffix exists because Vercel's
+  Data Cache outlives a deployment: **bump `STOREFRONT_CATALOG_KEY_VERSION` whenever a field is added
+  to, removed from or changes type in the projected shapes**, so a new build reads fresh rows instead of
+  serving a payload written by the previous build.
+- **TTL.** `STOREFRONT_CATALOG_REVALIDATE_SECONDS` is **one hour** as a backstop only; tag invalidation
+  after every committed catalog write is the primary freshness mechanism.
+- **Invalidation.** `invalidateStorefrontCatalog()` in `src/server/catalog/cache.ts` calls
+  `revalidateTag(tag, { expire: 0 })` — the two-argument form, where `expire: 0` makes the next
+  storefront request wait for fresh rows instead of serving the stale snapshot once more. It is called
+  **after** a write transaction commits, never inside it, from every `/api/qbpanel/catalog/*` write
+  route (product create/update/archive, availability, category create/update/archive, brand
+  create/update, image attach/upload/update/remove).
+- **2 MB limit.** Vercel's Data Cache rejects entries over 2 MB. The projected snapshot is ~0.8 MB
+  (descriptions are deliberately excluded — only the product page reads one, per slug, under the same
+  tag). If the snapshot grows toward the limit, the next step is a more compact projection or split
+  caches, never disabling the cache or silently caching a partial object.
+- **Per-user HTML is deliberately not cached.** The storefront routes stay `force-dynamic` because the
+  layout reads the customer session cookie; only the catalog snapshot, not any page or response, is
+  cached, and no cart, order, session or admin data enters the cache.
+- **Development bypass.** Development and the test runner read directly: `unstable_cache` needs Next's
+  incremental cache, which only exists inside a running Next server, and the fixture opt-in
+  (`QUEENBEES_STOREFRONT_FIXTURE=1`, development only) is never cached in either mode.
 
 ### The local/test seed
 
