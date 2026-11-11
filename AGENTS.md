@@ -332,6 +332,15 @@ that adds a migration.** If a production build fails at this step, the site is s
 previous deployment; do not reach for a way around the gate. See `docs/database.md` (Rollout
 sequencing).
 
+**Production stands at 29 migrations / 53 tables (2026-11-11).** `0028_account_phone_identifier` was
+applied to the production branch in one transaction (its `UPDATE` matched no row - five customers, none
+with a phone - plus `CREATE UNIQUE INDEX customer_phone_unique`) and its hash recorded in
+`drizzle.__drizzle_migrations`; every applied hash matches a file. The gate then let `d454b4a` build,
+and `dpl_AHSNUPrGGYKf7YaBDj7fN1RJCSDV` is READY on `www.queenbeesbd.com`. **The migration can be
+applied with the Neon MCP `run_sql_transaction` on branch `br-hidden-rice-az3zuopi`, database
+`queenbees`, followed by the `__drizzle_migrations` insert (sha256 of the committed SQL, the journal's
+`when`)** - that is how this one was done without a production connection string in the shell.
+
 **A `prebuild` step may only reference files the deployment actually contains.** The gate first lived
 at `scripts/check-migrations.ts`, but `.vercelignore` excludes `scripts/`, so Vercel never received it
 and the three production builds after it (`1cfa6e8`, `ffbee0e`, `cb97367`) died on

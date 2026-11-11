@@ -1065,3 +1065,22 @@ number is recorded as typed, and the Security screen says so.
 be a sender on a domain verified in Resend, and `APP_BASE_URL` must be the deployed origin or no link is
 sent. Production now sends five messages (four account-security messages plus registration
 verification). Nothing in this change writes, logs or stores any of those values.
+
+**Deployed 2026-11-11.** The push carrying `d454b4a` hit the prebuild migration gate and failed closed
+(`0028_account_phone_identifier` not applied), leaving the previous deployment live - exactly the
+behaviour Phase 60 intended. Migration `0028` was then applied to production branch
+`br-hidden-rice-az3zuopi` in one transaction (the duplicate-clearing `UPDATE`, which matched no row
+there because production holds five customers and none with a phone, plus
+`CREATE UNIQUE INDEX customer_phone_unique`), and its hash recorded in `drizzle.__drizzle_migrations`
+with the journal's `when`. Production now reports **29 applied migrations / 29 files, every hash
+matching**, 53 tables, and `customer_phone_unique` present and valid. The redeploy of the same commit
+(`dpl_AHSNUPrGGYKf7YaBDj7fN1RJCSDV`) reached **READY** and owns the production aliases
+`www.queenbeesbd.com`, `queenbeesbd.com` and `queenbees.vercel.app`. Verified on that deployment:
+`/`, `/account/register`, `/account/login`, `/account/forgot-password`, `/account/verify-email` **200**;
+`/account` and `/account/security` **307** to sign-in when anonymous; `/qbpanel` **307**, `/admin` and
+`/api/admin/session` **404**; `/qbpanel/login` carries `X-Robots-Tag` and `private, no-store`. The
+register page renders both **Mobile** and **Email** modes with `name="phone"` and `name="email"`, and
+sign-in renders one `name="identifier"` field with the link switch. `RESEND_API_KEY`, `EMAIL_FROM` and
+`APP_BASE_URL` are set in Vercel **Production**. **Not exercised on production:** a real registration,
+a real verification mail and a real reset - they would create live accounts and send mail to a real
+address, so those remain verified locally only.
