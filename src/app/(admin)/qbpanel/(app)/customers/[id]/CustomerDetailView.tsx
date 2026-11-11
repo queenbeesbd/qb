@@ -25,6 +25,7 @@ type OrderRow = {
 type Customer = {
   customerId: number;
   email: string;
+  phone: string | null;
   displayName: string | null;
   status: string;
   createdAt: string;
@@ -66,8 +67,10 @@ export function CustomerDetailView({
   return (
     <>
       <PageHeader
-        title={customer.displayName ?? customer.email}
-        description={customer.email}
+        title={customer.displayName ?? customer.phone ?? customer.email}
+        description={
+          customer.phone === null ? customer.email : `${customer.phone} · ${customer.email}`
+        }
         actions={
           <Link className={`${styles.button} ${styles.buttonSecondary}`} href="/qbpanel/customers">
             {t('admin.customers.back')}
