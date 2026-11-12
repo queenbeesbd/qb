@@ -24,10 +24,13 @@ export function ColdStartBackGuard({ parentHref }: { parentHref: string | null }
   useEffect(() => {
     if (parentHref === null) return;
     /*
-     * One entry means this document is the whole history (a fresh tab, a WebView's first load). Anything
-     * more and the owner arrived by navigating, which the browser already remembers.
+     * No referrer means no page handed this document over: a bookmark, a shared link, the Android shell's
+     * first load. A tab that reached the page by clicking has a referrer and real entries behind it, and a
+     * soft navigation re-runs this effect with the stack already grown - the length check keeps the guard
+     * from seeding twice. Two entries is a fresh tab (a blank page and this one), which still has nothing
+     * in the panel behind it.
      */
-    if (window.history.length > 1) return;
+    if (document.referrer !== '' || window.history.length > 2) return;
 
     const here = window.location.href;
     window.history.replaceState({ qbBelow: true }, '', parentHref);

@@ -20,11 +20,13 @@ Follow-up to the Back control, for the exact case the owner reports: the panel o
 page (a bookmark, a shared link, the Android shell) has **one** history entry, so the browser's back button
 leaves the shop and the app's swipe closes the app.
 
-- **`ColdStartBackGuard`** runs on every panel page with a parent and, **only when `history.length === 1`**,
-  rewrites that single entry to the page's parent and pushes the page on top. Back then lands on the
-  parent route instead of off the site; the pop finishes with a real navigation, so the address bar and
-  the screen cannot disagree. A tab that reached the page by clicking is untouched - it already has
-  history, and the guard never stacks duplicates.
+- **`ColdStartBackGuard`** runs on every panel page with a parent and, **only when the document has no
+  referrer and at most two history entries** (a bookmark, a shared link, the Android shell's first load -
+  a fresh tab is a blank page plus this one), rewrites that single entry to the page's parent and pushes
+  the page on top. Back then lands on the parent route instead of off the site; the pop finishes with a
+  real navigation, so the address bar and the screen cannot disagree. A tab that reached the page by
+  clicking has a referrer and real entries behind it, and a soft navigation re-runs the effect with the
+  stack already grown, so the guard never stacks duplicates.
 - Still in place from the earlier pass: the 40px **Back control** in the top bar (a link, so it works with
   no history at all) on every page except the overview.
 - **Not fixed here:** the Android **gesture** closing the app is a native gap (`android-app/` has no
@@ -32,9 +34,13 @@ leaves the shop and the app's swipe closes the app.
   a swipe now goes back instead of exiting, but the up-navigation after a cold start is the in-page
   control's job until that rebuild ships.
 
-Verified: the seeding mechanism reproduced in headless Chromium - after
-`replaceState(parent)` + `pushState(here)`, `history.back()` resolved on `/qbpanel/catalog` (the parent)
-instead of leaving the site; `typecheck`, `lint` (0 errors), `build`, unit **323/323**, `check:i18n` pass.
+Verified against a served production build at a 390px phone viewport, signed in as an owner:
+a fresh tab opened straight on `/qbpanel/catalog/new` (referrer empty, two entries) seeded the stack and
+**`history.back()` landed on `/qbpanel/catalog` with the products heading** - a real navigation to the
+parent, not off the site; a click from that list into the editor then backed to the list as before. The
+40px Back control renders at `/qbpanel/catalog/new` on the phone (`href="/qbpanel/catalog"`), so a
+cold-started page is reachable upward with or without history. `typecheck`, `lint` (0 errors), `build`
+and unit **323/323** pass; `check:i18n` unchanged.
 
 ### Changed - 2026-11-12: one animated "added to cart" confirmation, built for a phone
 
