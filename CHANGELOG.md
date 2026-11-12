@@ -14,6 +14,28 @@ An entry may describe a deployment only once it has actually happened and been o
 
 ## [Unreleased]
 
+### Fixed - 2026-11-12: a cold-started panel page now has somewhere to go back to
+
+Follow-up to the Back control, for the exact case the owner reports: the panel opened straight on a deep
+page (a bookmark, a shared link, the Android shell) has **one** history entry, so the browser's back button
+leaves the shop and the app's swipe closes the app.
+
+- **`ColdStartBackGuard`** runs on every panel page with a parent and, **only when `history.length === 1`**,
+  rewrites that single entry to the page's parent and pushes the page on top. Back then lands on the
+  parent route instead of off the site; the pop finishes with a real navigation, so the address bar and
+  the screen cannot disagree. A tab that reached the page by clicking is untouched - it already has
+  history, and the guard never stacks duplicates.
+- Still in place from the earlier pass: the 40px **Back control** in the top bar (a link, so it works with
+  no history at all) on every page except the overview.
+- **Not fixed here:** the Android **gesture** closing the app is a native gap (`android-app/` has no
+  `@capacitor/app` back handler) and needs a rebuilt APK; the guard makes the WebView *have* an entry, so
+  a swipe now goes back instead of exiting, but the up-navigation after a cold start is the in-page
+  control's job until that rebuild ships.
+
+Verified: the seeding mechanism reproduced in headless Chromium - after
+`replaceState(parent)` + `pushState(here)`, `history.back()` resolved on `/qbpanel/catalog` (the parent)
+instead of leaving the site; `typecheck`, `lint` (0 errors), `build`, unit **323/323**, `check:i18n` pass.
+
 ### Changed - 2026-11-12: one animated "added to cart" confirmation, built for a phone
 
 Owner direction: adding a product must clearly tell the customer it worked - on a card, and on the
