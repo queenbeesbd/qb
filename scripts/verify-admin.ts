@@ -914,18 +914,24 @@ async function main(): Promise<void> {
       });
       record('the limited principal can sign in', limitedSignIn.status === 303, `status ${limitedSignIn.status}`);
 
-      const limitedOverview = await call(base, '/qbpanel', { jar: limitedJar });
-      const limitedCsrf = csrfFrom(limitedOverview.body);
+      /*
+       * The shell is read from a **page this principal may open**. The overview is gated on
+       * `dashboard.read` since 2026-11-12, and the limited principal does not hold it, so asking for
+       * `/qbpanel` returned the refusal instead of a navigation to inspect.
+       */
+      const limitedShellPage = await call(base, '/qbpanel/owners', { jar: limitedJar });
+      const limitedCsrf = csrfFrom(limitedShellPage.body);
       record(
         'the navigation reflects the limited principal’s own permissions',
-        limitedOverview.body.includes('href="/qbpanel/owners"') &&
-          !limitedOverview.body.includes('href="/qbpanel/catalog"') &&
-          !limitedOverview.body.includes('href="/qbpanel/audit"'),
+        limitedShellPage.status === 200 &&
+          limitedShellPage.body.includes('href="/qbpanel/owners"') &&
+          !limitedShellPage.body.includes('href="/qbpanel/catalog"') &&
+          !limitedShellPage.body.includes('href="/qbpanel/audit"'),
         'owners link shown (staff.read held); catalog and audit links hidden',
       );
       record(
         'the retired staff and role screen is absent from the launch navigation',
-        !overview.body.includes('/qbpanel/staff') && !limitedOverview.body.includes('/qbpanel/staff'),
+        !overview.body.includes('/qbpanel/staff') && !limitedShellPage.body.includes('/qbpanel/staff'),
         'no staff link in either principal’s navigation',
       );
 
@@ -1012,7 +1018,7 @@ async function main(): Promise<void> {
       );
       record(
         'no admin page offers a prepaid recipient form',
-        !limitedOverview.body.includes('payment-recipient') && !overview.body.includes('payment-recipient'),
+        !limitedShellPage.body.includes('payment-recipient') && !overview.body.includes('payment-recipient'),
         'no recipient control in the shell',
       );      // ---- Phase 17: the COD worklist end to end over HTTP ----
       //
