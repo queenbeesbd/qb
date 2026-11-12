@@ -2,6 +2,7 @@
 
 import { AnnouncementBar, type AnnouncementItem } from '@/components/AnnouncementBar';
 import { FloatingCart } from '@/components/FloatingCart';
+import { CartToast } from '@/components/CartToast';
 import { Footer } from '@/components/Footer';
 import { Header } from '@/components/Header';
 import { StorefrontTabBar } from '@/components/StorefrontTabBar';
@@ -67,6 +68,11 @@ export function Shell({
         fixed pair of outbound links following every product page competed with buying.
       */}
       <FloatingCart />
+      {/*
+        The "added to cart" confirmation, mounted once for every storefront page: the card and the product
+        page both raise it from the same store, so it survives a client navigation and never duplicates.
+      */}
+      <CartToast />
       <StorefrontTabBar />
     </>
   );

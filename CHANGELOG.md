@@ -14,6 +14,31 @@ An entry may describe a deployment only once it has actually happened and been o
 
 ## [Unreleased]
 
+### Changed - 2026-11-12: one animated "added to cart" confirmation, built for a phone
+
+Owner direction: adding a product must clearly tell the customer it worked - on a card, and on the
+product page - and the phone is the main audience.
+
+- **One panel, every surface** (`CartToast`, mounted once by the storefront shell): a card's add and the
+  product page's add both raise the same confirmation, so the answer looks the same wherever the tap
+  happened. It carries the product's own name and the cart's item count, with **View cart** and a
+  dismiss control.
+- **It replaced two different answers**: the card's label flip alone (easy to miss on a phone) and the
+  product page's inline panel, which pushed the buy controls down as it appeared.
+- **Phone first**: fixed above the tab bar and the safe area, edge to edge inside the page gutter, 40px
+  actions; from 720px it becomes a compact centred panel. `role="status"` announces it once, it never
+  takes focus or blocks the page, it clears itself after five seconds, and `Escape` or the close control
+  dismisses it sooner.
+- **Motion, and its absence**: a short rise plus a drawn check, keyed by an add id so a second add
+  replays it. `prefers-reduced-motion` removes both animations and draws the check complete.
+- Removed the product page's inline confirmation markup and its dead state, icon import and CSS hooks.
+
+Verified 2026-11-12 in headless Chromium at 390x844: a homepage card's add raised the panel (358x75,
+bottom edge 767 of 844, clear of the tab bar, no horizontal overflow, `role="status"`, 40px actions,
+animation `toast-rise`); the product page's add raised the same panel and the old inline panel is gone;
+with `prefers-reduced-motion: reduce` the animation resolves to `none` and the check is drawn complete.
+`typecheck`, `lint` (0 errors) and `build` pass.
+
 ### Changed - 2026-11-12: the storefront's peripheral reads are cached, and some dead code is gone
 
 Audit for the owner's 50-60k monthly visitors (see the report for the full findings).

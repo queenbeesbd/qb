@@ -8,6 +8,7 @@ import { formatRating } from '@/lib/rating';
 import { useTranslation } from '@/i18n/useTranslation';
 import type { CatalogItem } from '@/lib/types';
 import { useCart } from '@/features/cart/useCart';
+import { announceCartAdd } from '@/features/cart/cart-feedback';
 import { CartIcon } from './icons';
 import { ProductPhoto } from './ProductPhoto';
 import { RatingStars } from './RatingStars';
@@ -195,6 +196,8 @@ function AddToCartButton({ product }: { product: CatalogItem }) {
       onClick={() => {
         if (!available) return;
         addItem(product.id);
+        /* The shared confirmation, plus the label's own brief state for the tap that was just made. */
+        announceCartAdd(product.name.en ?? product.slug);
         setAdded(true);
         if (timer.current !== null) window.clearTimeout(timer.current);
         timer.current = window.setTimeout(() => setAdded(false), 1600);

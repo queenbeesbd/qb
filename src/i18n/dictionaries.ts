@@ -150,6 +150,7 @@ export const dictionary = {
     'The stock state of this product has not been verified, so it cannot be ordered right now.',
   'product.added': 'Added',
   'product.availability.unavailable': 'Unavailable',
+  'product.dismissAdded': 'Dismiss the confirmation',
   'product.viewCart': 'View cart',
   'product.continueShopping': 'Continue shopping',
   'product.dismissConfirmation': 'Dismiss the confirmation',

@@ -1,0 +1,166 @@
+/* ---------------------------------------------------------------------------
+ * "Added to cart" - the confirmation panel.
+ *
+ * Phone first (the shop's main audience): fixed to the bottom, clear of the floating chrome, edge to
+ * edge inside the page gutter, two 40px actions. From 720px it becomes a compact centred panel so it
+ * does not stretch across a desktop. Flat lavender field with ink (9.3:1), one soft shadow, no
+ * decoration - the same material as the rest of the storefront's controls.
+ * ------------------------------------------------------------------------- */
+
+.region {
+  position: fixed;
+  left: var(--gutter);
+  right: var(--gutter);
+  /* Above the tab bar (65px) and the purchase bar, below the offer popup, clear of the safe area. */
+  bottom: calc(65px + env(safe-area-inset-bottom) + var(--space-3));
+  z-index: 55;
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.panel {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  max-width: 30rem;
+  padding: var(--space-3);
+  background: var(--brand-primary);
+  color: var(--color-ink);
+  border: 1px solid var(--brand-primary-deep);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  pointer-events: auto;
+  /*
+   * The rise. Short, once, and cancelled entirely for a customer who asked for less motion: the panel is
+   * legible at rest, so removing the animation removes nothing but movement.
+   */
+  animation: toast-rise 260ms var(--ease-out-ui) both;
+}
+
+@keyframes toast-rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* The check draws itself once: the one piece of the animation that says "done" rather than "here". */
+.mark {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-pill);
+  background: var(--color-surface);
+  color: var(--color-action);
+  flex: none;
+}
+
+.tick {
+  stroke-dasharray: 22;
+  stroke-dashoffset: 22;
+  animation: tick-draw 320ms var(--ease-out-ui) 120ms forwards;
+}
+
+@keyframes tick-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.copy {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.title {
+  margin: 0;
+  font-size: var(--text-sm);
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.detail {
+  margin: 0;
+  font-size: var(--text-xs);
+  line-height: 1.3;
+  /* Two lines at most, then an ellipsis: a 60-character product name must not push the buttons off. */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.count {
+  color: color-mix(in srgb, var(--color-ink) 76%, transparent);
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex: none;
+}
+
+/* Filled on the lavender field with ink text: the same pair the header's controls use. */
+.primary {
+  display: inline-flex;
+  align-items: center;
+  height: 40px;
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--color-ink);
+  color: var(--brand-primary);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.close {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 1px solid color-mix(in srgb, var(--color-ink) 24%, transparent);
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--color-ink);
+  cursor: pointer;
+}
+
+.primary:focus-visible,
+.close:focus-visible {
+  outline: 2px solid var(--color-ink);
+  outline-offset: 2px;
+}
+
+@media (min-width: 720px) {
+  .region {
+    /* A compact panel at the bottom edge on a wide screen, not a bar across it. */
+    left: 50%;
+    right: auto;
+    bottom: var(--space-5);
+    transform: translateX(-50%);
+    width: calc(100% - 2 * var(--gutter));
+    max-width: 26rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .panel,
+  .tick {
+    animation: none;
+    /* The check is drawn by the animation's end state; without it, show it complete. */
+    stroke-dashoffset: 0;
+  }
+}

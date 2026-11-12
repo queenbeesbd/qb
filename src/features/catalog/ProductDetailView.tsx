@@ -12,11 +12,12 @@ import { ProductCard } from '@/components/ProductCard';
 import { ProductGrid } from '@/components/ProductGrid';
 import { QuantityStepper } from '@/components/QuantityStepper';
 import { ProductPhoto } from '@/components/ProductPhoto';
+import { announceCartAdd } from '@/features/cart/cart-feedback';
 import { RatingStars } from '@/components/RatingStars';
 import { GalleryCarousel } from './product/GalleryCarousel';
 import { ProductReviews, type OwnReviewView, type ReviewListItem } from './product/ProductReviews';
 import { ZoomModal } from './product/ZoomModal';
-import { CheckIcon, WhatsAppIcon } from '@/components/icons';
+import { WhatsAppIcon } from '@/components/icons';
 import styles from '@/app/product.module.css';
 
 /**
@@ -79,12 +80,6 @@ export function ProductDetailView({
   const cart = useCart();
   const [quantity, setQuantity] = useState(1);
   /**
-   * The confirmation is state, not a timer. It clears when the customer dismisses it, adds
-   * again, or leaves the page - a panel that vanishes on its own can disappear mid-read and
-   * would leave a keyboard user focused on a control that no longer exists.
-   */
-  const [justAdded, setJustAdded] = useState(false);
-  /**
    * Which stored photograph the page is showing.
    *
    * The catalog holds more than one image for many products and the admin panel already orders them, but
@@ -114,8 +109,6 @@ export function ProductDetailView({
    * a button that always fails is a worse answer than a stated reason.
    */
   const orderable = product.availability === 'in_stock';
-  /** How many of this product the cart now holds, so the confirmation can state it. */
-  const cartQuantity = cart.lines.find((line) => line.productId === product.id)?.quantity ?? 0;
   /**
    * Whether the phone's purchase bar is showing.
    *
@@ -361,7 +354,7 @@ export function ProductDetailView({
                 className={styles.addButton}
                 onClick={() => {
                   cart.addItem(product.id, quantity);
-                  setJustAdded(true);
+                  announceCartAdd(name);
                 }}
               >
                 {t('product.addToCart')}
@@ -387,44 +380,11 @@ export function ProductDetailView({
             )}
 
             {/*
-              The live region is always mounted so a change is announced, and it carries the
-              confirmation's text rather than a second copy of it: one announcement per add, and
-              nothing announced on first paint. The panel below is the visible twin - same words,
-              plus the two next steps the old 22px status line was missing.
+              "Added" is the shared confirmation now (`CartToast`, mounted by the storefront shell): the
+              same animated panel the cards raise, clear of the phone's tab bar, with the same two next
+              steps. It replaced this inline panel, which only existed on this page and pushed the buy
+              controls down as it appeared.
             */}
-            <p className={styles.liveRegion} role="status" aria-live="polite">
-              {justAdded ? t('product.addedDetail', { name }) : ''}
-            </p>
-
-            {justAdded && (
-              <div className={styles.confirmation}>
-                <p className={styles.confirmationTitle}>
-                  <CheckIcon width={16} height={16} />
-                  {t('product.added')}
-                </p>
-                <p className={styles.confirmationDetail}>
-                  {t('product.addedDetail', { name })}
-                  {' '}
-                  <span className={styles.confirmationCount}>
-                    {cartQuantity === 1
-                      ? t('cart.itemCountOne')
-                      : t('cart.itemCount', { count: cartQuantity })}
-                  </span>
-                </p>
-                <div className={styles.confirmationActions}>
-                  <Link className={styles.confirmationPrimary} href="/cart">
-                    {t('product.viewCart')}
-                  </Link>
-                  <button
-                    type="button"
-                    className={styles.confirmationSecondary}
-                    onClick={() => setJustAdded(false)}
-                  >
-                    {t('product.continueShopping')}
-                  </button>
-                </div>
-              </div>
-            )}
           </div>
           ) : (
             <div className={styles.unavailable} role="status">
@@ -478,7 +438,7 @@ export function ProductDetailView({
             className={styles.addButton}
             onClick={() => {
               cart.addItem(product.id, quantity);
-              setJustAdded(true);
+              announceCartAdd(name);
             }}
           >
             {t('product.addToCart')}
