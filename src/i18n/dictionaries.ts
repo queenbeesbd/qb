@@ -745,6 +745,7 @@ export const dictionary = {
   'admin.nav.group.customers': 'Customers',
   'admin.nav.group.settings': 'Settings',
   'admin.nav.group.system': 'System',
+  'admin.nav.back': 'Back to the previous page',
   'admin.nav.openMenu': 'Open menu',
   'admin.nav.closeMenu': 'Close menu',
   'admin.announcement.title': 'Announcement bar',

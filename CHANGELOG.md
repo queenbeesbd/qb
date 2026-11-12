@@ -14,6 +14,27 @@ An entry may describe a deployment only once it has actually happened and been o
 
 ## [Unreleased]
 
+### Fixed - 2026-11-12: back no longer leaves the panel
+
+Owner report: from Add product (and other pages) the browser's back button left the site instead of
+returning to the previous page, and in the Android app a swipe closed the panel.
+
+- **Every panel page now has a defined parent route**, derived from the path by `panelParent`
+  (`_ui/panel-up.ts`), and the shell draws it as a **40px Back control** before the breadcrumb - hidden
+  only on the overview. It is a link to a route, so it works from a bookmark, a shared URL or the app,
+  where there is no history to go back through. Verified on eight routes: `/qbpanel/catalog/new` ->
+  `/qbpanel/catalog`, `/qbpanel/settings/integrations/telegram` -> `/qbpanel/settings/integrations`,
+  `/qbpanel/storefront/hero` -> `/qbpanel/storefront`, `/qbpanel/catalog/brands` -> `/qbpanel/catalog`,
+  `/qbpanel/orders` -> `/qbpanel`, all at 40px, and no control on the overview.
+- **The Android start screen keeps its own history entry.** The shell has no back handling, so the
+  gesture goes to the WebView and closes the app when nothing is behind it; `NativeBackGuard` pushes one
+  router-owned entry on `/qbpanel` inside the shell only, so the first swipe no longer exits. Deeper
+  screens already behaved - a click-navigated `/qbpanel/catalog/new` returned to `/qbpanel/catalog` under
+  the same gesture.
+- **Not done, and stated:** the complete gesture fix is native (`@capacitor/app` + a `backButton`
+  listener walking `panelParent`), and it needs a JDK and a rebuilt APK. This container has neither, so
+  `android-app/dist` still carries the previous shell. The web side is what could be built and verified.
+
 ### Added - 2026-11-12: owner and moderator accounts, with the owner choosing the moderator's screens
 
 Owner direction: a moderator account that runs the shop floor, and the owner decides which sidebar

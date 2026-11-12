@@ -9,6 +9,8 @@ import type { TranslationKey } from '@/i18n/dictionaries';
 import styles from '../qbpanel.module.css';
 import { AdminIcon } from './icons';
 import type { AdminNavGroup, AdminNavItem } from './nav';
+import { NativeBackGuard } from './NativeBackGuard';
+import { panelParent } from './panel-up';
 
 export type AdminIdentity = {
   readonly displayName: string;
@@ -166,6 +168,13 @@ export function AdminShell({
     ? t('admin.title')
     : t('admin.titleModerator');
 
+  /*
+   * The page's own parent, not the browser's previous entry (owner report, 2026-11-12). A panel opened
+   * from a bookmark, a link or the Android shell has no history behind it, and "back" then left the site
+   * or closed the app. This is a route fact, so it is the same on every surface.
+   */
+  const parentHref = panelParent(pathname);
+
   const initials = identity.displayName.trim().slice(0, 2).toUpperCase();
 
   const primaryTabs = [...items]
@@ -232,7 +241,8 @@ export function AdminShell({
           </div>
         </aside>
 
-        <div className={styles.workspace}>
+        <NativeBackGuard />
+      <div className={styles.workspace}>
           <header className={styles.topbar}>
             <div className={styles.topbarInner}>
               <Link href="/qbpanel" className={`${styles.brand} ${styles.mobileBrand}`} aria-label={t('admin.nav.overview')}>
@@ -240,6 +250,21 @@ export function AdminShell({
                   <AdminBrandMark />
                 </span>
               </Link>
+              {/*
+                A real link to the parent route, drawn on every page except the overview. It is what
+                the browser's back button is not allowed to be: always present, always in-app, and never
+                dependent on where the owner came from.
+              */}
+              {parentHref !== null && (
+                <Link
+                  className={styles.topbarBack}
+                  href={parentHref}
+                  aria-label={t('admin.nav.back')}
+                  data-admin-back=""
+                >
+                  <AdminIcon name="arrowLeft" width={16} height={16} />
+                </Link>
+              )}
               <nav className={styles.breadcrumb} aria-label={t('admin.breadcrumbLabel')}>
                 <span className={styles.breadcrumbRoot}>{surfaceLabel}</span>
                 <span className={styles.breadcrumbSeparator} aria-hidden="true">

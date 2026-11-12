@@ -5270,3 +5270,43 @@ a.rankName:hover {
   font-size: var(--text-xs);
   color: var(--admin-subtle);
 }
+
+/* ---- Back to the page's parent (owner report, 2026-11-12) ----------------- */
+
+/*
+ * A 40px control in the top bar, the same height as everything beside it, drawn only on a page that has
+ * a parent. It is a link to a route rather than a history call: a panel opened from a bookmark, a link
+ * or the Android shell has no history to go back to, and this control must work anyway.
+ */
+.topbarBack {
+  display: grid;
+  place-items: center;
+  width: var(--admin-control);
+  height: var(--admin-control);
+  flex: none;
+  border: 1px solid var(--admin-line);
+  border-radius: var(--admin-radius-sm);
+  background: var(--admin-surface);
+  color: var(--admin-ink);
+  text-decoration: none;
+  transition: border-color var(--transition-fast), color var(--transition-fast),
+    background var(--transition-fast);
+}
+
+.topbarBack:hover {
+  border-color: var(--admin-lavender-deep);
+  color: var(--admin-lavender-deep);
+}
+
+.topbarBack:focus-visible {
+  outline: 2px solid var(--admin-lavender-deep);
+  outline-offset: 2px;
+}
+
+@media (max-width: 720px) {
+  /* On a phone the back control is a primary target, and the small variant never applies to it. */
+  .topbarBack {
+    width: var(--admin-control);
+    height: var(--admin-control);
+  }
+}

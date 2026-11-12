@@ -47,6 +47,7 @@ export type AdminIconName =
   | 'tag'
   | 'arrowUp'
   | 'arrowDown'
+  | 'arrowLeft'
   | 'image';
 
 export function AdminIcon({ name, ...props }: IconProps & { name: AdminIconName }) {
@@ -205,6 +206,12 @@ export function AdminIcon({ name, ...props }: IconProps & { name: AdminIconName 
       return (
         <svg {...base} {...props}>
           <path d="M12 19V5M6 11l6-6 6 6" />
+        </svg>
+      );
+    case 'arrowLeft':
+      return (
+        <svg {...base} {...props}>
+          <path d="M19 12H5M11 6l-6 6 6 6" />
         </svg>
       );
     case 'arrowDown':
