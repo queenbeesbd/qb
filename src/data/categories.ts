@@ -62,6 +62,3 @@ export function getCategory(id: string): Category | undefined {
   return categories.find((category) => category.id === id);
 }
 
-export function getCategoryBySlug(slug: string): Category | undefined {
-  return categories.find((category) => category.slug === slug);
-}

@@ -541,17 +541,11 @@ function toProduct(draft: Draft): Product {
 
 export const products: Product[] = drafts.map(toProduct);
 
-export function getProductBySlug(slug: string): Product | undefined {
-  return products.find((product) => product.slug === slug);
-}
 
 export function getProductById(id: string): Product | undefined {
   return products.find((product) => product.id === id);
 }
 
-export function getProductBySourceId(sourceProductId: string): Product | undefined {
-  return products.find((product) => product.sourceProductId === sourceProductId);
-}
 
 export const demoCatalogMeta = {
   capturedAt: CAPTURED_AT,

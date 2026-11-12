@@ -14,6 +14,7 @@
  */
 
 import { withTransaction } from '@/db/client';
+import { invalidateStorefrontCatalog } from '@/server/catalog/cache';
 import { product } from '@/db/schema';
 import { sql } from 'drizzle-orm';
 
@@ -96,6 +97,8 @@ export async function POST(
         image,
       });
     });
+    /* A new review is a new pending row, and the public list is cached: expire it after the write. */
+    invalidateStorefrontCatalog();
 
     if (!result.ok) return back(result.reason === 'already_reviewed' ? 'already' : 'notPurchased');
     return back('submitted');

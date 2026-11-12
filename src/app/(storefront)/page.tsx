@@ -2,11 +2,8 @@ import type { Metadata } from 'next';
 import { HomeView } from '@/features/catalog/HomeSections';
 import { HOMEPAGE_BEST_SELLER_DEPTH, selectHomepage } from '@/features/catalog/home-selection';
 import { getStorefrontCatalog } from '@/server/catalog/storefront';
-import { withTransaction } from '@/db/client';
-import { listBestSellingProductIds } from '@/server/orders/best-sellers';
+import { getHomepageExtras } from '@/server/catalog/storefront-extras';
 import { isCampaignRenderable, loadCampaign } from '@/server/settings/campaign';
-import { listHeroImages } from '@/server/settings/hero';
-import { loadSupportLinks } from '@/server/settings/support';
 
 export const metadata: Metadata = {
   title: 'QueenBee’s — Cosmetics storefront',
@@ -31,13 +28,14 @@ export default async function HomePage() {
    * The best-seller ranking is read here, in the same transaction, from the shop's own order lines.
    * It is a fact about traded units, so it is never derived from a curation or from a client value.
    */
-  const [campaign, heroImages, bestSellerIds, support] = await withTransaction(async (tx) => {
-    const saved = await loadCampaign(tx);
-    const hero = await listHeroImages(tx);
-    const sold = await listBestSellingProductIds(tx, HOMEPAGE_BEST_SELLER_DEPTH);
-    const links = await loadSupportLinks(tx);
-    return [saved, hero, sold, links] as const;
-  });
+  /*
+   * Four tiny reads, cached under the storefront tag (`storefront-extras.ts`): this page is the busiest
+   * one in the shop, and these rows change when the owner saves a setting or an order completes, not per
+   * visitor.
+   */
+  const { campaign, heroImages, bestSellerIds, support } = await getHomepageExtras(
+    HOMEPAGE_BEST_SELLER_DEPTH,
+  );
 
   const selection = selectHomepage({
     products: catalog.products,

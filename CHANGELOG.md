@@ -14,6 +14,25 @@ An entry may describe a deployment only once it has actually happened and been o
 
 ## [Unreleased]
 
+### Changed - 2026-11-12: the storefront's peripheral reads are cached, and some dead code is gone
+
+Audit for the owner's 50-60k monthly visitors (see the report for the full findings).
+
+- **The homepage's four small reads are cached** (`src/server/catalog/storefront-extras.ts`): hero
+  banners, the campaign band, the support links and the best-seller ranking were four round trips on every
+  homepage view, beside an already-cached catalog snapshot. They now share the `storefront-catalog` tag
+  with a **60-second** backstop (the ranking moves when an order completes), and every writer that changes
+  them invalidates it: the hero, announcement, support-links and review-decision routes.
+- **A product page's published reviews are cached per product**, and an **anonymous visitor no longer
+  opens a transaction at all** - the cached public rows are the whole answer, and only a signed-in visitor
+  pays for their own review and eligibility. New and decided reviews invalidate the tag.
+- **Dead code removed:** `getProductBySlug`, `getProductBySourceId` and `getCategoryBySlug` (fixture
+  getters the database cutover left behind) and `GlobeIcon`. A scan of `src/` found **48 unreferenced
+  exports**; the remainder is listed in the report and in `docs/` rather than deleted blind - each needs
+  its attached documentation and tests read before it goes.
+
+Verified: `typecheck`, `lint` (0 errors), `build`, unit **323/323**, `check:i18n` (1960 keys).
+
 ### Fixed - 2026-11-12: back no longer leaves the panel
 
 Owner report: from Add product (and other pages) the browser's back button left the site instead of

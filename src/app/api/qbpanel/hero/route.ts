@@ -10,6 +10,7 @@
  */
 
 import { withTransaction } from '@/db/client';
+import { invalidateStorefrontCatalog } from '@/server/catalog/cache';
 import { STOREFRONT_HERO_PATH } from '@/server/auth/constants';
 import { guardMutation } from '@/server/auth/guard';
 import { roleCodes } from '@/server/authz/principal';
@@ -55,6 +56,7 @@ export async function POST(request: Request): Promise<Response> {
       await withTransaction((tx) =>
         addHeroImage(tx, actor, { key: form.get('key'), alt: form.get('alt') }),
       );
+      invalidateStorefrontCatalog();
       return backTo('added');
     }
 

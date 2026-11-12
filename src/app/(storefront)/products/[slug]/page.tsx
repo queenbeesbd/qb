@@ -3,8 +3,8 @@ import { notFound } from 'next/navigation';
 import { ProductDetailView } from '@/features/catalog/ProductDetailView';
 import { withTransaction } from '@/db/client';
 import { getProductDescription, getStorefrontCatalog } from '@/server/catalog/storefront';
+import { getHomepageExtras, getPublishedReviews } from '@/server/catalog/storefront-extras';
 import { publicBaseUrl } from '@/server/integrations/email';
-import { loadSupportLinks } from '@/server/settings/support';
 import { productOrderMessage, whatsappOrderHref } from '@/lib/whatsapp-order';
 import { currentCustomerPrincipal } from '@/server/customer-auth/guard';
 import {
@@ -82,7 +82,8 @@ export default async function ProductPage({
    * code, and a link that is not WhatsApp's own host yields `null`, so no button is drawn. The product
    * name, pack and absolute URL are the message, so the shop can answer without asking which item.
    */
-  const support = await withTransaction((tx) => loadSupportLinks(tx));
+  /* Cached under the storefront tag: the owner's own addresses, not a per-visit read. */
+  const { support } = await getHomepageExtras(0);
   const base = publicBaseUrl();
   const orderWhatsappHref = whatsappOrderHref(
     support.whatsappUrl,
@@ -95,12 +96,22 @@ export default async function ProductPage({
 
   const principal = await currentCustomerPrincipal();
   const productId = Number(product.id);
-  const reviewData = await withTransaction(async (tx) => {
-    const published = await listPublishedReviews(tx, productId);
-    const totalPublished = await countPublishedReviews(tx, productId);
-    if (principal === null) {
-      return { published, totalPublished, ownReview: null, canReview: false };
-    }
+  /*
+   * The published side of the review block is public and identical for every visitor, so it is cached per
+   * product; the author's own row and their eligibility stay in the request's transaction, because they
+   * are behind a session and must never be shared.
+   */
+  const publicReviews = await getPublishedReviews(productId);
+  /*
+   * An anonymous visitor needs **no** query of their own: the cached public rows are the whole answer, so
+   * the page does not open a transaction for the majority of its traffic.
+   */
+  const reviewData =
+    principal === null
+      ? { ...publicReviews, ownReview: null, canReview: false }
+      : await withTransaction(async (tx) => {
+    const published = publicReviews.published;
+    const totalPublished = publicReviews.totalPublished;
     const ownReview = await getOwnReview(tx, principal.customerId, productId);
     const eligibility =
       ownReview === null ? await reviewEligibility(tx, principal.customerId, productId) : null;

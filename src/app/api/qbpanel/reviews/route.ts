@@ -9,6 +9,7 @@
  */
 
 import { withTransaction } from '@/db/client';
+import { invalidateStorefrontCatalog } from '@/server/catalog/cache';
 import { deny, redirectTo } from '@/app/api/qbpanel/responses';
 import { guardMutation } from '@/server/auth/guard';
 import { roleCodes } from '@/server/authz/principal';
@@ -59,6 +60,8 @@ export async function POST(request: Request): Promise<Response> {
 
   try {
     await withTransaction((tx) => decideReview(tx, actor, reviewId, decision));
+    // The published reviews are cached under the storefront tag, so publishing reaches the page now.
+    invalidateStorefrontCatalog();
     return back(state, decision === 'approved' ? 'published' : 'refused');
   } catch (error) {
     if (error instanceof ConflictError) return back(state, 'conflict');
