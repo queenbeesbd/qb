@@ -32,8 +32,11 @@ Verified in headless Chromium at 390px, signed in, with the plugin's web impleme
 (no exit); `{canGoBack:true}` on `/qbpanel/catalog/new` went back to `/qbpanel/catalog` ("Products").
 `typecheck`, `lint` (0 errors), `build`, unit **323/323** and `check:i18n` pass.
 
-**Still pending:** the committed `android-app/dist` APK predates this and this container has no JDK, so the
-gesture is unverified on a device until the owner rebuilds.
+**The committed APK now carries it:** `android-app/dist/queenbees-panel-debug.apk` was rebuilt with
+`cap sync` (JDK 21 - Capacitor 7 rejects a source release of 21 on JDK 17) and verified to contain
+`AppPlugin` in `capacitor.plugins.json` and in `classes2.dex`. It loads `https://queenbees.vercel.app/qbpanel`
+as before, so the app's session is that origin's. Real-device behaviour is still the owner's to confirm by
+installing this build.
 
 ### Fixed - 2026-11-12: a cold-started panel page now has somewhere to go back to
 
