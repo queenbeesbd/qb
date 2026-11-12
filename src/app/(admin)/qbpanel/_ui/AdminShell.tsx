@@ -10,6 +10,7 @@ import styles from '../qbpanel.module.css';
 import { AdminIcon } from './icons';
 import type { AdminNavGroup, AdminNavItem } from './nav';
 import { ColdStartBackGuard } from './ColdStartBackGuard';
+import { NativeBackButton } from './NativeBackButton';
 import { panelParent } from './panel-up';
 
 export type AdminIdentity = {
@@ -242,6 +243,7 @@ export function AdminShell({
         </aside>
 
         <ColdStartBackGuard parentHref={parentHref} />
+        <NativeBackButton parentHref={parentHref} />
       <div className={styles.workspace}>
           <header className={styles.topbar}>
             <div className={styles.topbarInner}>

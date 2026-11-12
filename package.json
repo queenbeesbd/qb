@@ -48,6 +48,7 @@
     "app:apk": "cd android-app && npm run apk:debug"
   },
   "dependencies": {
+    "@capacitor/app": "^7.1.2",
     "@neondatabase/serverless": "1.2.0",
     "drizzle-orm": "0.45.4",
     "next": "16.4.3",

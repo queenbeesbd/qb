@@ -14,6 +14,27 @@ An entry may describe a deployment only once it has actually happened and been o
 
 ## [Unreleased]
 
+### Added - 2026-11-12: the Android back gesture is answered by the panel
+
+`NativeBackButton` listens to `@capacitor/app`'s `backButton` inside the shell: **history first**
+(`canGoBack` -> `history.back()`, so the list or filter the owner came from is what they return to),
+otherwise **the page's parent route**, otherwise - at the overview - **nothing**, because a swipe on the
+start screen used to close the app. A plain browser is untouched: the plugin resolves there too, but the
+component returns early unless `Capacitor.isNativePlatform()`.
+
+The listener has to live in the **deployed** panel (the WebView loads the remote `/qbpanel`), so
+`@capacitor/app` is a dependency of the root project as well as of `android-app/`; `npx cap sync android`
+was run and now registers `AppPlugin` in `capacitor.plugins.json` and the gradle include.
+
+Verified in headless Chromium at 390px, signed in, with the plugin's web implementation loaded and
+`isNativePlatform()` stubbed true (the browser reports `false`, so nothing attaches normally):
+`backButton {canGoBack:false}` on `/qbpanel/catalog` pushed `/qbpanel`; on `/qbpanel` it changed nothing
+(no exit); `{canGoBack:true}` on `/qbpanel/catalog/new` went back to `/qbpanel/catalog` ("Products").
+`typecheck`, `lint` (0 errors), `build`, unit **323/323** and `check:i18n` pass.
+
+**Still pending:** the committed `android-app/dist` APK predates this and this container has no JDK, so the
+gesture is unverified on a device until the owner rebuilds.
+
 ### Fixed - 2026-11-12: a cold-started panel page now has somewhere to go back to
 
 Follow-up to the Back control, for the exact case the owner reports: the panel opened straight on a deep
