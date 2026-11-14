@@ -42,6 +42,8 @@ export const dictionary = {
   'search.placeholder': 'Search products or brands',
   'search.submit': 'Search',
   'search.clear': 'Clear search',
+  'search.suggestions': 'Search suggestions',
+  'search.seeAll': 'See all results for “{query}”',
   'search.resultsFor': 'Results for “{query}”',
   'search.noResultsTitle': 'No products found',
   'search.noResultsBody': 'Try a different word or browse all products.',

@@ -191,8 +191,13 @@ term is compared and when it is committed**, not what may be searched:
   listing; the listing's own field commits after 300ms with `replace`, so refining a search adds no
   history entries. The admin product list does the same at 300ms and is the only admin list with it -
   every live search is a server render, and a long order list is read once rather than scanned.
+  **Amended by ADR 0041 (2026-11-14):** the header field no longer navigates while typing. It opens a
+  suggestion popup fed by `GET /api/search?q=`, which reads the cached catalog snapshot; the listing is
+  entered by Enter, the magnifier or the "See all results" row. That route is the one narrow exception
+  to the "no public catalog endpoint" rule below.
 - **The submit button and the plain `GET` form stay.** They are the no-JavaScript path and what Enter
-  does; no route, endpoint or API was added for suggestions, and the CRAWLER/no-index rules are
+  does; no route, endpoint or API was added for suggestions (ADR 0041 later added exactly one, the
+  suggestions route), and the CRAWLER/no-index rules are
   untouched.
 
 ## Open questions

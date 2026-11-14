@@ -152,10 +152,19 @@ export function parseCatalogQuery(
  * Matching is fuzzy and shared with the admin panel (`src/lib/fuzzy.ts`): a field may start with the
  * term, contain it, contain its letters in order, or differ by one character. `null` means "no match",
  * and the score is the relevance rank the "relevance" sort uses.
+ *
+ * Exported because the header's suggestion route ranks with this same function (ADR 0041): the popup and
+ * the listing it links into must agree about what matches, or a suggestion would lead to a page that
+ * does not contain it.
  */
-function searchScore(item: CatalogItem, needle: string): number | null {
+export function searchScore(item: CatalogItem, needle: string): number | null {
   if (!needle) return 0;
   return fuzzyScoreAcross(needle, [item.name.en, item.name.bn, item.brand, item.pack]);
+}
+
+/** The name a shopper reads for a product: the English one, then the Bangla one, then its slug. */
+export function displayName(item: CatalogItem): string {
+  return item.name.en ?? item.name.bn ?? item.slug;
 }
 
 export function filterProducts(
@@ -186,10 +195,6 @@ export function filterProducts(
     if (query.offers && discountAmount(item.priceMinor, item.compareAtPriceMinor) === null) return false;
     return searchScore(item, needle) !== null;
   });
-}
-
-function displayName(item: CatalogItem): string {
-  return item.name.en ?? item.name.bn ?? item.slug;
 }
 
 /** Deterministic, total ordering so the same query always yields the same list. */

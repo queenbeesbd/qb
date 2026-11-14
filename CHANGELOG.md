@@ -14,6 +14,42 @@ An entry may describe a deployment only once it has actually happened and been o
 
 ## [Unreleased]
 
+### Added - 2026-11-14: the header search suggests products instead of navigating (ADR 0041)
+
+Typing in the storefront header now opens a short list of matching products - photograph, name, brand and
+pack, price with a genuine saving struck through, and a stock state when it is not in stock - and the
+listing is entered deliberately, by Enter, the magnifier, or a "See all results for “term”" row at the foot
+of the list. Until now a 400ms pause pushed the customer onto `/products?q=` mid-word.
+
+`GET /api/search?q=` answers at most six rows from the **cached** catalog snapshot
+(`getStorefrontCatalog`, tag `storefront-catalog`), so a keystroke adds no database read of its own - the
+Neon egress budget is why. Ranking uses the listing's own `searchScore`, so a suggestion can never name a
+product the page it opens would not contain; relevance comes first, then in stock before out of stock,
+then name and id. A comparison price is struck through only when `discountAmount` says the saving is real.
+The route answers `{ results: [] }` below two letters and when the catalog cannot be read, sets
+`cache-control: no-store`, and stores nothing about the visitor.
+
+The reference's "Exp" and "Sold" columns are deliberately absent: the catalog stores no expiry date, and a
+per-product sold count is a sales claim this popup does not make. The form is still a plain `GET` to
+`/products`, so the magnifier and a browser without JavaScript behave as before.
+
+`selectSuggestions` (`src/features/catalog/suggestions.ts`) is the pure selection the route wraps, and
+`tests/unit/search-suggestions.test.ts` pins its rules. `AGENTS.md` and ADR 0011 now name this route as the
+one authorized unauthenticated read surface; a client-side product index and a search library remain out.
+
+Verified: `typecheck`, `lint` (0 errors), `check:i18n` (1,957 keys), `build`, unit **329/329** (with
+`NODE_ENV` unset; this shell exports `production`, which fails four environment/fixture tests on its
+own). Also driven in headless Chromium against the local dev cluster (`.dev-pg`, migrations applied
+through `0033`) at 1440px and 390px, on the real catalog: typing opens six rows with photographs (48px,
+`alt=""`) and a struck-through comparison price at 12px; the header is 65px tall with the list open and
+closed, so nothing shifts; exactly one listbox exists; ArrowDown sets `aria-activedescendant` to the
+first option and Enter opens `/products/streax-hair-serum-115ml`; a row click opens the product page; a
+click outside closes the list; a nonsense term states "No products found" above the see-all row;
+Escape closes the list and keeps the typed value; at 390px the sheet is 356px wide inside a 390px
+viewport with no horizontal overflow; `GET /api/search` answers `cache-control: no-store` and an empty
+result for one letter. **Not verified:** `verify:browser` / `verify:admin` were not run and this popup
+has no check in either suite yet; real devices and screen readers were not used.
+
 ### Changed - 2026-11-14: checkout asks for the address once, and two labels use the owner's words
 
 The delivery details form no longer asks for **Area**, **City** or **Postcode**. The address line and the

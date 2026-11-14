@@ -1,12 +1,13 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from '@/i18n/useTranslation';
 import type { CatalogCategory } from '@/lib/types';
 import { useCart } from '@/features/cart/useCart';
 import { CartIcon, CloseIcon, MenuIcon, SearchIcon, UserIcon } from './icons';
+import { HeaderSearch } from './HeaderSearch';
 import styles from './Header.module.css';
 
 type Customer = { email: string | null; phone: string | null; displayName: string | null } | null;
@@ -27,12 +28,11 @@ type Customer = { email: string | null; phone: string | null; displayName: strin
  * The drawer is a real modal: focus moves into it, Tab is trapped, Escape closes it, the page behind is
  * locked, and focus returns to the control that opened it. A menu a keyboard cannot leave is not a menu.
  *
- * **The search box searches as you type** (2026-11-10). Typing pauses for 400ms and then opens the
- * listing with that term, so the magnifier is a submit button for Enter and for a browser without
- * JavaScript rather than the only way in. The field keeps its own value while the listing renders; on
- * the listing itself the term replaces the URL instead of pushing, because refining one search is not
- * a sequence of pages - and from anywhere else the first navigation is a push, so Back returns to the
- * page the search started from.
+ * **The search box suggests products as you type** (owner direction, 2026-11-14; ADR 0041). Until then a
+ * 400ms pause pushed the customer onto the listing mid-word. The field now opens a short list of matches
+ * (`HeaderSearch`, reading `GET /api/search`, which is ranked by the listing's own matcher), and the
+ * listing is entered deliberately - Enter, the magnifier, or the "See all results" row. The form is still
+ * a plain `GET` to `/products?q=`, so the magnifier and a browser without JavaScript behave as before.
  *
  * Categories and the customer arrive as server-resolved props, so navigation can never drift from the
  * catalog the storefront actually serves and the account control can never disagree with the session
@@ -49,50 +49,10 @@ export function Header({
   const { t, pick } = useTranslation();
   const { itemCount } = useCart();
   const pathname = usePathname();
-  const router = useRouter();
 
   const [menuOpen, setMenuOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const drawerRef = useRef<HTMLDivElement | null>(null);
-
-  /*
-   * One debounce for both fields (the desktop row and the phone row render the same form). Trailing,
-   * so the search follows a pause rather than every keystroke; cleared on unmount so a navigation does
-   * not leave a timer pointing at an unmounted component.
-   */
-  const searchTimerRef = useRef<number | null>(null);
-
-  const searchAsYouType = useCallback(
-    (value: string) => {
-      if (searchTimerRef.current !== null) window.clearTimeout(searchTimerRef.current);
-      searchTimerRef.current = window.setTimeout(() => {
-        searchTimerRef.current = null;
-        const term = value.trim().slice(0, 80);
-        // An empty box is not a search: clearing the field must not navigate anywhere.
-        if (term.length === 0) return;
-        const href = `/products?q=${encodeURIComponent(term)}`;
-        /*
-         * The listing already showing this term is not navigated to again - compared against the URL,
-         * not against a remembered term, so returning to the home page and typing the same words once
-         * more still performs a search.
-         */
-        if (pathname === '/products') {
-          if (new URLSearchParams(window.location.search).get('q') === term) return;
-          router.replace(href, { scroll: false });
-        } else {
-          router.push(href);
-        }
-      }, 400);
-    },
-    [pathname, router],
-  );
-
-  useEffect(
-    () => () => {
-      if (searchTimerRef.current !== null) window.clearTimeout(searchTimerRef.current);
-    },
-    [],
-  );
 
   const closeMenu = useCallback(() => {
     setMenuOpen(false);
@@ -171,31 +131,6 @@ export function Header({
     if (href.includes('?')) return false;
     return href === '/' ? pathname === '/' : pathname === href || pathname.startsWith(`${href}/`);
   };
-
-  const searchField = (id: string, variant: 'inline' | 'row') => (
-    <form
-      className={variant === 'inline' ? styles.search : styles.mobileSearch}
-      role="search"
-      action="/products"
-      method="get"
-    >
-      <label className="sr-only" htmlFor={id}>
-        {t('search.label')}
-      </label>
-      <input
-        id={id}
-        type="search"
-        name="q"
-        placeholder={t('search.placeholder')}
-        autoComplete="off"
-        maxLength={80}
-        onChange={(event) => searchAsYouType(event.currentTarget.value)}
-      />
-      <button type="submit" aria-label={t('search.submit')}>
-        <SearchIcon width={18} height={18} />
-      </button>
-    </form>
-  );
 
   const drawerLinks: { href: string; label: string }[] = [
     { href: '/', label: t('nav.home') },
@@ -285,7 +220,7 @@ export function Header({
         </nav>
 
         <div className={styles.actions}>
-          {searchField('site-search', 'inline')}
+          <HeaderSearch id="site-search" variant="inline" />
           <Link
             href="/products#catalog-search"
             className={styles.compactSearch}
@@ -316,7 +251,7 @@ export function Header({
         </div>
       </div>
 
-      {searchField('mobile-search', 'row')}
+      <HeaderSearch id="mobile-search" variant="row" />
 
       {menuOpen && (
         <div className={styles.drawerLayer}>
