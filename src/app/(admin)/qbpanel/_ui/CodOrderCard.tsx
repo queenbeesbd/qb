@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import type { FormEvent } from 'react';
 
-import { deliveryAreaName } from '@/lib/delivery-areas';
+import { deliveryAddressText } from '@/lib/delivery-address';
 import { orderDiscountMinor } from '@/lib/money';
 import { useTranslation } from '@/i18n/useTranslation';
 import { AdminIcon } from './icons';
@@ -169,10 +169,7 @@ export function CodOrderCard({
             </a>
           </div>
           {!compact && (
-            <p className={styles.orderAddress}>
-              {row.addressLine}, {row.districtCode === null ? '' : `${deliveryAreaName(row.districtCode)}, `}
-              {row.area}, {row.city}
-            </p>
+            <p className={styles.orderAddress}>{deliveryAddressText(row)}</p>
           )}
           <ul className={styles.orderItems} aria-label={t('admin.cod.itemsTitle')}>
             {(compact ? row.items.slice(0, 1) : row.items).map((item, index) => (

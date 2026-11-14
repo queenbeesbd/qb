@@ -5,7 +5,7 @@ import type { FormEvent } from 'react';
 
 import type { TranslationKey } from '@/i18n/dictionaries';
 import { useTranslation } from '@/i18n/useTranslation';
-import { deliveryAreaName } from '@/lib/delivery-areas';
+import { deliveryAddressText } from '@/lib/delivery-address';
 import { orderDiscountMinor } from '@/lib/money';
 import { ORDER_COST_PATH, ORDER_TRANSITION_PATH } from '@/server/auth/constants';
 import { paymentLabel, statusLabel } from '@/features/account/order-labels';
@@ -751,14 +751,7 @@ export function AdminOrderDetailView({
             <a className={styles.orderPhone} href={'tel:' + order.contact.recipientPhone}>
               {order.contact.recipientPhone}
             </a>
-            <p className={styles.orderAddress}>
-              {order.contact.addressLine}
-              {order.contact.districtCode === null
-                ? ''
-                : ', ' + deliveryAreaName(order.contact.districtCode)}
-              , {order.contact.area}, {order.contact.city}
-              {order.contact.postcode === null ? '' : ' ' + order.contact.postcode}
-            </p>
+            <p className={styles.orderAddress}>{deliveryAddressText(order.contact)}</p>
             {order.contact.deliveryNote !== null && (
               <p className={styles.note}>{t('admin.order.deliveryNote', { note: order.contact.deliveryNote })}</p>
             )}

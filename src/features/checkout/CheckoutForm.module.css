@@ -38,11 +38,6 @@
   background: var(--color-surface);
 }
 
-.row {
-  display: grid;
-  gap: var(--space-4);
-}
-
 .field {
   display: grid;
   gap: var(--space-1);

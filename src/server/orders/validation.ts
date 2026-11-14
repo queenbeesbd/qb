@@ -33,6 +33,7 @@ export type ContactInput = {
   readonly districtCode: string;
   readonly recipientPhone: string;
   readonly addressLine: string;
+  /** Blank when the submission did not carry one: the checkout form stopped collecting it (2026-11-14). */
   readonly area: string;
   readonly city: string;
   readonly postcode: string | null;
@@ -139,31 +140,32 @@ export function parseContact(form: {
     CONTACT_LIMITS.addressLine.min,
     CONTACT_LIMITS.addressLine.max,
   );
-  const area = parseText(form.area, CONTACT_LIMITS.area.min, CONTACT_LIMITS.area.max);
-  const city = parseText(form.city, CONTACT_LIMITS.city.min, CONTACT_LIMITS.city.max);
+  const area = parseOptionalText(form.area, CONTACT_LIMITS.area.max);
+  const city = parseOptionalText(form.city, CONTACT_LIMITS.city.max);
   const phone = typeof form.recipientPhone === 'string' ? form.recipientPhone.trim() : '';
   const postcode = parseOptionalText(form.postcode, CONTACT_LIMITS.postcode.max);
   const deliveryNote = parseOptionalText(form.deliveryNote, CONTACT_LIMITS.deliveryNote.max);
 
-  if (
-    recipientName === null ||
-    districtCode === null ||
-    addressLine === null ||
-    area === null ||
-    city === null
-  ) {
+  if (recipientName === null || districtCode === null || addressLine === null) {
     return null;
   }
   if (!RECIPIENT_PHONE_PATTERN.test(phone)) return null;
-  if (postcode === undefined || deliveryNote === undefined) return null;
+  if (
+    area === undefined ||
+    city === undefined ||
+    postcode === undefined ||
+    deliveryNote === undefined
+  ) {
+    return null;
+  }
 
   return {
     recipientName,
     districtCode,
     recipientPhone: phone,
     addressLine,
-    area,
-    city,
+    area: area ?? '',
+    city: city ?? '',
     postcode,
     deliveryNote,
   };

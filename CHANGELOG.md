@@ -14,6 +14,26 @@ An entry may describe a deployment only once it has actually happened and been o
 
 ## [Unreleased]
 
+### Changed - 2026-11-14: checkout asks for the address once, and two labels use the owner's words
+
+The delivery details form no longer asks for **Area**, **City** or **Postcode**. The address line and the
+delivery area already say where the parcel goes, and the three fields only asked the customer to repeat
+it. `parseContact` accepts a submission that omits them and records a blank area and city and a `null`
+postcode - `order_contact` keeps its NOT NULL columns, so **no migration was needed**; an order placed
+before this, or one written by the catalog import, still carries whatever it recorded. The receipt, the
+owner's order detail and the COD card now draw the address through one `deliveryAddressText`, so a blank
+part no longer leaves a stray comma behind. The three field labels and three problem sentences that
+nothing references any more were deleted from the dictionary.
+
+Two strings follow the owner's wording: the promotion block is labelled **Apply A Promo Code** (was
+"Promotion code"), and the product page's WhatsApp control reads **Chat on WhatsApp** (was "Order on
+WhatsApp"; the brand's own capitalisation is kept).
+
+Verified: `typecheck`, `lint` (0 errors), `check:i18n` (1,955 keys), `build`, and unit **323/323**
+(with `NODE_ENV` unset - this shell exports `production`, which makes the environment and fixture-guard
+tests fail on their own, before this change). The checkout route was **not** exercised over HTTP or in a
+browser: the local cluster is stopped, so `verify:browser` / `verify:admin` were not run.
+
 ### Added - 2026-11-12: the Android back gesture is answered by the panel
 
 `NativeBackButton` listens to `@capacitor/app`'s `backButton` inside the shell: **history first**

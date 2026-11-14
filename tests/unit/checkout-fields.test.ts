@@ -16,11 +16,17 @@ const valid: ContactValues = {
   recipientPhone: '01712345678',
   addressLine: 'House 12, Road 4, Banani',
   districtCode: 'dhaka',
-  area: 'Banani',
-  city: 'Dhaka',
-  postcode: '1213',
   deliveryNote: '',
 };
+
+/**
+ * The same values as the order route reads them. The form no longer collects an area, city or postcode
+ * (2026-11-14), so a submission carries none of the three; the server still accepts them from an older
+ * client or a stored row.
+ */
+function serverContact(values: ContactValues): Parameters<typeof parseContact>[0] {
+  return { ...values, area: undefined, city: undefined, postcode: undefined };
+}
 
 /** Replace one field, keeping the rest valid. */
 function withField(field: keyof ContactValues, value: string): ContactValues {
@@ -28,15 +34,12 @@ function withField(field: keyof ContactValues, value: string): ContactValues {
 }
 
 describe('checkout contact rules', () => {
-  it('reports the six required fields on an empty submission, in page order', () => {
+  it('reports the four required fields on an empty submission, in page order', () => {
     const empty: ContactValues = {
       recipientName: '',
       recipientPhone: '',
       addressLine: '',
       districtCode: '',
-      area: '',
-      city: '',
-      postcode: '',
       deliveryNote: '',
     };
     assert.deepEqual(contactProblems(empty), [
@@ -44,12 +47,11 @@ describe('checkout contact rules', () => {
       'recipientPhone',
       'addressLine',
       'districtCode',
-      'area',
-      'city',
     ]);
-    // Optional fields stay optional.
-    assert.equal(CONTACT_FIELDS.includes('postcode'), true);
-    assert.equal(contactProblems(empty).includes('postcode'), false);
+    // Nothing the form no longer draws can be reported as a problem.
+    for (const removed of ['area', 'city', 'postcode']) {
+      assert.equal((CONTACT_FIELDS as readonly string[]).includes(removed), false, removed);
+    }
   });
 
   it('accepts a complete submission and names one order for the fields', () => {
@@ -90,28 +92,23 @@ describe('checkout contact rules', () => {
     }
   });
 
-  it('bounds the optional fields without making them required', () => {
-    const longPostcode = '1'.repeat(CONTACT_LIMITS.postcode.max + 1);
+  it('bounds the optional delivery note without making it required', () => {
     const longNote = 'a'.repeat(CONTACT_LIMITS.deliveryNote.max + 1);
-    assert.deepEqual(contactProblems(withField('postcode', longPostcode)), ['postcode']);
     assert.deepEqual(contactProblems(withField('deliveryNote', longNote)), ['deliveryNote']);
-    assert.deepEqual(
-      contactProblems(withField('postcode', '1'.repeat(CONTACT_LIMITS.postcode.max))),
-      [],
-    );
     assert.deepEqual(
       contactProblems(withField('deliveryNote', 'a'.repeat(CONTACT_LIMITS.deliveryNote.max))),
       [],
     );
+    assert.deepEqual(contactProblems(withField('deliveryNote', '')), []);
   });
 
   it('agrees with the server parser in both directions', () => {
     // What the form accepts, the server accepts.
-    assert.notEqual(parseContact(valid), null);
+    assert.notEqual(parseContact(serverContact(valid)), null);
     for (const district of ['dhaka', 'chattogram', 'others']) {
       const values = withField('districtCode', district);
       assert.deepEqual(contactProblems(values), []);
-      assert.notEqual(parseContact(values), null, district);
+      assert.notEqual(parseContact(serverContact(values)), null, district);
     }
 
     // What the form refuses, the server refuses - so a summary can never be the only thing standing
@@ -121,14 +118,11 @@ describe('checkout contact rules', () => {
       ['bad phone', withField('recipientPhone', '0171234567')],
       ['short address', withField('addressLine', 'Road')],
       ['unknown district', withField('districtCode', 'khulna')],
-      ['empty area', withField('area', '')],
-      ['empty city', withField('city', '')],
-      ['long postcode', withField('postcode', '1'.repeat(21))],
       ['long note', withField('deliveryNote', 'a'.repeat(301))],
     ];
     for (const [label, values] of refused) {
       assert.notDeepEqual(contactProblems(values), [], label);
-      assert.equal(parseContact(values), null, label);
+      assert.equal(parseContact(serverContact(values)), null, label);
     }
 
     // And the phone shape is one definition, not two copies of a regex that can drift apart.

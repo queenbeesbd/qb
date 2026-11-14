@@ -63,9 +63,6 @@ const FIELD_PROBLEM_KEYS: Record<ContactFieldName, TranslationKey> = {
   recipientPhone: 'checkout.problem.recipientPhone',
   addressLine: 'checkout.problem.addressLine',
   districtCode: 'checkout.problem.district',
-  area: 'checkout.problem.area',
-  city: 'checkout.problem.city',
-  postcode: 'checkout.problem.postcode',
   deliveryNote: 'checkout.problem.deliveryNote',
 };
 
@@ -81,9 +78,6 @@ function readContactValues(form: HTMLFormElement): ContactValues {
     recipientPhone: text('recipientPhone'),
     addressLine: text('addressLine'),
     districtCode: text('districtCode'),
-    area: text('area'),
-    city: text('city'),
-    postcode: text('postcode'),
     deliveryNote: text('deliveryNote'),
   };
 }
@@ -412,54 +406,17 @@ export function CheckoutForm({
                   ))}
                 </select>
               </label>
-              <div className={styles.row}>
-                <label className={styles.field}>
-                  <span>{t('checkout.field.area')}</span>
-                  <input
-                    type="text"
-                    name="area"
-                    required
-                    maxLength={80}
-                    aria-invalid={invalid('area')}
-                  />
-                </label>
-                <label className={styles.field}>
-                  <span>{t('checkout.field.city')}</span>
-                  <input
-                    type="text"
-                    name="city"
-                    required
-                    maxLength={80}
-                    autoComplete="address-level2"
-                    aria-invalid={invalid('city')}
-                  />
-                </label>
-              </div>
-              <div className={styles.row}>
-                <label className={styles.field}>
-                  <span>
-                    {t('checkout.field.postcode')} <em>{t('common.optional')}</em>
-                  </span>
-                  <input
-                    type="text"
-                    name="postcode"
-                    maxLength={20}
-                    autoComplete="postal-code"
-                    aria-invalid={invalid('postcode')}
-                  />
-                </label>
-                <label className={styles.field}>
-                  <span>
-                    {t('checkout.field.deliveryNote')} <em>{t('common.optional')}</em>
-                  </span>
-                  <input
-                    type="text"
-                    name="deliveryNote"
-                    maxLength={300}
-                    aria-invalid={invalid('deliveryNote')}
-                  />
-                </label>
-              </div>
+              <label className={styles.field}>
+                <span>
+                  {t('checkout.field.deliveryNote')} <em>{t('common.optional')}</em>
+                </span>
+                <input
+                  type="text"
+                  name="deliveryNote"
+                  maxLength={300}
+                  aria-invalid={invalid('deliveryNote')}
+                />
+              </label>
             </section>
 
             <section className={styles.card} aria-labelledby="checkout-payment">

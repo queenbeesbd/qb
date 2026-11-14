@@ -17,12 +17,18 @@
 
 import { isDeliveryAreaCode } from './delivery-areas';
 
-/** Bounds per contact field. `min` is measured after whitespace normalisation. */
+/**
+ * Bounds per contact field. `min` is measured after whitespace normalisation.
+ *
+ * `area`, `city` and `postcode` keep a maximum only: the checkout form stopped collecting them
+ * (2026-11-14), so the server accepts a submission that omits them and the upper bounds remain because
+ * `order_contact` still stores whatever an older client, an import or an existing order carries.
+ */
 export const CONTACT_LIMITS = {
   recipientName: { min: 2, max: 120 },
   addressLine: { min: 5, max: 300 },
-  area: { min: 1, max: 80 },
-  city: { min: 1, max: 80 },
+  area: { max: 80 },
+  city: { max: 80 },
   postcode: { max: 20 },
   deliveryNote: { max: 300 },
 } as const;
@@ -40,9 +46,6 @@ export const CONTACT_FIELDS = [
   'recipientPhone',
   'addressLine',
   'districtCode',
-  'area',
-  'city',
-  'postcode',
   'deliveryNote',
 ] as const;
 
@@ -85,15 +88,6 @@ export function contactProblems(values: ContactValues): ContactFieldName[] {
   }
   if (!isDeliveryAreaCode(values.districtCode)) {
     problems.push('districtCode');
-  }
-  if (!withinBounds(values.area, CONTACT_LIMITS.area.min, CONTACT_LIMITS.area.max)) {
-    problems.push('area');
-  }
-  if (!withinBounds(values.city, CONTACT_LIMITS.city.min, CONTACT_LIMITS.city.max)) {
-    problems.push('city');
-  }
-  if (normalizeContactText(values.postcode).length > CONTACT_LIMITS.postcode.max) {
-    problems.push('postcode');
   }
   if (normalizeContactText(values.deliveryNote).length > CONTACT_LIMITS.deliveryNote.max) {
     problems.push('deliveryNote');

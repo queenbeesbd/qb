@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useTranslation } from '@/i18n/useTranslation';
 import type { TranslationKey } from '@/i18n/dictionaries';
-import { deliveryAreaName } from '@/lib/delivery-areas';
+import { deliveryAddressText } from '@/lib/delivery-address';
 import { orderDiscountMinor } from '@/lib/money';
 import { ClearCart } from '@/features/checkout/ClearCart';
 import { ContactLink } from '@/components/ContactLink';
@@ -280,12 +280,7 @@ export function OrderDetailView({
         <h2 id="order-contact">{t('orders.contactTitle')}</h2>
         <p>{order.recipientName}</p>
         <p className={styles.muted}>{order.recipientPhone}</p>
-        <p className={styles.muted}>
-          {order.addressLine}
-          {order.districtCode === null ? '' : `, ${deliveryAreaName(order.districtCode)}`}, {order.area},{' '}
-          {order.city}
-          {order.postcode ? ` ${order.postcode}` : ''}
-        </p>
+        <p className={styles.muted}>{deliveryAddressText(order)}</p>
         {order.deliveryNote && <p className={styles.muted}>{order.deliveryNote}</p>}
       </section>
 

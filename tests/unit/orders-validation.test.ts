@@ -61,9 +61,18 @@ describe('contact parsing', () => {
     );
   });
 
-  it('treats a blank optional field as absent', () => {
-    const parsed = parseContact({ ...CONTACT, postcode: '', deliveryNote: '   ' });
-    assert.deepEqual(parsed, { ...CONTACT, postcode: null, deliveryNote: null });
+  it('treats a blank or absent optional field as not recorded', () => {
+    assert.deepEqual(parseContact({ ...CONTACT, postcode: '', deliveryNote: '   ' }), {
+      ...CONTACT,
+      postcode: null,
+      deliveryNote: null,
+    });
+    // The checkout form stopped collecting an area, city and postcode (2026-11-14), so a submission
+    // carries none of them and the order still records the address it was given.
+    assert.deepEqual(
+      parseContact({ ...CONTACT, area: undefined, city: undefined, postcode: undefined }),
+      { ...CONTACT, area: '', city: '', postcode: null },
+    );
   });
 
   it('refuses a bad phone number, a short address and an over-long note', () => {
@@ -71,7 +80,7 @@ describe('contact parsing', () => {
     assert.equal(parseContact({ ...CONTACT, recipientPhone: '+8801712345678' }), null);
     assert.equal(parseContact({ ...CONTACT, addressLine: 'abc' }), null);
     assert.equal(parseContact({ ...CONTACT, deliveryNote: 'x'.repeat(301) }), null);
-    assert.equal(parseContact({ ...CONTACT, city: '' }), null);
+    assert.equal(parseContact({ ...CONTACT, city: 'x'.repeat(81) }), null);
     assert.equal(parseContact({ ...CONTACT, districtCode: 'not-a-district' }), null);
     assert.equal(parseContact({ ...CONTACT, districtCode: undefined }), null);
   });
