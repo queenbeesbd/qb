@@ -1831,3 +1831,47 @@ name-change form, no admin mail surface, no owner notification for these actions
 **Limits.** `verify:admin`, `verify:browser`, `verify:storefront` and the db suite were not re-run; no
 real address received a message (the client was pointed at a local stub through the development-only
 override); the mail client's rendering in real inboxes and real devices was not exercised.
+
+
+## Phase 56 - optional payment screenshot, checked by the owner (2026-11-18)
+
+**Owner direction.** The checkout notice already asks for a screenshot of an advance payment on
+WhatsApp; the owner asked for the field to exist on the site, optionally, switchable from the back
+office, with a section on every order to check what the customer sent.
+
+**Implemented (ADR 0042, amending ADR 0015).**
+
+- **Switch**: `payment.proof_enabled` (Settings -> Other settings -> Advance payment), **off by
+  default**. Off draws no field and ignores an uploaded file instead of storing it.
+- **Two surfaces**: the checkout payment card, directly under the bKash/WhatsApp block; and the order
+  receipt, for a signed-in customer or a guest holding the order number, so a payment made after
+  ordering can still be attached. One row per order (`payment_proof`, unique `order_id`); a re-upload
+  replaces it and returns it to `pending`.
+- **No state change**: nothing writes `order.status`, `payment_state`, `cod_state`, the total, an
+  event or stock. The owner records `checked` or `rejected` with `payment.proof_review` (privileged;
+  a moderator cannot hold it), a rejection needs a typed reason, and the audit action is
+  `order.payment_proof_reviewed`.
+- **Private bytes**: `payment-proof/` in object storage or `.data/payment-proof/` locally, never
+  `public/catalog`; served only by `GET /api/qbpanel/orders/[orderNumber]/proof` behind `order.read`
+  with `no-store`, `private` and `nosniff`. `saveProof` re-encodes to WebP (1600px long edge, 40 MP
+  ceiling, EXIF dropped) and records the type, size and dimensions from the decoded bytes.
+- **Schema**: migration `0034_slimy_timeslip` adds `payment_proof`, and inserts and grants the new
+  privilege (a deploy does not run the seed). Schema **55 tables**.
+
+**Verification (2026-11-18, local; nothing applied to production).**
+
+| Check | Result |
+| --- | --- |
+| `npm run typecheck` | clean |
+| `npm run lint` | 0 errors, 24 pre-existing warnings |
+| `npm run check:i18n` | 1,995 keys, every referenced key present |
+| `npm test` | 329/329 |
+| `node --test tests/db/payment-proof.test.ts` | 5/5 (one row per order, replace resets to pending, rejection needs a reason, audit written, order columns unchanged, unknown order refused) |
+| `db:migrate` / `db:validate` | `0034_slimy_timeslip` applied; 55 tables, 225 checks |
+| `npm run build` | success (after re-running past the Next.js security advisory stop) |
+
+**Limits.** The full db suite, `verify:admin`, `verify:storefront` and `verify:browser` were not
+re-run; no browser walk-through of the new field was driven, so its rendering at 390px and 1280px is
+unverified. The object-storage branch of `saveProof`/`readProof` was not exercised (no bucket
+credential here); only the local `.data/payment-proof` path was available. Real devices and screen
+readers were not used.
