@@ -1841,9 +1841,11 @@ office, with a section on every order to check what the customer sent.
 
 **Implemented (ADR 0042, amending ADR 0015).**
 
-- **Switch**: `payment.proof_enabled` (Settings -> Other settings -> Advance payment), **off by
-  default**. Off draws no field and ignores an uploaded file instead of storing it.
-- **Two surfaces**: the checkout payment card, directly under the bKash/WhatsApp block; and the order
+- **Switch**: `payment.proof_enabled` (Settings -> Other settings -> Advance payment), **on by
+  default** (owner direction, 2026-11-18 - the field belongs under the bKash number without a setup
+  step) and switchable off. Off draws no field and ignores an uploaded file instead of storing it.
+- **Two surfaces**: the checkout payment card, directly under the bKash number/WhatsApp block, labelled
+  with the owner's own Bangla words (`PAYMENT_PROOF_LABEL` in `src/data/payment-instructions.ts`); and the order
   receipt, for a signed-in customer or a guest holding the order number, so a payment made after
   ordering can still be attached. One row per order (`payment_proof`, unique `order_id`); a re-upload
   replaces it and returns it to `pending`.

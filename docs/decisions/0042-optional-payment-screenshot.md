@@ -20,9 +20,11 @@ the words true: a customer-supplied image still proves nothing on its own.
 
 ## Decision
 
-1. **Optional, one image, off by default.** `payment.proof_enabled` is a `store_setting` switch, off until
-   the owner turns it on. With it off, no field is drawn and an uploaded file that arrives anyway is
-   ignored rather than stored.
+1. **Optional, one image, on by default and switchable off.** `payment.proof_enabled` is a
+   `store_setting` switch. It starts **on** (owner direction, 2026-11-18) because the owner asked for the
+   field to sit under the bKash number at checkout without a trip to Settings first; the switch turns it
+   off. With it off, no field is drawn and an uploaded file that arrives anyway is ignored rather than
+   stored.
 2. **Two places, because the money moves around the order.** The checkout payment card carries the field
    directly under the bKash/WhatsApp block (owner direction: on a phone that reads number → screenshot →
    order summary), and the order receipt carries the same field, so a customer who paid after ordering can

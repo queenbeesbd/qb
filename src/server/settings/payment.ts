@@ -73,7 +73,12 @@ const DEFAULTS: PaymentInstructions = {
   bkashVisible: true,
   sendMoneyNote: DEFAULT_SEND_MONEY_NOTE,
   advanceThresholdMinor: DEFAULT_ADVANCE_THRESHOLD_MINOR,
-  proofEnabled: false,
+  /*
+   * **On by default (owner direction, 2026-11-18).** The owner asked for the field to be at checkout,
+   * under the bKash number, so it must be there without a trip to Settings first. The switch still
+   * exists and turns it off; what changed is which state the shop starts in.
+   */
+  proofEnabled: true,
 };
 
 function text(value: unknown): string {
