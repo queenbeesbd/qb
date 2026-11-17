@@ -31,6 +31,8 @@ import { CHECKOUT_PATH } from '@/server/customer-auth/constants';
 import { customerLoginUrl } from '@/server/customer-auth/guard';
 import { notifyOrderPlaced } from '@/server/integrations/telegram';
 import { OrderRefusalError, createOrder } from '@/server/orders/create';
+import { saveProof, type ProofAsset } from '@/server/orders/proof-upload';
+import { loadPaymentInstructions } from '@/server/settings/payment';
 import {
   orderFingerprint,
   parseCartLines,
@@ -74,6 +76,28 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   /*
+   * The optional payment screenshot (ADR 0042).
+   *
+   * It is stored **before** the order transaction, on purpose: a file that is not a readable image, or
+   * one over the cap, refuses the whole submission instead of creating an order whose attachment was
+   * silently dropped. The owner's switch decides whether the file is accepted at all - with the field
+   * off, an uploaded file is ignored and nothing is written, so the storefront can never collect a
+   * screenshot the owner has not asked for.
+   */
+  let proof: ProofAsset | null = null;
+  const upload = form.get('paymentProof');
+  if (upload instanceof File && upload.size > 0) {
+    const { proofEnabled } = await withTransaction((tx) => loadPaymentInstructions(tx));
+    if (proofEnabled) {
+      try {
+        proof = await saveProof(upload);
+      } catch {
+        return redirectTo(`${CHECKOUT_PATH}?notice=proofInvalid`);
+      }
+    }
+  }
+
+  /*
    * The visit session that placed this order, if the browser carried one. It is a boolean on the
    * session row, never a link to the order: the analytics surface must not become a second customer
    * record (ADR 0027).
@@ -90,6 +114,7 @@ export async function POST(request: Request): Promise<Response> {
         lines,
         contact,
         promoCode,
+        proof,
       });
       if (!order.replayed) await markOrderPlaced(tx, visitSessionId);
       return order;

@@ -509,3 +509,72 @@
   font-weight: 600;
   color: var(--color-danger);
 }
+
+/*
+ * The optional payment screenshot (ADR 0042).
+ *
+ * It sits in the payment card, under the number block, because that is the block it belongs to: the
+ * notice asks for a screenshot of the advance payment, and this is where the customer is already
+ * reading about it. The control is a native file input with a readable label and the chosen file named
+ * in text, so a customer who cannot see the thumbnail still knows what they attached.
+ */
+.proofField {
+  display: grid;
+  gap: var(--space-2);
+  padding-top: var(--space-4);
+  margin-top: var(--space-1);
+  border-top: 1px solid var(--color-border);
+}
+
+.proofLabel {
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+
+.proofLabel em {
+  font-style: normal;
+  font-weight: 400;
+  color: var(--color-ink-muted);
+}
+
+.proofInput {
+  font: inherit;
+  font-size: var(--text-control);
+  color: var(--color-ink);
+}
+
+/* A native file control draws its own button; the message under it states what will be sent. */
+.proofInput::file-selector-button {
+  min-height: 40px;
+  margin-right: var(--space-3);
+  padding: 0 var(--space-3);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-ink);
+  font: inherit;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.proofHint {
+  margin: 0;
+  font-size: var(--text-xs);
+  line-height: var(--leading-body);
+  color: var(--color-ink-muted);
+}
+
+.proofRemove {
+  justify-self: start;
+  min-height: 34px;
+  padding: 0 var(--space-2);
+  border: 0;
+  background: none;
+  color: var(--color-danger, #b3261e);
+  font: inherit;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+}

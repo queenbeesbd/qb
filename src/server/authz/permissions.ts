@@ -45,6 +45,12 @@ export const PERMISSIONS = {
    * same code is what makes that choice real instead of cosmetic.
    */
   dashboardRead: 'dashboard.read',
+  /**
+   * Deciding whether a customer's payment screenshot agrees with the shop's own bKash statement
+   * (ADR 0042). Privileged: it is a judgement about money, so an owner holds it and a moderator cannot
+   * be granted it. It changes no order state - it records that the owner looked.
+   */
+  paymentProofReview: 'payment.proof_review',
 } as const;
 
 export type PermissionCode = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];

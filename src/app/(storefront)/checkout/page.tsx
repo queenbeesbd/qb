@@ -112,6 +112,7 @@ export default async function CheckoutPage({
         bkashVisible: payment.bkashVisible,
         sendMoneyNote: payment.sendMoneyNote,
         advanceThresholdMinor: payment.advanceThresholdMinor,
+        proofEnabled: payment.proofEnabled,
       }}
       products={selectCartProducts(catalog.products, cartIds)}
     />

@@ -20,7 +20,7 @@ function schemaTableNames(): string[] {
 }
 
 describe('schema and migration integrity', () => {
-  it('declares exactly the 54 approved tables', () => {
+  it('declares exactly the 55 approved tables', () => {
     // 42 through Phase 21; Phase 22 added `order_additional_cost` (ADR 0018); Phase 39 added
     // `telegram_recipient` (ADR 0022); the homepage hero carousel added `hero_image`; the site-open
     // offer popup added `offer_popup` (2026-11-06); first-party visit tracking added
@@ -28,10 +28,12 @@ describe('schema and migration integrity', () => {
     // `steadfast_consignment` (ADR 0028, 2026-11-08); a pending customer email change added
     // `customer_email_change` (ADR 0030) was dropped by 0029, and `customer_registration` was added by
     // 0030 (ADR 0038, verification before the account exists); storefront customisation added
-    // `storefront_pick` (owner direction, 2026-11-12).
+    // `storefront_pick` (owner direction, 2026-11-12); the optional payment screenshot added
+    // `payment_proof` (ADR 0042, 2026-11-18).
     const names = schemaTableNames();
     assert.ok(names.includes('storefront_pick'), 'the storefront picks table is declared');
-    assert.equal(names.length, 54, `expected 54 tables, found ${names.length}: ${names.join(', ')}`);
+    assert.ok(names.includes('payment_proof'), 'the payment screenshot table is declared');
+    assert.equal(names.length, 55, `expected 55 tables, found ${names.length}: ${names.join(', ')}`);
   });
 
   it('generated SQL matches the TypeScript schema exactly (no unregenerated drift)', () => {

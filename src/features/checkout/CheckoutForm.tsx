@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState, type ChangeEvent } from 'react';
 import type { TranslationKey } from '@/i18n/dictionaries';
 import {
   contactProblems,
@@ -16,6 +16,7 @@ import {
 } from '@/lib/delivery';
 import { DELIVERY_AREAS } from '@/lib/delivery-areas';
 import { CHECKOUT_PAYMENT_NOTICE, whatsappLinkNumber } from '@/data/payment-instructions';
+import { prepareImageFile } from '@/lib/image-prep';
 import { useTranslation } from '@/i18n/useTranslation';
 import { useCart } from '@/features/cart/useCart';
 import { resolveCartLines } from '@/features/cart/cart-lines';
@@ -34,6 +35,7 @@ const REFUSAL_KEYS: Record<string, TranslationKey> = {
   invalid_district: 'checkout.notice.invalidDistrict',
   delivery_unconfigured: 'checkout.notice.deliveryUnconfigured',
   promo_invalid: 'checkout.promo.invalid',
+  proofInvalid: 'checkout.notice.proofInvalid',
 };
 
 /** Every reason the promotion endpoint can answer with, as a sentence rather than a code. */
@@ -141,6 +143,11 @@ export function CheckoutForm({
     bkashVisible: boolean;
     sendMoneyNote: string | null;
     advanceThresholdMinor: number;
+    /**
+     * The owner's switch for the optional payment screenshot (ADR 0042). Off means the field is not
+     * drawn at all - a control the shop does not collect must not appear and then be ignored.
+     */
+    proofEnabled: boolean;
   };
   /** The compact catalog projection, supplied by the server page because this route draws lines. */
   products: readonly CartProduct[];
@@ -155,6 +162,10 @@ export function CheckoutForm({
   const [promoReason, setPromoReason] = useState<string | null>(null);
   const [promoBusy, setPromoBusy] = useState(false);
   const [bkashCopied, setBkashCopied] = useState(false);
+  /** The optional payment screenshot the customer picked (ADR 0042): its name and final byte size. */
+  const [proofChosen, setProofChosen] = useState<{ name: string; bytes: number } | null>(null);
+  const [proofPreparing, setProofPreparing] = useState(false);
+  const proofInputRef = useRef<HTMLInputElement | null>(null);
   /**
    * The fields the last submit attempt would be refused for, or `null` before the first attempt.
    *
@@ -259,6 +270,45 @@ export function CheckoutForm({
     setProblems(contactProblems(readContactValues(event.currentTarget)));
   }
 
+  /**
+   * Prepares the optional screenshot in the browser (ADR 0042).
+   *
+   * A phone photograph of a screen can be several megabytes, and the request body ceiling is 4.5 MB, so
+   * the same helper the admin uploads use scales it here first. A file already under 2 MB is posted
+   * untouched; a file the browser cannot decode is posted as-is and the server's own cap and decode
+   * refuse it, which is the honest outcome - nothing about the image is trusted from this side.
+   */
+  async function prepareProof(event: ChangeEvent<HTMLInputElement>): Promise<void> {
+    const input = event.currentTarget;
+    const file = input.files?.[0];
+    if (file === undefined) {
+      setProofChosen(null);
+      return;
+    }
+    setProofChosen({ name: file.name, bytes: file.size });
+    if (file.size <= 2 * 1024 * 1024) return;
+
+    setProofPreparing(true);
+    try {
+      const prepared = await prepareImageFile(file);
+      if (prepared !== file) {
+        const transfer = new DataTransfer();
+        transfer.items.add(prepared);
+        input.files = transfer.files;
+        setProofChosen({ name: file.name, bytes: prepared.size });
+      }
+    } finally {
+      setProofPreparing(false);
+    }
+  }
+
+  /** Removing a chosen file means emptying the input, not hiding what it holds. */
+  function clearProof(): void {
+    const input = proofInputRef.current;
+    if (input !== null) input.value = '';
+    setProofChosen(null);
+  }
+
   async function applyPromotion() {
     if (promoInput.trim() === '' || promoBusy) return;
     setPromoBusy(true);
@@ -326,6 +376,7 @@ export function CheckoutForm({
         className={styles.layout}
         action="/api/checkout/order"
         method="post"
+        encType="multipart/form-data"
         noValidate
         onSubmit={handleSubmit}
         onInput={handleInput}
@@ -488,6 +539,49 @@ export function CheckoutForm({
                 ) : (
                   <p className={styles.muted}>{t('checkout.payment.numberMissing')}</p>
                 ))}
+
+              {/*
+                The optional payment screenshot (ADR 0042).
+
+                It sits directly under the number block on purpose: the notice tells the customer to
+                send a screenshot of the advance payment, and this is the same request in the same
+                place. On a phone that reads number -> screenshot -> order summary, in the order the
+                money is actually handled.
+
+                It collects nothing the order can act on. The image is checked by the owner against the
+                shop's own bKash statement; the order is still COD and is still confirmed on the phone.
+              */}
+              {payment.proofEnabled && (
+                <div className={styles.proofField}>
+                  <label className={styles.proofLabel} htmlFor="paymentProof">
+                    {t('checkout.payment.proofLabel')} <em>{t('common.optional')}</em>
+                  </label>
+                  <input
+                    ref={proofInputRef}
+                    id="paymentProof"
+                    className={styles.proofInput}
+                    type="file"
+                    name="paymentProof"
+                    accept="image/jpeg,image/png,image/webp"
+                    onChange={(event) => void prepareProof(event)}
+                    aria-describedby="paymentProof-hint"
+                  />
+                  <p id="paymentProof-hint" className={styles.proofHint}>
+                    {proofChosen === null
+                      ? t('checkout.payment.proofHint')
+                      : t('checkout.payment.proofChosen', {
+                          name: proofChosen.name,
+                          size: `${Math.max(1, Math.round(proofChosen.bytes / 1024))} KB`,
+                        })}
+                    {proofPreparing ? ` ${t('checkout.payment.proofPreparing')}` : ''}
+                  </p>
+                  {proofChosen !== null && (
+                    <button type="button" className={styles.proofRemove} onClick={clearProof}>
+                      {t('checkout.payment.proofRemove')}
+                    </button>
+                  )}
+                </div>
+              )}
             </section>
 
             <aside className={styles.summary} aria-labelledby="checkout-summary">

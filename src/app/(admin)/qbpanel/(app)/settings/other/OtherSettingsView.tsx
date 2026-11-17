@@ -152,12 +152,25 @@ export function OtherSettingsView({
             </span>
           </label>
 
+          <label className={styles.switchRow} htmlFor="proofEnabled">
+            <input
+              id="proofEnabled"
+              name="proofEnabled"
+              type="checkbox"
+              value="true"
+              defaultChecked={payment.proofEnabled}
+            />
+            <span className={styles.switchRowText}>
+              <span className={styles.switchRowLabel}>{t('admin.payment.proofLabel')}</span>
+              <span className={styles.hint}>{t('admin.payment.proofHelp')}</span>
+            </span>
+          </label>
+
           <div className={styles.field}>
             <label htmlFor="sendMoneyNote">{t('admin.payment.noteLabel')}</label>
             <input
               className={styles.input}
-              id="sendMoneyNote"
-              name="sendMoneyNote"
+              id="sendMoneyNote"              name="sendMoneyNote"
               maxLength={paymentMaxLengths.note}
               defaultValue={payment.sendMoneyNote ?? ''}
             />

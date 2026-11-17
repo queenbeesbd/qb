@@ -43,6 +43,11 @@ export const PAYMENT_SEND_MONEY_NOTE_KEY = 'payment.send_money_note';
 export const PAYMENT_ADVANCE_THRESHOLD_KEY = 'payment.advance_threshold_minor';
 /** Whether the advance-payment number block is drawn at checkout, independent of the number itself. */
 export const PAYMENT_BKASH_VISIBLE_KEY = 'payment.bkash_visible';
+/**
+ * The owner's switch for the optional payment-screenshot field at checkout and on a receipt
+ * (ADR 0042). **Off by default**: nothing new appears on the storefront until the owner turns it on.
+ */
+export const PAYMENT_PROOF_ENABLED_KEY = 'payment.proof_enabled';
 
 /** Bounds are formatting limits, not policy. */
 export const PAYMENT_MAX = { note: 220 } as const;
@@ -55,6 +60,12 @@ export type PaymentInstructions = {
   readonly sendMoneyNote: string | null;
   /** Poisha. Below this goods subtotal the delivery charge is expected in advance. */
   readonly advanceThresholdMinor: number;
+  /**
+   * Whether a customer may attach a screenshot of an advance payment (ADR 0042). It changes no order
+   * state; the owner reads the image and decides. Off means the field is not drawn anywhere and an
+   * uploaded file is ignored rather than stored.
+   */
+  readonly proofEnabled: boolean;
 };
 
 const DEFAULTS: PaymentInstructions = {
@@ -62,6 +73,7 @@ const DEFAULTS: PaymentInstructions = {
   bkashVisible: true,
   sendMoneyNote: DEFAULT_SEND_MONEY_NOTE,
   advanceThresholdMinor: DEFAULT_ADVANCE_THRESHOLD_MINOR,
+  proofEnabled: false,
 };
 
 function text(value: unknown): string {
@@ -99,6 +111,14 @@ export function parseBkashVisible(raw: unknown): boolean {
   throw new ValidationError('the advance-payment number switch must be on or off');
 }
 
+/** The screenshot switch obeys the same two-literals rule as the number switch. */
+export function parseProofEnabled(raw: unknown): boolean {
+  const value = text(raw).trim();
+  if (value === 'true') return true;
+  if (value === 'false') return false;
+  throw new ValidationError('the payment-screenshot switch must be on or off');
+}
+
 /**
  * `store_setting.value` is `jsonb`, so a stored switch comes back as a real boolean while a row written
  * by an older path may still carry the string `"true"`/`"false"`. Both are read; anything else is the
@@ -128,7 +148,7 @@ export async function loadPaymentInstructions(tx: Transaction): Promise<PaymentI
     .select({ key: storeSetting.key, value: storeSetting.value })
     .from(storeSetting)
     .where(
-      sql`${storeSetting.key} in (${PAYMENT_BKASH_NUMBER_KEY}, ${PAYMENT_BKASH_VISIBLE_KEY}, ${PAYMENT_SEND_MONEY_NOTE_KEY}, ${PAYMENT_ADVANCE_THRESHOLD_KEY})`,
+      sql`${storeSetting.key} in (${PAYMENT_BKASH_NUMBER_KEY}, ${PAYMENT_BKASH_VISIBLE_KEY}, ${PAYMENT_SEND_MONEY_NOTE_KEY}, ${PAYMENT_ADVANCE_THRESHOLD_KEY}, ${PAYMENT_PROOF_ENABLED_KEY})`,
     );
 
   const stored = new Map(rows.map((row) => [row.key, row.value]));
@@ -153,6 +173,9 @@ export async function loadPaymentInstructions(tx: Transaction): Promise<PaymentI
     sendMoneyNote: note.length === 0 ? null : note,
     advanceThresholdMinor:
       Number.isSafeInteger(threshold) && threshold > 0 ? threshold : DEFAULTS.advanceThresholdMinor,
+    proofEnabled: stored.has(PAYMENT_PROOF_ENABLED_KEY)
+      ? storedSwitch(stored.get(PAYMENT_PROOF_ENABLED_KEY), DEFAULTS.proofEnabled)
+      : DEFAULTS.proofEnabled,
   };
 }
 
@@ -165,6 +188,8 @@ export async function savePaymentInstructions(
     readonly bkashVisible: unknown;
     readonly sendMoneyNote: unknown;
     readonly advanceThreshold: unknown;
+    /** The payment-screenshot switch (ADR 0042). Missing means off - never "on because unstated". */
+    readonly proofEnabled: unknown;
   },
 ): Promise<PaymentInstructions> {
   await requirePermission(actor, PERMISSIONS.settingsWrite, 'store_setting', 1);
@@ -176,6 +201,7 @@ export async function savePaymentInstructions(
     bkashVisible: parseBkashVisible(input.bkashVisible),
     sendMoneyNote: note.length === 0 ? null : note,
     advanceThresholdMinor: parseAdvanceThreshold(input.advanceThreshold),
+    proofEnabled: parseProofEnabled(input.proofEnabled),
   };
 
   const values = [
@@ -183,6 +209,7 @@ export async function savePaymentInstructions(
     { key: PAYMENT_BKASH_VISIBLE_KEY, value: next.bkashVisible, valueType: 'boolean' },
     { key: PAYMENT_SEND_MONEY_NOTE_KEY, value: next.sendMoneyNote ?? '', valueType: 'text' },
     { key: PAYMENT_ADVANCE_THRESHOLD_KEY, value: next.advanceThresholdMinor, valueType: 'money_minor' },
+    { key: PAYMENT_PROOF_ENABLED_KEY, value: next.proofEnabled, valueType: 'boolean' },
   ];
 
   await tx

@@ -44,6 +44,7 @@ import {
   orderContact,
   orderEvent,
   orderItem,
+  paymentProof,
   product,
   productImage,
   productVariant,
@@ -57,6 +58,7 @@ import {
 } from '@/lib/delivery';
 import { isRepeatCustomer, loadDeliveryRates } from '@/server/delivery/service';
 import { recordPromoRedemption, resolvePromo } from '@/server/promotions/service';
+import type { ProofAsset } from './proof-upload';
 
 import { ORDER_LIMITS, type CartLineInput, type ContactInput } from './validation';
 
@@ -142,6 +144,13 @@ export type CreateOrderInput = {
   readonly contact: ContactInput;
   /** A code the customer typed, already normalized or not; re-resolved here, never trusted. */
   readonly promoCode?: string | null;
+  /**
+   * An optional payment screenshot, already decoded and stored privately by `saveProof` (ADR 0042).
+   * The row is written in this transaction so an order and its attachment cannot disagree; the bytes
+   * were written before it because a bad file must refuse the whole submission rather than leave a
+   * stored order behind. A replayed submission writes nothing - the original order already holds it.
+   */
+  readonly proof?: ProofAsset | null;
 };
 
 /** An opaque public order reference. Random, uppercase hex, never a sequence and never a customer id. */
@@ -327,6 +336,23 @@ export async function createOrder(tx: Transaction, input: CreateOrderInput): Pro
     postcode: input.contact.postcode,
     deliveryNote: input.contact.deliveryNote,
   });
+
+  /*
+   * The screenshot, when one was attached (ADR 0042). It records that a customer **says** they paid and
+   * which image they sent; no order column is touched and no payment state exists in this database to
+   * set. The owner decides afterwards, from the order screen, whether it agrees with the statement.
+   */
+  if (input.proof !== undefined && input.proof !== null) {
+    await tx.insert(paymentProof).values({
+      orderId: created.id,
+      storageKey: input.proof.storageKey,
+      contentType: input.proof.contentType,
+      byteSize: input.proof.byteSize,
+      width: input.proof.width,
+      height: input.proof.height,
+      uploadedBy: 'customer',
+    });
+  }
 
   await tx.insert(orderItem).values(
     resolved.map((line) => ({

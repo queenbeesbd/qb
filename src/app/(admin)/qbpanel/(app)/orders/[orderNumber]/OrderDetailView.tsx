@@ -7,7 +7,7 @@ import type { TranslationKey } from '@/i18n/dictionaries';
 import { useTranslation } from '@/i18n/useTranslation';
 import { deliveryAddressText } from '@/lib/delivery-address';
 import { orderDiscountMinor } from '@/lib/money';
-import { ORDER_COST_PATH, ORDER_TRANSITION_PATH } from '@/server/auth/constants';
+import { ORDER_COST_PATH, ORDER_PROOF_REVIEW_PATH, ORDER_TRANSITION_PATH } from '@/server/auth/constants';
 import { paymentLabel, statusLabel } from '@/features/account/order-labels';
 import { ConfirmSubmit } from '../../../_ui/ConfirmSubmit';
 import { EmptyState } from '../../../_ui/EmptyState';
@@ -39,6 +39,8 @@ export type AdminOrderNotice =
   | 'costRecorded'
   | 'costVoided'
   | 'costInvalid'
+  | 'proofReviewed'
+  | 'proofInvalid'
   | 'denied'
   | 'conflict'
   | 'invalid';
@@ -119,6 +121,19 @@ export type AdminOrderDetailModel = {
     voidReason: string | null;
   }[];
   /**
+   * The customer's optional payment screenshot, or `null` (ADR 0042). It states that an image arrived
+   * and what the owner decided about it; it is not a payment state, and the order has none to set.
+   */
+  paymentProof: {
+    uploadedAt: string;
+    uploadedBy: string;
+    reviewState: string;
+    reviewedAt: string | null;
+    reviewNote: string | null;
+    width: number;
+    height: number;
+  } | null;
+  /**
    * The SteadFast consignment this order was sent to, or `null`. It is a mirror of what the courier
    * accepted - sending a parcel never changes the order's own state.
    */
@@ -184,6 +199,8 @@ const NOTICE_KEYS: Record<AdminOrderNotice, TranslationKey> = {
   costRecorded: 'admin.order.notice.costRecorded',
   costVoided: 'admin.order.notice.costVoided',
   costInvalid: 'admin.order.notice.costInvalid',
+  proofReviewed: 'admin.order.notice.proofReviewed',
+  proofInvalid: 'admin.order.notice.proofInvalid',
   denied: 'admin.cod.notice.denied',
   conflict: 'admin.cod.notice.conflict',
   invalid: 'admin.cod.notice.invalid',
@@ -273,6 +290,7 @@ export function AdminOrderDetailView({
   canCollect,
   canInspect,
   canRecordCosts,
+  canReviewProof,
   canReadCustomers,
   canReadAudit,
   returnTo,
@@ -287,6 +305,8 @@ export function AdminOrderDetailView({
   canInspect: boolean;
   /** `order.cost_record`: recording and voiding additional courier costs. */
   canRecordCosts: boolean;
+  /** `payment.proof_review`: deciding whether a payment screenshot agrees with the statement. */
+  canReviewProof: boolean;
   canReadCustomers: boolean;
   canReadAudit: boolean;
   /** Where "back" goes: the queue or the order list, with its filters preserved. */
@@ -486,6 +506,128 @@ export function AdminOrderDetailView({
           )}
         </section>
       )}
+
+      {/*
+        The customer's optional payment screenshot (ADR 0042).
+
+        This section states **what arrived**, not that anything was paid. The advance payment is made
+        outside the site, so the screenshot is the only trace of it here; the owner compares it with the
+        shop's own bKash statement and records that they looked. The image is served by a permission-gated
+        route, so it is never a public asset.
+      */}
+      <section className={styles.section} aria-labelledby="order-proof">
+        <div className={styles.sectionHead}>
+          <div>
+            <h2 id="order-proof">{t('admin.order.proofTitle')}</h2>
+            <p>{t('admin.order.proofBody')}</p>
+          </div>
+          {order.paymentProof !== null && (
+            <StatusPill
+              tone={
+                order.paymentProof.reviewState === 'checked'
+                  ? 'success'
+                  : order.paymentProof.reviewState === 'rejected'
+                    ? 'danger'
+                    : 'warning'
+              }
+            >
+              {order.paymentProof.reviewState === 'checked'
+                ? t('admin.order.proofStateChecked')
+                : order.paymentProof.reviewState === 'rejected'
+                  ? t('admin.order.proofStateRejected')
+                  : t('admin.order.proofStatePending')}
+            </StatusPill>
+          )}
+        </div>
+
+        {order.paymentProof === null ? (
+          <p className={styles.note}>{t('admin.order.proofEmpty')}</p>
+        ) : (
+          <>
+            <a
+              className={styles.proofLink}
+              href={`/api/qbpanel/orders/${encodeURIComponent(order.orderNumber)}/proof`}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                className={styles.proofImage}
+                src={`/api/qbpanel/orders/${encodeURIComponent(order.orderNumber)}/proof`}
+                alt={t('admin.order.proofAlt')}
+                width={order.paymentProof.width}
+                height={order.paymentProof.height}
+              />
+            </a>
+            <p className={styles.note}>
+              {t('admin.order.proofUploadedAt', {
+                time: dateTime.format(new Date(order.paymentProof.uploadedAt)),
+              })}
+              {' - '}
+              {t('admin.order.proofOpenFull')}
+            </p>
+            {order.paymentProof.reviewedAt !== null && (
+              <p className={styles.note}>
+                {order.paymentProof.reviewState === 'checked'
+                  ? t('admin.order.proofCheckedAt', {
+                      time: dateTime.format(new Date(order.paymentProof.reviewedAt)),
+                    })
+                  : t('admin.order.proofRejectedAt', {
+                      time: dateTime.format(new Date(order.paymentProof.reviewedAt)),
+                    })}
+              </p>
+            )}
+            {order.paymentProof.reviewNote !== null && (
+              <p className={styles.note}>{order.paymentProof.reviewNote}</p>
+            )}
+
+            {canReviewProof && (
+              <form action={ORDER_PROOF_REVIEW_PATH} method="post" className={styles.proofForm}>
+                <input type="hidden" name="csrf" value={csrfToken} />
+                <input type="hidden" name="orderNumber" value={order.orderNumber} />
+                <fieldset className={styles.proofChoices}>
+                  <legend className={styles.factLabel}>{t('admin.order.proofDecision')}</legend>
+                  <label className={styles.proofChoice}>
+                    <input
+                      type="radio"
+                      name="decision"
+                      value="checked"
+                      defaultChecked={order.paymentProof.reviewState !== 'rejected'}
+                    />
+                    <span>{t('admin.order.proofChecked')}</span>
+                  </label>
+                  <label className={styles.proofChoice}>
+                    <input
+                      type="radio"
+                      name="decision"
+                      value="rejected"
+                      defaultChecked={order.paymentProof.reviewState === 'rejected'}
+                    />
+                    <span>{t('admin.order.proofRejected')}</span>
+                  </label>
+                </fieldset>
+                <label className={styles.factLabel} htmlFor="proof-note">
+                  {t('admin.order.proofNote')}
+                </label>
+                <input
+                  id="proof-note"
+                  name="note"
+                  className={styles.input}
+                  maxLength={500}
+                  defaultValue={order.paymentProof.reviewNote ?? ''}
+                />
+                <p className={styles.note}>{t('admin.order.proofHint')}</p>
+                <div className={styles.proofActions}>
+                  <SubmitButton
+                    label={t('admin.order.proofSave')}
+                    pendingLabel={t('admin.common.working')}
+                  />
+                </div>
+              </form>
+            )}
+          </>
+        )}
+      </section>
 
       {/*
         The money facts, kept separate on purpose. The customer's payment is gross; the standard

@@ -160,6 +160,18 @@ export const PRODUCT_AVAILABILITY = ['in_stock', 'out_of_stock'] as const;
  */
 export const REVIEW_STATE = ['pending', 'approved', 'rejected'] as const;
 
+/**
+ * `payment_proof.review_state` (ADR 0042).
+ *
+ * A screenshot of an advance payment is **not** a payment state and changes nothing about the order.
+ * It is a customer's attachment that the owner has either not looked at, accepted as agreeing with the
+ * shop's own bKash statement, or refused. The three values are that reading, nothing more.
+ */
+export const PAYMENT_PROOF_REVIEW_STATE = ['pending', 'checked', 'rejected'] as const;
+
+/** Who attached the screenshot. There is no third source: nobody uploads on a customer's behalf. */
+export const PAYMENT_PROOF_UPLOADER = ['customer', 'staff'] as const;
+
 export const IMAGE_RIGHTS_STATUS = ['unknown', 'pending_confirmation', 'cleared', 'restricted'] as const;
 
 /**

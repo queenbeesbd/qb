@@ -4,7 +4,7 @@
  * This barrel is the single entrypoint `drizzle-kit` reads, so every table must be re-exported
  * here or it will silently not be migrated.
  *
- * 53 tables across eleven groups:
+ * 54 tables across eleven groups:
  * - identity (14)   principals, credentials, sessions, recovery, throttle, roles, a pending registration
  * - catalog (10)    brands, categories, products, variants, imagery, hero banner, curation,
  *                   import provenance
@@ -17,6 +17,8 @@
  * - integrations (2) Telegram destinations and the SteadFast consignment per order
  * - analytics (2)   first-party visit sessions and their step log (ADR 0027)
  * - reviews (1)     a buyer's words about a product, published only by the owner (ADR 0035)
+ * - orders (8)      the order group above gains `payment_proof`: one optional payment screenshot
+ *                   per order, read by the owner and never a payment state (ADR 0042)
  */
 
 export * from './values';
@@ -31,3 +33,4 @@ export * from './promotions';
 export * from './integrations';
 export * from './analytics';
 export * from './reviews';
+export * from './payment-proof';

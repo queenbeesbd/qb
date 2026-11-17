@@ -35,6 +35,8 @@ const NOTICES: readonly AdminOrderNotice[] = [
   'costRecorded',
   'costVoided',
   'costInvalid',
+  'proofReviewed',
+  'proofInvalid',
   'denied',
   'conflict',
   'invalid',
@@ -165,6 +167,21 @@ export default async function AdminOrderDetailPage({
           activeCostCount: detail.money.activeCostCount,
           estimatedNetProceedsMinor: detail.money.estimatedNetProceedsMinor,
         },
+        paymentProof:
+          detail.paymentProof === null
+            ? null
+            : {
+                uploadedAt: detail.paymentProof.uploadedAt.toISOString(),
+                uploadedBy: detail.paymentProof.uploadedBy,
+                reviewState: detail.paymentProof.reviewState,
+                reviewedAt:
+                  detail.paymentProof.reviewedAt === null
+                    ? null
+                    : detail.paymentProof.reviewedAt.toISOString(),
+                reviewNote: detail.paymentProof.reviewNote,
+                width: detail.paymentProof.width,
+                height: detail.paymentProof.height,
+              },
         events: detail.events.map((event) => ({
           id: event.id,
           eventType: event.eventType,
@@ -212,6 +229,7 @@ export default async function AdminOrderDetailPage({
       canCollect={hasPermission(principal, PERMISSIONS.codConfirmCollection)}
       canInspect={hasPermission(principal, PERMISSIONS.returnInspect)}
       canRecordCosts={hasPermission(principal, PERMISSIONS.orderCostRecord)}
+      canReviewProof={hasPermission(principal, PERMISSIONS.paymentProofReview)}
       canReadCustomers={canReadCustomers}
       canReadAudit={hasPermission(principal, PERMISSIONS.auditRead)}
       returnTo={returnTo}

@@ -89,6 +89,9 @@ export function OrderDetailView({
   claimable = false,
   claimed = false,
   csrfToken = null,
+  proofEnabled = false,
+  paymentProof = null,
+  proofNotice = null,
 }: {
   order: OrderDetail;
   placed: boolean;
@@ -106,6 +109,14 @@ export function OrderDetailView({
   /** The order was just claimed - say so once, instead of silently changing the page's owner. */
   claimed?: boolean;
   csrfToken?: string | null;
+  /**
+   * The owner's switch for the optional payment screenshot (ADR 0042). Off hides the form; an image
+   * already attached is still stated, because hiding a fact about the customer's own order would be
+   * worse than the switch not offering a new one.
+   */
+  proofEnabled?: boolean;
+  paymentProof?: { reviewState: string; uploadedAt: string } | null;
+  proofNotice?: 'uploaded' | 'invalid' | 'unavailable' | null;
 }) {
   const { t, price } = useTranslation();
   const receipt = `/orders/${order.orderNumber}`;
@@ -232,6 +243,68 @@ export function OrderDetailView({
           )}
         </p>
       </section>
+
+      {/*
+        The optional payment screenshot (ADR 0042).
+
+        The receipt is here because an advance payment is usually made *around* the order, not before it:
+        a customer who ordered first and paid after would otherwise have no way to attach what the
+        notice asked for. The form is drawn only while the owner's switch is on; a screenshot already
+        attached is still stated after the switch goes off, because that is a fact about this order.
+
+        Nothing on this card says the order is paid. The owner compares the image with the shop's own
+        bKash statement, and the order stays Cash on Delivery.
+      */}
+      {proofNotice !== null && (
+        <p className={styles.notice} role="status">
+          {proofNotice === 'uploaded'
+            ? t('account.order.proofUploaded')
+            : proofNotice === 'invalid'
+              ? t('account.order.proofInvalid')
+              : t('account.order.proofUnavailable')}
+        </p>
+      )}
+
+      {(paymentProof !== null || proofEnabled) && (
+        <section className={styles.card} aria-labelledby="order-proof">
+          <h2 id="order-proof">{t('account.order.proofTitle')}</h2>
+          {paymentProof !== null && (
+            <p className={styles.muted}>
+              {paymentProof.reviewState === 'checked'
+                ? t('account.order.proofStateChecked')
+                : paymentProof.reviewState === 'rejected'
+                  ? t('account.order.proofStateRejected')
+                  : t('account.order.proofStatePending')}
+            </p>
+          )}
+          {proofEnabled && (
+            <form
+              className={styles.inlineForm}
+              method="post"
+              encType="multipart/form-data"
+              action={`/api/orders/${order.orderNumber}/proof`}
+            >
+              {csrfToken !== null && <input type="hidden" name="csrf" value={csrfToken} />}
+              <label className={styles.field} htmlFor="paymentProofFile">
+                <span>{t('account.order.proofLabel')}</span>
+                <input
+                  id="paymentProofFile"
+                  type="file"
+                  name="paymentProof"
+                  accept="image/jpeg,image/png,image/webp"
+                  required
+                />
+              </label>
+              <button type="submit" className={styles.secondaryAction}>
+                {paymentProof === null
+                  ? t('account.order.proofUpload')
+                  : t('account.order.proofReplace')}
+              </button>
+            </form>
+          )}
+          {proofEnabled && <p className={styles.muted}>{t('account.order.proofHint')}</p>}
+        </section>
+      )}
 
       <section className={styles.card} aria-labelledby="order-items">
         <h2 id="order-items">{t('orders.itemsTitle')}</h2>

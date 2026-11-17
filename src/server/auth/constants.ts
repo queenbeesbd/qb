@@ -161,6 +161,8 @@ export const ORDERS_PATH = '/qbpanel/orders';
 export const ORDER_TRANSITION_PATH = '/api/qbpanel/orders/transition';
 /** Recording and voiding the additional courier costs an order incurred (Phase 22). */
 export const ORDER_COST_PATH = '/api/qbpanel/orders/cost';
+/** The owner's decision about a customer's payment screenshot (ADR 0042). It moves no order state. */
+export const ORDER_PROOF_REVIEW_PATH = '/api/qbpanel/orders/payment-proof';
 
 /**
  * Where an authenticated page may send a browser after a successful sign-in. Anything else resolves

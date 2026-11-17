@@ -20,6 +20,9 @@ coverage/
 .dev-pg/
 .tmp-*/
 
+# Private local storage for uploaded payment screenshots (ADR 0042). Bytes, never committed.
+.data/
+
 # Browser-automation artefacts (screenshots, snapshots, session console logs) from local probes.
 .playwright-cli/
 

@@ -264,6 +264,12 @@ export const dictionary = {
   'checkout.payment.copied': 'Number copied',
   'checkout.payment.numberMissing':
     'The shop has not published an advance-payment number. Contact the store before sending money.',
+  'checkout.payment.proofLabel': 'Payment screenshot',
+  'checkout.payment.proofHint':
+    'Optional. If you paid in advance, attach a screenshot of the payment. The shop checks it against its own statement; it does not mark the order paid.',
+  'checkout.payment.proofChosen': 'Attached: {name} ({size})',
+  'checkout.payment.proofPreparing': 'Preparing the image…',
+  'checkout.payment.proofRemove': 'Remove screenshot',
   'checkout.repeatDiscount': 'Repeat customer discount ({percent}%)',
   'checkout.advanceLine': 'Delivery charge payable in advance',
   'checkout.advanceHelp':
@@ -288,6 +294,8 @@ export const dictionary = {
   'checkout.notice.emptyCart': 'Your cart is empty.',
   'checkout.notice.conflict': 'That submission was already processed. Open your order list.',
   'checkout.notice.invalidDistrict': 'That district was not recognised. Select one from the list.',
+  'checkout.notice.proofInvalid':
+    'That screenshot could not be used. Attach a JPEG, PNG or WebP image under 4 MB, or place the order without one.',
   'checkout.promo.label': 'Apply A Promo Code',
   'checkout.promo.placeholder': 'Enter a code',
   'checkout.promo.apply': 'Apply',
@@ -469,6 +477,9 @@ export const dictionary = {
   'admin.contact.save': 'Save contact and policies',
   'admin.payment.bkashLabel': 'bKash Advance number',
   'admin.payment.bkashHelp': 'An 11-digit Bangladeshi mobile. Leave blank to publish no advance-payment number.',
+  'admin.payment.proofLabel': 'Payment screenshot field',
+  'admin.payment.proofHelp':
+    'Optional for the customer. They may attach one screenshot of an advance payment at checkout or on the order receipt. It is stored privately and shown on the order, where you mark it checked or rejected. It does not mark anything paid.',
   'admin.payment.visibleLabel': 'Show the number at checkout',
   'admin.payment.visibleHelp':
     'Off hides the number block on the payment card without deleting the number. The notice above it is always printed.',
@@ -1243,6 +1254,28 @@ export const dictionary = {
   'admin.order.costsBody':
     'Costs the owner bore on this order, beyond the standard delivery charge. They are never added to what the customer paid.',
   'admin.order.costsEmpty': 'No additional cost is recorded on this order.',
+  'admin.order.proofTitle': 'Payment screenshot',
+  'admin.order.proofBody':
+    'Attached by the customer. Compare it with the shop\'s own bKash statement, then record what you found. Nothing here moves the order.',
+  'admin.order.proofEmpty':
+    'No screenshot was attached. The customer can add one from the order receipt.',
+  'admin.order.proofAlt': 'Payment screenshot the customer attached',
+  'admin.order.proofUploadedAt': 'Attached {time}.',
+  'admin.order.proofOpenFull': 'Open full size',
+  'admin.order.proofStatePending': 'Not checked',
+  'admin.order.proofStateChecked': 'Checked',
+  'admin.order.proofStateRejected': 'Rejected',
+  'admin.order.proofCheckedAt': 'Marked checked {time}.',
+  'admin.order.proofRejectedAt': 'Rejected {time}.',
+  'admin.order.proofDecision': 'Decision',
+  'admin.order.proofChecked': 'Checked',
+  'admin.order.proofRejected': 'Rejected',
+  'admin.order.proofNote': 'Note',
+  'admin.order.proofHint': 'A rejection needs a short reason. A check may leave it blank.',
+  'admin.order.proofSave': 'Save decision',
+  'admin.order.notice.proofReviewed': 'The payment screenshot decision was saved.',
+  'admin.order.notice.proofInvalid':
+    'That decision could not be saved. A rejection needs a reason of at least three characters.',
   'admin.order.costVoided': 'Voided: {reason}',
   'admin.order.costVoid': 'Void this cost',
   'admin.order.costVoidReason': 'Reason for voiding',
@@ -2011,6 +2044,21 @@ export const dictionary = {
     'It was placed without an account. Add it and it appears in your order history.',
   'orders.claim.action': 'Add this order to my account',
   'orders.claim.doneTitle': 'This order is in your account now',
+  'account.order.proofTitle': 'Payment screenshot',
+  'account.order.proofLabel': 'Screenshot of your payment (optional)',
+  'account.order.proofHint':
+    'If you paid any part of this order in advance, attach a screenshot here. The shop checks it against its own bKash statement; the order still arrives as Cash on Delivery.',
+  'account.order.proofUpload': 'Attach screenshot',
+  'account.order.proofReplace': 'Replace screenshot',
+  'account.order.proofUploaded': 'Your screenshot was attached. The shop checks it against its statement.',
+  'account.order.proofInvalid':
+    'That screenshot could not be used. Attach a JPEG, PNG or WebP image under 4 MB.',
+  'account.order.proofUnavailable':
+    'Attaching a screenshot is switched off right now. Send it on WhatsApp instead, or contact the shop.',
+  'account.order.proofStatePending': 'Attached. Not checked by the shop yet.',
+  'account.order.proofStateChecked': 'The shop has checked this screenshot against its statement.',
+  'account.order.proofStateRejected':
+    'The shop could not match this screenshot to a payment. Send it on WhatsApp, or contact the shop.',
   'orders.claim.doneBody': 'You will find it in your order history from now on.',
   'orders.claim.viewOrders': 'See all your orders',
   'orders.backToOrders': 'Back to your orders',

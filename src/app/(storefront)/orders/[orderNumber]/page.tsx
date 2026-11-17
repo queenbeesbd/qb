@@ -4,6 +4,8 @@ import { withTransaction } from '@/db/client';
 import { OrderDetailView, type OrderDetail } from '@/features/account/OrderDetailView';
 import { currentCustomerPrincipal } from '@/server/customer-auth/guard';
 import { getCustomerOrderDetail, getGuestOrderDetail } from '@/server/orders/read';
+import { loadProofSummary } from '@/server/orders/proof';
+import { loadPaymentInstructions } from '@/server/settings/payment';
 
 export const metadata: Metadata = { title: 'Order', robots: { index: false, follow: false } };
 export const dynamic = 'force-dynamic';
@@ -53,9 +55,21 @@ export default async function OrderPage({
 
   const { detail, claimable } = resolved;
 
+  /*
+   * The screenshot state and the owner's switch, read beside the order (ADR 0042). The switch decides
+   * whether a **new** image may be attached here; a screenshot already attached is stated either way.
+   */
+  const { proofEnabled } = await withTransaction((tx) => loadPaymentInstructions(tx));
+  const proof = await withTransaction((tx) => loadProofSummary(tx, detail.orderNumber));
+
+  const proofParam = typeof query.proof === 'string' ? query.proof : null;
+  const proofNotice =
+    proofParam === 'uploaded' || proofParam === 'invalid' || proofParam === 'unavailable'
+      ? proofParam
+      : null;
+
   const order: OrderDetail = {
-    orderNumber: detail.orderNumber,
-    status: detail.status,
+    orderNumber: detail.orderNumber,    status: detail.status,
     paymentState: detail.paymentState,
     codState: detail.codState,
     paymentMethod: detail.paymentMethod,
@@ -90,6 +104,13 @@ export default async function OrderPage({
       claimable={claimable}
       claimed={query.claim === 'claimed'}
       csrfToken={principal?.csrfToken ?? null}
+      proofEnabled={proofEnabled}
+      paymentProof={
+        proof === null
+          ? null
+          : { reviewState: proof.reviewState, uploadedAt: proof.uploadedAt.toISOString() }
+      }
+      proofNotice={proofNotice}
     />
   );
 }

@@ -51,6 +51,7 @@ export async function POST(request: Request): Promise<Response> {
    * refuses anything else, instead of guessing a state from a truthy string.
    */
   const bkashVisible = form.getAll('bkashVisible').includes('true') ? 'true' : 'false';
+  const proofEnabled = form.getAll('proofEnabled').includes('true') ? 'true' : 'false';
 
   try {
     await withTransaction((tx) =>
@@ -59,6 +60,7 @@ export async function POST(request: Request): Promise<Response> {
         bkashVisible,
         sendMoneyNote: form.get('sendMoneyNote') ?? '',
         advanceThreshold: form.get('advanceThreshold') ?? '',
+        proofEnabled,
       }),
     );
     return backTo('paymentSaved');

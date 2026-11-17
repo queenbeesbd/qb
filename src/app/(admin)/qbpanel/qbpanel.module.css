@@ -5310,3 +5310,74 @@ a.rankName:hover {
     height: var(--admin-control);
   }
 }
+
+/*
+ * The customer's payment screenshot (ADR 0042).
+ *
+ * The image is drawn at a readable width rather than as a thumbnail, because the owner is comparing a
+ * transaction id with a statement. It opens in its own tab for a full-size read, and the decision is one
+ * form with one submit: two radio answers and a note, so the pending state cannot disagree with itself.
+ */
+.proofLink {
+  display: block;
+  width: fit-content;
+  max-width: 100%;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--color-surface-alt, #f7f6f9);
+}
+
+.proofLink:focus-visible {
+  outline: 2px solid var(--admin-lavender-deep);
+  outline-offset: 2px;
+}
+
+.proofImage {
+  display: block;
+  width: auto;
+  max-width: min(100%, 480px);
+  height: auto;
+  max-height: 340px;
+  object-fit: contain;
+}
+
+.proofForm {
+  display: grid;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+
+.proofChoices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.proofChoices legend {
+  padding: 0;
+  margin-bottom: var(--space-1);
+}
+
+.proofChoice {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--admin-control);
+  font-size: var(--text-sm);
+}
+
+.proofActions {
+  display: flex;
+  gap: var(--space-2);
+}
+
+@media (max-width: 720px) {
+  .proofImage {
+    max-width: 100%;
+    max-height: 260px;
+  }
+}

@@ -16,7 +16,7 @@
 import { sql } from 'drizzle-orm';
 
 import type { Transaction } from '@/db/client';
-import { auditEvent, customer, customerReturn, order, orderContact, orderEvent, orderItem } from '@/db/schema';
+import { auditEvent, customer, customerReturn, order, orderContact, orderEvent, orderItem, paymentProof } from '@/db/schema';
 import { likeTerm } from '@/lib/search';
 import { listAdditionalCosts, orderMoney, type AdditionalCost, type OrderMoney } from './costs';
 
@@ -102,6 +102,23 @@ export type AdminOrderDetail = {
   readonly returns: readonly AdminOrderReturn[];
   /** Every additional courier cost recorded on this order, voided ones included, newest first. */
   readonly costs: readonly AdditionalCost[];
+  /**
+   * The customer's optional payment screenshot, or `null` when none was attached (ADR 0042).
+   *
+   * The image itself is served by `/api/qbpanel/orders/<number>/proof` behind `order.read`; this read
+   * only states that one exists, when it arrived and what the owner decided. It is not a money fact and
+   * carries no payment state, because the order has nothing of the kind to carry.
+   */
+  readonly paymentProof: {
+    readonly uploadedAt: Date;
+    readonly uploadedBy: string;
+    readonly reviewState: string;
+    readonly reviewedAt: Date | null;
+    readonly reviewNote: string | null;
+    /** The stored pixels, so the panel reserves the frame instead of jumping when the image loads. */
+    readonly width: number;
+    readonly height: number;
+  } | null;
   /**
    * The four money facts, kept separate: the customer's gross payment, the standard delivery fee
    * already inside it, the additional costs the shop incurred, and the estimated net proceeds.
@@ -219,6 +236,21 @@ export async function adminOrderDetail(
 
   const costs = await listAdditionalCosts(tx, row.orderId);
 
+  const proofRows = await tx
+    .select({
+      uploadedAt: paymentProof.uploadedAt,
+      uploadedBy: paymentProof.uploadedBy,
+      reviewState: paymentProof.reviewState,
+      reviewedAt: paymentProof.reviewedAt,
+      reviewNote: paymentProof.reviewNote,
+      width: paymentProof.width,
+      height: paymentProof.height,
+    })
+    .from(paymentProof)
+    .where(sql`${paymentProof.orderId} = ${row.orderId}`)
+    .limit(1);
+  const paymentProofRow = proofRows[0] ?? null;
+
   /**
    * The standard delivery fee can only be separated out when the order carries the delivery-area
    * snapshot Phase 19 introduced. Orders placed before it stored `0` delivery with no area, so whether
@@ -285,6 +317,7 @@ export async function adminOrderDetail(
     items,
     returns,
     costs,
+    paymentProof: paymentProofRow,
     money,
     events,
   };
