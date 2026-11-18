@@ -1008,7 +1008,7 @@ summary 358px, no clipped figure.
 
 ### Smaller corrections
 
-- The announcement ticker fades at both ends with a mask instead of slicing a word against the glass.
+- The announcement ticker fades at both ends with gradients painted in the band's own colour instead of slicing a word against the glass. The mask that used to do it was removed when the strip became the brand lavender field: masking the bar faded the field itself.
 - The header search placeholder was shortened to "Search products or brands" so it fits the field it is in.
 - "1 items" became "1 item" in the cart header and its live-region announcement.
 - The cart badge now counts stored quantities without needing product records, so it is correct on every

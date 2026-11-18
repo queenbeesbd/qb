@@ -59,8 +59,9 @@ function tickerSeconds(items: readonly AnnouncementItem[], copies: number): numb
  *    the animation stops, the duplicate is removed and the strip becomes the quiet static line it was
  *    before: moving text is unreadable for some people, and there is nothing here worth that cost.
  *
- * No badge, no background: the strip reads as the shop's own line, and it is absent entirely when
- * there is nothing to say.
+ * The strip is the shop's primary lavender with a bold ink line (owner direction, 2026-11-19), so it
+ * reads as the shop's own news rather than as a promotion banner, and it is absent entirely when there
+ * is nothing to say.
  */
 export function AnnouncementBar({ items }: { items: readonly AnnouncementItem[] }) {
   const { t } = useTranslation();

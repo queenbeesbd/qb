@@ -14,6 +14,33 @@ An entry may describe a deployment only once it has actually happened and been o
 
 ## [Unreleased]
 
+### Changed - 2026-11-19: the announcement strip is the shop's primary lavender with a bold ink line
+
+The owner asked for the announcement bar's background to match the site's primary colour and for the
+line on it to be bold black. The strip had been a bare line on the page canvas since Phase 28, so this
+is the first time it carries a field of its own.
+
+- **The field is `--brand-primary` (#c8b6ff)**, the same lavender the phone tab bar, the cart box and
+  every filled primary control already wear - the shop's primary colour, not a second accent. The line
+  is `--color-ink` (#201a29) at weight **700**: **9.3:1**, the same ratio the tab bar's labels rely on,
+  and the shop's one near-black rather than true black, which would read colder than the rest of the copy.
+- **The bar is no longer masked, and that is the part that had to change with the colour.** The old fade
+  was `mask-image` on the bar itself; over a bare canvas that faded the text, but over a field it fades
+  the field too and lets the page show through at both ends as a seam. The two end gradients that used to
+  back the mask up now do the whole job, painted in the band's own colour, so the field stays solid from
+  edge to edge while the line still fades instead of being sliced.
+- **One band, still absent when there is nothing to say.** No border, no gradient field, no second
+  colour, and the strip is still not rendered when the owner has no visible message.
+
+Verified against a production build served from the local development database, driven in headless
+Chromium. At 1440x900 and 390x844 the bar measured `rgb(200, 182, 255)` with a `rgb(32, 26, 41)` line at
+`700`, 13px, 40px tall, no horizontal overflow; the end fade was measured from the pixels rather than
+assumed - the darkest glyph pixel rises from luminance **167** at the edge to **27** (the ink itself) by
+x=60, so the band is solid and only the line fades. `typecheck` clean, `lint` **0 errors** (24 pre-existing
+warnings), `build` success. **Not run:** `verify:browser` / `verify:admin` (phase-checkpoint suites); the
+admin Announcement bar preview was checked by rendering the same component on the storefront, not by
+opening the panel.
+
 ### Changed - 2026-11-19: the support rail wears the providers' colours, and Facebook became Messenger
 
 The owner asked for the two floating support buttons to carry **each channel's own brand colour** - "like

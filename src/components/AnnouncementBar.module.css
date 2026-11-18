@@ -1,47 +1,26 @@
 /*
- * The announcement strip: a news ticker on the page canvas, not a coloured band.
+ * The announcement strip: the shop's primary lavender as a band, carrying the news ticker (owner
+ * direction, 2026-11-19).
  *
- * There is no background and no second rule: the line travels across the same surface as the rest of
- * the page, so it reads as the shop's own news rather than as a promotion banner. The item's own
- * `data-variant` stays in the markup for a future notice that needs to state its kind, but it paints
- * no colour.
+ * The field is `--brand-primary` - the same lavender as the phone tab bar and every filled primary
+ * control - and the line on it is bold `--color-ink`: 9.3:1, and the one near-black the rest of the
+ * shop's copy uses. The strip reads as the shop's own chrome rather than as a promotion banner: no
+ * second accent colour, no gradient, no border. The item's own `data-variant` stays in the markup for
+ * a future notice that needs to state its kind, but it paints no colour.
  *
  * The mechanics are deliberately dull: one animation on the track, two identical groups, a fixed
  * -50% travel. Nothing measures the DOM, so nothing can disagree with the layout after a resize.
  */
 .bar {
   /*
-   * The ends are painted, not only masked. The gradient mask above fades the line, but the first
-   * frame still showed half a word against the glass on a phone, so two solid gradients - in the
-   * page's own colour - sit over the edges and guarantee the fade whatever the mask support is.
+   * The ends are painted in the band's own colour. A mask would fade the field itself, letting the page
+   * show through the edges as a seam, so the fade belongs to two solid gradients above the line instead.
    */
   position: relative;
-  background: transparent;
+  background: var(--brand-primary);
   /* The moving line is clipped by its own viewport; keeping the bar out of the scroll chain means a
      ticker can never add a horizontal scrollbar to an already-tight phone layout. */
   overflow: hidden;
-  /*
-   * Fade the two ends instead of slicing a word against the viewport edge.
-   *
-   * The line is always mid-travel when a page paints, so on a phone the first frame used to show
-   * half a word hard against the glass. A gradient mask reads as a ticker continuing past the edge
-   * rather than as text that has been cut off. The gutter is the fade distance, so it grows with the
-   * page and never eats more than the margin the rest of the layout already reserves.
-   */
-  -webkit-mask-image: linear-gradient(
-    to right,
-    transparent 0,
-    #000 var(--gutter),
-    #000 calc(100% - var(--gutter)),
-    transparent 100%
-  );
-  mask-image: linear-gradient(
-    to right,
-    transparent 0,
-    #000 var(--gutter),
-    #000 calc(100% - var(--gutter)),
-    transparent 100%
-  );
 }
 
 .bar::before,
@@ -55,14 +34,20 @@
   pointer-events: none;
 }
 
+/*
+ * Fade the two ends instead of slicing a word against the viewport edge. The line is always mid-travel
+ * when a page paints, so the first frame would otherwise show half a word hard against the glass. A
+ * gradient reads as a ticker continuing past the edge rather than as text that has been cut off, and
+ * because it is painted in the band's colour the field itself stays solid from edge to edge.
+ */
 .bar::before {
   inset-inline-start: 0;
-  background: linear-gradient(to right, var(--color-page), transparent);
+  background: linear-gradient(to right, var(--brand-primary), transparent);
 }
 
 .bar::after {
   inset-inline-end: 0;
-  background: linear-gradient(to left, var(--color-page), transparent);
+  background: linear-gradient(to left, var(--brand-primary), transparent);
 }
 
 .viewport {
@@ -96,7 +81,8 @@
   white-space: nowrap;
   font-size: var(--text-sm);
   line-height: 1.5;
-  font-weight: 500;
+  /* Bold ink on the lavender field: 9.3:1, and the same weight rule the rest of the shop follows. */
+  font-weight: 700;
   color: var(--color-ink);
   /*
    * The gap between repeats belongs to the item, not to the flex container: with `gap` the two
