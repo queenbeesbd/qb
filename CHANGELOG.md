@@ -14,6 +14,30 @@ An entry may describe a deployment only once it has actually happened and been o
 
 ## [Unreleased]
 
+### Changed - 2026-11-19: the "Added to cart" panel's button is the shop's purple, not black
+
+The owner photographed the cart confirmation on a phone: the **View cart** button inside the lavender
+panel was a near-black slab with a lavender label, and it read as a control borrowed from another
+product. It was the darkest object on the screen, sitting right above a lavender tab bar. `CartToast`'s
+`.primary` now uses the pair `docs/design-system.md` already names for **every filled action** -
+`--color-action` `#56358C` with a `--color-surface` label, **9.20:1** (AAA) - and steps to
+`--color-action-hover` on a 120ms hover like the rest of the storefront's filled controls. Height, radius
+and the close control are untouched.
+
+Ink stays what it is - the shop's **text** colour - and the panel keeps its lavender field. White was
+the other candidate and lost on hierarchy: the panel already draws a white tick circle, so a third pale
+shape would have left the one control the customer should press as its least visible object. Nothing
+about the panel's behaviour changed: same 40px actions, same five-second dismissal, same Escape and
+close control.
+
+Verified against a real production build in headless Chromium at 390x844: clicking a card's **Add to
+cart** raised the panel, and the computed styles measured `background: rgb(86, 53, 140)`,
+`color: rgb(255, 255, 255)`, height **40px**, on a `rgb(200, 182, 255)` panel - the button separates
+from its field at 5.08:1 and its label reads at 9.20:1. The panel still sits above the 65px tab bar with
+no horizontal overflow, and the 1280px centred variant draws the same pair. `typecheck` passes and
+`lint` reports **0 errors** (24 pre-existing warnings). Not run: `verify:browser` / `verify:ui` -
+this change touches one CSS Module and the suites are phase-checkpoint work.
+
 ### Changed - 2026-11-18: the proof field speaks English, and three phone surfaces are corrected
 
 The checkout field's label was the owner's own Bangla line (`Payment ss সংযুক্ত করুন`); the owner asked
