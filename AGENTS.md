@@ -398,6 +398,17 @@ every recorded hash matches a file, and `b485dff` is READY on `www.queenbeesbd.c
 page's WhatsApp button is rendered there until the owner sets a `wa.me` address at Settings -> Support
 links; the button is implemented, not yet visible.
 
+**Production is at 35 migrations / 55 tables (2026-11-18).** `0032_review_permission` and
+`0033_moderator_role` landed earlier; **`0034_slimy_timeslip` (ADR 0042, the optional payment screenshot)
+was applied on 2026-11-18 through the Neon MCP** on branch `br-hidden-rice-az3zuopi`, database `queenbees`
+- one transaction carrying the `payment_proof` table, its two foreign keys, its unique `order_id` index,
+and the `payment.proof_review` permission insert plus its owner grant, followed by the
+`drizzle.__drizzle_migrations` row (sha256 of the committed SQL, the journal's `when`, `1794946529666`).
+Every recorded hash matches a file. **The three feature commits before it (`af312a5`, `f9fe4a2`,
+`ffe1059`) never deployed**: the `prebuild` gate refused every build while `0034` was pending, so
+production served `b76ac41` and `/checkout` carried no screenshot field until the migration landed. That
+is the gate working - it never applies a migration - so the sequence stays **apply first, push second.**
+
 **A `prebuild` step may only reference files the deployment actually contains.** The gate first lived
 at `scripts/check-migrations.ts`, but `.vercelignore` excludes `scripts/`, so Vercel never received it
 and the three production builds after it (`1cfa6e8`, `ffbee0e`, `cb97367`) died on

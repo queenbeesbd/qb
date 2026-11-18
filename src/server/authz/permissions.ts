@@ -105,6 +105,13 @@ export const PERMISSION_CATALOGUE: readonly PermissionDefinition[] = [
   { code: PERMISSIONS.inventoryAdjust, description: 'Adjust stock through the movement ledger', isPrivileged: false },
   { code: PERMISSIONS.staffRead, description: 'List staff users', isPrivileged: false },
   { code: PERMISSIONS.dashboardRead, description: 'Open the admin overview', isPrivileged: false },
+  // ADR 0042: reading a customer's payment screenshot against the shop's own bKash statement is a money
+  // judgment, so it is privileged - a moderator can never be granted it, exactly like `cod.approve`.
+  {
+    code: PERMISSIONS.paymentProofReview,
+    description: "Read and decide a customer's payment screenshot",
+    isPrivileged: true,
+  },
   { code: PERMISSIONS.auditRead, description: 'Read the audit trail', isPrivileged: false },
 ];
 
@@ -171,6 +178,7 @@ export const PERMISSION_LABELS: Record<string, string> = {
   [PERMISSIONS.staffManage]: 'Manage staff and roles',
   [PERMISSIONS.auditRead]: 'Read the audit trail',
   [PERMISSIONS.settingsWrite]: 'Write store settings',
+  [PERMISSIONS.paymentProofReview]: 'Review payment screenshots',
 };
 
 
@@ -225,4 +233,6 @@ export const PERMISSIONS_IMPLEMENTED: readonly PermissionCode[] = [
   PERMISSIONS.orderCostRecord,
   // ADR 0035: the review moderation queue - the only way a customer's words reach the shop's own page.
   PERMISSIONS.reviewModerate,
+  // ADR 0042: the owner's reading of a customer's payment screenshot, on the order detail screen.
+  PERMISSIONS.paymentProofReview,
 ];

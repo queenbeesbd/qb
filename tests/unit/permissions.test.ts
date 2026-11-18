@@ -114,6 +114,8 @@ describe('permission catalogue', () => {
         PERMISSIONS.reviewModerate,
         // Phase 22: additional courier costs recorded with payment receipt.
         PERMISSIONS.orderCostRecord,
+        // ADR 0042: the owner's reading of a customer's payment screenshot.
+        PERMISSIONS.paymentProofReview,
       ].sort(),
     );
   });

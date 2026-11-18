@@ -1877,3 +1877,18 @@ re-run; no browser walk-through of the new field was driven, so its rendering at
 unverified. The object-storage branch of `saveProof`/`readProof` was not exercised (no bucket
 credential here); only the local `.data/payment-proof` path was available. Real devices and screen
 readers were not used.
+
+**Deployment (2026-11-18).** The first three commits of this phase never deployed: the `prebuild`
+migration gate refused every production build while `0034_slimy_timeslip` was pending, so
+`www.queenbeesbd.com` kept serving `b76ac41` and `/checkout` carried no screenshot field. Applying the
+migration to the production branch through the Neon MCP (one transaction, then its
+`drizzle.__drizzle_migrations` row) unblocked it; production is at **35 migrations / 55 tables**. A
+browser walk-through was then driven against the local cluster end to end - guest checkout with a
+screenshot created the order and the `payment_proof` row, the receipt showed the attached state, the
+owner recorded **Checked**, and the order's status, payment state, COD state and total were unchanged.
+
+**Catalogue gap closed.** `payment.proof_review` was declared in `PERMISSIONS` but absent from
+`PERMISSION_CATALOGUE`, `PERMISSION_LABELS` and `PERMISSIONS_IMPLEMENTED`; the migration supplies the
+database row (which is why the owner control worked), but the seed, the moderator-access screen and the
+catalogue tests had no idea the code existed. All three now include it.
+

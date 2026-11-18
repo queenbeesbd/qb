@@ -14,6 +14,41 @@ An entry may describe a deployment only once it has actually happened and been o
 
 ## [Unreleased]
 
+### Fixed - 2026-11-18: the payment screenshot actually reached production
+
+The checkout field was committed, but never deployed. Three builds in a row (`af312a5`, `f9fe4a2`,
+`ffe1059`) were refused by the `prebuild` migration gate - `0034_slimy_timeslip` was not applied to the
+production branch - so production kept serving `b76ac41`, a build that predates the feature. The gate
+worked exactly as designed; the shop stayed up on the previous deployment. `GET /checkout` on
+`www.queenbeesbd.com` carried no `paymentProof`, which is what the owner saw.
+
+`0034_slimy_timeslip` was then applied to the production branch (`br-hidden-rice-az3zuopi`, database
+`queenbees`) in one transaction, followed by its `drizzle.__drizzle_migrations` record, per the
+documented procedure. Production is now at **35 migrations**, `payment_proof` exists, and
+`payment.proof_review` is inserted and granted to every owner-level role.
+
+Two catalogue gaps fixed in the same pass, both invisible until the table existed: `payment.proof_review`
+was declared in `PERMISSIONS` but missing from `PERMISSION_CATALOGUE`, `PERMISSION_LABELS` and
+`PERMISSIONS_IMPLEMENTED`. The database row is what `hasPermission` reads, so the owner's review control
+did render; but `npm run db:seed` could never re-assert the description or the privileged flag, the
+moderator-access screen silently omitted the row, and the catalogue tests did not cover it.
+
+Verified locally against `.dev-pg` with migrations through `0034` and the real catalog: a guest checkout
+with a screenshot attached created order `QB8A55FA90F2BBE0CD`, wrote `payment_proof` row 1
+(`payment-proof/proof-*.webp`, 494 bytes, `pending`), and the file landed in `.data/payment-proof/`; the
+receipt showed "Attached. Not checked by the shop yet."; the owner's order detail showed the section with
+Checked/Rejected and a Save decision control; recording **Checked** wrote `reviewed_by`/`reviewed_at`,
+emitted `order.payment_proof_reviewed`, and left `status=pending`, `cod_state=cod_pending_approval`,
+`payment_state=not_applicable` and the total at Tk 3,770 unchanged; `GET
+/api/qbpanel/orders/…/proof` answered 200 `image/webp` with `no-store, private`. Field placement measured
+at 390px (last element of the payment card, above Order summary, no horizontal overflow) and 1280px (the
+payment card is the right-hand column, so the field is under the bKash number there).
+
+`typecheck`, `lint` (0 errors, 24 pre-existing warnings), `check:i18n` (1,994 keys), `build` and unit
+**329/329** pass. **Pre-existing and not caused by this change:** `tests/db/auth.test.ts` →
+"seeds the whole permission catalogue and exactly one owner-level role" fails because it still asserts a
+single role row while migration `0033` seeds `moderator` too; confirmed failing with these edits stashed.
+
 ### Added - 2026-11-14: the header search suggests products instead of navigating (ADR 0041)
 
 Typing in the storefront header now opens a short list of matching products - photograph, name, brand and
