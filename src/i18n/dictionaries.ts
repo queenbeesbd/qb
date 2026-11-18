@@ -264,9 +264,8 @@ export const dictionary = {
   'checkout.payment.copied': 'Number copied',
   'checkout.payment.numberMissing':
     'The shop has not published an advance-payment number. Contact the store before sending money.',
-  'checkout.payment.proofLabel': 'Add your payment proof screenshot',
-  'checkout.payment.proofHint':
-    'Optional. If you paid in advance, attach a screenshot of the payment. The shop checks it against its own statement; it does not mark the order paid.',
+  'checkout.payment.proofLabel': 'Add your payment screenshot',
+  'checkout.payment.proofOptional': 'optional',
   'checkout.payment.proofChosen': 'Attached: {name} ({size})',
   'checkout.payment.proofPreparing': 'Preparing the image…',
   'checkout.payment.proofRemove': 'Remove screenshot',
@@ -2045,9 +2044,7 @@ export const dictionary = {
   'orders.claim.action': 'Add this order to my account',
   'orders.claim.doneTitle': 'This order is in your account now',
   'account.order.proofTitle': 'Payment screenshot',
-  'account.order.proofLabel': 'Screenshot of your payment (optional)',
-  'account.order.proofHint':
-    'If you paid any part of this order in advance, attach a screenshot here. The shop checks it against its own bKash statement; the order still arrives as Cash on Delivery.',
+  'account.order.proofLabel': 'Screenshot of your payment',
   'account.order.proofUpload': 'Attach screenshot',
   'account.order.proofReplace': 'Replace screenshot',
   'account.order.proofUploaded': 'Your screenshot was attached. The shop checks it against its statement.',

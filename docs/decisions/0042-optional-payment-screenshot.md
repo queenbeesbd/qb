@@ -64,3 +64,12 @@ the words true: a customer-supplied image still proves nothing on its own.
   contact row. The switch stops new uploads; it does not erase what was already sent.
 - The storefront still states no delivery promise, no refund rule and no payment guarantee. The receipt
   says the shop checks the image; it never says the order is paid.
+- **The standing explanation is gone (owner feedback, 2026-11-18).** Both surfaces once carried a
+  paragraph - *"Optional. If you paid in advance, attach a screenshot... the shop checks it against its
+  own statement; it does not mark the order paid"* - and the owner read it as the kind of note that makes
+  a shop look unprofessional. The label is now the whole instruction, **Add your payment screenshot**,
+  with a bracketed **(optional)** in smaller italic muted type beside it, so the one qualifier that
+  matters sits in the label rather than as a sentence under the control. The only text beneath the field
+  is the chosen file's name and size, drawn after a file is selected. Nothing is lost: the field is not
+  required, `checkout.payment.proofHint` and `account.order.proofHint` were deleted rather than left
+  unreferenced, and no sentence anywhere claims an order is paid.

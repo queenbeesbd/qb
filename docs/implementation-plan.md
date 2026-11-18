@@ -1845,8 +1845,8 @@ office, with a section on every order to check what the customer sent.
   default** (owner direction, 2026-11-18 - the field belongs under the bKash number without a setup
   step) and switchable off. Off draws no field and ignores an uploaded file instead of storing it.
 - **Two surfaces**: the checkout payment card, directly under the bKash number/WhatsApp block, labelled
-  **Add your payment proof screenshot** (`checkout.payment.proofLabel`, owner direction 2026-11-18 after
-  an earlier Bangla placeholder); and the order
+  **Add your payment screenshot** with a bracketed **(optional)** in smaller italic muted type
+  (`checkout.payment.proofLabel` / `checkout.payment.proofOptional`); and the order
   receipt, for a signed-in customer or a guest holding the order number, so a payment made after
   ordering can still be attached. One row per order (`payment_proof`, unique `order_id`); a re-upload
   replaces it and returns it to `pending`.

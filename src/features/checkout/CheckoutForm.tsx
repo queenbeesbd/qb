@@ -554,7 +554,10 @@ export function CheckoutForm({
               {payment.proofEnabled && (
                 <div className={styles.proofField}>
                   <label className={styles.proofLabel} htmlFor="paymentProof">
-                    {t('checkout.payment.proofLabel')} <em>{t('common.optional')}</em>
+                    {t('checkout.payment.proofLabel')}{' '}
+                    <em className={styles.proofOptional}>
+                      ({t('checkout.payment.proofOptional')})
+                    </em>
                   </label>
                   <input
                     ref={proofInputRef}
@@ -564,17 +567,29 @@ export function CheckoutForm({
                     name="paymentProof"
                     accept="image/jpeg,image/png,image/webp"
                     onChange={(event) => void prepareProof(event)}
-                    aria-describedby="paymentProof-hint"
+                    aria-describedby={proofChosen === null ? undefined : 'paymentProof-hint'}
                   />
-                  <p id="paymentProof-hint" className={styles.proofHint}>
-                    {proofChosen === null
-                      ? t('checkout.payment.proofHint')
-                      : t('checkout.payment.proofChosen', {
-                          name: proofChosen.name,
-                          size: `${Math.max(1, Math.round(proofChosen.bytes / 1024))} KB`,
-                        })}
-                    {proofPreparing ? ` ${t('checkout.payment.proofPreparing')}` : ''}
-                  </p>
+                  {/*
+                    Only what the customer needs after choosing a file: its name and size, and the
+                    removal control. The standing explanation ("if you paid in advance... the shop
+                    checks it against its statement... it does not mark the order paid") was removed
+                    on owner feedback (2026-11-18) - a paragraph about how the shop reads a screenshot
+                    read as a defence of the feature, not as a checkout. The label says what the field
+                    is for, and nothing on this page claims the order is paid.
+                  */}
+                  {(proofChosen !== null || proofPreparing) && (
+                    <p id="paymentProof-hint" className={styles.proofHint}>
+                      {proofChosen === null
+                        ? t('checkout.payment.proofPreparing')
+                        : t('checkout.payment.proofChosen', {
+                            name: proofChosen.name,
+                            size: `${Math.max(1, Math.round(proofChosen.bytes / 1024))} KB`,
+                          })}
+                      {proofPreparing && proofChosen !== null
+                        ? ` ${t('checkout.payment.proofPreparing')}`
+                        : ''}
+                    </p>
+                  )}
                   {proofChosen !== null && (
                     <button type="button" className={styles.proofRemove} onClick={clearProof}>
                       {t('checkout.payment.proofRemove')}

@@ -302,7 +302,6 @@ export function OrderDetailView({
               </button>
             </form>
           )}
-          {proofEnabled && <p className={styles.muted}>{t('account.order.proofHint')}</p>}
         </section>
       )}
 
