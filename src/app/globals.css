@@ -360,6 +360,18 @@ p {
   border: 0;
 }
 
+/*
+ * A screen-reader data table carries real cell text, and the table layout algorithm cannot shrink a
+ * table below its min-content size however small its width is asked to be - a 1px table whose cells
+ * carry "Nov 10, 2026, 2:04 AM" still measures hundreds of pixels and pushes the document wider than
+ * the phone viewport. Fixed layout makes the declared 1px the real one; the clipped, 1px-high box
+ * holds the readable text either way.
+ */
+table.sr-only {
+  table-layout: fixed;
+}
+
+
 .skip-link {
   position: absolute;
   top: -100px;

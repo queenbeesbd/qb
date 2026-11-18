@@ -410,12 +410,12 @@
  * Nothing is hidden without JavaScript: `[data-reveal-item]` only becomes `pending` when the effect
  * runs, so a failed script leaves the whole page visible.
  */
-:global([data-reveal-item][data-reveal='pending']) {
+.page :global([data-reveal-item][data-reveal='pending']) {
   opacity: 0;
   transform: translateY(18px);
 }
 
-:global([data-reveal-item][data-reveal='shown']) {
+.page :global([data-reveal-item][data-reveal='shown']) {
   opacity: 1;
   transform: none;
   transition: opacity 420ms ease, transform 420ms cubic-bezier(0.22, 1, 0.36, 1);
@@ -484,8 +484,8 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  :global([data-reveal-item][data-reveal='pending']),
-  :global([data-reveal-item][data-reveal='shown']) {
+  .page :global([data-reveal-item][data-reveal='pending']),
+  .page :global([data-reveal-item][data-reveal='shown']) {
     opacity: 1;
     transform: none;
     transition: none;
