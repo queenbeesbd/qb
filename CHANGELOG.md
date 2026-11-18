@@ -17,8 +17,9 @@ An entry may describe a deployment only once it has actually happened and been o
 ### Changed - 2026-11-18: the proof field speaks English, and three phone surfaces are corrected
 
 The checkout field's label was the owner's own Bangla line (`Payment ss সংযুক্ত করুন`); the owner asked
-for a full English one, so it now reads **Add your payment proof screenshot** with **Optional** beside
-it, from the dictionary like every other interface string. `PAYMENT_PROOF_LABEL` was deleted rather
+for English, so it now reads **Add your payment screenshot** from the dictionary like every other
+interface string, with a bracketed **optional** beside it in smaller italic muted type
+(`checkout.payment.proofOptional`) rather than a separate sentence. `PAYMENT_PROOF_LABEL` was deleted rather
 than left as a second source. The rest of `src/data/payment-instructions.ts` keeps the owner's printed
 Bangla notice and send-money caution verbatim: those are the shop's own instruction text, not interface
 copy, and they are on `check:i18n`'s data allowlist.
@@ -32,9 +33,22 @@ chart table measured 264px against 6px fixed, so it could widen a 390px phone - 
 rules scoped to its own `.page`, since they were global.
 
 Verified: `typecheck`, `lint` (0 errors, 24 pre-existing warnings), `check:i18n` (1,995 keys),
-`check:catalog`, `build`, unit **329/329**; in headless Chromium the checkout label reads "Add your
-payment proof screenshot Optional" at 390px with no horizontal overflow, the 404 still reveals on scroll
+`check:catalog`, `build`, unit **329/329**; in headless Chromium the checkout label reads "Add your payment
+screenshot (optional)" - 13px label, 12px italic muted qualifier - at 390px with no horizontal overflow, the 404 still reveals on scroll
 (25 items, 15 pending on load, all shown), and the discovery rails truncate rather than break a word.
+
+### Removed - 2026-11-18: the note under the payment screenshot field
+
+A paragraph sat under the control explaining when to attach a screenshot, that the shop checks it against
+its own statement, and that it does not mark the order paid. The owner read it as the kind of note that
+makes a shop look unprofessional, and it is gone from both surfaces - checkout and the order receipt. The
+label carries the whole instruction now, the qualifier is a bracketed `(optional)` in 12px italic
+muted type beside it, and the only thing under the field is the chosen file's name and size, drawn after a
+file is picked. `checkout.payment.proofHint` and `account.order.proofHint` were deleted rather than left
+unreferenced, and the receipt's **Screenshot of your payment (optional)** lost its parenthetical.
+
+Nothing is lost in behaviour: the field was and is optional, and no sentence anywhere claims an order is
+paid. ADR 0042 records the decision.
 
 ### Fixed - 2026-11-18: the payment screenshot actually reached production
 
