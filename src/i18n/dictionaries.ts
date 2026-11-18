@@ -264,6 +264,7 @@ export const dictionary = {
   'checkout.payment.copied': 'Number copied',
   'checkout.payment.numberMissing':
     'The shop has not published an advance-payment number. Contact the store before sending money.',
+  'checkout.payment.proofLabel': 'Add your payment proof screenshot',
   'checkout.payment.proofHint':
     'Optional. If you paid in advance, attach a screenshot of the payment. The shop checks it against its own statement; it does not mark the order paid.',
   'checkout.payment.proofChosen': 'Attached: {name} ({size})',

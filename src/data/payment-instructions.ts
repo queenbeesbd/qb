@@ -71,12 +71,3 @@ export const DEFAULT_SEND_MONEY_NOTE = '(Bkash Payment করবেন, Send Mon
  */
 export const DEFAULT_ADVANCE_THRESHOLD_MINOR = 50_000;
 
-/**
- * The label the owner asked for on the optional payment-screenshot field (owner direction, 2026-11-18).
- *
- * It is here, not in the English dictionary, for the same reason the notice above is: it is the
- * **owner's own words** about their own payment instructions, printed verbatim, and `check:i18n` keeps
- * Bengali out of the interface dictionary while allowing this data file. The field's explanation, its
- * buttons and every admin label stay English - only this label is the shop's own voice.
- */
-export const PAYMENT_PROOF_LABEL = 'Payment ss সংযুক্ত করুন';

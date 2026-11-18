@@ -15,7 +15,7 @@ import {
   type DeliveryRates,
 } from '@/lib/delivery';
 import { DELIVERY_AREAS } from '@/lib/delivery-areas';
-import { CHECKOUT_PAYMENT_NOTICE, PAYMENT_PROOF_LABEL, whatsappLinkNumber } from '@/data/payment-instructions';
+import { CHECKOUT_PAYMENT_NOTICE, whatsappLinkNumber } from '@/data/payment-instructions';
 import { prepareImageFile } from '@/lib/image-prep';
 import { useTranslation } from '@/i18n/useTranslation';
 import { useCart } from '@/features/cart/useCart';
@@ -554,7 +554,7 @@ export function CheckoutForm({
               {payment.proofEnabled && (
                 <div className={styles.proofField}>
                   <label className={styles.proofLabel} htmlFor="paymentProof">
-                    {PAYMENT_PROOF_LABEL} <em>{t('common.optional')}</em>
+                    {t('checkout.payment.proofLabel')} <em>{t('common.optional')}</em>
                   </label>
                   <input
                     ref={proofInputRef}

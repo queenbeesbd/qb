@@ -1,6 +1,9 @@
 # Pi harness state: managed by the tool, not application infrastructure
 .pi/
 
+# Another agent harness's local settings, same class as `.pi/`: tool state, not the application.
+.commandcode/
+
 node_modules/
 .next/
 out/
