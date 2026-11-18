@@ -1,6 +1,8 @@
 # ADR 0026 - Phone chrome, one card frame and the homepage order
 
-- **Status:** accepted (owner direction, 2026-11-05)
+- **Status:** accepted (owner direction, 2026-11-05); **decision 3 amended by
+  [ADR 0043](./0043-support-rail-provider-colours.md) (2026-11-19)** - the rail's Facebook button became
+  Messenger, the key is now `support.messenger_url`, and each disc wears its own provider's colour
 - **Supersedes:** the "no drawer on a phone" ruling of
   [ADR 0020](./0020-storefront-launch-presentation.md), and the 5:4 homepage card frame recorded there
 - **Scope:** storefront presentation, two owner settings keys, and one narrow read endpoint. No schema
@@ -34,10 +36,11 @@ decisions, so they are recorded here rather than as a silent edit.
 
 3. **A floating cart box and a support rail, both server-driven.** The cart box sits at the right edge
    and states the item count and - when every line can be priced - the subtotal. The support rail sits
-   above the tab bar with a Facebook and a WhatsApp button whose addresses are the owner's
-   `store_setting` values (`support.facebook_url`, `support.whatsapp_url`, edited at Settings →
-   Support links). **A link that is not set renders no button**, both are validated as absolute `https`
-   addresses, and both open in a new tab with `rel="noopener noreferrer"`.
+   above the tab bar with a Messenger and a WhatsApp button whose addresses are the owner's
+   `store_setting` values (`support.messenger_url`, `support.whatsapp_url`, edited at Settings →
+   Support links; the Facebook key and its button were replaced on 2026-11-19 by ADR 0043, which also put
+   each disc in its own provider's colour). **A link that is not set renders no button**, both are
+   validated as absolute `https` addresses, and both open in a new tab with `rel="noopener noreferrer"`.
 
 4. **Homepage order and headings.** Hero, Shop By Category, Shop By Brand, On Offer, Most Selling,
    Recently Added, More To Explore. Every section heading is centred and title-cased with at most one link

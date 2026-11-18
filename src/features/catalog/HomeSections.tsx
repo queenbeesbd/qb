@@ -81,7 +81,7 @@ export function HomeView({
    * The owner's support links, resolved server-side on the homepage only. A link that is not set is
    * `null` and renders no button.
    */
-  support: { facebookUrl: string | null; whatsappUrl: string | null };
+  support: { messengerUrl: string | null; whatsappUrl: string | null };
 }) {
   const { t } = useTranslation();
 
@@ -219,7 +219,7 @@ export function HomeView({
         browsing the shop can reach the owner, but the two outbound links do not follow every product
         page where they competed with the buy action.
       */}
-      <SupportButtons facebookUrl={support.facebookUrl} whatsappUrl={support.whatsappUrl} />
+      <SupportButtons messengerUrl={support.messengerUrl} whatsappUrl={support.whatsappUrl} />
     </div>
   );
 }

@@ -1,9 +1,11 @@
 /**
- * The storefront's two support links: Facebook and WhatsApp.
+ * The storefront's two support links: Messenger and WhatsApp.
  *
- * Stored in the existing `store_setting` key/value table, so this needs **no schema change and no
- * migration**. The keys are the whole policy: an empty value means the button is not rendered - a
- * support button that goes nowhere would be worse than no button at all.
+ * Stored in the existing `store_setting` key/value table, so this needs **no schema change** - only
+ * the data migration `0035_support_messenger_link` that carries an owner's saved Facebook address
+ * over to the Messenger key, so a deploy does not silently drop the button the shop already had. The
+ * keys are the whole policy: an empty value means the button is not rendered - a support button that
+ * goes nowhere would be worse than no button at all.
  *
  * **The value is a URL, and only ever a URL.** It is validated as an absolute `https` address with a
  * real host before it is stored, and it is rendered as an `href` on a fixed, owner-controlled control.
@@ -19,7 +21,7 @@ import { PERMISSIONS } from '@/server/authz/permissions';
 import { requirePermission, ValidationError, type ActorContext } from '@/server/authz/authorize';
 import { recordAudit } from '@/server/auth/audit';
 
-export const SUPPORT_FACEBOOK_URL_KEY = 'support.facebook_url';
+export const SUPPORT_MESSENGER_URL_KEY = 'support.messenger_url';
 export const SUPPORT_WHATSAPP_URL_KEY = 'support.whatsapp_url';
 
 /** Long enough for a `wa.me` link carrying a prefilled message, short enough to stay a URL. */
@@ -27,11 +29,11 @@ export const SUPPORT_URL_MAX = 400;
 
 export type SupportLinks = {
   /** `null` when the owner has not set one. Never an invented default. */
-  readonly facebookUrl: string | null;
+  readonly messengerUrl: string | null;
   readonly whatsappUrl: string | null;
 };
 
-const EMPTY: SupportLinks = { facebookUrl: null, whatsappUrl: null };
+const EMPTY: SupportLinks = { messengerUrl: null, whatsappUrl: null };
 
 function asUrl(value: unknown): string | null {
   if (typeof value !== 'string') return null;
@@ -74,17 +76,17 @@ export async function loadSupportLinks(tx: Transaction): Promise<SupportLinks> {
   const rows = await tx
     .select({ key: storeSetting.key, value: storeSetting.value })
     .from(storeSetting)
-    .where(sql`${storeSetting.key} in (${SUPPORT_FACEBOOK_URL_KEY}, ${SUPPORT_WHATSAPP_URL_KEY})`);
+    .where(sql`${storeSetting.key} in (${SUPPORT_MESSENGER_URL_KEY}, ${SUPPORT_WHATSAPP_URL_KEY})`);
 
   if (rows.length === 0) return EMPTY;
 
-  let facebookUrl: string | null = null;
+  let messengerUrl: string | null = null;
   let whatsappUrl: string | null = null;
   for (const row of rows) {
-    if (row.key === SUPPORT_FACEBOOK_URL_KEY) facebookUrl = asUrl(row.value);
+    if (row.key === SUPPORT_MESSENGER_URL_KEY) messengerUrl = asUrl(row.value);
     if (row.key === SUPPORT_WHATSAPP_URL_KEY) whatsappUrl = asUrl(row.value);
   }
-  return { facebookUrl, whatsappUrl };
+  return { messengerUrl, whatsappUrl };
 }
 
 /**
@@ -94,12 +96,12 @@ export async function loadSupportLinks(tx: Transaction): Promise<SupportLinks> {
 export async function saveSupportLinks(
   tx: Transaction,
   actor: ActorContext,
-  input: { readonly facebookUrl: unknown; readonly whatsappUrl: unknown },
+  input: { readonly messengerUrl: unknown; readonly whatsappUrl: unknown },
 ): Promise<SupportLinks> {
   await requirePermission(actor, PERMISSIONS.settingsWrite, 'store_setting', 1);
 
   const next: SupportLinks = {
-    facebookUrl: parseSupportUrl(input.facebookUrl, 'Facebook'),
+    messengerUrl: parseSupportUrl(input.messengerUrl, 'Messenger'),
     whatsappUrl: parseSupportUrl(input.whatsappUrl, 'WhatsApp'),
   };
 
@@ -109,8 +111,8 @@ export async function saveSupportLinks(
     .insert(storeSetting)
     .values([
       {
-        key: SUPPORT_FACEBOOK_URL_KEY,
-        value: next.facebookUrl ?? '',
+        key: SUPPORT_MESSENGER_URL_KEY,
+        value: next.messengerUrl ?? '',
         valueType: 'text',
         updatedByStaffId: actor.staffUserId,
       },

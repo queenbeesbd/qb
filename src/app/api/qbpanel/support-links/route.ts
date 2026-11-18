@@ -1,5 +1,5 @@
 /**
- * POST /api/qbpanel/support-links - save the storefront's Facebook and WhatsApp links.
+ * POST /api/qbpanel/support-links - save the storefront's Messenger and WhatsApp links.
  *
  * One operation, one permission: `settings.write`, which is owner-level in the catalogue. The route
  * checks the session, CSRF and origin; the service re-checks the permission and validates both URLs as
@@ -42,7 +42,7 @@ export async function POST(request: Request): Promise<Response> {
   try {
     await withTransaction((tx) =>
       saveSupportLinks(tx, actor, {
-        facebookUrl: form.get('facebookUrl') ?? '',
+        messengerUrl: form.get('messengerUrl') ?? '',
         whatsappUrl: form.get('whatsappUrl') ?? '',
       }),
     );

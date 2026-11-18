@@ -22,16 +22,18 @@ const ERROR_NOTICES: readonly SupportNotice[] = ['denied', 'invalid'];
  *
  * Two addresses, one form. Each field is optional and a blank one removes its button, which is stated
  * on the page: an empty support button is worse than none, so the shop does not render what it cannot
- * link to.
+ * link to. The Messenger field asks for an `m.me` address, because that is the link that opens a chat
+ * with the shop; a Facebook page address opens a page to read, which is what this button used to do and
+ * what the owner replaced it to stop doing (2026-11-19).
  */
 export function SupportSettingsView({
-  facebookUrl,
+  messengerUrl,
   whatsappUrl,
   notice,
   csrfToken,
   maxLength,
 }: {
-  facebookUrl: string | null;
+  messengerUrl: string | null;
   whatsappUrl: string | null;
   notice: SupportNotice | null;
   csrfToken: string;
@@ -52,21 +54,21 @@ export function SupportSettingsView({
       <form className={styles.form} action="/api/qbpanel/support-links" method="post">
         <input type="hidden" name="csrf" value={csrfToken} />
 
-        <section className={styles.formCard} aria-labelledby="support-facebook">
+        <section className={styles.formCard} aria-labelledby="support-messenger">
           <div className={styles.formCardHead}>
-            <h2 id="support-facebook">{t('admin.support.facebookTitle')}</h2>
-            <p>{t('admin.support.facebookBody')}</p>
+            <h2 id="support-messenger">{t('admin.support.messengerTitle')}</h2>
+            <p>{t('admin.support.messengerBody')}</p>
           </div>
           <div className={styles.field}>
-            <label htmlFor="facebookUrl">{t('admin.support.facebookField')}</label>
+            <label htmlFor="messengerUrl">{t('admin.support.messengerField')}</label>
             <input
               className={styles.input}
-              id="facebookUrl"
-              name="facebookUrl"
+              id="messengerUrl"
+              name="messengerUrl"
               type="url"
               inputMode="url"
-              placeholder="https://www.facebook.com/your-page"
-              defaultValue={facebookUrl ?? ''}
+              placeholder="https://m.me/your-page"
+              defaultValue={messengerUrl ?? ''}
               maxLength={maxLength}
             />
             <p className={styles.hint}>{t('admin.support.urlHelp')}</p>

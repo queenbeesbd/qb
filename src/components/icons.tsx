@@ -184,14 +184,19 @@ export function SparkIcon(props: IconProps) {
 }
 
 /**
- * Facebook. The 'f' glyph only - no wordmark, no brand blue: the button's colour comes from this
- * site's own tokens, and the mark identifies the destination rather than importing another palette.
+ * Messenger. The chat bubble with the lightning bolt inside it - the mark Meta uses for the messaging
+ * app. The Facebook 'f' was the wrong destination and the wrong promise: a page to read, not a person
+ * who answers.
+ *
+ * Drawn as an outline with a filled bolt, in the same stroke weight as the WhatsApp handset beside it,
+ * and its colour comes from the button's own token (`--messenger-blue`), never from the icon.
  */
-export function FacebookIcon(props: IconProps) {
+export function MessengerIcon(props: IconProps) {
   return (
     <svg {...base} {...props}>
+      <path d="M20.5 11.6c0 4.2-3.8 7.6-8.5 7.6-.9 0-1.8-.1-2.6-.4l-4.4 2.2 1-3.5c-1.4-1.4-2.2-3.3-2.2-5.4 0-4.2 3.8-7.6 8.5-7.6s8.2 3.4 8.2 7.1Z" />
       <path
-        d="M14.5 7.5h2.2V4.6h-2.6c-2.2 0-3.7 1.5-3.7 3.8v1.8H8.2v3h2.2V21h3.2v-7.8h2.5l.4-3h-2.9V8.7c0-.8.3-1.2 1.4-1.2Z"
+        d="M12.9 8.1 9.3 12.4h2.1l-.4 3.5 3.6-4.3h-2.2l.5-3.5Z"
         fill="currentColor"
         stroke="none"
       />

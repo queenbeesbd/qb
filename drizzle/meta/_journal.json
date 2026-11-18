@@ -246,6 +246,13 @@
       "when": 1794946529666,
       "tag": "0034_slimy_timeslip",
       "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1795034565890,
+      "tag": "0035_support_messenger_link",
+      "breakpoints": true
     }
   ]
 }

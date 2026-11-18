@@ -1,10 +1,22 @@
 /* ---------------------------------------------------------------------------
- * Support links (Facebook, WhatsApp)
+ * Support links (WhatsApp, Messenger)
  *
  * Fixed to the **bottom-right** corner at every width (owner direction, 2026-11-05), clear of the phone
  * tab bar and of the device's home-indicator inset. The basket is centred on the same right edge
  * halfway up, so the two never meet: mid-height belongs to the cart, the corner to support. Two 44px
  * circles - the smallest size that is still a comfortable thumb target.
+ *
+ * **Each disc wears its own provider's colour** (owner direction, 2026-11-19). The 2026-11-05 ruling
+ * was the opposite - both discs in the shop's lavender, "so the rail reads as part of the shop rather
+ * than as a third brand colour" - and it is reversed because the question these two icons answer is
+ * "which app do I reach the shop on", not "is this QueenBee's". Colour answers that question before a
+ * 20px glyph is resolved, and a WhatsApp green and a Messenger blue are the two most recognised brand
+ * colours in a Bangladeshi phone's dock.
+ *
+ * **The mark stays ink on both.** The field is the provider's, the mark is legible: white on #25d366 is
+ * 1.98:1 and on #0084ff 3.66:1 - the first is unreadable, the second is under the 4.5:1 a small glyph
+ * wants - while ink is 8.53:1 and 4.63:1. That is the same pair the product page's "Order on WhatsApp"
+ * control uses, so the shop now has exactly one answer to "what colour is a provider's own button".
  * ------------------------------------------------------------------------- */
 
 .rail {
@@ -18,9 +30,9 @@
 }
 
 /*
- * Filled with the brand (owner direction, 2026-11-05): the owner's light lavender field with ink marks
- * (9.3:1). White on it would be 1.81:1, so the glyph is ink; it is the same field and ink as every
- * filled control, so the rail reads as part of the shop rather than as a third brand colour.
+ * The shared shape. The lavender field is the **fallback**, not the design: a channel added to this
+ * rail without its own colour token still renders as the shop's own control instead of a white hole.
+ * The ink glyph is stated once here, because it is the same on every disc.
  */
 .button {
   display: inline-flex;
@@ -33,15 +45,35 @@
   background: var(--color-button);
   color: var(--color-button-ink);
   box-shadow: var(--shadow-sm);
-  transition: background var(--transition-fast), color var(--transition-fast),
-    border-color var(--transition-fast), transform 120ms var(--ease-out-ui);
+  transition: filter var(--transition-fast), transform 120ms var(--ease-out-ui);
 }
 
-.button:hover,
+.button[data-kind='whatsapp'] {
+  border-color: var(--whatsapp-green);
+  background: var(--whatsapp-green);
+}
+
+.button[data-kind='messenger'] {
+  border-color: var(--messenger-blue);
+  background: var(--messenger-blue);
+}
+
+/*
+ * Hover lightens rather than deepens, which is the opposite of the lavender controls and the right way
+ * round here: both brand fields are already saturated, and a step darker would push the ink glyph on
+ * the blue under 4.5:1 exactly when the customer is aiming at it.
+ */
+.button:hover {
+  filter: brightness(1.06);
+}
+
+/*
+ * Keyboard focus is the shop's own ring, not a second colour change: the disc cannot darken without
+ * costing the glyph its contrast, so focus has to be visible some other way.
+ */
 .button:focus-visible {
-  background: var(--color-button-hover);
-  border-color: var(--color-button-hover);
-  color: var(--color-button-ink);
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
 }
 
 .button:active {

@@ -1186,11 +1186,17 @@ subtotal when every line can be priced; the prices come from `GET /api/cart/pric
 cookie, unit prices from the database) and are multiplied by the browser's quantities for display only -
 the order transaction recomputes every line.
 
-**A support rail** sits in the bottom-right corner, clear of the tab bar, with a Facebook and a WhatsApp button, drawn as our own outlined
-marks in white on that same `--brand-primary-deep` fill (never the providers' brand colours, never white
-on the lighter lavender). Their addresses are the owner's `store_setting`
-values, edited at Settings -> Support links: a blank field renders **no button**, and both are validated as
-absolute `https` URLs at save time. They open in a new tab with `rel="noopener noreferrer"`.
+**A support rail** sits in the bottom-right corner, clear of the tab bar, with a **Messenger** and a
+**WhatsApp** button. Each disc is filled with **its own provider's colour** - `--whatsapp-green` (#25d366),
+`--messenger-blue` (#0084ff) - and the mark is **ink on both** (8.53:1 and 4.63:1): white on the green is
+1.98:1 and on the blue 3.66:1, so the provider supplies the field and the shop keeps the legible mark
+(owner direction, 2026-11-19; ADR 0043 reversed the 2026-11-05 "both filled with the brand" ruling, and
+Facebook became Messenger because a page to read is not a person who answers). A provider colour is used
+only for that provider's own channel and never carries meaning - the shop's good outcome is
+`--color-success`, and the two are not interchangeable. Their addresses are the owner's `store_setting`
+values (`support.messenger_url`, `support.whatsapp_url`), edited at Settings -> Support links: a blank
+field renders **no button**, and both are validated as absolute `https` URLs at save time. They open in a
+new tab with `rel="noopener noreferrer"`.
 
 **Homepage order and headings.** Hero, Shop By Category, Shop By Brand, On Offer, Most Selling, Recently
 Added, More To Explore. Every section heading is centred and title-cased, with at most one link into its

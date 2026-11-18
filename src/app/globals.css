@@ -62,12 +62,18 @@
   --color-warning: #755100;
   --color-warning-soft: #fdf3e2;
   /*
-   * WhatsApp's own brand green, used in exactly one place: the mark beside the Business WhatsApp number
-   * on the checkout payment card (owner direction, 2026-11-10). It is a *provider's* colour, not ours,
-   * so it never appears on a button, a badge or a state - the shop's own green for a good outcome is
-   * --color-success, and the two are not interchangeable.
+   * The two providers' own colours, and the narrow rule that keeps them from becoming a third palette:
+   * a provider colour is used **only for that provider's own channel** - the floating support rail
+   * (WhatsApp and Messenger, owner direction 2026-11-19) and the "Order on WhatsApp" control on a
+   * product page. Neither ever carries meaning: the shop's own green for a good outcome is
+   * --color-success and the shop's own blue does not exist, so a provider colour on a badge, a status
+   * or a chart series would be a lie about what it says.
+   *
+   * Both are paired with **ink**, never white: white on #25d366 is 1.98:1 and on #0084ff 3.66:1, while
+   * ink is 8.53:1 and 4.63:1. That is the same answer the product page's WhatsApp button already gives.
    */
   --whatsapp-green: #25d366;
+  --messenger-blue: #0084ff;
 
   /*
    * Categorical chart ramp.

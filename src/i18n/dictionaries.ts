@@ -224,7 +224,7 @@ export const dictionary = {
   'cart.totalNote': 'Excludes delivery — no charge is taken.',
   'cart.repeatDiscount': 'Repeat customer discount ({percent}%)',
   'cart.lineUnavailable': 'cannot be ordered right now',
-  'support.facebook': 'Open our Facebook page',
+  'support.messenger': 'Message us on Messenger',
   'support.whatsapp': 'Message us on WhatsApp',
   'cartBox.label': 'Cart: {count} items',
   'cartBox.labelWithTotal': 'Cart: {count} items, {total}',
@@ -362,7 +362,7 @@ export const dictionary = {
     'The shop has not published a phone number, opening hours or an address yet.',
   'help.contact.links': 'Message the shop',
   'help.contact.linksBody': 'The shop’s own support channels.',
-  'help.contact.facebook': 'Facebook',
+  'help.contact.messenger': 'Messenger',
   'help.contact.whatsapp': 'WhatsApp',
   'help.contact.noLinks':
     'No support channel is published yet, so there is nothing here to open. Please try again later.',
@@ -433,11 +433,11 @@ export const dictionary = {
   'admin.nav.delivery': 'Delivery charges',
   'admin.support.title': 'Support links',
   'admin.support.body':
-    'The Facebook and WhatsApp buttons shown at the right edge of the storefront. Leave a field blank to hide that button.',
-  'admin.support.facebookTitle': 'Facebook',
-  'admin.support.facebookBody':
-    'The shop’s own page. It opens in a new tab, so the address must be the public page URL.',
-  'admin.support.facebookField': 'Facebook page address',
+    'The Messenger and WhatsApp buttons shown at the right edge of the storefront. Leave a field blank to hide that button.',
+  'admin.support.messengerTitle': 'Messenger',
+  'admin.support.messengerBody':
+    'An m.me link, so the button opens a chat with the shop rather than a page to read. It opens in a new tab.',
+  'admin.support.messengerField': 'Messenger link',
   'admin.support.whatsappTitle': 'WhatsApp',
   'admin.support.whatsappBody':
     'A wa.me link, or any https address that opens a conversation with the shop.',

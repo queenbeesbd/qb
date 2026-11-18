@@ -146,7 +146,7 @@ export default async function AdminShellLayout({ children }: { children: React.R
       group: 'settings',
       icon: 'list',
     });
-    // The two floating support buttons' addresses: the shop's own Facebook and WhatsApp.
+    // The two floating support buttons' addresses: the shop's own Messenger and WhatsApp.
     items.push({
       href: SUPPORT_SETTINGS_PATH,
       labelKey: 'admin.nav.support',

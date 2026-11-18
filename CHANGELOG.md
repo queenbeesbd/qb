@@ -14,6 +14,48 @@ An entry may describe a deployment only once it has actually happened and been o
 
 ## [Unreleased]
 
+### Changed - 2026-11-19: the support rail wears the providers' colours, and Facebook became Messenger
+
+The owner asked for the two floating support buttons to carry **each channel's own brand colour** - "like
+WhatsApp, its green" - and to replace the Facebook button with **Messenger**. The rail was two lavender
+discs with ink marks, on a 2026-11-05 ruling that it should read as part of the shop rather than as a third
+brand colour; ADR 0043 reverses exactly that half and keeps everything else (bottom-right corner, 44px,
+inert when a link is empty, `rel="noopener noreferrer"`).
+
+- **Two colours, one per channel.** `--whatsapp-green` (#25d366, already used by the product page's
+  "Order on WhatsApp" button) and a new `--messenger-blue` (#0084ff). A provider colour is used **only for
+  that provider's own channel** and never carries meaning; the lavender fill survives as the **fallback**
+  in the shared rule, so a channel added without its own token renders as a shop control rather than a hole.
+- **The mark is ink on both, never white.** White on #25d366 is **1.98:1** and on #0084ff **3.66:1**; ink is
+  **8.53:1** and **4.63:1**. The white-glyph versions the providers ship were refused because keeping them
+  legible would force the fields to #128c7e and #006aff - not the colours the owner pointed at. This is the
+  same pair the product page's WhatsApp order control already uses, so the shop has one rule for it.
+- **Hover lightens (`brightness(1.06)`) instead of deepening**, because a step darker pushes the ink glyph
+  on the blue under 4.5:1 exactly while the customer is aiming at it. Keyboard focus is now the shop's 2px
+  `--color-focus` ring - the rail had none.
+- **Facebook is removed rather than kept beside Messenger.** `FacebookIcon` is deleted,
+  `support.facebook_url` is now `support.messenger_url`, and the admin field asks for an `m.me` address
+  and says why: a page is something to read, Messenger is the app that answers. The contact page's channel
+  list and its copy follow the same rename.
+- **Migration `0035_support_messenger_link` carries a stored value only when it is already a Messenger
+  address**, then removes the old key. `https://www.facebook.com/<page>` opens a page and
+  `https://m.me/<page>` opens a chat, so copying it would have put a Messenger-blue disc on a link that
+  lands somewhere else. **The owner pastes their `m.me` link once at Settings -> Support links**; until
+  then the rail shows WhatsApp alone, which the admin field states.
+
+Verified against a real production build in headless Chromium. At 390x844 the rail measured
+`rgb(0, 132, 255)` and `rgb(37, 211, 102)` fields with an `rgb(32, 26, 41)` glyph on both, 44x44 each,
+zero Facebook nodes anywhere in the document, no horizontal overflow; hover measured
+`filter: brightness(1.06)`; the 1280px shot carries the same pair in the page corner. `/contact` renders
+"Messenger" and "WhatsApp" and no "Facebook"; `/qbpanel/settings/support` still answers the sign-in redirect
+unauthenticated. The migration was exercised directly against the local cluster: a Facebook page address
+was **not** carried over and its key went, an `m.me` address was carried verbatim, and a re-run did not
+overwrite an existing messenger row. `typecheck` clean, `lint` **0 errors** (24 pre-existing warnings),
+`check:i18n` 1,994 keys, unit **329/329**, `db:validate` 55 tables / 225 checks, `db:check` clean,
+`build` success. **Not run:** `verify:browser` / `verify:admin` (phase-checkpoint suites), and the admin
+Support links form was not driven in a browser - its field name, id and label were checked against the route
+by inspection only.
+
 ### Changed - 2026-11-19: the "Added to cart" panel's button is the shop's purple, not black
 
 The owner photographed the cart confirmation on a phone: the **View cart** button inside the lavender

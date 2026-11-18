@@ -24,7 +24,7 @@ export default async function ContactPage() {
   }));
 
   const hasFacts = !isEmptyContact(contact);
-  const hasLinks = links.facebookUrl !== null || links.whatsappUrl !== null;
+  const hasLinks = links.messengerUrl !== null || links.whatsappUrl !== null;
 
   return (
     <div className={styles.page}>
@@ -69,10 +69,10 @@ export default async function ContactPage() {
           </h2>
           <p className={styles.body}>{translate('help.contact.linksBody')}</p>
           <ul className={styles.linkList}>
-            {links.facebookUrl !== null && (
+            {links.messengerUrl !== null && (
               <li>
-                <a href={links.facebookUrl} target="_blank" rel="noopener noreferrer">
-                  {translate('help.contact.facebook')}
+                <a href={links.messengerUrl} target="_blank" rel="noopener noreferrer">
+                  {translate('help.contact.messenger')}
                 </a>
               </li>
             )}

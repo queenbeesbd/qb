@@ -19,8 +19,9 @@ function readNotice(value: string | string[] | undefined): SupportNotice | null 
  * Settings -> Support links.
  *
  * Requires `settings.write`, which is owner-level in the catalogue. The page reads the two saved
- * addresses; every write goes through the guarded `/api/qbpanel/support-links` route and its
- * service-level re-check. An empty field means the button is not shown on the storefront at all.
+ * addresses - a **Messenger** link (`https://m.me/...`) and a **WhatsApp** link - and every write goes
+ * through the guarded `/api/qbpanel/support-links` route and its service-level re-check. An empty
+ * field means the button is not shown on the storefront at all.
  */
 export default async function SupportSettingsPage({
   searchParams,
@@ -33,7 +34,7 @@ export default async function SupportSettingsPage({
 
   return (
     <SupportSettingsView
-      facebookUrl={links.facebookUrl}
+      messengerUrl={links.messengerUrl}
       whatsappUrl={links.whatsappUrl}
       notice={readNotice(params.notice)}
       csrfToken={principal.csrfToken}
