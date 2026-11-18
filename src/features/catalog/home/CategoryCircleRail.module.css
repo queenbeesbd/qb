@@ -76,19 +76,22 @@
  * "this department has no photograph yet" without dressing it up.
  */
 
+/*
+ * One line that never breaks a word (2026-11-11). The phone row draws five columns (~62px), and
+ * `overflow-wrap: anywhere` answered "Accessories" by splitting it into "Accessor ies" - a break the
+ * column itself forces, with no signal that the word was cut. A single clamped line marks the tail
+ * with an ellipsis and draws the same label the brand index already draws; to make the ellipsis reach
+ * the column's edge in the grid, the item must be allowed to shrink (`min-width: 0`).
+ */
 .name {
   font-size: var(--text-xs);
   font-weight: 700;
   line-height: 1.25;
-  overflow-wrap: anywhere;
-  /*
-   * Two lines always, so every label reserves the same height and the rail scans in one movement.
-   */
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
+  min-width: 0;
+  max-width: 100%;
   overflow: hidden;
-  min-height: 2.5em;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 @media (min-width: 720px) {

@@ -82,17 +82,20 @@
  * a set rather than as missing images. The plate is a step, not a decoration: no ring, no shadow.
  */
 
+/*
+ * One line that never breaks a word (2026-11-11): the same label draw the category rail and the
+ * brand index use. `overflow-wrap: anywhere` split single words ("Mamaear th") on the desktop's
+ * 104px columns; an ellipsis on one line keeps the name's start readable and marks what was cut.
+ */
 .name {
   font-size: var(--text-xs);
   font-weight: 700;
   line-height: 1.25;
-  overflow-wrap: anywhere;
-  /* Two lines always, so every label reserves the same height and the rail scans in one movement. */
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
+  min-width: 0;
+  max-width: 100%;
   overflow: hidden;
-  min-height: 2.5em;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 @media (min-width: 720px) {

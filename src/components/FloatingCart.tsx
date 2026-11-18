@@ -23,6 +23,10 @@ import styles from './FloatingCart.module.css';
  * subtotal that would be a different number from the checkout. That is the honest failure, and it also
  * keeps this component from ever inventing a total.
  *
+ * **It is drawn only when there is something in the cart** (2026-11-11): with zero items it renders
+ * nothing - the header cart icon and the bottom tab bar already reach the cart, and a "0 Items" box
+ * pinned to the right edge mid-screen only covered the brand and product imagery behind it.
+ *
  * **It is not drawn on `/cart` or `/checkout`** (2026-11-05): those pages already state the count and the
  * money, so the box only repeated them - and, being pinned to the right edge mid-screen, it covered the
  * order summary it was repeating on a 360px phone.
@@ -36,6 +40,12 @@ export function FloatingCart() {
   // The cart page and checkout already state the count and the money; the account hub has its own
   // rail and the box would sit across it at mid-screen.
   if (pathname === '/cart' || pathname === '/checkout' || pathname.startsWith('/account')) {
+    return null;
+  }
+
+  // An empty basket draws nothing: no count, no box, no imagery covered. The header cart icon and
+  // the tab bar are the way to the cart when there is nothing in it.
+  if (itemCount < 1) {
     return null;
   }
 
