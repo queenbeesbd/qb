@@ -14,6 +14,28 @@ An entry may describe a deployment only once it has actually happened and been o
 
 ## [Unreleased]
 
+### Changed - 2026-11-18: the proof field speaks English, and three phone surfaces are corrected
+
+The checkout field's label was the owner's own Bangla line (`Payment ss সংযুক্ত করুন`); the owner asked
+for a full English one, so it now reads **Add your payment proof screenshot** with **Optional** beside
+it, from the dictionary like every other interface string. `PAYMENT_PROOF_LABEL` was deleted rather
+than left as a second source. The rest of `src/data/payment-instructions.ts` keeps the owner's printed
+Bangla notice and send-money caution verbatim: those are the shop's own instruction text, not interface
+copy, and they are on `check:i18n`'s data allowlist.
+
+Three uncommitted phone-surface corrections were verified and committed with it. `overflow-wrap:
+anywhere` split "Accessories" into "Accessor ies" on the 62px rails; all three label draws now clamp to
+one ellipsised line, and measured truncation with `white-space: nowrap` and no overflow at 390px. The
+floating cart no longer draws with an empty basket (0 nodes empty, 4 nodes showing "2 Items / Tk 1,500"
+with a line). And two CSS corrections: `table.sr-only { table-layout: fixed }` - an auto-layout sr-only
+chart table measured 264px against 6px fixed, so it could widen a 390px phone - and the 404's reveal
+rules scoped to its own `.page`, since they were global.
+
+Verified: `typecheck`, `lint` (0 errors, 24 pre-existing warnings), `check:i18n` (1,995 keys),
+`check:catalog`, `build`, unit **329/329**; in headless Chromium the checkout label reads "Add your
+payment proof screenshot Optional" at 390px with no horizontal overflow, the 404 still reveals on scroll
+(25 items, 15 pending on load, all shown), and the discovery rails truncate rather than break a word.
+
 ### Fixed - 2026-11-18: the payment screenshot actually reached production
 
 The checkout field was committed, but never deployed. Three builds in a row (`af312a5`, `f9fe4a2`,
