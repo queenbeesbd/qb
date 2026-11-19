@@ -3,15 +3,13 @@
 import Link from 'next/link';
 
 import { useTranslation } from '@/i18n/useTranslation';
-import { buildQueryHref } from '@/lib/qbpanel-query';
 import { AdminIcon } from '../../_ui/icons';
 import { ConfirmSubmit } from '../../_ui/ConfirmSubmit';
 import { EmptyState } from '../../_ui/EmptyState';
-import { FilterTabs, ListSearch, ListToolbar } from '../../_ui/ListToolbar';
+import { ListSearch, ListToolbar } from '../../_ui/ListToolbar';
 import { Notice } from '../../_ui/Notice';
 import { PageHeader } from '../../_ui/PageHeader';
 import { Pagination } from '../../_ui/Pagination';
-import { StatusPill } from '../../_ui/StatusPill';
 import styles from '../../qbpanel.module.css';
 import { CATEGORY_NOTICE_ERRORS, CATEGORY_NOTICE_KEYS, type CategoryNotice } from './notices';
 
@@ -23,15 +21,11 @@ export type CategoryRow = {
   descriptionBn: string | null;
   descriptionEn: string | null;
   sortOrder: number;
-  isVisible: boolean;
   parentId: number | null;
   parentNameEn: string | null;
   productCount: number;
   subcategoryCount: number;
 };
-
-/** The visibility filter. `all` is the unfiltered list, not a third state on a category. */
-export type CategoryVisibilityFilter = 'all' | 'visible' | 'hidden';
 
 /**
  * The category list.
@@ -50,7 +44,6 @@ export function CategoriesView({
   canManage,
   csrfToken,
   search,
-  visibility,
   total,
   page,
   pageCount,
@@ -63,7 +56,6 @@ export function CategoriesView({
   canManage: boolean;
   csrfToken: string;
   search: string;
-  visibility: CategoryVisibilityFilter;
   total: number;
   page: number;
   pageCount: number;
@@ -73,18 +65,12 @@ export function CategoriesView({
 }) {
   const { t } = useTranslation();
   const noticeIsError = notice !== null && CATEGORY_NOTICE_ERRORS.includes(notice);
-  const filtering = search !== '' || visibility !== 'all';
+  const filtering = search !== '';
 
   /*
    * Every list link is built from the same state and none of them carries `page`, so changing what is
    * shown returns to page 1 rather than an empty later page.
    */
-  const href = (next: { q?: string; visibility?: string }): string =>
-    buildQueryHref('/qbpanel/categories', {
-      q: next.q ?? search,
-      visibility: (next.visibility ?? visibility) === 'all' ? '' : (next.visibility ?? visibility),
-      size: size === defaultSize ? '' : size,
-    });
 
   return (
     <>
@@ -104,26 +90,18 @@ export function CategoriesView({
 
       <section className={styles.section} aria-label={t('admin.categories.title')}>
         <ListToolbar>
-          <FilterTabs
-            label={t('admin.categories.filterLabel')}
-            active={visibility}
-            options={[
-              { value: 'all', label: t('admin.common.all'), href: href({ visibility: 'all' }) },
-              { value: 'visible', label: t('admin.categories.visible'), href: href({ visibility: 'visible' }) },
-              { value: 'hidden', label: t('admin.categories.hidden'), href: href({ visibility: 'hidden' }) },
-            ]}
-          />
-
+          {/*
+            One search field and no state filter: a category is always visible (owner direction,
+            2026-11-19), so a "visible / hidden" pair would be a control over a state nothing can set.
+            Archiving is what removes a category, and the list already excludes archived rows.
+          */}
           <ListSearch
             action="/qbpanel/categories"
             id="category-search"
             label={t('admin.categories.searchLabel')}
             placeholder={t('admin.categories.searchPlaceholder')}
             value={search}
-            hidden={{
-              visibility: visibility === 'all' ? '' : visibility,
-              size: size === defaultSize ? '' : String(size),
-            }}
+            hidden={{ size: size === defaultSize ? '' : String(size) }}
             clearHref={clearHref}
             dirty={filtering}
             live
@@ -173,9 +151,6 @@ export function CategoriesView({
                   </span>
                 </div>
                 <div className={styles.recordSide}>
-                  <StatusPill tone={category.isVisible ? 'success' : 'neutral'}>
-                    {category.isVisible ? t('admin.categories.visible') : t('admin.categories.hidden')}
-                  </StatusPill>
                   <div className={styles.recordActions}>
                     <Link className={styles.recordLink} href={`/qbpanel/categories/${category.id}`}>
                       {t('admin.categories.edit')}
@@ -206,7 +181,6 @@ export function CategoriesView({
             basePath="/qbpanel/categories"
             query={{
               q: search,
-              visibility: visibility === 'all' ? '' : visibility,
               size: size === defaultSize ? '' : String(size),
             }}
             page={page}

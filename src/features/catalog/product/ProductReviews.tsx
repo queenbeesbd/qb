@@ -16,6 +16,11 @@ export type ReviewListItem = {
   readonly createdAt: string;
   /** The photograph the customer attached, as our own asset key, or null. */
   readonly imageKey: string | null;
+  /**
+   * Where the words came from. **Only a `customer` review may be labelled "Verified buyer"**: that is a
+   * claim about a purchase, and a review the owner typed in from social media has none behind it.
+   */
+  readonly source: 'customer' | 'owner';
 };
 
 export type OwnReviewView = ReviewListItem & {
@@ -111,7 +116,15 @@ export function ProductReviews({
               size="md"
               label={t('product.ratingAria', { rating: formatRating(review.ratingHalves) })}
             />
-            <span className={styles.verified}>{t('product.reviews.verifiedBuyer')}</span>
+            {/*
+              **"Verified buyer" is a claim about a purchase** (owner direction, 2026-11-19), so it is
+              drawn only on a review a customer wrote from their own order. A review the owner typed in
+              from Facebook or WhatsApp has no account and no order behind it, and the schema refuses one
+              that names either - so it carries no label at all rather than a weaker one.
+            */}
+            {review.source === 'customer' && (
+              <span className={styles.verified}>{t('product.reviews.verifiedBuyer')}</span>
+            )}
           </div>
           <p className={styles.body}>{review.body}</p>
           {review.imageKey !== null && <ReviewPhoto imageKey={review.imageKey} />}

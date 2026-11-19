@@ -1,6 +1,6 @@
 # ADR 0035 - Product reviews, the owner's rating, and a review photograph
 
-**Status:** approved by the owner, 2026-11-10; the four-star default confirmed 2026-11-11. Implemented locally; nothing is deployed by this record.
+**Status:** approved by the owner, 2026-11-10; the four-star default confirmed 2026-11-11; **amended 2026-11-19** so the owner can publish reviews collected on social media. Implemented locally; nothing is deployed by this record.
 **Supersedes:** nothing. **Amends:** the honesty rule in `AGENTS.md` that forbids invented ratings, for
 one narrow and named case.
 
@@ -108,6 +108,34 @@ One optional image per review, attached at submission and covered by the immutab
 `review.moderate` gates the queue and its mutation. Publishing a customer's words on the shop's own page
 is a different act from editing the catalog, and a permission with no check behind it is a name, not an
 ability. It is not privileged: it asserts no money fact and changes who may act.
+
+## Amendment (2026-11-19) - the owner may write a review in
+
+Owner direction: most of this shop's reviews arrive on Facebook and WhatsApp, where nothing can be
+checked against an order, and the owner asked to be able to put those on the product page rather than
+leave every product looking unreviewed.
+
+`product_review` gains a **`source`**: `customer` (the buyer writing on the product page - every row
+before this change) or `owner` (typed into `/qbpanel/reviews` from words a customer left elsewhere).
+`customer_id` and `order_id` became nullable, and `product_review_provenance` binds them to the source
+in both directions: a customer review without its purchase is impossible, and an owner review that
+names a purchase is impossible too. That is the whole of the honesty protection - nothing had to be
+loosened for the customer path, and no rule here may be relaxed to make an imported review look earned.
+
+- An owner-written review is inserted **already `approved`** with the owner as `decided_by`, because the
+  owner is who published it. The existing `product_review_decision_complete` check therefore holds for
+  both sources with no special case, and the immutability trigger freezes its words and stars from the
+  moment it is written. There is still no edit and no delete.
+- **"Verified buyer" is drawn only for `source = 'customer'`.** The label is a claim about a purchase; a
+  row without one carries no label at all rather than a weaker one. This is the one visible difference on
+  the product page, and it is the reason the column exists.
+- The 10-1000 character bounds and the whole-star rating apply unchanged, from one shared module
+  (`src/lib/review-limits.ts`), so the composer's counter cannot promise room the save refuses.
+- The queue joins `customer` with a **LEFT** join: an inner join would silently drop every imported
+  review out of the list it was written in.
+
+Recorded with migration `0036_bumpy_absorbing_man` (schema 55 tables), four new database tests, and a
+Chromium check that both decisions render as one control scale.
 
 ## What this does not do
 

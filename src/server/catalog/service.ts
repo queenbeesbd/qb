@@ -426,7 +426,6 @@ export type CategoryInput = {
   readonly descriptionBn?: unknown;
   readonly descriptionEn?: unknown;
   readonly sortOrder?: unknown;
-  readonly isVisible?: unknown;
   /**
    * The owning department's id, or empty/null for a top-level category.
    *
@@ -470,12 +469,7 @@ export const CATEGORY_PAGE_SIZE = 25;
  */
 export async function listCategoriesForAdmin(
   tx: Transaction,
-  options: {
-    readonly search?: string;
-    readonly visibility?: 'visible' | 'hidden';
-    readonly limit?: number;
-    readonly offset?: number;
-  } = {},
+  options: { readonly search?: string; readonly limit?: number; readonly offset?: number } = {},
 ): Promise<{
   readonly rows: {
     id: number;
@@ -485,7 +479,6 @@ export async function listCategoriesForAdmin(
     descriptionBn: string | null;
     descriptionEn: string | null;
     sortOrder: number;
-    isVisible: boolean;
     parentId: number | null;
     parentNameEn: string | null;
     productCount: number;
@@ -494,11 +487,13 @@ export async function listCategoriesForAdmin(
   readonly total: number;
 }> {
   const search = options.search?.trim() ?? '';
-  const visibility = options.visibility ?? null;
-  const liveRows = sql`${category.deletedAt} is null
-          and (${visibility}::text is null
-               or (${visibility} = 'visible' and ${category.isVisible})
-               or (${visibility} = 'hidden' and not ${category.isVisible}))`;
+  /*
+   * **Every live category is visible** (owner direction, 2026-11-19). The editor stopped offering a
+   * visibility switch, so this read has no state filter to apply and no `isVisible` column in its
+   * projection: `is_visible` stays on the table because archiving sets it false, but nothing selects a
+   * category out by it any more.
+   */
+  const liveRows = sql`${category.deletedAt} is null`;
   const limit = Math.min(Math.max(options.limit ?? CATEGORY_PAGE_SIZE, 1), 100);
   const offset = Math.max(options.offset ?? 0, 0);
 
@@ -531,7 +526,6 @@ export async function listCategoriesForAdmin(
       descriptionBn: category.descriptionBn,
       descriptionEn: category.descriptionEn,
       sortOrder: category.sortOrder,
-      isVisible: category.isVisible,
       parentId: category.parentId,
       parentNameEn: sql<string | null>`(
         select parent."name_en" from "category" parent where parent."id" = "category"."parent_id"
@@ -597,7 +591,6 @@ export async function getCategoryForAdmin(
   descriptionBn: string | null;
   descriptionEn: string | null;
   sortOrder: number;
-  isVisible: boolean;
   parentId: number | null;
   parentNameEn: string | null;
   tagline: string | null;
@@ -617,7 +610,6 @@ export async function getCategoryForAdmin(
       descriptionBn: category.descriptionBn,
       descriptionEn: category.descriptionEn,
       sortOrder: category.sortOrder,
-      isVisible: category.isVisible,
       parentId: category.parentId,
       parentNameEn: sql<string | null>`(
         select parent."name_en" from "category" parent where parent."id" = "category"."parent_id"
@@ -657,7 +649,6 @@ export async function createCategory(
       descriptionBn: fields.descriptionBn,
       descriptionEn: fields.descriptionEn,
       sortOrder: fields.sortOrder,
-      isVisible: fields.isVisible,
       parentId: fields.parentId ?? null,
       tagline: fields.tagline ?? null,
     })
@@ -675,7 +666,6 @@ export async function createCategory(
     after: {
       slug: fields.slug,
       nameEn: fields.nameEn,
-      isVisible: fields.isVisible,
       parentId: fields.parentId ?? null,
     },
   });
@@ -699,7 +689,6 @@ export async function updateCategory(
       slug: category.slug,
       nameEn: category.nameEn,
       sortOrder: category.sortOrder,
-      isVisible: category.isVisible,
       parentId: category.parentId,
       deletedAt: category.deletedAt,
     })
@@ -719,7 +708,6 @@ export async function updateCategory(
       descriptionBn: fields.descriptionBn,
       descriptionEn: fields.descriptionEn,
       sortOrder: fields.sortOrder,
-      isVisible: fields.isVisible,
       // Absent means "leave it"; null is the explicit top-level choice.
       ...(fields.parentId === undefined ? {} : { parentId: fields.parentId }),
       // Only when the form supplied it: an absent field must not silently erase a line the owner wrote.
@@ -739,14 +727,12 @@ export async function updateCategory(
       slug: row.slug,
       nameEn: row.nameEn,
       sortOrder: row.sortOrder,
-      isVisible: row.isVisible,
       parentId: row.parentId,
     },
     after: {
       slug: fields.slug,
       nameEn: fields.nameEn,
       sortOrder: fields.sortOrder,
-      isVisible: fields.isVisible,
       parentId: fields.parentId === undefined ? row.parentId : fields.parentId,
     },
   });
@@ -817,7 +803,6 @@ async function normalizeCategoryInput(
   descriptionBn: string | null;
   descriptionEn: string | null;
   sortOrder: number;
-  isVisible: boolean;
   parentId: number | null | undefined;
   tagline: string | null | undefined;
 }> {
@@ -919,7 +904,6 @@ async function normalizeCategoryInput(
     descriptionBn: descriptionBn.value,
     descriptionEn: descriptionEn.value,
     sortOrder,
-    isVisible: input.isVisible === undefined ? true : parseVisibility(input.isVisible),
     parentId,
     tagline,
   };
@@ -938,12 +922,15 @@ export const PRODUCT_PAGE_SIZE = 25;
 
 export type ProductInput = {
   readonly slug?: unknown;
-  /** Optional since the owner's 2026-10-23 decision; blank stores null rather than the English name. */
-  readonly nameBn?: unknown;
   readonly nameEn: unknown;
-  readonly descriptionBn?: unknown;
+  /**
+   * The one long description, in English. The Bangla name, the Bangla description and the short
+   * description are **not** inputs any more (owner direction, 2026-11-19): the editor stopped drawing
+   * them, so this module stopped reading them, and an edit leaves whatever a product already carries
+   * untouched. A caller that passes those keys is not an error - the keys are simply not read - but
+   * nothing in this build writes them.
+   */
   readonly descriptionEn?: unknown;
-  readonly shortDescription?: unknown;
   readonly categoryId: unknown;
   readonly brandId: unknown;
   readonly packSize?: unknown;
@@ -955,7 +942,6 @@ export type ProductInput = {
   readonly compareAtPrice?: unknown;
   readonly sku?: unknown;
   readonly availability: unknown;
-  readonly isPublished?: unknown;
   /**
    * The rating the shop shows for this product, as the owner typed it ("4.5"). Blank stores the
    * default, **four out of five** (owner direction, 2026-11-11): every product carries a rating, and
@@ -1266,19 +1252,24 @@ export async function createProduct(
       slug: fields.slug,
       brandId: fields.brandId,
       categoryId: fields.categoryId,
-      nameBn: fields.nameBn,
       nameEn: fields.nameEn,
-      descriptionBn: fields.descriptionBn,
       descriptionEn: fields.descriptionEn,
-      shortDescription: fields.shortDescription,
       packSize: fields.packSize,
       deliveryChattogramMinor: fields.deliveryChattogramMinor,
       deliveryDhakaMinor: fields.deliveryDhakaMinor,
       deliveryOthersMinor: fields.deliveryOthersMinor,
       availability: fields.availability,
       ratingHalves: fields.ratingHalves,
-      isPublished: fields.isPublished,
-      publishedAt: fields.isPublished ? new Date() : null,
+      /*
+       * **A product the owner creates is live the moment it is saved** (owner direction, 2026-11-19).
+       * The Publication card asked the owner to make a second, separate decision about the same
+       * product, and the answer the form offered - hidden - is a state nobody wanted: the reference's
+       * editor has no such switch. Publication is now the act of saving. Taking a product off the shop
+       * is still deliberate and still exists, as the availability state (`in_stock` /
+       * `out_of_stock`), which is the switch the storefront's orderability gate reads.
+       */
+      isPublished: true,
+      publishedAt: new Date(),
     })
     .returning({ id: product.id });
   const productId = inserted[0]?.id;
@@ -1288,7 +1279,6 @@ export async function createProduct(
     productId,
     sku: fields.sku,
     isDefault: true,
-    labelBn: fields.nameBn,
     labelEn: fields.nameEn,
     priceMinor: fields.priceMinor,
     compareAtPriceMinor: fields.compareAtPriceMinor,
@@ -1313,7 +1303,6 @@ export async function createProduct(
       },
       availability: fields.availability,
       ratingHalves: fields.ratingHalves,
-      isPublished: fields.isPublished,
     },
   });
 
@@ -1358,21 +1347,21 @@ export async function updateProduct(
       slug: fields.slug,
       brandId: fields.brandId,
       categoryId: fields.categoryId,
-      nameBn: fields.nameBn,
       nameEn: fields.nameEn,
-      descriptionBn: fields.descriptionBn,
       descriptionEn: fields.descriptionEn,
-      shortDescription: fields.shortDescription,
       packSize: fields.packSize,
       deliveryChattogramMinor: fields.deliveryChattogramMinor,
       deliveryDhakaMinor: fields.deliveryDhakaMinor,
       deliveryOthersMinor: fields.deliveryOthersMinor,
       availability: fields.availability,
       ratingHalves: fields.ratingHalves,
-      isPublished: fields.isPublished,
-      // `product_published_needs_timestamp` requires a timestamp the first time it is published; an
-      // unpublish keeps the original date rather than erasing when it was first made public.
-      publishedAt: fields.isPublished ? (row.publishedAt ?? new Date()) : row.publishedAt,
+      /*
+       * Saving republishes, and that is the whole of the publication decision now: the form no longer
+       * offers a second state, so an edit must not be a quiet way to unpublish a product either.
+       * `product_published_needs_timestamp` keeps the original date.
+       */
+      isPublished: true,
+      publishedAt: row.publishedAt ?? new Date(),
       updatedAt: new Date(),
     })
     .where(sql`${product.id} = ${id}`);
@@ -1381,7 +1370,6 @@ export async function updateProduct(
     .update(productVariant)
     .set({
       sku: fields.sku,
-      labelBn: fields.nameBn,
       labelEn: fields.nameEn,
       priceMinor: fields.priceMinor,
       compareAtPriceMinor: fields.compareAtPriceMinor,
@@ -1415,7 +1403,6 @@ export async function updateProduct(
       },
       availability: fields.availability,
       ratingHalves: fields.ratingHalves,
-      isPublished: fields.isPublished,
     },
   });
 }
@@ -1594,11 +1581,8 @@ async function normalizeProductInput(
   excludeId: number | null,
 ): Promise<{
   slug: string;
-  nameBn: string | null;
   nameEn: string;
-  descriptionBn: string | null;
   descriptionEn: string | null;
-  shortDescription: string | null;
   categoryId: number;
   brandId: number;
   packSize: string | null;
@@ -1610,15 +1594,15 @@ async function normalizeProductInput(
   compareAtPriceMinor: number | null;
   sku: string;
   availability: Availability;
-  isPublished: boolean;
 }> {
   /*
-   * The English name is the product's identity in this English-first shop; the Bangla name is optional
-   * owner content. A blank Bangla field is stored as NULL rather than copied from the English name:
-   * copying would make the record claim a translation that was never written.
+   * **The product editor writes one name** (owner direction, 2026-11-19). The Bangla name, the short
+   * description and the Bangla description were removed from the form because the owner does not write
+   * them - so this module no longer reads those fields at all, and an edit that omits them **keeps the
+   * stored value** rather than erasing it. A product created by an import or a seed may still carry
+   * them, and a product that had one before the change must not lose it because a form stopped
+   * posting it. Re-adding a field to the editor means reading it here again, not merely drawing it.
    */
-  const nameBn = parseOptionalText(input.nameBn, TEXT_BOUNDS.productName);
-  if (!nameBn.ok) throw new ValidationError('the Bangla name is too long');
   const nameEn = parseRequiredText(input.nameEn, TEXT_BOUNDS.productName);
   if (nameEn === null) throw new ValidationError('a product needs an English name');
 
@@ -1626,12 +1610,8 @@ async function normalizeProductInput(
     input.slug === undefined || input.slug === '' ? slugify(nameEn) : parseSlug(input.slug);
   if (slug === null) throw new ValidationError('the slug must be lowercase letters, digits and dashes');
 
-  const descriptionBn = parseOptionalText(input.descriptionBn, TEXT_BOUNDS.description);
   const descriptionEn = parseOptionalText(input.descriptionEn, TEXT_BOUNDS.description);
-  if (!descriptionBn.ok || !descriptionEn.ok) throw new ValidationError('a description is too long');
-
-  const shortDescription = parseOptionalText(input.shortDescription, TEXT_BOUNDS.shortDescription);
-  if (!shortDescription.ok) throw new ValidationError('the short description is too long');
+  if (!descriptionEn.ok) throw new ValidationError('a description is too long');
 
   const packSize = parseOptionalText(input.packSize, TEXT_BOUNDS.packSize);
   if (!packSize.ok) throw new ValidationError('the pack size is too long');
@@ -1715,11 +1695,8 @@ async function normalizeProductInput(
 
   return {
     slug,
-    nameBn: nameBn.value,
     nameEn,
-    descriptionBn: descriptionBn.value,
     descriptionEn: descriptionEn.value,
-    shortDescription: shortDescription.value,
     categoryId,
     brandId,
     packSize: packSize.value,
@@ -1731,7 +1708,6 @@ async function normalizeProductInput(
     sku: requestedSku ?? defaultSku(slug),
     availability,
     ratingHalves,
-    isPublished: parseVisibility(input.isPublished),
   };
 }
 

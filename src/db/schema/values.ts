@@ -161,6 +161,15 @@ export const PRODUCT_AVAILABILITY = ['in_stock', 'out_of_stock'] as const;
 export const REVIEW_STATE = ['pending', 'approved', 'rejected'] as const;
 
 /**
+ * `product_review.source` (owner direction, 2026-11-19).
+ *
+ * `customer` is a buyer writing on the product page, backed by the account and the order that earned
+ * the right to speak. `owner` is the owner typing in words a customer left on Facebook or WhatsApp,
+ * where there is neither - and the storefront therefore draws no "Verified buyer" label on it.
+ */
+export const REVIEW_SOURCE = ['customer', 'owner'] as const;
+
+/**
  * `payment_proof.review_state` (ADR 0042).
  *
  * A screenshot of an advance payment is **not** a payment state and changes nothing about the order.

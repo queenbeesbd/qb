@@ -1216,7 +1216,8 @@ function OrderActionBand({
                   placeholder: t('admin.cod.rejectReasonPlaceholder'),
                   minLength: 10,
                   maxLength: 500,
-                  required: true,
+                  /** Optional (owner direction, 2026-11-19); see `CodOrderCard`. */
+                  required: false,
                 }}
               />
             ) : null}

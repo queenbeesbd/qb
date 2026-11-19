@@ -80,7 +80,6 @@ export default async function EditCategoryPage({
           descriptionEn: category.descriptionEn,
           descriptionBn: category.descriptionBn,
           sortOrder: category.sortOrder,
-          isVisible: category.isVisible,
           tagline: category.tagline,
           imageKey: category.imageKey,
           parentId: category.parentId,

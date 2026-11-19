@@ -181,7 +181,6 @@ describe('catalog management', { skip: toolingAvailable ? false : SKIP_REASON },
 
   function productInput(overrides: Partial<ProductInput> = {}): ProductInput {
     return {
-      nameBn: 'নতুন পণ্য',
       nameEn: 'A New Product',
       categoryId: String(categoryId),
       brandId: String(brandId),
@@ -283,17 +282,28 @@ describe('catalog management', { skip: toolingAvailable ? false : SKIP_REASON },
   });
 
   it('fails the authoritative orderability check for an out-of-stock product', async () => {
-    // Published, so the refusal is unambiguously about availability and not about publication.
+    // Saved products are published automatically, so the refusal is unambiguously about availability.
     const created = await withTransaction((tx) =>
-      createProduct(tx, owner, productInput({ nameEn: 'Not Orderable', availability: 'out_of_stock', isPublished: 'on' })),
+      createProduct(tx, owner, productInput({ nameEn: 'Not Orderable', availability: 'out_of_stock' })),
     );
     const result = await withTransaction((tx) => checkOrderability(tx, created.productId));
     assert.deepEqual(result, { orderable: false, reason: 'out_of_stock' });
   });
 
+  /**
+   * The editor no longer offers a publication switch (owner direction, 2026-11-19), so a product the
+   * owner saves is live. The `unpublished` refusal still exists and still binds, because **archiving**
+   * unpublishes a row - which is the state this test builds directly, since no create path produces it.
+   */
   it('refuses an unpublished product even when it is in stock', async () => {
     const created = await withTransaction((tx) =>
       createProduct(tx, owner, productInput({ nameEn: 'Unpublished', availability: 'in_stock' })),
+    );
+    await withTransaction((tx) =>
+      tx
+        .update(productTable)
+        .set({ isPublished: false })
+        .where(sql`${productTable.id} = ${created.productId}`),
     );
     const result = await withTransaction((tx) => checkOrderability(tx, created.productId));
     assert.deepEqual(result, { orderable: false, reason: 'unpublished' });
@@ -301,7 +311,7 @@ describe('catalog management', { skip: toolingAvailable ? false : SKIP_REASON },
 
   it('accepts a published, in-stock product and returns its priced variant', async () => {
     const created = await withTransaction((tx) =>
-      createProduct(tx, owner, productInput({ nameEn: 'Orderable', availability: 'in_stock', isPublished: 'on' })),
+      createProduct(tx, owner, productInput({ nameEn: 'Orderable', availability: 'in_stock' })),
     );
     const result = await withTransaction((tx) => checkOrderability(tx, created.productId));
     assert.equal(result.orderable, true);
@@ -310,7 +320,7 @@ describe('catalog management', { skip: toolingAvailable ? false : SKIP_REASON },
 
   it('refuses a published product as soon as it is marked out of stock', async () => {
     const created = await withTransaction((tx) =>
-      createProduct(tx, owner, productInput({ nameEn: 'Published Then Empty', availability: 'in_stock', isPublished: 'on' })),
+      createProduct(tx, owner, productInput({ nameEn: 'Published Then Empty', availability: 'in_stock' })),
     );
     await withTransaction((tx) =>
       setAvailability(tx, owner, { productId: String(created.productId), availability: 'out_of_stock' }),
@@ -360,19 +370,36 @@ describe('catalog management', { skip: toolingAvailable ? false : SKIP_REASON },
   });
 
   /**
-   * The English name is required and the Bangla name is optional - `product.name_bn` is nullable,
-   * because a product the owner bought from a supplier may have no Bangla name at all. This asserts
-   * the rule that is implemented rather than a stricter one: an English-only product is created, and
-   * a Bangla-only one is refused because the required name is the English one.
+   * The English name is the product's identity and the only name the editor writes (owner direction,
+   * 2026-11-19): the Bangla field was removed from the form, so `normalizeProductInput` no longer reads
+   * `nameBn` at all. A product created by an import may still carry one, and this asserts the rule that
+   * is implemented - an English-only product is created, and a product with no English name is refused.
    */
-  it('requires the English name and accepts a product with no Bangla name', async () => {
+  it('requires the English name and ignores a Bangla name the editor no longer collects', async () => {
     const created = await withTransaction((tx) =>
-      createProduct(tx, owner, productInput({ nameEn: 'English Only', nameBn: '' })),
+      createProduct(tx, owner, productInput({ nameEn: 'English Only' })),
     );
     assert.ok(created.productId > 0);
 
+    /*
+     * A caller that still posts the removed key is not an error; the value is simply not written. The
+     * key is spread in as an untyped value because it is deliberately not part of `ProductInput` any
+     * more - which is the whole point of this assertion.
+     */
+    const removedKeys = { nameBn: 'উপেক্ষিত' } as Record<string, unknown>;
+    const withBangla = await withTransaction((tx) =>
+      createProduct(tx, owner, { ...productInput({ nameEn: 'Ignores Bangla' }), ...removedKeys }),
+    );
+    const stored = await withTransaction((tx) =>
+      tx
+        .select({ nameBn: productTable.nameBn })
+        .from(productTable)
+        .where(sql`${productTable.id} = ${withBangla.productId}`),
+    );
+    assert.equal(stored[0]?.nameBn, null, 'the removed field is not written, even when it is posted');
+
     await assert.rejects(
-      withTransaction((tx) => createProduct(tx, owner, productInput({ nameBn: 'শুধু বাংলা', nameEn: '' }))),
+      withTransaction((tx) => createProduct(tx, owner, productInput({ nameEn: '' }))),
       ValidationError,
     );
   });
@@ -713,7 +740,7 @@ describe('catalog management', { skip: toolingAvailable ? false : SKIP_REASON },
 
   it('archives a product, unpublishes it, and preserves the owner availability statement', async () => {
     const created = await withTransaction((tx) =>
-      createProduct(tx, owner, productInput({ nameEn: 'Archive Me', availability: 'in_stock', isPublished: 'on' })),
+      createProduct(tx, owner, productInput({ nameEn: 'Archive Me', availability: 'in_stock' })),
     );
     await withTransaction((tx) => archiveProduct(tx, owner, String(created.productId)));
 
@@ -849,40 +876,28 @@ describe('catalog management', { skip: toolingAvailable ? false : SKIP_REASON },
     );
   });
 
-  it('stores the short description, bounds it, and leaves it null when omitted', async () => {
-    const withShort = await withTransaction((tx) =>
-      createProduct(
-        tx,
-        owner,
-        productInput({ nameEn: 'Has Shelf Line', shortDescription: '200 ml · all skin types' }),
-      ),
+  /**
+   * The short description was removed from the editor (owner direction, 2026-11-19), so `createProduct`
+   * no longer reads it. The column survives because the product page renders it when it is present -
+   * and that is exactly what this asserts: a value written by an import or a seed still reaches the
+   * page, and a key the form stopped posting is never written by the form's own path.
+   */
+  it('leaves the columns the editor no longer draws untouched', async () => {
+    // Posted as an untyped key on purpose: it is no longer part of `ProductInput`.
+    const removedKeys = { shortDescription: '200 ml · all skin types' } as Record<string, unknown>;
+    const created = await withTransaction((tx) =>
+      createProduct(tx, owner, { ...productInput({ nameEn: 'Ignores Shelf Line' }), ...removedKeys }),
     );
     const stored = await withTransaction((tx) =>
       tx
         .select({ shortDescription: productTable.shortDescription })
         .from(productTable)
-        .where(sql`${productTable.id} = ${withShort.productId}`),
+        .where(sql`${productTable.id} = ${created.productId}`),
     );
-    assert.equal(stored[0]?.shortDescription, '200 ml · all skin types');
-
-    const without = await withTransaction((tx) =>
-      createProduct(tx, owner, productInput({ nameEn: 'No Shelf Line' })),
-    );
-    const empty = await withTransaction((tx) =>
-      tx
-        .select({ shortDescription: productTable.shortDescription })
-        .from(productTable)
-        .where(sql`${productTable.id} = ${without.productId}`),
-    );
-    assert.equal(empty[0]?.shortDescription, null, 'omitting the field stores null, not an empty string');
-
-    // The 500-character bound is the same one the form counter promises, so the counter cannot offer
-    // room the save will refuse.
-    await assert.rejects(
-      withTransaction((tx) =>
-        createProduct(tx, owner, productInput({ nameEn: 'Too Long', shortDescription: 'x'.repeat(501) })),
-      ),
-      ValidationError,
+    assert.equal(
+      stored[0]?.shortDescription,
+      null,
+      'the removed field is not written, so the column keeps its own default',
     );
   });
 
@@ -1034,24 +1049,14 @@ describe('catalog management', { skip: toolingAvailable ? false : SKIP_REASON },
     assert.equal(searched.rows[0]?.id, newer.productId);
   });
 
-  it('pages and filters the category list, with a live product count per row', async () => {
+  it('pages the category list, with a live product count per row', async () => {
     const created = await withTransaction((tx) =>
-      createCategory(tx, owner, { nameBn: 'পেজ', nameEn: 'Paged Category', sortOrder: '5', isVisible: 'on' }),
+      createCategory(tx, owner, { nameBn: 'পেজ', nameEn: 'Paged Category', sortOrder: '5' }),
     );
 
     const byName = await withTransaction((tx) => listCategoriesForAdmin(tx, { search: 'Paged Category' }));
     assert.equal(byName.total, 1);
     assert.equal(byName.rows[0]?.id, created.categoryId);
-
-    const hiddenOnly = await withTransaction((tx) =>
-      listCategoriesForAdmin(tx, { search: 'Paged Category', visibility: 'hidden' }),
-    );
-    assert.equal(hiddenOnly.total, 0, 'a visible category is not in the hidden filter');
-
-    const visibleOnly = await withTransaction((tx) =>
-      listCategoriesForAdmin(tx, { search: 'Paged Category', visibility: 'visible' }),
-    );
-    assert.equal(visibleOnly.total, 1);
 
     const first = await withTransaction((tx) => listCategoriesForAdmin(tx, { limit: 1, offset: 0 }));
     const second = await withTransaction((tx) => listCategoriesForAdmin(tx, { limit: 1, offset: 1 }));
@@ -1062,10 +1067,7 @@ describe('catalog management', { skip: toolingAvailable ? false : SKIP_REASON },
 
   it('finds a category and a brand by a misspelt term, and refuses a term that matches nothing', async () => {
     const category = await withTransaction((tx) =>
-      createCategory(tx, owner, { nameBn: 'বানান', nameEn: 'Spelling Category', isVisible: 'on' }),
-    );
-    const miscategorised = await withTransaction((tx) =>
-      createCategory(tx, owner, { nameBn: 'লুকানো বানান', nameEn: 'Spelling Hidden', isVisible: 'hidden' }),
+      createCategory(tx, owner, { nameBn: 'বানান', nameEn: 'Spelling Category' }),
     );
     const brand = await withTransaction((tx) =>
       createBrand(tx, owner, { nameBn: 'ব্র্যান্ড', nameEn: 'Typo Target Brand', slug: 'typo-target-brand' }),
@@ -1079,16 +1081,9 @@ describe('catalog management', { skip: toolingAvailable ? false : SKIP_REASON },
       'only the real match, not the other row that shares a word',
     );
 
-    // A prefix is a match too, and the visibility filter still applies to it.
-    const byPrefix = await withTransaction((tx) =>
-      listCategoriesForAdmin(tx, { search: 'Spel Cat', visibility: 'visible' }),
-    );
+    // A prefix is a match too.
+    const byPrefix = await withTransaction((tx) => listCategoriesForAdmin(tx, { search: 'Spel Cat' }));
     assert.deepEqual(byPrefix.rows.map((row) => row.id), [category.categoryId]);
-    const hiddenOnly = await withTransaction((tx) =>
-      listCategoriesForAdmin(tx, { search: 'Speling Category', visibility: 'hidden' }),
-    );
-    assert.equal(hiddenOnly.total, 0);
-    assert.notEqual(miscategorised.categoryId, category.categoryId);
 
     const brandByTypo = await withTransaction((tx) =>
       listBrandsForAdmin(tx, { search: 'Typo Targt Brand' }),

@@ -50,25 +50,6 @@ function backTo(path: string, notice: string): Response {
   return redirectTo(`${path}?notice=${notice}`);
 }
 
-/**
- * The visibility switch, read so that the ticked box wins.
- *
- * The editor posts **two** entries under this name: a hidden `false` and, when the box is ticked,
- * `true`. `FormData.get()` returns the **first** entry in document order, so reading it that way made
- * the hidden `false` decide every save: the owner could hide a category and never show it again, and
- * the panel answered "updated". Reading the whole list fixes the direction the pair was designed for -
- * "nothing" still means off, and an explicit `true` overrides it - while an absent field stays
- * `undefined`, which is what lets the service keep its own default.
- *
- * Measured before the fix, with the exact entries a ticked box sends
- * (`["false","true"]`): stored `false`. After: stored `true`.
- */
-function readVisibility(form: FormData): boolean | undefined {
-  const values = form.getAll('isVisible');
-  if (values.length === 0) return undefined;
-  return values.includes('true');
-}
-
 export async function POST(request: Request): Promise<Response> {
   const guard = await guardMutation(request, PERMISSIONS.catalogWrite);
   if (!guard.ok) {
@@ -100,7 +81,14 @@ export async function POST(request: Request): Promise<Response> {
     sortOrder: form.get('sortOrder') ?? undefined,
     // Always submitted by the editor: an empty value is the explicit "top level" choice.
     parentId: form.get('parentId') ?? undefined,
-    isVisible: readVisibility(form),
+    /*
+     * **A category is visible** (owner direction, 2026-11-19). The editor stopped drawing a visibility
+     * switch, so this route no longer reads one: a stale form or a hand-made POST cannot hide a
+     * department, and the service's own default is therefore the only outcome. Hiding a category is
+     * not a task this shop has - archiving is, and it is refused while the category still holds a
+     * product or a subcategory.
+     */
+    isVisible: true,
     /*
      * The one-line label. The editor always submits the field, so an emptied box clears it and a
      * filled one replaces it; `undefined` is only reachable from a caller that omits it entirely.

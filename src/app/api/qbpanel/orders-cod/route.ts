@@ -7,7 +7,6 @@
  */
 
 import { withTransaction } from '@/db/client';
-import { translate } from '@/i18n/config';
 import { COD_PATH } from '@/server/auth/constants';
 import { guardMutation } from '@/server/auth/guard';
 import { PERMISSIONS } from '@/server/authz/permissions';
@@ -35,15 +34,11 @@ export async function POST(request: Request): Promise<Response> {
   if (orderId === null || decision === null) return redirectTo(`${COD_PATH}?notice=invalid`);
 
   /*
-   * The approve field shows its default as a **placeholder**, so an empty note means "the note I did not
-   * overwrite". Recording the stated default here (not only in the browser) keeps the no-JavaScript path
-   * working and keeps the audit reason an explicit sentence rather than an empty string. A rejection
-   * still needs a typed reason: cancelling an order is not a default anyone may assume.
+   * The note is optional on both decisions (owner direction, 2026-11-19), and the sentence an empty
+   * field records lives in `decideCod` so the service - not this route - is the one place that decides
+   * what "no note" means. Nothing is filled in here: a browser that posts an empty string and the
+   * no-JavaScript path then behave the same, because both reach the same function with the same value.
    */
-  const effectiveReason =
-    decision === 'approve' && reason.trim() === ''
-      ? translate('admin.cod.approveReasonDefault')
-      : reason;
 
   const actor = {
     staffUserId: principal.staffUserId,
@@ -52,9 +47,7 @@ export async function POST(request: Request): Promise<Response> {
   };
 
   try {
-    await withTransaction((tx) =>
-      decideCod(tx, actor, { orderId, decision, reason: effectiveReason }),
-    );
+    await withTransaction((tx) => decideCod(tx, actor, { orderId, decision, reason }));
     if (decision === 'reject') return redirectTo(`${COD_PATH}?notice=rejected`);
 
     /*

@@ -4,7 +4,7 @@ import { requireAdminPage } from '@/server/auth/guard';
 import { hasPermission } from '@/server/authz/principal';
 import { PERMISSIONS } from '@/server/authz/permissions';
 import { CATEGORY_PAGE_SIZE, listCategoriesForAdmin } from '@/server/catalog/service';
-import { CategoriesView, type CategoryVisibilityFilter } from './CategoriesView';
+import { CategoriesView } from './CategoriesView';
 import type { CategoryNotice } from './notices';
 
 export const dynamic = 'force-dynamic';
@@ -25,10 +25,6 @@ function readNotice(value: string | string[] | undefined): CategoryNotice | null
   return (NOTICES as readonly string[]).includes(candidate) ? (candidate as CategoryNotice) : null;
 }
 
-function readVisibility(value: string): CategoryVisibilityFilter {
-  return value === 'visible' || value === 'hidden' ? value : 'all';
-}
-
 /**
  * Categories.
  *
@@ -40,8 +36,9 @@ function readVisibility(value: string): CategoryVisibilityFilter {
  * archive is refused for - both are derived in SQL, so neither can disagree with the catalog and the
  * owner can see what is in the way before pressing the button.
  *
- * Search, the visibility filter, the page and the page size are applied in SQL and carried in the
- * URL. The count and the rows run over the same predicate, so the footer cannot disagree with them.
+ * Search, the page and the page size are applied in SQL and carried in the URL. The count and the rows
+ * run over the same predicate, so the footer cannot disagree with them. There is no visibility filter
+ * because a category is always visible (owner direction, 2026-11-19).
  */
 export default async function AdminCategoriesPage({
   searchParams,
@@ -52,16 +49,10 @@ export default async function AdminCategoriesPage({
   const params = await searchParams;
 
   const search = single(params.q).slice(0, 80);
-  const visibility = readVisibility(single(params.visibility));
   const size = readPageSize(single(params.size), CATEGORY_PAGE_SIZE);
 
   const data = await withTransaction(async (tx) => {
-    const first = await listCategoriesForAdmin(tx, {
-      search,
-      visibility: visibility === 'all' ? undefined : visibility,
-      limit: size,
-      offset: 0,
-    });
+    const first = await listCategoriesForAdmin(tx, { search, limit: size, offset: 0 });
     // The page number is resolved against the real total before the page is read, so a hand-typed
     // `?page=9999` shows the last page rather than an empty list with no explanation.
     const pageCount = Math.max(1, Math.ceil(first.total / size));
@@ -69,12 +60,7 @@ export default async function AdminCategoriesPage({
     const list =
       page === 1
         ? first
-        : await listCategoriesForAdmin(tx, {
-            search,
-            visibility: visibility === 'all' ? undefined : visibility,
-            limit: size,
-            offset: (page - 1) * size,
-          });
+        : await listCategoriesForAdmin(tx, { search, limit: size, offset: (page - 1) * size });
 
     return { list, page, pageCount };
   });
@@ -89,7 +75,6 @@ export default async function AdminCategoriesPage({
         descriptionBn: category.descriptionBn,
         descriptionEn: category.descriptionEn,
         sortOrder: category.sortOrder,
-        isVisible: category.isVisible,
         parentId: category.parentId,
         parentNameEn: category.parentNameEn,
         productCount: category.productCount,
@@ -99,7 +84,6 @@ export default async function AdminCategoriesPage({
       canManage={hasPermission(principal, PERMISSIONS.catalogWrite)}
       csrfToken={principal.csrfToken}
       search={search}
-      visibility={visibility}
       total={data.list.total}
       page={data.page}
       pageCount={data.pageCount}

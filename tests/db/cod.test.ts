@@ -150,7 +150,7 @@ describe('COD confirmation (Phase 16A, COD-only in Phase 17)', { skip: toolingAv
     assert.deepEqual(audit.rows.map((row) => row.action), ['cod.cancelled']);
   });
 
-  it('refuses a decision without a real reason', async () => {
+  it('refuses a note that was typed but says nothing', async () => {
     const seeded = await seedOrder(fixture.pool, { paymentMethod: 'cod', withReservation: false });
     for (const decision of ['approve', 'reject'] as const) {
       await assert.rejects(
@@ -164,6 +164,48 @@ describe('COD confirmation (Phase 16A, COD-only in Phase 17)', { skip: toolingAv
       [seeded.orderId],
     );
     assert.deepEqual(state.rows[0], { status: 'pending', cod_state: 'cod_pending_approval' });
+  });
+
+  /**
+   * Owner direction, 2026-11-19: the reason is optional on a rejection. An empty field is accepted, and
+   * the cancelled order and the audit row still carry a stated sentence rather than a blank - the
+   * `order_cancelled_has_reason` check is what makes that non-negotiable.
+   */
+  it('rejects an order with no reason typed, and records that none was given', async () => {
+    const seeded = await seedOrder(fixture.pool, { paymentMethod: 'cod', withReservation: false });
+    await withTransaction((tx) =>
+      decideCod(tx, actorFor(), { orderId: seeded.orderId, decision: 'reject', reason: '' }),
+    );
+
+    const state = await fixture.pool.query<{ status: string; cancelled_reason: string | null }>(
+      `select status, cancelled_reason from "order" where id = $1`,
+      [seeded.orderId],
+    );
+    assert.equal(state.rows[0]?.status, 'cancelled');
+    assert.equal(state.rows[0]?.cancelled_reason, 'No reason recorded.');
+
+    const audit = await fixture.pool.query<{ action: string; reason: string | null }>(
+      `select action, reason from audit_event where entity_type = 'order' and entity_id = $1`,
+      [seeded.orderId],
+    );
+    assert.deepEqual(audit.rows, [{ action: 'cod.cancelled', reason: 'No reason recorded.' }]);
+  });
+
+  it('still records everything the owner typed on a rejection', async () => {
+    const seeded = await seedOrder(fixture.pool, { paymentMethod: 'cod', withReservation: false });
+    await withTransaction((tx) =>
+      decideCod(tx, actorFor(), {
+        orderId: seeded.orderId,
+        decision: 'reject',
+        reason: 'customer asked to cancel on the phone',
+      }),
+    );
+
+    const state = await fixture.pool.query<{ cancelled_reason: string | null }>(
+      `select cancelled_reason from "order" where id = $1`,
+      [seeded.orderId],
+    );
+    assert.equal(state.rows[0]?.cancelled_reason, 'customer asked to cancel on the phone');
   });
 
   it('never bans a customer by itself: an accepted or rejected order leaves the account active', async () => {

@@ -32,8 +32,8 @@ function readNotice(value: string | string[] | undefined): CatalogNotice | null 
 /**
  * Products.
  *
- * Requires `catalog.write` to view: this page discloses prices, unpublished rows and archive state, so it
- * is not readable by a principal that cannot change them. Every control posts to a route that re-checks
+ * Requires `catalog.write` to view: this page discloses prices and archive state, so it is not readable
+ * by a principal that cannot change them. Every control posts to a route that re-checks
  * the permission server-side.
  *
  * **The forms moved to their own routes** (`/qbpanel/catalog/new`, `/qbpanel/catalog/[productId]`), so this
@@ -89,7 +89,6 @@ export default async function AdminCatalogPage({
         categoryNameEn: product.categoryNameEn,
         brandNameEn: product.brandNameEn,
         availability: product.availability,
-        isPublished: product.isPublished,
         priceMinor: product.priceMinor,
         imageCount: product.imageCount,
         primaryImageKey: product.primaryImageKey,

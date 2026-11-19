@@ -127,9 +127,34 @@ export type CodDecision = 'approve' | 'reject';
 /** Minimum reason length shared with `suspendCustomer` and `customer_flag.reason` (>= 10 chars). */
 const MIN_REASON = 10;
 
-function decisionReason(raw: string, minimum: number): string {
+/**
+ * What an empty note records. Two different sentences, because the two decisions mean different
+ * things: an approval the owner did not annotate was confirmed on the call, and a rejection the owner
+ * did not annotate carries no reason the record can claim. `order.cancelled_reason` and the audit row
+ * are `NOT NULL`-ish in effect (`order_cancelled_has_reason`), so "no reason" has to be *stated*, not
+ * left blank.
+ */
+const DEFAULT_APPROVAL_NOTE = 'Confirmed by phone';
+const DEFAULT_REJECTION_NOTE = 'No reason recorded.';
+
+/**
+ * The note a COD decision records.
+ *
+ * **A reason is optional on both decisions** (owner direction, 2026-11-19). The rejection dialog used
+ * to demand ten characters, which on a phone call that is already over was a hurdle with no recorded
+ * gain: an order is refused for one obvious reason far more often than not. A typed note is still
+ * stored word for word, and still has to be a real sentence - one character is not a note - but an
+ * empty field is now accepted, and records the fixed sentence that states what happened rather than
+ * leaving the column blank (`order_cancelled_has_reason` and the audit row both want a value).
+ */
+function decisionReason(raw: string, decision: CodDecision): string {
   const value = raw.replace(/\s+/g, ' ').trim();
-  if (value.length < minimum) throw new ValidationError(`a reason of at least ${minimum} characters is required`);
+  if (value === '') {
+    return decision === 'reject' ? DEFAULT_REJECTION_NOTE : DEFAULT_APPROVAL_NOTE;
+  }
+  if (value.length < MIN_REASON) {
+    throw new ValidationError(`a note of at least ${MIN_REASON} characters is required, or leave it empty`);
+  }
   return value;
 }
 
@@ -149,7 +174,7 @@ export async function decideCod(
   const permission = input.decision === 'approve' ? PERMISSIONS.codApprove : PERMISSIONS.orderCancel;
   await requirePermission(actor, permission, 'order', input.orderId);
 
-  const reason = decisionReason(input.reason, MIN_REASON);
+  const reason = decisionReason(input.reason, input.decision);
 
   const orderRows = await tx
     .select({ id: order.id, orderNumber: order.orderNumber, codState: order.codState, status: order.status })

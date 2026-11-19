@@ -4,7 +4,7 @@ import { bigint, check, index, pgTable, integer, text, timestamp, uniqueIndex } 
 import { product } from './catalog';
 import { customer, staffUser } from './identity';
 import { order } from './orders';
-import { colIn, REVIEW_STATE } from './values';
+import { colIn, REVIEW_SOURCE, REVIEW_STATE } from './values';
 
 /**
  * Product reviews - ADR 0035.
@@ -33,13 +33,29 @@ export const productReview = pgTable(
     productId: bigint('product_id', { mode: 'number' })
       .notNull()
       .references(() => product.id, { onDelete: 'restrict' }),
-    customerId: bigint('customer_id', { mode: 'number' })
-      .notNull()
-      .references(() => customer.id, { onDelete: 'restrict' }),
+    /**
+     * The buyer who wrote it, or **null for a review the owner typed in** (owner direction, 2026-11-19).
+     *
+     * The shop's customers leave most of their words on Facebook and WhatsApp, not on the product page,
+     * and the owner asked to be able to put those on the page. That row has no account behind it, and
+     * inventing one would be the dishonesty the purchase rule exists to prevent - so the two columns
+     * that prove a purchase are nullable, and `product_review_provenance` binds them to `source`.
+     */
+    customerId: bigint('customer_id', { mode: 'number' }).references(() => customer.id, {
+      onDelete: 'restrict',
+    }),
     /** The order that entitled this customer to review: proof of purchase, not a display field. */
-    orderId: bigint('order_id', { mode: 'number' })
-      .notNull()
-      .references(() => order.id, { onDelete: 'restrict' }),
+    orderId: bigint('order_id', { mode: 'number' }).references(() => order.id, {
+      onDelete: 'restrict',
+    }),
+    /**
+     * Where the words came from: `customer` (typed on the product page by a buyer - every row before
+     * 2026-11-19) or `owner` (typed into `/qbpanel/reviews` from a social-media review).
+     *
+     * The storefront reads it to decide one thing: whether it may draw **Verified buyer**. That label is
+     * a claim about a purchase, so it is drawn only where there is one.
+     */
+    source: text('source').notNull().default('customer'),
     /**
      * The customer's rating in **half stars** (2 = one star, 10 = five). Whole stars only: the form
      * offers five choices, and the check below is what keeps a client from inventing a half step.
@@ -78,7 +94,17 @@ export const productReview = pgTable(
       .where(sql`${t.state} = 'approved'`),
     // The owner's queue reads the oldest pending review first.
     index('product_review_queue_idx').on(t.state, t.createdAt),
+    // The source has its own index for the admin queue's counts.
+    index('product_review_source_idx').on(t.source),
     check('product_review_state_valid', colIn('state', REVIEW_STATE)),
+    check('product_review_source_valid', colIn('source', REVIEW_SOURCE)),
+    // Provenance is one fact, not two independent columns: a customer review has its purchase, and an
+    // owner-typed review has neither an account nor an order because there is neither.
+    check(
+      'product_review_provenance',
+      sql`(${t.source} = 'customer' and ${t.customerId} is not null and ${t.orderId} is not null)
+          or (${t.source} = 'owner' and ${t.customerId} is null and ${t.orderId} is null)`,
+    ),
     check(
       'product_review_rating_valid',
       sql`${t.ratingHalves} between 2 and 10 and ${t.ratingHalves} % 2 = 0`,

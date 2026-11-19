@@ -93,10 +93,7 @@ export default async function EditProductPage({
         productId={data.product.id}
         values={{
           slug: data.product.slug,
-          nameBn: data.product.nameBn,
           nameEn: data.product.nameEn,
-          shortDescription: data.product.shortDescription,
-          descriptionBn: data.product.descriptionBn,
           descriptionEn: data.product.descriptionEn,
           packSize: data.product.packSize,
           deliveryChattogramMinor: data.product.deliveryChattogramMinor,
@@ -109,7 +106,6 @@ export default async function EditProductPage({
           sku: data.product.sku,
           availability: data.product.availability,
           ratingHalves: data.product.ratingHalves,
-          isPublished: data.product.isPublished,
           primaryImageKey:
             data.product.images.find((image) => image.isPrimary)?.key ?? data.product.images[0]?.key ?? null,
         }}

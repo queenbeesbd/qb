@@ -1969,3 +1969,40 @@ is not run is not a gate. *Prerequisites:* a local database and a served build; 
 It does **not** authorize deployment, provisioning or a new dependency. *Acceptance:* both suites run green
 against a seeded real catalog of 1,000+ products and an empty order table, they seed and clean up their own
 order fixtures, and no assertion is weakened or deleted to make them pass.
+
+---
+
+## Phase 59 - less to fill in, and a review the owner can add (2026-11-19)
+
+**The report.** The owner walked the panel and named what gets in the way: a Publication card asking a
+second question about a product he had already decided, three text fields he does not write, a category
+visibility switch, a mandatory rejection reason on a phone call that is over, one unstyled Refuse button,
+and no way to put a customer's Facebook review on a product page.
+
+**Implemented.** Saving publishes (`is_published = true`, `published_at` kept on edit); the Publication
+card and the three fields are gone from the editor, and `normalizeProductInput`/`ProductInput`/the write
+route no longer read them, so an edit leaves whatever a row already carries. The category editor's
+visibility card, the list's filter tabs and its status pill are gone; the route passes `true` and
+`listCategoriesForAdmin` lost its `visibility` option. `decideCod` accepts an empty note on both
+decisions and records `No reason recorded.` / `Confirmed by phone` itself. The review queue's Refuse
+control is a `SubmitButton` again. `product_review.source` (`customer` | `owner`) with nullable
+`customer_id`/`order_id` and a provenance check lets the owner publish reviews collected on social media
+from a composer on `/qbpanel/reviews`; the storefront draws **Verified buyer** only for `source =
+'customer'`.
+
+**Verified** with `typecheck`, `lint` (0 errors, 24 pre-existing warnings), `check:i18n` (1,976 keys),
+`npm test` 329/329, `db:validate` (55 tables, 115 indexes), `db:check`, `check:migrations` 37/37,
+`build`, `test:db/reviews` 17/17 and `test:db/cod` 10/10, **`verify:admin` 242/242**, and a served-build
+Chromium walk-through of the editor, the category editor and list, a composed review reaching the
+product page with no "Verified buyer" label, and both review buttons measuring one scale.
+**Not run:** `verify:browser`, `verify:storefront`, `verify:ui`, real devices, screen readers.
+
+### The next step
+
+**Phase 46 remains the recommendation: put the rendered-behaviour suites back on the real catalogue.**
+Three consecutive phases have now been proved by hand-driven checks, and `verify:admin` is the only gate
+running end to end. *Why:* a gate that is not run is not a gate. *Prerequisites:* a local database and a
+served build; scripts and fixtures only. It does **not** authorize deployment, provisioning or a new
+dependency. *Acceptance:* `verify:browser` and `verify:storefront` run green against a seeded real
+catalog of 1,000+ products and an empty order table, seeding and cleaning their own fixtures, with no
+assertion weakened or deleted.

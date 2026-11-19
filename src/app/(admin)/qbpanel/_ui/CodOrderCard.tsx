@@ -297,7 +297,13 @@ export function CodOrderCard({
                   placeholder: t('admin.cod.rejectReasonPlaceholder'),
                   minLength: 10,
                   maxLength: 500,
-                  required: true,
+                  /*
+                    Optional (owner direction, 2026-11-19): refusing an order is a decision the owner
+                    makes on the call, and being made to type ten characters first turned a two-tap act
+                    into a form. A typed note still has to be a real sentence; an empty one records
+                    "No reason recorded." so the cancelled order and the audit row are never blank.
+                  */
+                  required: false,
                 }}
               />
             ) : null}

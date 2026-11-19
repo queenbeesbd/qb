@@ -11,6 +11,8 @@ import { RatingStars } from '@/components/RatingStars';
 import { EmptyState } from '../../_ui/EmptyState';
 import { Notice } from '../../_ui/Notice';
 import { PageHeader } from '../../_ui/PageHeader';
+import { ReviewComposer, type ReviewProductOption } from '../../_ui/ReviewComposer';
+import { SubmitButton } from '../../_ui/SubmitButton';
 import styles from '../../qbpanel.module.css';
 
 export type ReviewTab = 'pending' | 'approved' | 'rejected';
@@ -19,7 +21,10 @@ export type ReviewRow = {
   id: number;
   productName: string;
   productSlug: string;
-  customerEmail: string;
+  /** The author's address, or null on a review the owner typed in from social media. */
+  customerEmail: string | null;
+  /** Where the words came from; only a `customer` review may be labelled "Verified buyer". */
+  source: 'customer' | 'owner';
   ratingHalves: number;
   body: string;
   imageKey: string | null;
@@ -27,7 +32,14 @@ export type ReviewRow = {
   decidedAt: string | null;
 };
 
-export type ReviewNotice = 'published' | 'refused' | 'conflict' | 'invalid' | 'denied';
+export type ReviewNotice =
+  | 'published'
+  | 'refused'
+  | 'conflict'
+  | 'invalid'
+  | 'denied'
+  | 'written'
+  | 'writeInvalid';
 
 const NOTICE_KEYS: Record<ReviewNotice, TranslationKey> = {
   published: 'admin.reviews.notice.published',
@@ -35,9 +47,11 @@ const NOTICE_KEYS: Record<ReviewNotice, TranslationKey> = {
   conflict: 'admin.reviews.notice.conflict',
   invalid: 'admin.reviews.notice.invalid',
   denied: 'admin.reviews.notice.denied',
+  written: 'admin.reviews.notice.written',
+  writeInvalid: 'admin.reviews.notice.writeInvalid',
 };
 
-const ERROR_NOTICES: readonly ReviewNotice[] = ['conflict', 'invalid', 'denied'];
+const ERROR_NOTICES: readonly ReviewNotice[] = ['conflict', 'invalid', 'denied', 'writeInvalid'];
 
 /**
  * Review moderation.
@@ -54,12 +68,15 @@ export function ReviewsView({
   tab,
   reviews,
   counts,
+  products,
   notice,
   csrfToken,
 }: {
   tab: ReviewTab;
   reviews: readonly ReviewRow[];
   counts: Record<ReviewTab, number>;
+  /** The products a review the owner types in may be attached to. */
+  products: readonly ReviewProductOption[];
   notice: ReviewNotice | null;
   csrfToken: string;
 }) {
@@ -83,6 +100,12 @@ export function ReviewsView({
           {t(NOTICE_KEYS[notice])}
         </Notice>
       )}
+
+      {/*
+        Writing one in, above the queue: it is the same act as publishing a customer's review, and the
+        owner should not have to leave the screen to do the other half of the same job.
+      */}
+      {products.length > 0 && <ReviewComposer products={products} csrfToken={csrfToken} />}
 
       {/*
         The same segmented filter the order queue uses, with the count on each tab so the owner can
@@ -119,7 +142,12 @@ export function ReviewsView({
                     </Link>
                   </p>
                   <p className={styles.reviewMeta}>
-                    {review.customerEmail} · {formatDate(review.createdAt)}
+                    {/*
+                      An imported review has no address, so it names where it came from instead of
+                      rendering an empty gap where an author would be.
+                    */}
+                    {review.customerEmail ?? t(`admin.reviews.source.${review.source}`)} ·{' '}
+                    {formatDate(review.createdAt)}
                     {review.decidedAt !== null && ` · ${t('admin.reviews.decided')} ${formatDate(review.decidedAt)}`}
                   </p>
                 </div>
@@ -158,18 +186,28 @@ export function ReviewsView({
                     <input type="hidden" name="reviewId" value={review.id} />
                     <input type="hidden" name="state" value={tab} />
                     <input type="hidden" name="decision" value="approved" />
-                    <button type="submit" className={styles.button}>
-                      {t('admin.reviews.publish')}
-                    </button>
+                    <SubmitButton
+                      label={t('admin.reviews.publish')}
+                      pendingLabel={t('admin.common.working')}
+                    />
                   </form>
+                  {/*
+                    `SubmitButton` composes the base `button` class with its variant. The hand-written
+                    `<button className={styles.buttonDangerOutline}>` did not, so Refuse rendered with a
+                    border and an ink colour and none of the shared height, padding, radius or font
+                    weight - the one control on this screen that did not match the other. It also gains
+                    the pending state, so a double-click cannot decide twice.
+                  */}
                   <form method="post" action="/api/qbpanel/reviews">
                     <input type="hidden" name="csrf" value={csrfToken} />
                     <input type="hidden" name="reviewId" value={review.id} />
                     <input type="hidden" name="state" value={tab} />
                     <input type="hidden" name="decision" value="rejected" />
-                    <button type="submit" className={styles.buttonDangerOutline}>
-                      {t('admin.reviews.refuse')}
-                    </button>
+                    <SubmitButton
+                      label={t('admin.reviews.refuse')}
+                      pendingLabel={t('admin.common.working')}
+                      variant="dangerOutline"
+                    />
                   </form>
                 </div>
               )}

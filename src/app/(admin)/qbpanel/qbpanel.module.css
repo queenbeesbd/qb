@@ -5398,3 +5398,38 @@ a.rankName:hover {
     max-height: 260px;
   }
 }
+
+/* ---- Review composer (owner direction, 2026-11-19) ---------------------- */
+
+/*
+ * Writing a review in from social media. It sits above the queue on the same screen, so it is a panel
+ * rather than a page: one card, the same field vocabulary as every editor, and the same single action.
+ */
+.reviewComposer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.reviewComposerForm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+/* Product and rating side by side while there is room; stacked on a phone. */
+.reviewComposerGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  gap: var(--space-3);
+}
+
+@media (max-width: 720px) {
+  .reviewComposerGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

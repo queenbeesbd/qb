@@ -1558,14 +1558,12 @@ async function main(): Promise<void> {
         form: {
           csrf,
           operation: 'create',
-          nameBn: 'যাচাই পণ্য',
           nameEn: VERIFY_PRODUCT_NAME,
           categoryId: String(categoryId),
           brandId: String(brandId),
           // A fractional BDT price, to prove the conversion is integer arithmetic on the server.
           price: '750.1',
           availability: 'in_stock',
-          isPublished: 'on',
         },
       });
       const createdProduct = await productByName(VERIFY_PRODUCT_NAME);
@@ -1773,7 +1771,7 @@ async function main(): Promise<void> {
             .returning({ id: productReview.id });
           const reviewId = reviewRow[0]?.id;
           if (reviewId === undefined) fail('could not create the review verification row');
-          return { reviewId, productName: target.nameEn, customerId };
+          return { reviewId, productId: target.id, productName: target.nameEn, customerId };
         });
 
         // The owner's rail carries the entry; the page renders the queue with its decision controls.
@@ -1786,7 +1784,9 @@ async function main(): Promise<void> {
             reviewPage.body.includes('Verify Review Body') &&
             reviewPage.body.includes('/catalog/category-skincare-320.webp') &&
             reviewPage.body.includes('name="decision" value="approved"') &&
-            reviewPage.body.includes('name="decision" value="rejected"'),
+            reviewPage.body.includes('name="decision" value="rejected"') &&
+            // The composer for an imported review is on the same screen, above the queue.
+            reviewPage.body.includes('action="/api/qbpanel/reviews/compose"'),
           `rail ${ownerOverview.body.includes('href="/qbpanel/reviews"')}, status ${reviewPage.status}`,
         );
 
@@ -1829,6 +1829,55 @@ async function main(): Promise<void> {
           'a decided review cannot be decided again',
           decidedAgain.status === 303 && (decidedAgain.location ?? '').includes('notice=conflict'),
           `status ${decidedAgain.status} → ${decidedAgain.location ?? ''}`,
+        );
+
+        /*
+         * A review the owner writes in from social media (owner direction, 2026-11-19). It goes through
+         * the real route, and what is asserted is the pair that keeps it from being a lie: the row is
+         * published, and it names no customer and no order.
+         */
+        const composed = await call(base, '/api/qbpanel/reviews/compose', {
+          method: 'POST',
+          jar: ownerJar,
+          form: {
+            csrf,
+            productId: String(reviewSeed.productId),
+            rating: '5',
+            body: 'Verify imported review: a customer said this on WhatsApp and the owner typed it in.',
+          },
+        });
+        const composedRow = await withTransaction((tx) =>
+          tx
+            .select({
+              state: productReview.state,
+              source: productReview.source,
+              customerId: productReview.customerId,
+              orderId: productReview.orderId,
+            })
+            .from(productReview)
+            .where(sql`${productReview.body} like 'Verify imported review%'`),
+        );
+        record(
+          'the owner publishes an imported review, and it claims no account and no order',
+          composed.status === 303 &&
+            (composed.location ?? '').includes('notice=written') &&
+            composedRow[0]?.state === 'approved' &&
+            composedRow[0]?.source === 'owner' &&
+            composedRow[0]?.customerId === null &&
+            composedRow[0]?.orderId === null,
+          `status ${composed.status}, row ${JSON.stringify(composedRow[0] ?? null)}`,
+        );
+
+        const composedWithoutPermission = await call(base, '/api/qbpanel/reviews/compose', {
+          method: 'POST',
+          jar: limitedJar,
+          form: { csrf: limitedCsrf, productId: String(reviewSeed.productId), rating: '5', body: 'x'.repeat(30) },
+        });
+        record(
+          'a principal without review.moderate cannot write a review in',
+          composedWithoutPermission.status === 303 &&
+            (composedWithoutPermission.location ?? '').includes('notice=denied'),
+          `status ${composedWithoutPermission.status} → ${composedWithoutPermission.location ?? ''}`,
         );
       }
 
@@ -2506,9 +2555,14 @@ async function main(): Promise<void> {
                 order: document.querySelector('article')?.textContent?.includes(${JSON.stringify(secondCod.orderNumber)}) ?? false,
               };
             })()`);
+            /*
+             * The reason is optional since 2026-11-19 (owner direction): refusing an order is a decision
+             * made on the call, and a mandatory ten-character note turned it into a form. The dialog must
+             * still open, still state its consequence, and still put focus on the safe answer.
+             */
             record(
-              'the destructive COD confirmation opens with a required reason and focus on cancel',
-              dialog.open === true && dialog.required === true && dialog.focus === 'Cancel',
+              'the destructive COD confirmation opens with an optional reason and focus on cancel',
+              dialog.open === true && dialog.required === false && dialog.focus === 'Cancel',
               JSON.stringify(dialog),
             );
             await browser.screenshot('/tmp/qb-admin-cod-confirm.png');
@@ -2860,7 +2914,7 @@ async function main(): Promise<void> {
               };
             })()`);
             record(
-              'the product editor is its own route with the reference section set, a media picker first, a sticky action bar and a preview',
+              'the product editor is its own route with the sections the shop still asks for, a media picker first, a sticky action bar and a preview',
               editorShell.heading === 'New product' &&
                 editorShell.h1Count === 1 &&
                 editorShell.sections.includes('General information') &&
@@ -2869,7 +2923,8 @@ async function main(): Promise<void> {
                 editorShell.sections.includes('Inventory') &&
                 editorShell.sections.includes('Delivery charge') &&
                 editorShell.sections.includes('Organisation') &&
-                editorShell.sections.includes('Publication') &&
+                // The Publication card is gone (owner direction, 2026-11-19): saving is publishing.
+                !editorShell.sections.includes('Publication') &&
                 editorShell.sections.includes('Storefront preview') &&
                 editorShell.sticky === 'sticky' &&
                 editorShell.preview === true &&
@@ -2888,30 +2943,28 @@ async function main(): Promise<void> {
               `(() => document.querySelector('main form > header p')?.textContent?.trim() ?? '')()`,
             );
             /*
-             * The Bangla name became optional (owner decision, 2026-10-23), so it must be absent from the
-             * required summary - and its field must not carry the required marker. Asserting the absence
-             * is what stops the old rule creeping back in through a stray `required` attribute.
+             * The Bangla name, the short description, the Bangla description and the publication switch
+             * were removed from the editor (owner direction, 2026-11-19). Asserting their **absence** is
+             * what stops the old fields creeping back in: a restored control would be a second decision
+             * the owner has already said he does not want to make.
              */
-            const banglaField = await browser.evaluate<{ required: boolean; label: string }>(
+            const removedFields = await browser.evaluate<{ present: string[]; missingSummary: string }>(
               `(() => {
-                const input = document.querySelector('#nameBn');
-                const label = document.querySelector('label[for="nameBn"]');
+                const ids = ['nameBn', 'shortDescription', 'descriptionBn', 'isPublished'];
                 return {
-                  required: input !== null && input.hasAttribute('required'),
-                  label: label ? label.textContent.trim() : '',
+                  present: ids.filter((id) => document.querySelector('#' + id) !== null),
+                  missingSummary: document.querySelector('main form > header p')?.textContent?.trim() ?? '',
                 };
               })()`,
             );
             record(
-              'the required summary names every empty required field and never the optional Bangla name',
+              'the required summary names every empty required field, and the removed fields are gone',
               /required/i.test(missingSummary) &&
                 missingSummary.includes('Name (English)') &&
-                !missingSummary.includes('Name (Bangla)') &&
                 missingSummary.includes('Category') &&
                 missingSummary.includes('Price') &&
-                banglaField.required === false &&
-                /optional/i.test(banglaField.label),
-              `${missingSummary} | ${JSON.stringify(banglaField)}`,
+                removedFields.present.length === 0,
+              `${missingSummary} | ${JSON.stringify(removedFields)}`,
             );
 
             /*
@@ -2922,13 +2975,11 @@ async function main(): Promise<void> {
             await browser.type('#nameEn', 'Rose Water Toner');
             await browser.type('#price', '750');
             await browser.type('#compareAtPrice', '900');
-            await browser.type('#shortDescription', 'One line under the price.');
             const previewUi = await browser.evaluate<{
               name: string;
               price: string;
               compare: string;
               saving: string;
-              short: string;
               noPriceGone: boolean;
             }>(`(() => {
               const preview = [...document.querySelectorAll('main section')].find((s) =>
@@ -2941,17 +2992,15 @@ async function main(): Promise<void> {
                 price: /Tk 750/.test(text) ? 'Tk 750' : '',
                 compare: /Tk 900/.test(text) ? 'Tk 900' : '',
                 saving: /Save Tk/i.test(text) ? text : '',
-                short: text.includes('One line under the price.') ? 'yes' : 'no',
                 noPriceGone: !text.includes('No price yet'),
               };
             })()`);
             record(
-              'the live preview tracks the typed name, price, comparison price, derived saving and short description',
+              'the live preview tracks the typed name, price, comparison price and derived saving',
               previewUi.name.includes('Rose Water Toner') &&
                 previewUi.price === 'Tk 750' &&
                 previewUi.compare === 'Tk 900' &&
                 previewUi.saving !== '' &&
-                previewUi.short === 'yes' &&
                 previewUi.noPriceGone === true,
               JSON.stringify(previewUi),
             );
@@ -2986,24 +3035,28 @@ async function main(): Promise<void> {
               slugHint,
             );
 
-            // The publication outcome states what the two states actually mean together.
-            const outcomeHidden = await browser.evaluate<string>(
-              `(() => document.querySelector('main [data-tone]')?.textContent?.trim() ?? '')()`,
-            );
-            await browser.click('#isPublished');
-            const outcomeLive = await browser.evaluate<string>(
-              `(() => document.querySelector('main [data-tone]')?.textContent?.trim() ?? '')()`,
+            /*
+             * **No publication switch, and no publication outcome.** Owner direction, 2026-11-19: a
+             * product the owner saves is live, so the card that asked for a second decision - and the
+             * "Hidden: the product is not on the storefront" sentence under it - is gone. The check
+             * above asserts the control is absent; this asserts the consequence, that the form carries
+             * no verdict about a state it no longer offers.
+             */
+            const publicationCopy = await browser.evaluate<boolean>(
+              `(() => {
+                const text = document.querySelector('main')?.textContent ?? '';
+                return /not on the storefront/i.test(text) || /Publish on the storefront/i.test(text);
+              })()`,
             );
             record(
-              'the publication outcome changes with the two states instead of leaving the owner to infer it',
-              /not on the storefront/i.test(outcomeHidden) && /orderable/i.test(outcomeLive) && outcomeHidden !== outcomeLive,
-              JSON.stringify({ hidden: outcomeHidden, live: outcomeLive }),
+              'the editor offers no publication decision at all',
+              publicationCopy === false,
+              String(publicationCopy),
             );
 
             await browser.screenshot('/tmp/qb-admin-product-new-desktop.png');
 
             // Creating through the real form lands on the new product's edit screen, where images live.
-            await browser.type('#nameBn', 'গোলাপ জল টোনার');
             await browser.type('#compareAtPrice', '900');
             /*
              * A submit with required fields still empty must SAY so. Native bubbles leave a keyboard
@@ -3114,18 +3167,27 @@ async function main(): Promise<void> {
               JSON.stringify(popupEditor),
             );
 
-            // The short description reached the database and is rendered on the storefront page.
-            const createdShort = await withTransaction(async (tx) => {
+            /*
+             * **A product saved from the form is live.** Owner direction, 2026-11-19: there is no
+             * publication switch any more, so the row the real form just created must be published with
+             * a timestamp - which is the one thing the removed checkbox used to decide.
+             */
+            const createdRow = await withTransaction(async (tx) => {
               const rows = await tx
-                .select({ id: product.id, slug: product.slug, shortDescription: product.shortDescription })
+                .select({
+                  id: product.id,
+                  slug: product.slug,
+                  isPublished: product.isPublished,
+                  publishedAt: product.publishedAt,
+                })
                 .from(product)
                 .where(sql`${product.nameEn} = 'Rose Water Toner' and ${product.deletedAt} is null`);
               return rows[0] ?? null;
             });
             record(
-              'the short description is stored, not merely previewed',
-              createdShort?.shortDescription === 'One line under the price.',
-              JSON.stringify(createdShort),
+              'a product created through the form is published, with its publication timestamp',
+              createdRow?.isPublished === true && createdRow?.publishedAt !== null,
+              JSON.stringify(createdRow),
             );
 
             /*
@@ -3259,7 +3321,6 @@ async function main(): Promise<void> {
                 if (existing.length > 0) continue;
                 await tx.insert(product).values({
                   slug,
-                  nameBn: 'পেজ পণ্য ' + index,
                   nameEn: name,
                   categoryId: categoryId ?? 1,
                   brandId: brandId ?? 1,
@@ -3273,6 +3334,81 @@ async function main(): Promise<void> {
 
               return { made, newest: made[0], oldest: made[made.length - 1] };
             });
+
+            /*
+             * The review queue's two decisions. The **Refuse** button used to be a hand-written
+             * `<button className={styles.buttonDangerOutline}>` without the base `button` class, so it
+             * rendered with a border and a colour and none of the shared height, padding, radius or
+             * weight - the one control on the screen that did not match the control beside it. Both are
+             * `SubmitButton`s now, which compose the base class with the variant.
+             *
+             * A pending row is seeded here rather than reused: the HTTP checks above decided every review
+             * they made, and a decided review draws no buttons.
+             */
+            await withTransaction(async (tx) => {
+              const target = await tx
+                .select({ id: product.id })
+                .from(product)
+                .where(sql`${product.deletedAt} is null`)
+                .limit(1);
+              const productId = target[0]?.id;
+              const buyer = await tx
+                .insert(customer)
+                .values({ email: 'review-ui-' + Date.now() + '@verify.test', displayName: 'UI Reviewer' })
+                .returning({ id: customer.id });
+              const customerId = buyer[0]?.id;
+              if (productId === undefined || customerId === undefined) fail('could not seed the UI review');
+              const orderRow = await tx
+                .insert(order)
+                .values({
+                  orderNumber: 'QBREVUI' + Date.now().toString(36).toUpperCase(),
+                  customerId,
+                  paymentMethod: 'cod',
+                  status: 'completed',
+                  paymentState: 'not_applicable',
+                  codState: 'cod_collected',
+                  itemsSubtotalMinor: 10000,
+                  shippingMinor: 0,
+                  totalMinor: 10000,
+                })
+                .returning({ id: order.id });
+              const orderId = orderRow[0]?.id;
+              if (orderId === undefined) fail('could not seed the UI review order');
+              await tx.insert(productReview).values({
+                productId,
+                customerId,
+                orderId,
+                ratingHalves: 10,
+                body: 'UI verification review: waiting for the owner to decide it.',
+                state: 'pending',
+              });
+            });
+            await browser.navigate('/qbpanel/reviews');
+            const reviewButtons = await browser.evaluate<{
+              labels: string[];
+              heights: number[];
+              radii: string[];
+              weights: string[];
+            }>(`(() => {
+              const buttons = [...document.querySelectorAll('main button')].filter(
+                (button) => /^(Publish|Refuse)$/.test((button.textContent ?? '').trim()),
+              );
+              return {
+                labels: buttons.map((button) => (button.textContent ?? '').trim()),
+                heights: buttons.map((button) => Math.round(button.getBoundingClientRect().height)),
+                radii: buttons.map((button) => getComputedStyle(button).borderTopLeftRadius),
+                weights: buttons.map((button) => getComputedStyle(button).fontWeight),
+              };
+            })()`);
+            record(
+              'the review queue draws Publish and Refuse as one control scale',
+              reviewButtons.labels.includes('Publish') &&
+                reviewButtons.labels.includes('Refuse') &&
+                reviewButtons.heights.every((height) => height === 40) &&
+                new Set(reviewButtons.radii).size === 1 &&
+                new Set(reviewButtons.weights).size === 1,
+              JSON.stringify(reviewButtons),
+            );
 
             /*
              * One toolbar shape, one control scale. The selector list is what the contract is: every
@@ -3510,36 +3646,31 @@ async function main(): Promise<void> {
             await browser.screenshot('/tmp/qb-admin-catalog-paged.png');
 
             await browser.navigate('/qbpanel/categories?size=10');
-            const categoriesPage = await browser.evaluate<{ search: boolean; total: boolean; filter: boolean }>(`(() => ({
+            const categoriesPage = await browser.evaluate<{ search: boolean; total: boolean; filter: number }>(`(() => ({
               search: document.querySelector('form[role="search"] input[name="q"]') !== null,
               total: /showing \\d+ of \\d+/i.test(document.body.textContent || ''),
-              filter: document.querySelectorAll('[role="group"] a').length >= 3,
+              // No state filter: a category is always visible (owner direction, 2026-11-19).
+              filter: document.querySelectorAll('[data-admin-toolbar] a').length,
             }))()`);
             record(
-              'the category list has search, a visibility filter and a stated total',
-              categoriesPage.search === true && categoriesPage.total === true && categoriesPage.filter === true,
+              'the category list has search and a stated total, and no visibility filter',
+              categoriesPage.search === true && categoriesPage.total === true && categoriesPage.filter === 0,
               JSON.stringify(categoriesPage),
             );
 
-            // Search and the visibility filter are applied together by the server, not in the browser.
+            // Search is applied by the server, not in the browser: the URL carries it and the list narrows.
             await browser.navigate('/qbpanel/categories?q=' + encodeURIComponent('Verify Category'));
             const categorySearch = await browser.evaluate<{ rows: number; text: string; url: string }>(`(() => ({
               rows: document.querySelectorAll('[data-admin-list] > li').length,
               text: document.querySelector('[data-admin-list]')?.textContent ?? '',
               url: location.search,
             }))()`);
-            await browser.navigate('/qbpanel/categories?q=' + encodeURIComponent('Verify Category') + '&visibility=hidden');
-            const categoryHidden = await browser.evaluate<{ rows: number; empty: boolean }>(`(() => ({
-              rows: document.querySelectorAll('[data-admin-list] > li').length,
-              empty: /No categories match/i.test(document.body.textContent || ''),
-            }))()`);
             record(
-              'category search narrows on the server and combines with the visibility filter',
+              'category search narrows on the server',
               categorySearch.rows === 1 &&
                 categorySearch.text.includes('Verify Category') &&
-                categoryHidden.rows === 0 &&
-                categoryHidden.empty === true,
-              JSON.stringify({ search: categorySearch.rows, hidden: categoryHidden.rows }),
+                categorySearch.url.includes('q=Verify'),
+              JSON.stringify({ search: categorySearch.rows }),
             );
 
             /*
@@ -3595,13 +3726,13 @@ async function main(): Promise<void> {
             await browser.screenshot('/tmp/qb-admin-categories.png');
 
             /*
-             * The category visibility switch, in the direction that used to be impossible.
+             * **A category has no visibility switch** (owner direction, 2026-11-19).
              *
-             * The editor posts a hidden `isVisible=false` and, when the box is ticked, `isVisible=true`
-             * under the same name. `FormData.get()` returns the first entry in document order, so the
-             * hidden value decided every save: a category could be **hidden** and never shown again, and
-             * the panel still answered "updated". Both directions are asserted, because only the tick
-             * direction was broken - and the tick direction is the one a filter cannot notice.
+             * The editor used to post a hidden `isVisible=false` beside a ticked `isVisible=true`, and
+             * the direction that pair broke was a real bug once: `FormData.get()` returned the hidden
+             * value, so a category could be hidden and never shown again. The switch is gone now, so
+             * the contract is the absence - no control, no visibility filter on the list, and a row that
+             * stays visible whatever the editor is submitted with.
              */
             const verifyCategoryRow = await withTransaction((tx) =>
               tx
@@ -3610,83 +3741,31 @@ async function main(): Promise<void> {
                 .where(sql`${category.slug} = ${VERIFY_CATEGORY_SLUG}`),
             );
             const verifyCategoryId = verifyCategoryRow[0]?.id ?? 0;
-            const categoryVisibility = async (): Promise<boolean | null> => {
-              const rows = await withTransaction((tx) =>
-                tx
-                  .select({ isVisible: category.isVisible })
-                  .from(category)
-                  .where(sql`${category.id} = ${verifyCategoryId}`),
-              );
-              return rows[0]?.isVisible ?? null;
-            };
-
-            /*
-             * The wait is on the **stored value**, not on a notice in the URL: the editor already sits
-             * on `?notice=updated` from the first save, so waiting for that string matches immediately
-             * and reads the row before the second save has committed. A poll on the database is what
-             * makes each direction an observation rather than a race.
-             */
-            const waitForStoredVisibility = async (expected: boolean): Promise<boolean> => {
-              for (let attempt = 0; attempt < 60; attempt++) {
-                if ((await categoryVisibility()) === expected) return true;
-                await new Promise((resolve) => setTimeout(resolve, 150));
-              }
-              return false;
-            };
-
-            /*
-             * The switch is driven to a **known** DOM state before submitting, and the state is read back
-             * afterwards. A plain click on a checkbox inside its own `<label>` is not a reliable way to
-             * set it: the click can be forwarded to the control a second time, and the form then posts
-             * the value the check did not intend - which is a test that fails for its own reasons. The
-             * native setter plus a click event is what React's controlled input observes, so the posted
-             * value and the asserted value are the same one.
-             */
-            const setVisibility = async (desired: boolean): Promise<boolean> => {
-              await browser.navigate(`/qbpanel/categories/${verifyCategoryId}`);
-              /*
-               * The **checkbox** specifically. This form also carries a hidden input of the same name
-               * (the explicit false the pair needs) and it comes first in document order, so a bare
-               * name selector addresses the hidden field: it reports checked as false forever and
-               * clicking it does nothing at all. That is what made the first version of this check fail
-               * against a switch that was working.
-               */
-              return browser.evaluate<boolean>(`(() => {
-                const box = document.querySelector('input[type="checkbox"][name="isVisible"]');
-                if (!(box instanceof HTMLInputElement)) return false;
-                if (box.checked !== ${desired}) {
-                  const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'checked').set;
-                  setter.call(box, ${desired});
-                  box.dispatchEvent(new Event('click', { bubbles: true }));
-                }
-                return box.checked === ${desired};
-              })()`);
-            };
-
-            // The seeded row's own state is the baseline: the pair is asserted as a transition in both
-            // directions rather than against an assumed starting value.
             await browser.navigate(`/qbpanel/categories/${verifyCategoryId}`);
-            const editorVisible = await browser.evaluate<boolean>(
-              `document.querySelector('input[type="checkbox"][name="isVisible"]')?.checked === true`,
+            const categoryEditorSwitch = await browser.evaluate<boolean>(
+              `document.querySelector('input[name="isVisible"]') !== null
+                || /Visible on the storefront/i.test(document.querySelector('main')?.textContent ?? '')`,
             );
-            const submitEditor = async (): Promise<void> => {
-              await browser.evaluate(
-                `document.querySelector('form[action="/api/qbpanel/catalog/category"]')?.requestSubmit()`,
-              );
-            };
-
-            // Off, then on again: the second direction is the one reading `form.get()` could never store.
-            const setOff = await setVisibility(false);
-            await submitEditor();
-            const hidden = setOff && (await waitForStoredVisibility(false));
-            const setOn = await setVisibility(true);
-            await submitEditor();
-            const shown = setOn && (await waitForStoredVisibility(true));
-
+            await browser.navigate('/qbpanel/categories');
+            /*
+             * A filter is a row of links in the toolbar, so "no state filter" is "the toolbar holds no
+             * links at all" - the search field is a form. Asserting the count rather than a class name
+             * keeps the check on the rendered shape.
+             */
+            const categoryFilterTabs = await browser.evaluate<number>(
+              `document.querySelectorAll('[data-admin-toolbar] a').length`,
+            );
+            const categoryVisibility = await withTransaction(async (tx) => {
+              const rows = await tx
+                .select({ isVisible: category.isVisible })
+                .from(category)
+                .where(sql`${category.id} = ${verifyCategoryId}`);
+              return rows[0]?.isVisible ?? null;
+            });
             record(
-              'the category visibility switch stores both the hidden and the visible state',
-              editorVisible === true && hidden && shown,
-              `started ${editorVisible}; hid it: ${hidden}; showed it again: ${shown}`,
+              'the category editor offers no visibility switch and the list no state filter',
+              categoryEditorSwitch === false && categoryFilterTabs === 0 && categoryVisibility === true,
+              JSON.stringify({ categoryEditorSwitch, categoryFilterTabs, categoryVisibility }),
             );
 
             /*

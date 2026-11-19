@@ -140,6 +140,12 @@ export function ConfirmSubmit({
                     </>
                   ) : null}
                 </label>
+                {/*
+                  `minLength` stays on both: the browser applies it only to a **non-empty** value, so an
+                  optional note that was left alone submits, and one that was typed still has to be a
+                  real sentence. `required` is what makes the field mandatory, so it is the only thing
+                  that changes between the two cases.
+                */}
                 <textarea
                   id={`${uid}-reason`}
                   name="reason"

@@ -18,11 +18,7 @@ import styles from '../qbpanel.module.css';
 
 export type ProductFormValues = {
   slug?: string;
-  /** Optional owner content; null means the product has no Bangla name. */
-  nameBn?: string | null;
   nameEn?: string;
-  shortDescription?: string | null;
-  descriptionBn?: string | null;
   descriptionEn?: string | null;
   packSize?: string | null;
   /** Optional per-area delivery charges in poisha; null/absent means the store's charge applies. */
@@ -37,7 +33,6 @@ export type ProductFormValues = {
   availability?: string;
   /** Display rating in half stars (ADR 0035). Always set; four stars unless the owner chose. */
   ratingHalves?: number;
-  isPublished?: boolean;
   /** The photograph a saved product already puts on its card, if it has one. */
   primaryImageKey?: string | null;
 };
@@ -98,8 +93,6 @@ export function ProductForm({
   const { t } = useTranslation();
 
   const [nameEn, setNameEn] = useState(values.nameEn ?? '');
-  const [nameBn, setNameBn] = useState(values.nameBn ?? '');
-  const [shortDescription, setShortDescription] = useState(values.shortDescription ?? '');
   const [packSize, setPackSize] = useState(values.packSize ?? '');
   const [slug, setSlug] = useState(values.slug ?? '');
   const [price, setPrice] = useState(toBdtInput(values.priceMinor));
@@ -115,7 +108,6 @@ export function ProductForm({
   const [rating, setRating] = useState(
     String((values.ratingHalves ?? DEFAULT_PRODUCT_RATING_HALVES) / 2),
   );
-  const [isPublished, setIsPublished] = useState(values.isPublished ?? false);
 
   const formRef = useRef<HTMLFormElement>(null);
   /*
@@ -195,7 +187,6 @@ export function ProductForm({
       ? null
       : imageVariantPath(values.primaryImageKey));
 
-  const shortRemaining = 500 - shortDescription.length;
 
   /*
    * Which required fields are still empty, so the summary at the top can be specific instead of a
@@ -356,43 +347,6 @@ export function ProductForm({
             </div>
 
             <div className={styles.field}>
-              <label htmlFor="nameBn">{t('admin.catalog.field.nameBn')}</label>
-              <input
-                className={styles.input}
-                id="nameBn"
-                name="nameBn"
-                maxLength={200}
-                value={nameBn}
-                onChange={(event) => setNameBn(event.target.value)}
-                placeholder={t('admin.catalog.field.nameBnPlaceholder')}
-                lang="bn"
-              />
-            </div>
-
-            <div className={styles.field}>
-              <div className={styles.fieldLabelRow}>
-                <label htmlFor="shortDescription">{t('admin.catalog.field.shortDescription')}</label>
-                <span
-                  className={shortRemaining < 50 ? styles.counterWarn : styles.counter}
-                  aria-live="polite"
-                >
-                  {t('admin.catalog.counter', { used: shortDescription.length, max: 500 })}
-                </span>
-              </div>
-              <textarea
-                className={styles.textarea}
-                id="shortDescription"
-                name="shortDescription"
-                rows={2}
-                maxLength={500}
-                value={shortDescription}
-                onChange={(event) => setShortDescription(event.target.value)}
-                placeholder={t('admin.catalog.field.shortDescriptionPlaceholder')}
-              />
-              <p className={styles.hint}>{t('admin.catalog.field.shortDescriptionHelp')}</p>
-            </div>
-
-            <div className={styles.field}>
               <label htmlFor="descriptionEn">{t('admin.catalog.field.descriptionEn')}</label>
               <textarea
                 className={styles.textarea}
@@ -403,19 +357,6 @@ export function ProductForm({
                 defaultValue={values.descriptionEn ?? ''}
               />
               <p className={styles.hint}>{t('admin.catalog.field.descriptionHelp')}</p>
-            </div>
-
-            <div className={styles.field}>
-              <label htmlFor="descriptionBn">{t('admin.catalog.field.descriptionBn')}</label>
-              <textarea
-                className={styles.textarea}
-                id="descriptionBn"
-                name="descriptionBn"
-                rows={5}
-                maxLength={4000}
-                defaultValue={values.descriptionBn ?? ''}
-                lang="bn"
-              />
             </div>
           </section>
 
@@ -643,9 +584,6 @@ export function ProductForm({
                     {t('product.save', { amount: formatMoney(saving) })} · -{percent}%
                   </p>
                 )}
-                {shortDescription.trim() !== '' && (
-                  <p className={styles.previewShort}>{shortDescription}</p>
-                )}
               </div>
             </div>
             <p className={styles.hint}>{t('admin.catalog.previewCaveat')}</p>
@@ -731,41 +669,6 @@ export function ProductForm({
                 {effectiveSlug === '' ? t('admin.catalog.field.slugHelp') : `/products/${effectiveSlug}`}
               </p>
             </div>
-          </section>
-
-          {/* ---- Publication ---- */}
-          <section className={styles.formCard} aria-labelledby="pf-publication">
-            <div className={styles.formCardHead}>
-              <h2 id="pf-publication">{t('admin.catalog.sectionPublication')}</h2>
-              <p>{t('admin.catalog.sectionPublicationBody')}</p>
-            </div>
-
-            <label className={styles.switchRow} htmlFor="isPublished">
-              <input
-                id="isPublished"
-                name="isPublished"
-                type="checkbox"
-                checked={isPublished}
-                onChange={(event) => setIsPublished(event.target.checked)}
-              />
-              <span className={styles.switchRowText}>
-                <span className={styles.switchRowLabel}>{t('admin.catalog.field.isPublished')}</span>
-                <span className={styles.hint}>{t('admin.catalog.field.isPublishedHelp')}</span>
-              </span>
-            </label>
-
-            {/*
-              The two states are independent and both gate the storefront, which is easy to get wrong:
-              a published out-of-stock product shows but cannot be ordered. Stating the resulting
-              outcome beats making the owner reason about two toggles.
-            */}
-            <p className={styles.outcome} data-tone={isPublished && availability === 'in_stock' ? 'ok' : 'warn'}>
-              {isPublished
-                ? availability === 'in_stock'
-                  ? t('admin.catalog.outcomeLiveOrderable')
-                  : t('admin.catalog.outcomeLiveNotOrderable')
-                : t('admin.catalog.outcomeHidden')}
-            </p>
           </section>
         </aside>
       </div>

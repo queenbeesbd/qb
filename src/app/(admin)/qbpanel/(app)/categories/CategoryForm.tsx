@@ -18,7 +18,6 @@ export type CategoryFormValues = {
   descriptionEn?: string | null;
   descriptionBn?: string | null;
   sortOrder?: number;
-  isVisible?: boolean;
   /** The one-line label under the category's name on the storefront index. */
   tagline?: string | null;
   /** The category's square photograph, as an asset key. */
@@ -93,7 +92,6 @@ export function CategoryForm({
   const [nameEn, setNameEn] = useState(values.nameEn ?? '');
   const [nameBn, setNameBn] = useState(values.nameBn ?? '');
   const [slug, setSlug] = useState(values.slug ?? '');
-  const [isVisible, setIsVisible] = useState(values.isVisible ?? true);
   const [parentId, setParentId] = useState(
     values.parentId === null || values.parentId === undefined ? '' : String(values.parentId),
   );
@@ -388,39 +386,6 @@ export function CategoryForm({
               </p>
             </div>
             <p className={styles.hint}>{t('admin.categories.previewCaveat')}</p>
-          </section>
-
-          <section className={styles.formCard} aria-labelledby="cf-visibility">
-            <div className={styles.formCardHead}>
-              <h2 id="cf-visibility">{t('admin.categories.sectionVisibility')}</h2>
-              <p>{t('admin.categories.sectionVisibilityBody')}</p>
-            </div>
-
-            {/*
-              An unticked checkbox sends nothing, and the service reads "nothing" as "visible" - so
-              without this hidden field, unticking would save as ticked. The pair makes the two states
-              explicit: the hidden input posts false, and a ticked box overrides it with true. (Before
-              Phase 36 this form could not hide a category at all.)
-            */}
-            <input type="hidden" name="isVisible" value="false" />
-            <label className={styles.switchRow} htmlFor="isVisible">
-              <input
-                id="isVisible"
-                name="isVisible"
-                type="checkbox"
-                value="true"
-                checked={isVisible}
-                onChange={(event) => setIsVisible(event.target.checked)}
-              />
-              <span className={styles.switchRowText}>
-                <span className={styles.switchRowLabel}>{t('admin.categories.field.isVisible')}</span>
-                <span className={styles.hint}>{t('admin.categories.field.isVisibleHelp')}</span>
-              </span>
-            </label>
-
-            <p className={styles.outcome} data-tone={isVisible ? 'ok' : 'warn'}>
-              {isVisible ? t('admin.categories.outcomeVisible') : t('admin.categories.outcomeHidden')}
-            </p>
           </section>
 
           <section className={styles.formCard} aria-labelledby="cf-usage">

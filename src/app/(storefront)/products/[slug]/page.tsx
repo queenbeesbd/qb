@@ -134,6 +134,7 @@ export default async function ProductPage({
         body: entry.body,
         createdAt: entry.createdAt.toISOString(),
         imageKey: entry.imageKey,
+        source: entry.source,
       }))}
       totalPublished={reviewData.totalPublished}
       ownReview={
@@ -144,6 +145,7 @@ export default async function ProductPage({
               body: reviewData.ownReview.body,
               createdAt: reviewData.ownReview.createdAt.toISOString(),
               imageKey: reviewData.ownReview.imageKey,
+              source: reviewData.ownReview.source,
               state: reviewData.ownReview.state,
             }
       }

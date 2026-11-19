@@ -25,7 +25,6 @@ export type CatalogProductRow = {
   categoryNameEn: string;
   brandNameEn: string;
   availability: string;
-  isPublished: boolean;
   priceMinor: number | null;
   imageCount: number;
   primaryImageKey: string | null;
@@ -211,7 +210,6 @@ export function CatalogView({
                     <span>{product.categoryNameEn}</span>
                     <span>{product.brandNameEn}</span>
                     <span className={`${styles.mono} ${styles.recordSlug}`}>{product.slug}</span>
-                    {!product.isPublished && <span className={styles.tagMuted}>{t('admin.catalog.unpublished')}</span>}
                     {product.imageCount === 0 && <span className={styles.tagWarn}>{t('admin.catalog.noImagesBadge')}</span>}
                   </span>
                 </div>

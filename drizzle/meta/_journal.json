@@ -253,6 +253,13 @@
       "when": 1795034565890,
       "tag": "0035_support_messenger_link",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1795098052933,
+      "tag": "0036_bumpy_absorbing_man",
+      "breakpoints": true
     }
   ]
 }

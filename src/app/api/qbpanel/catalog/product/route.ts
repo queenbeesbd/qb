@@ -85,13 +85,16 @@ export async function POST(request: Request): Promise<Response> {
   const rawProductId = form.get('productId');
   const productId = typeof rawProductId === 'string' && rawProductId !== '' ? rawProductId : null;
 
+  /*
+   * Only the fields the editor still draws. The Bangla name, the Bangla description, the short
+   * description and the publication switch were removed from the form on 2026-11-19 and are not read
+   * here: a browser that posts them anyway cannot write them, and a product that already carries one
+   * keeps it, because the update path simply does not mention the column.
+   */
   const fields = {
     slug: form.get('slug') ?? undefined,
-    nameBn: form.get('nameBn'),
     nameEn: form.get('nameEn'),
-    descriptionBn: form.get('descriptionBn') ?? undefined,
     descriptionEn: form.get('descriptionEn') ?? undefined,
-    shortDescription: form.get('shortDescription') ?? undefined,
     categoryId: form.get('categoryId'),
     brandId: form.get('brandId'),
     packSize: form.get('packSize') ?? undefined,
@@ -102,7 +105,6 @@ export async function POST(request: Request): Promise<Response> {
     compareAtPrice: form.get('compareAtPrice') ?? undefined,
     sku: form.get('sku') ?? undefined,
     availability: form.get('availability'),
-    isPublished: form.get('isPublished') ?? undefined,
     rating: form.get('rating') ?? undefined,
   };
 

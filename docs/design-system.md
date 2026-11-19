@@ -551,7 +551,7 @@ A create/edit screen is its own route, and it is built from one shape:
 | Page header | `h1`, one sentence - from `PageHeader`, the same as every other admin page; no eyebrow |
 | Sticky action bar | the readiness summary on the left, Cancel and Save on the right. **The only action bar on the page** - a second one at the bottom is the same content twice and overlays the form |
 | Two columns | copy and media left, commercial facts right. Below 1100px they stack, and the **preview comes first** |
-| Section cards | one per task (Media, General information, Pricing, Organisation, Publication), each with a one-line explanation. **Media leads the wide column** (owner direction, 2026-11-10): the photograph is picked before the copy is written |
+| Section cards | one per task (Media, General information, Pricing, Inventory, Delivery charge, Organisation, Storefront preview at 2026-11-19), each with a one-line explanation. **Media leads the wide column** (owner direction, 2026-11-10): the photograph is picked before the copy is written |
 | Live preview | shows only what was typed. An empty field renders as "No price yet", never a placeholder value |
 | Required summary | names the empty required fields in text. Never an asterisk convention alone |
 | Validation | `noValidate` on the form; the submit handler states the missing set, sets `aria-invalid`, and focuses the first offender |
@@ -561,11 +561,61 @@ Three rules behind it:
 1. **The preview never invents.** No placeholder price, no "New" badge, no stock figure. A saving is
    derived from the two typed amounts by the same helpers the storefront uses, so it cannot claim a
    discount the storefront would not show.
-2. **Two toggles get one sentence.** Publication and availability are independent and both gate the
-   storefront, so the form states the combined outcome ("live but not orderable") rather than making the
-   owner reason about them.
+2. **One state, not two.** Publication and availability used to be independent toggles, and the form
+   stated their combined outcome ("live but not orderable"). The publication half is **gone** (owner
+   direction, 2026-11-19): saving publishes, so availability is the only state the editor shows and the
+   only one the storefront's orderability gate reads. Do not reintroduce a "Publish on the storefront"
+   switch, and do not put a second toggle back beside availability.
 3. **Reordering is buttons, not drag alone.** A drag-only control is unusable with a keyboard and on the
    phone the owner works from. Order and primary image stay separate facts.
+
+### The product editor at 2026-11-19: one name, one description, no publication switch
+
+The owner reported the editor as too much to fill in for a catalogue he maintains alone, and named the
+fields. Four are **removed from the form**, not merely defaulted:
+
+| Removed | Why |
+| --- | --- |
+| **Name (Bangla)** | the owner writes English names; the column stays nullable for an import |
+| **Short description** | a shelf line he does not write; the product page still renders one when present |
+| **Description (Bangla)** | the same |
+| **Publication** (the card, its checkbox and its three outcome sentences) | a second decision about the same product, whose "hidden" answer nobody wanted |
+
+Saving publishes. The form's required set is now exactly four fields - **Name (English)**, **Category**,
+**Brand**, **Price** - and the readiness summary names whichever of them is empty. Availability stays,
+because it is a real state the storefront reads; **archiving** is the deliberate way to remove a product,
+not a switch on the editor.
+
+**The category editor loses its visibility card** for the same reason, and the category list loses its
+Visible/Hidden filter tabs and status pill: a category is always visible, and `is_visible` is now only
+something archiving sets. A brand never had a visibility control, so nothing changed there.
+
+Measured on the served build: the new-product route renders seven section headings with no
+`#nameBn`, `#shortDescription`, `#descriptionBn` or `#isPublished` in the DOM, four `[required]` controls,
+and no "Hidden: the product is not on the storefront" sentence anywhere in `main`.
+
+### The review queue: two decisions, one control scale
+
+The **Refuse** button was a hand-written `<button className={styles.buttonDangerOutline}>` - the variant
+class **without** the base `button` class - so it rendered with a border and a danger colour and none of
+the shared height, padding, radius or font weight. It was the only control on the screen that did not
+match the one beside it.
+
+Both decisions are `SubmitButton`s now (`primary` and `dangerOutline`), which composes the base class
+with the variant and adds the pending state, so a double-click cannot decide twice. Measured at 1440px:
+Publish 40px / `#c8b6ff` / 12px radius / 600, Refuse 40px / white / `#9b263e` border and text / 12px
+radius / 600. **Any button that is not a `SubmitButton` must still carry `styles.button` plus its
+variant** - that is the bug this fixed, and it is not specific to this screen.
+
+### Writing a review in from social media
+
+`/qbpanel/reviews` carries a composer above the queue: product, rating, words, optional photograph, one
+Publish. It is a **panel, not a page** - it is the other half of the same job as deciding a review, so it
+lives on the screen where that job happens.
+
+What it must always say: the review goes on the product page **immediately**, and it is **not labelled
+Verified buyer**. The metas of an imported row read "Added by you" where a customer's row reads their
+address, because a null email rendered as an empty gap is indistinguishable from a rendering fault.
 
 ### The settings pattern (delivery charges, announcement bar)
 

@@ -1,8 +1,8 @@
 /**
  * Product reviews (ADR 0035).
  *
- * One module for the three reads and two writes the feature needs, so the storefront, the customer's
- * own form and the owner's queue cannot disagree about what "published" means.
+ * One module for the reads and writes the feature needs, so the storefront, the customer's own form and
+ * the owner's queue cannot disagree about what "published" means.
  *
  * Three rules, each enforced here:
  *
@@ -18,16 +18,20 @@
 import { sql } from 'drizzle-orm';
 
 import type { Transaction } from '@/db/client';
-import { productReview } from '@/db/schema';
+import { product, productReview } from '@/db/schema';
 import { recordAudit } from '@/server/auth/audit';
 import { ConflictError, ValidationError, requirePermission } from '@/server/authz/authorize';
 import type { ActorContext } from '@/server/authz/authorize';
 import { PERMISSIONS } from '@/server/authz/permissions';
 import { MIN_RATING_HALVES, MAX_RATING_HALVES } from '@/lib/rating';
+import { REVIEW_BODY_MAX, REVIEW_BODY_MIN } from '@/lib/review-limits';
 
-/** The bounds the form promises, enforced again here and by the table's own check. */
-export const REVIEW_BODY_MIN = 10;
-export const REVIEW_BODY_MAX = 1000;
+/**
+ * The bounds the form promises, enforced again here and by the table's own check. Imported and
+ * re-exported rather than restated: the customer's form and the admin composer read the same two
+ * numbers, so a counter cannot promise room this module refuses.
+ */
+export { REVIEW_BODY_MIN, REVIEW_BODY_MAX } from '@/lib/review-limits';
 
 /** How many published reviews a product page draws. More than this states the gap rather than hiding it. */
 export const PUBLISHED_REVIEW_PAGE_SIZE = 10;
@@ -38,7 +42,16 @@ export type PublishedReview = {
   readonly createdAt: Date;
   /** The attached photograph, as our own asset key, or null when the customer attached none. */
   readonly imageKey: string | null;
+  /**
+   * Where the words came from. The product page draws **Verified buyer** only for `customer`: the label
+   * is a claim about a purchase, and an owner-typed review has none behind it (owner direction,
+   * 2026-11-19).
+   */
+  readonly source: ReviewSource;
 };
+
+/** `customer` - written on the product page by a buyer. `owner` - typed in from social media. */
+export type ReviewSource = 'customer' | 'owner';
 
 export type OwnReview = PublishedReview & {
   readonly state: 'pending' | 'approved' | 'rejected';
@@ -61,13 +74,14 @@ export async function listPublishedReviews(
       body: productReview.body,
       createdAt: productReview.createdAt,
       imageKey: productReview.imageKey,
+      source: productReview.source,
     })
     .from(productReview)
     .where(sql`${productReview.productId} = ${productId} and ${productReview.state} = 'approved'`)
     .orderBy(sql`${productReview.createdAt} desc, ${productReview.id} desc`)
     .limit(limit);
 
-  return rows;
+  return rows.map((row) => ({ ...row, source: row.source as ReviewSource }));
 }
 
 /** How many reviews are published on a product, so the page can say when it is showing only some. */
@@ -94,7 +108,11 @@ export async function getOwnReview(
       state: productReview.state,
     })
     .from(productReview)
-    .where(sql`${productReview.customerId} = ${customerId} and ${productReview.productId} = ${productId}`);
+    .where(
+      sql`${productReview.source} = 'customer'
+          and ${productReview.customerId} = ${customerId}
+          and ${productReview.productId} = ${productId}`,
+    );
 
   const row = rows[0];
   if (row === undefined) return null;
@@ -103,6 +121,8 @@ export async function getOwnReview(
     body: row.body,
     createdAt: row.createdAt,
     imageKey: row.imageKey,
+    // The read is filtered to `source = 'customer'`, so the own row is always the customer's own.
+    source: 'customer',
     state: row.state as OwnReview['state'],
   };
 }
@@ -126,7 +146,11 @@ export async function reviewEligibility(
   const existing = await tx
     .select({ id: productReview.id })
     .from(productReview)
-    .where(sql`${productReview.customerId} = ${customerId} and ${productReview.productId} = ${productId}`);
+    .where(
+      sql`${productReview.source} = 'customer'
+          and ${productReview.customerId} = ${customerId}
+          and ${productReview.productId} = ${productId}`,
+    );
   if (existing.length > 0) return { allowed: false, reason: 'already_reviewed' };
 
   // Raw SQL because the purchase proof joins four tables; the driver's row type is cast at this one
@@ -199,6 +223,7 @@ export async function submitReview(
         imageWidth: input.image?.width ?? null,
         imageHeight: input.image?.height ?? null,
         state: 'pending',
+        source: 'customer',
       })
       .returning({ id: productReview.id });
     const reviewId = inserted[0]?.id;
@@ -225,7 +250,9 @@ export type AdminReview = {
   readonly productId: number;
   readonly productName: string;
   readonly productSlug: string;
-  readonly customerEmail: string;
+  /** The author's address, or null on a review the owner typed in from social media. */
+  readonly customerEmail: string | null;
+  readonly source: ReviewSource;
   readonly ratingHalves: number;
   readonly body: string;
   /** The customer's photograph, as an asset key, so the owner sees what they would publish. */
@@ -248,6 +275,7 @@ export async function listReviewsForAdmin(
            p.name_en as product_name_en,
            p.slug as product_slug,
            c.email as customer_email,
+           r.source,
            r.rating_halves,
            r.body,
            r.image_key,
@@ -256,7 +284,9 @@ export async function listReviewsForAdmin(
            r.decided_at
     from product_review r
     join product p on p.id = r.product_id
-    join customer c on c.id = r.customer_id
+    -- LEFT, because an owner-typed review has no account behind it. An inner join would silently drop
+    -- every imported review out of the queue it was written in.
+    left join customer c on c.id = r.customer_id
     where r.state = ${state}
     order by r.created_at ${state === 'pending' ? sql`asc` : sql`desc`}, r.id asc
     limit ${options.limit ?? 25}
@@ -267,7 +297,8 @@ export async function listReviewsForAdmin(
       product_id: string;
       product_name_en: string;
       product_slug: string;
-      customer_email: string;
+      customer_email: string | null;
+      source: string;
       rating_halves: number;
       body: string;
       image_key: string | null;
@@ -283,6 +314,7 @@ export async function listReviewsForAdmin(
     productName: row.product_name_en,
     productSlug: row.product_slug,
     customerEmail: row.customer_email,
+    source: row.source as ReviewSource,
     ratingHalves: Number(row.rating_halves),
     body: row.body,
     imageKey: row.image_key,
@@ -360,4 +392,100 @@ export async function decideReview(
   });
 
   return true;
+}
+
+/**
+ * Publishes a review the owner composed from words a customer left elsewhere (owner direction,
+ * 2026-11-19).
+ *
+ * Most of this shop's reviews come in on Facebook and WhatsApp, where nothing can be checked against an
+ * order. The owner asked to be able to put them on the product page rather than leave the shop looking
+ * unreviewed, so this path writes a row **already `approved`** and records the owner as the deciding
+ * account - which is exactly what happened: the owner read those words and chose to publish them.
+ *
+ * What it deliberately does **not** do:
+ *
+ * 1. **No customer and no order.** `product_review_provenance` refuses an `owner` row that names
+ *    either, so nothing here can manufacture a purchase. The product page therefore draws no
+ *    "Verified buyer" label on it, because there is no buyer to verify.
+ * 2. **No edit and no delete afterwards.** The row is born decided, and the existing trigger freezes
+ *    the words, the stars and the photo; a mistake is a refusal at the page, not a rewrite.
+ * 3. **No placeholder body.** The same 10-1000 character bounds a customer's review has apply here -
+ *    the bound is on the displayed text, not on who typed it.
+ *
+ * The photograph goes through `saveUpload` before this transaction opens, exactly as a customer's does,
+ * so a file that cannot be decoded refuses the whole submission rather than leaving a review whose
+ * photo silently never arrived.
+ */
+export async function createOwnerReview(
+  tx: Transaction,
+  actor: ActorContext,
+  input: {
+    readonly productId: number;
+    readonly ratingHalves: number;
+    readonly body: string;
+    readonly image?: { readonly key: string; readonly width: number; readonly height: number } | null;
+  },
+): Promise<{ reviewId: number }> {
+  await requirePermission(actor, PERMISSIONS.reviewModerate, 'review', 0);
+
+  const body = input.body.trim();
+  if (body.length < REVIEW_BODY_MIN || body.length > REVIEW_BODY_MAX) {
+    throw new ValidationError(`a review must be between ${REVIEW_BODY_MIN} and ${REVIEW_BODY_MAX} characters`);
+  }
+  if (
+    !Number.isInteger(input.ratingHalves) ||
+    input.ratingHalves < MIN_RATING_HALVES ||
+    input.ratingHalves > MAX_RATING_HALVES ||
+    input.ratingHalves % 2 !== 0
+  ) {
+    throw new ValidationError('choose a whole-star rating between one and five');
+  }
+
+  const productRows = await tx
+    .select({ id: product.id })
+    .from(product)
+    .where(sql`${product.id} = ${input.productId} and ${product.deletedAt} is null`);
+  if (productRows.length === 0) throw new ValidationError('that product does not exist');
+
+  const now = new Date();
+  const inserted = await tx
+    .insert(productReview)
+    .values({
+      productId: input.productId,
+      customerId: null,
+      orderId: null,
+      source: 'owner',
+      ratingHalves: input.ratingHalves,
+      body,
+      imageKey: input.image?.key ?? null,
+      imageWidth: input.image?.width ?? null,
+      imageHeight: input.image?.height ?? null,
+      // Decided on the way in: the owner is the one publishing these words.
+      state: 'approved',
+      decidedBy: actor.staffUserId,
+      decidedAt: now,
+      createdAt: now,
+    })
+    .returning({ id: productReview.id });
+  const reviewId = inserted[0]?.id;
+  if (reviewId === undefined) throw new Error('review insert returned no id');
+
+  await recordAudit(tx, {
+    actorType: 'staff',
+    actorStaffId: actor.staffUserId,
+    actorRoleCodes: actor.roleCodes,
+    action: 'review.published',
+    entityType: 'review',
+    entityId: reviewId,
+    after: {
+      productId: input.productId,
+      ratingHalves: input.ratingHalves,
+      body,
+      state: 'approved',
+      source: 'owner',
+    },
+  });
+
+  return { reviewId };
 }

@@ -14,6 +14,65 @@ An entry may describe a deployment only once it has actually happened and been o
 
 ## [Unreleased]
 
+### Changed - 2026-11-19: less to fill in, a Refuse button that matches, and reviews the owner can add
+
+The owner went through the panel and named what gets in the way. Six changes, all of them removals or
+repairs rather than new machinery.
+
+**The product editor lost four things.** The **Publication** card - "Publish on the storefront", its
+help text and its three outcome sentences - is removed: it asked for a second decision about the same
+product, and the state it offered ("Hidden") is one nobody wanted. **Saving publishes**, and archiving is
+the deliberate way to remove a product. `Name (Bangla)`, `Short description` and `Description (Bangla)`
+are removed from the form as "unnecessary for his store"; `normalizeProductInput` no longer reads those
+keys, so an edit **leaves the stored values alone** rather than erasing them, and the product page still
+renders a short description or a Bangla description that an import wrote. The required set is now four
+fields: name, category, brand, price.
+
+**The category editor lost its visibility switch**, and the category list its Visible/Hidden filter tabs
+and status pill. A category is always visible; `is_visible` survives because archiving sets it false and
+the storefront reads it. A brand never had a visibility control, so nothing changed there.
+
+**A COD rejection no longer needs a typed reason.** Ten characters in a dialog, on a phone call that has
+already happened, was a hurdle with no recorded gain. A typed note is still stored word for word and must
+still be a real sentence; an empty one records `No reason recorded.` (or `Confirmed by phone` on an
+approval) from `decideCod` itself, so `order.cancelled_reason` and the audit row are never blank.
+
+**The Refuse button was unstyled.** It was `<button className={styles.buttonDangerOutline}>` - the
+variant without the base `button` class - so it had a border and a colour and none of the shared height,
+padding, radius or weight. Both review decisions are `SubmitButton`s now and measure identically (40px,
+12px radius, 600). The general rule is recorded: any button that is not a `SubmitButton` still needs
+`styles.button` plus its variant.
+
+**The owner can add a review collected on social media.** `product_review` gains `source`
+(`customer` | `owner`), `customer_id` and `order_id` become nullable, and `product_review_provenance`
+binds them: a customer review needs its purchase, an imported one may not name one. The composer sits
+above the queue on `/qbpanel/reviews` (`POST /api/qbpanel/reviews/compose`); the row is inserted already
+`approved` with the owner as `decided_by`, and the existing trigger freezes its words and stars. **An
+imported review is never labelled "Verified buyer"** - the storefront draws that label only for
+`source = 'customer'`, because it is a claim about a purchase.
+
+**Migration `0036_bumpy_absorbing_man`** (two columns nullable, `source`, its index and the provenance
+check). Schema 55 tables, 115 indexes.
+
+**Verification (2026-11-19, local; nothing deployed).**
+
+| Check | Result |
+| --- | --- |
+| `npm run typecheck` | clean |
+| `npm run lint` | 0 errors, 24 pre-existing warnings |
+| `npm run check:i18n` | 1,976 keys, every referenced key present, 24 dead keys removed with their controls |
+| `npm test` | 329/329 |
+| `npm run db:validate` / `db:check` / `check:migrations` | 55 tables, 115 indexes, 37/37 migrations recorded |
+| `tests/db/reviews.test.ts` | 17/17 - including four new cases for the owner-written path |
+| `tests/db/cod.test.ts` | 10/10 - including an empty rejection note and a typed one |
+| `npm run verify:admin` | **242/242**, with the editor's removed fields, the category's absent switch, both review controls measuring one scale, and the compose route all asserted |
+| `npm run build` | success (after re-running past the Next.js security advisory stop) |
+| Chromium, served build | new-product route: 0 of `#nameBn`/`#shortDescription`/`#descriptionBn`/`#isPublished`, no "Hidden: the product…" copy, summary "Still required: Name (English), Category, Brand, Price (BDT)"; category editor: no switch, list toolbar holds 0 links; reviews: Publish 40px `#c8b6ff` and Refuse 40px white/`#9b263e`, both 12px radius and weight 600; a review composed through the real form landed `approved` with `Added by you` and the product page rendered it **without** "Verified buyer" |
+
+**Limits.** `verify:browser`, `verify:storefront` and `verify:ui` were not re-run; real iOS Safari,
+Android Chrome and screen readers were not used. `test:db` is 292/296 with the four failures that
+reproduce on unmodified `HEAD`.
+
 ### Changed - 2026-11-19: the receipt confirms the order, and nothing else
 
 The owner read the order confirmation page as three things that did not belong on a receipt, plus a

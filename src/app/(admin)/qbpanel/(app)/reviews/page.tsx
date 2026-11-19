@@ -1,4 +1,7 @@
+import { sql } from 'drizzle-orm';
+
 import { withTransaction } from '@/db/client';
+import { product } from '@/db/schema';
 import { requireAdminPage } from '@/server/auth/guard';
 import { PERMISSIONS } from '@/server/authz/permissions';
 import { countReviewsForAdmin, listReviewsForAdmin } from '@/server/reviews/service';
@@ -8,7 +11,15 @@ export const dynamic = 'force-dynamic';
 
 const TABS: readonly ReviewTab[] = ['pending', 'approved', 'rejected'];
 
-const NOTICES: readonly ReviewNotice[] = ['published', 'refused', 'conflict', 'invalid', 'denied'];
+const NOTICES: readonly ReviewNotice[] = [
+  'published',
+  'refused',
+  'conflict',
+  'invalid',
+  'denied',
+  'written',
+  'writeInvalid',
+];
 
 function readTab(value: string | string[] | undefined): ReviewTab {
   const candidate = Array.isArray(value) ? value[0] : value;
@@ -45,7 +56,18 @@ export default async function ReviewsPage({
     const pending = await countReviewsForAdmin(tx, 'pending');
     const approved = await countReviewsForAdmin(tx, 'approved');
     const rejected = await countReviewsForAdmin(tx, 'rejected');
-    return { rows, counts: { pending, approved, rejected } };
+    /*
+     * The products the owner may attach a review to: published and not archived, which is exactly the
+     * set whose product page can draw one. Ordered by name so the select is scannable rather than a
+     * catalog dump in insertion order.
+     */
+    const products = await tx
+      .select({ id: product.id, nameEn: product.nameEn })
+      .from(product)
+      .where(sql`${product.deletedAt} is null and ${product.isPublished}`)
+      .orderBy(product.nameEn)
+      .limit(500);
+    return { rows, counts: { pending, approved, rejected }, products };
   });
 
   return (
@@ -56,6 +78,7 @@ export default async function ReviewsPage({
         productName: row.productName,
         productSlug: row.productSlug,
         customerEmail: row.customerEmail,
+        source: row.source,
         ratingHalves: row.ratingHalves,
         body: row.body,
         imageKey: row.imageKey,
@@ -63,6 +86,7 @@ export default async function ReviewsPage({
         decidedAt: row.decidedAt === null ? null : row.decidedAt.toISOString(),
       }))}
       counts={data.counts}
+      products={data.products}
       notice={readNotice(params.notice)}
       csrfToken={principal.csrfToken}
     />

@@ -21,6 +21,7 @@ import type { ActorContext } from '../../src/server/authz/authorize';
 import { PERMISSIONS } from '../../src/server/authz/permissions';
 import {
   countPublishedReviews,
+  createOwnerReview,
   decideReview,
   getOwnReview,
   listPublishedReviews,
@@ -264,6 +265,101 @@ describe('product reviews', { skip: toolingAvailable ? false : SKIP_REASON }, ()
       fixture.pool.query(`update product set rating_halves = null where id = $1`, [inserted.rows[0]?.id]),
       /not-null|null value/i,
     );
+  });
+
+  /**
+   * Owner direction, 2026-11-19: the owner types in words a customer left on Facebook or WhatsApp. The
+   * rules that must hold are the ones that keep that from becoming a lie - no invented purchase, no
+   * "Verified buyer" label, and the same bounds a customer's review has.
+   */
+  describe('a review the owner writes in', () => {
+    it('publishes immediately, with no customer and no order behind it', async () => {
+      const before = await fixture.pool.query<{ total: number }>(
+        `select count(*)::int as total from product_review where product_id = $1 and source = 'owner'`,
+        [productId],
+      );
+
+      const created = await withTransaction((tx) =>
+        createOwnerReview(tx, owner, {
+          productId,
+          ratingHalves: 10,
+          body: 'The customer sent this on WhatsApp: the serum arrived in three days and she loves it.',
+        }),
+      );
+      assert.ok(created.reviewId > 0);
+
+      const row = await fixture.pool.query<{
+        source: string;
+        state: string;
+        customer_id: string | null;
+        order_id: string | null;
+        decided_by: string | null;
+      }>(
+        `select source, state, customer_id, order_id, decided_by from product_review where id = $1`,
+        [created.reviewId],
+      );
+      assert.equal(row.rows[0]?.source, 'owner');
+      assert.equal(row.rows[0]?.state, 'approved', 'the owner is the one publishing it');
+      assert.equal(row.rows[0]?.customer_id, null, 'no account is invented for it');
+      assert.equal(row.rows[0]?.order_id, null, 'no purchase is invented for it');
+      assert.ok(row.rows[0]?.decided_by !== null, 'the owner is recorded as the deciding account');
+
+      // It is on the product page now, and it carries its provenance so the page draws no label.
+      const published = await withTransaction((tx) => listPublishedReviews(tx, productId, 50));
+      const mine = published.find((entry) => entry.body.includes('sent this on WhatsApp'));
+      assert.equal(mine?.source, 'owner');
+
+      const after = await fixture.pool.query<{ total: number }>(
+        `select count(*)::int as total from product_review where product_id = $1 and source = 'owner'`,
+        [productId],
+      );
+      assert.equal((after.rows[0]?.total ?? 0) - (before.rows[0]?.total ?? 0), 1);
+    });
+
+    it('refuses a body or a rating outside the bounds a customer review has', async () => {
+      await assert.rejects(
+        withTransaction((tx) =>
+          createOwnerReview(tx, owner, { productId, ratingHalves: 10, body: 'too short' }),
+        ),
+        /between 10 and 1000 characters/,
+      );
+      await assert.rejects(
+        withTransaction((tx) =>
+          createOwnerReview(tx, owner, { productId, ratingHalves: 7, body: 'x'.repeat(20) }),
+        ),
+        /whole-star rating/,
+      );
+    });
+
+    it('is refused by the schema when it names a customer or an order', async () => {
+      /*
+       * The service never writes one, and this asserts the database would refuse it anyway: provenance is
+       * one fact, not two independent columns. That is what makes "an owner review has no purchase"
+       * a property of the table rather than a promise in a comment.
+       */
+      await assert.rejects(
+        fixture.pool.query(
+          `insert into product_review (product_id, customer_id, order_id, rating_halves, body, state, decided_by, decided_at, source)
+           values ($1, $2, $3, 10, 'A review that claims a purchase it does not have.', 'approved', $4, now(), 'owner')`,
+          [productId, seeded.customerId, seeded.orderId, seeded.staffId],
+        ),
+        /product_review_provenance/,
+      );
+    });
+
+    it('requires the permission to write one', async () => {
+      const powerless: ActorContext = {
+        staffUserId: owner.staffUserId,
+        permissions: new Set(),
+        roleCodes: ['moderator'],
+      };
+      await assert.rejects(
+        withTransaction((tx) =>
+          createOwnerReview(tx, powerless, { productId, ratingHalves: 10, body: 'x'.repeat(20) }),
+        ),
+        /permission/i,
+      );
+    });
   });
 
   it('accepts 4.5 as a product rating and refuses one outside the range', async () => {

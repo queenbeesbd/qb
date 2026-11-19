@@ -930,7 +930,7 @@ export const dictionary = {
   'admin.cod.rejectBody':
     'The order is cancelled and leaves the queue. The customer account is not changed. The reason is kept in the audit trail.',
   'admin.cod.rejectConfirm': 'Cancel the order',
-  'admin.cod.rejectReasonPlaceholder': 'For example: the customer did not confirm the order by phone',
+  'admin.cod.rejectReasonPlaceholder': 'Optional. For example: the customer did not confirm the order by phone',
   'admin.cod.filterLabel': 'Order filters',
   'admin.cod.tabWaiting': 'Waiting',
   'admin.cod.tabDecided': 'Decided today',
@@ -963,7 +963,6 @@ export const dictionary = {
   'admin.categories.emptyBody':
     'The storefront category navigation stays empty until one exists. Products keep their own pages either way.',
   'admin.categories.emptyAction': 'Create the first category',
-  'admin.categories.filterLabel': 'Filter by visibility',
   'admin.categories.searchLabel': 'Search categories',
   'admin.categories.searchPlaceholder': 'Name or slug',
   'admin.categories.searchEmptyTitle': 'No categories match',
@@ -1460,14 +1459,7 @@ export const dictionary = {
   'admin.catalog.deliveryLink': 'Open delivery charges',
   'admin.catalog.sectionOrganisation': 'Organisation',
   'admin.catalog.sectionOrganisationBody': 'Where the product sits, and how it is identified.',
-  'admin.catalog.sectionPublication': 'Publication',
-  'admin.catalog.sectionPublicationBody': 'Two independent states decide whether a customer can buy this.',
   'admin.catalog.field.nameEnPlaceholder': 'For example: Hydrating Aloe Vera Mask',
-  'admin.catalog.field.nameBnPlaceholder': 'Product name in Bangla',
-  'admin.catalog.field.shortDescription': 'Short description',
-  'admin.catalog.field.shortDescriptionPlaceholder': 'One line shown under the price, for example: “200 ml · all skin types”',
-  'admin.catalog.field.shortDescriptionHelp':
-    'Shown directly under the price on the product page. Leave it empty to show the price alone.',
   'admin.catalog.field.descriptionHelp': 'Plain text. Line breaks are preserved; no HTML is rendered.',
   'admin.catalog.field.packSizePlaceholder': 'For example: 200 ml',
   'admin.catalog.field.skuPlaceholder': 'Leave empty to derive it from the slug',
@@ -1476,15 +1468,10 @@ export const dictionary = {
   'admin.catalog.field.choose': 'Choose…',
   'admin.catalog.field.availabilityHelp':
     'Availability is a state, not a quantity. Out of stock products are shown but cannot be ordered.',
-  'admin.catalog.field.isPublishedHelp': 'Publishing puts the product on the storefront immediately.',
   'admin.catalog.field.compareAtPriceWarn':
     'This is not higher than the price, so no saving will be shown. Clear it or raise it.',
   'admin.catalog.counter': '{used}/{max}',
   'admin.catalog.currencyMark': 'BDT',
-  'admin.catalog.outcomeLiveOrderable': 'Live and orderable: the product shows on the storefront and can be bought.',
-  'admin.catalog.outcomeLiveNotOrderable':
-    'Live but not orderable: the product shows on the storefront, and the order button is refused.',
-  'admin.catalog.outcomeHidden': 'Hidden: the product is not on the storefront and cannot be ordered.',
   'admin.catalog.previewTitle': 'Storefront preview',
   'admin.catalog.previewBody': 'Exactly what the card shows, from what you have typed so far.',
   'admin.catalog.previewNoImage': 'No image yet',
@@ -1533,17 +1520,13 @@ export const dictionary = {
   'admin.catalog.outOfStock': 'Out of stock',
   'admin.catalog.markInStock': 'Mark In Stock',
   'admin.catalog.markOutOfStock': 'Mark Out of Stock',
-  'admin.catalog.published': 'Published',
-  'admin.catalog.unpublished': 'Unpublished',
   'admin.catalog.empty': 'There are no products yet.',
   'admin.catalog.createTitle': 'New product',
   'admin.catalog.editTitle': 'Edit product',
   'admin.catalog.editCancel': 'Back to the list',
-  'admin.catalog.field.nameBn': 'Name (Bangla, optional)',
   'admin.catalog.field.nameEn': 'Name (English)',
   'admin.catalog.field.slug': 'Slug',
   'admin.catalog.field.slugHelp': 'Leave blank to derive it from the English name.',
-  'admin.catalog.field.descriptionBn': 'Description (Bangla)',
   'admin.catalog.field.descriptionEn': 'Description (English)',
   'admin.catalog.field.category': 'Category',
   'admin.catalog.field.brand': 'Brand',
@@ -1579,13 +1562,34 @@ export const dictionary = {
   'admin.reviews.notice.conflict': 'That review had already been decided.',
   'admin.reviews.notice.invalid': 'The request was not a review decision.',
   'admin.reviews.notice.denied': 'You do not have permission to decide reviews.',
+  'admin.reviews.notice.written': 'Published. The review is on the product page now.',
+  'admin.reviews.notice.writeInvalid':
+    'A review needs a product, a rating, and at least 10 characters of words.',
+  /*
+   * Writing a review in (owner direction, 2026-11-19). Most of this shop's reviews arrive on Facebook
+   * and WhatsApp, so the owner types them in; the copy never calls it a customer submission and says
+   * plainly which label the page will draw.
+   */
+  'admin.reviews.write.title': 'Add a review',
+  'admin.reviews.write.body':
+    'Publish words a customer left on Facebook or WhatsApp. It goes on the product page immediately, and it is not labelled Verified buyer.',
+  'admin.reviews.write.product': 'Product',
+  'admin.reviews.write.productPlaceholder': 'Choose a published product',
+  'admin.reviews.write.rating': 'Rating',
+  'admin.reviews.write.body.label': 'The review',
+  'admin.reviews.write.bodyPlaceholder': 'What the customer said, in their words.',
+  'admin.reviews.write.photo': 'Photograph',
+  'admin.reviews.write.photoHelp': 'Optional. A picture the customer shared with the review.',
+  'admin.reviews.write.submit': 'Publish review',
+  'admin.reviews.write.counter': '{used}/{max}',
+  'admin.reviews.source.customer': 'Customer',
+  'admin.reviews.source.owner': 'Added by you',
   'admin.catalog.field.rating': 'Rating',
   'admin.catalog.field.ratingOption': '{rating} out of 5',
   'admin.catalog.field.ratingHelp':
     'The stars shown on this product\'s card and page - the shop\'s own rating, not an average of customer reviews. Leave it alone and the product shows four out of five.',
   'admin.catalog.field.sku': 'SKU',
   'admin.catalog.field.availability': 'Availability',
-  'admin.catalog.field.isPublished': 'Publish on the storefront',
   'admin.catalog.save': 'Save',
   'admin.catalog.create': 'Create product',
   'admin.catalog.edit': 'Edit',
@@ -1647,8 +1651,6 @@ export const dictionary = {
   'admin.categories.field.sortOrder': 'Display order',
   'admin.categories.field.sortOrderHelp':
     'Lower numbers come first. Equal numbers fall back to the English name.',
-  'admin.categories.field.isVisible': 'Visible on the storefront',
-  'admin.categories.field.isVisibleHelp': 'Whether the category is listed on the storefront.',
   'admin.categories.sectionNames': 'Name and description',
   'admin.categories.sectionNamesBody':
     'The English name is what the storefront lists; the Bangla name is the same category for Bangla readers.',
@@ -1721,14 +1723,8 @@ export const dictionary = {
   'admin.categories.notice.imageRemoved': 'The category photo is removed.',
   'admin.categories.notice.imageInvalid':
     'That file is not a supported image, is too large, or no photo was chosen.',
-  'admin.categories.sectionVisibility': 'Storefront visibility',
-  'admin.categories.sectionVisibilityBody': 'Listed or not. This does not change the products in it.',
   'admin.categories.sectionUsage': 'What this category holds',
   'admin.categories.sectionUsageBody': 'Counted from live rows on every read, never stored.',
-  'admin.categories.outcomeVisible':
-    'Listed on the storefront: it appears in the category navigation and has a page of its own.',
-  'admin.categories.outcomeHidden':
-    'Left out of the storefront category navigation. Its products keep their pages and stay orderable.',
   'admin.categories.previewTitle': 'Storefront address',
   'admin.categories.previewBody':
     'Built from what you have typed, so it cannot promise an address the save would refuse.',
@@ -1746,8 +1742,6 @@ export const dictionary = {
   'admin.categories.formMissing': 'Still required: {fields}.',
   'admin.categories.formBlocked':
     'The browser refused this submission. Check these fields: {fields}.',
-  'admin.categories.visible': 'Visible',
-  'admin.categories.hidden': 'Hidden',
   'admin.categories.create': 'Create category',
   'admin.categories.save': 'Save',
   'admin.categories.edit': 'Edit',
@@ -1775,7 +1769,7 @@ export const dictionary = {
   'admin.cod.reject': 'Reject',
   'admin.cod.viewOrder': 'View order',
   'admin.cod.approveReason': 'Note from the confirmation call',
-  'admin.cod.rejectReason': 'Reason for rejection (10+ characters)',
+  'admin.cod.rejectReason': 'Reason for rejection (optional)',
   'admin.cod.notice.approved': 'Order approved and confirmed.',
   'admin.cod.notice.approvedBooked': 'Order approved and booked with SteadFast.',
   'admin.cod.notice.approvedBookingFailed':
@@ -2022,8 +2016,7 @@ export const dictionary = {
   'orders.itemCount': 'Items',
   'orders.method': 'Method',
   'orders.next.reviewing': 'The store is reviewing your order. It will be sent once it is approved.',
-  'orders.next.codAwaitingApproval':
-    'The store will call you to confirm this order. It is sent only after that call, and cash is paid to the courier on delivery.',
+  'orders.next.codAwaitingApproval': 'The store will call you to confirm this order.',
   'orders.next.confirmed': 'This order is confirmed. Cash is paid to the courier on delivery.',
   'orders.next.codFailed': 'This delivery did not complete.',
   'orders.next.cancelled': 'This order was cancelled.',
