@@ -3936,7 +3936,12 @@ async function main(): Promise<void> {
              * button, value control and date input on these five routes resolves to 40px or 34px, and
              * every page exposes exactly one list toolbar.
              */
-            const listRoutes = ['/qbpanel/orders', '/qbpanel/orders?view=waiting', '/qbpanel/catalog', '/qbpanel/categories', '/qbpanel/customers'];
+            /*
+             * The lists that carry a toolbar, so the `[data-admin-toolbar]` count is meaningful here.
+             * The row-link sweep below uses its own wider set: promo codes and integrations draw rows
+             * without a toolbar, and they are rows all the same.
+             */
+            const listRoutes = ['/qbpanel/orders', '/qbpanel/orders?view=waiting', '/qbpanel/catalog', '/qbpanel/categories', '/qbpanel/catalog/brands', '/qbpanel/customers'];
             const toolbarSweep: Array<{ route: string; toolbars: number; heights: number[] }> = [];
             for (const route of listRoutes) {
               await browser.navigate(route);
@@ -3959,6 +3964,63 @@ async function main(): Promise<void> {
                   toolbars: page.toolbars,
                   heights: [...new Set(page.heights)],
                 })),
+              ),
+            );
+
+            /*
+             * Every list row is its own link (owner direction, 2026-11-20). A per-row "Edit" /
+             * "Open" control makes the owner aim at a word inside a line she is already reading, and
+             * it leaves the rest of the row inert. Each row now carries one stretched `recordOverlay`
+             * anchor, and no control is nested inside it - a `<button>` inside an `<a>` is invalid
+             * markup and its click would be the link's. This is the drift check for that contract.
+             */
+            const rowLinkSweep: Array<{ route: string; rows: number; overlays: number; editLinks: number; nested: number }> = [];
+            // Every list that draws rows, whether or not it carries a toolbar.
+            for (const route of [
+              ...listRoutes,
+              '/qbpanel/promo-codes',
+              '/qbpanel/settings/integrations',
+            ]) {
+              await browser.navigate(route);
+              const measured = await browser.evaluate<{
+                rows: number;
+                overlays: number;
+                editLinks: number;
+                nested: number;
+              }>(`(() => {
+                const rows = [...document.querySelectorAll('[data-admin-list] > li')];
+                /*
+                 * The order card family uses its own overlay class name, and a row that deliberately
+                 * has no destination says so. Both count as answered, so the check cannot pass by
+                 * quietly ignoring a row that simply lost its link.
+                 */
+                const OVERLAY = 'a[class*="recordOverlay"], a[class*="cardOverlay"]';
+                const answered = (row) =>
+                  row.hasAttribute('data-no-destination') || row.querySelector(OVERLAY) !== null;
+                const overlay = rows.filter((row) => row.querySelector(OVERLAY)).length + rows.filter((row) => row.hasAttribute('data-no-destination')).length;
+                return {
+                  rows: rows.length,
+                  overlays: overlay,
+                  // A surviving per-row Edit/Open anchor: any link that is not the row's overlay.
+                  editLinks: [...document.querySelectorAll('main a[class*="recordLink"]')].length,
+                  nested: rows.filter((row) =>
+                    row.querySelector(
+                      'a[class*="recordOverlay"] button, a[class*="recordOverlay"] input, a[class*="recordOverlay"] form, a[class*="recordOverlay"] a, a[class*="cardOverlay"] button, a[class*="cardOverlay"] form',
+                    ),
+                  ).length || rows.filter((row) => !answered(row)).length,
+                };
+              })()`);
+              rowLinkSweep.push({ route, ...measured });
+            }
+            record(
+              'every list row is one whole-row link (or says it has no destination), with no per-row edit anchor and no control nested inside it',
+              rowLinkSweep.every((page) => page.overlays === page.rows) &&
+                rowLinkSweep.every((page) => page.editLinks === 0) &&
+                rowLinkSweep.every((page) => page.nested === 0),
+              JSON.stringify(
+                rowLinkSweep
+                  .filter((page) => page.overlays !== page.rows || page.editLinks > 0 || page.nested > 0)
+                  .concat([{ route: 'checked ' + rowLinkSweep.length + ' lists', rows: 0, overlays: 0, editLinks: 0, nested: 0 }]),
               ),
             );
 

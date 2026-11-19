@@ -14,6 +14,51 @@ An entry may describe a deployment only once it has actually happened and been o
 
 ## [Unreleased]
 
+### Changed - 2026-11-20: a list row is the link, and the per-row Edit/Open control is gone
+
+Owner direction: on `/qbpanel`, every list that put an **Edit** or **Open** link inside a row should drop
+it and make the whole section clickable, the way the orders page already worked. **UI only:** no schema
+change, no migration, no permission, and no change to any write, transition or audit record.
+
+**Five lists changed.** Products, categories, brands, promo codes and integrations now open their editor
+from the row itself. Each `<li>` gains `recordWithOverlay` and one empty `<a class="recordOverlay">`
+stretched over it, named by its `aria-label` ("Edit Skincare"), so a screen reader hears the action once
+per row instead of finding an unnamed link on every line.
+
+**The controls stay controls.** Archive confirmations, the In stock / Out of stock switch, pause/activate
+and the ban/restore dialogs are **siblings** of the overlay, lifted with `recordRaised` - a `<button>`
+inside an `<a>` is invalid markup and its click would be the link's. Verified by clicking each through a
+real browser: the availability switch posted and landed on `?notice=availability` rather than the editor,
+and the archive control opened its dialog with the URL unchanged.
+
+**A row with no destination is stated, not guessed.** The integrations email row has no screen of its
+own, so it keeps no link and carries `data-no-destination=""`. A figure with nowhere to go must not look
+like one, and the marker is what lets the check distinguish "deliberately inert" from "forgot the link".
+
+**Customers was already doing this**, with inline styles for the overlay and the raised action column.
+Both now use the shared `recordOverlay` / `recordRaised` classes, so there is one definition rather than
+two. The unused `recordTitleLink` rule is deleted, and the product name is no longer a link inside the
+row's own link.
+
+| Check | Result |
+| --- | --- |
+| `npm run typecheck` | pass |
+| `npm run lint` | 0 errors, 25 pre-existing warnings |
+| `npm run build` | pass after the documented Next.js security-advisory retry |
+| `npm run verify:admin` | **263/263** |
+| Chromium, 1440px | products 22/22, categories 5/5, brands 13/13, promo codes 1/1, customers 2/2 rows carry an overlay; integrations 2 of 3, the email row inert by design; zero per-row `recordLink`s; no control nested inside an overlay |
+| Chromium, 390px | same coverage, every overlay has a non-zero box, 0 horizontal overflow on all five lists |
+
+`verify:admin` gained the drift check for this contract: it sweeps every list that draws rows -
+including promo codes and integrations, which have no toolbar of their own and are therefore not in the
+toolbar set - and fails if a row has neither an overlay nor `data-no-destination`, or if any control is
+nested inside an overlay. It accepts `cardOverlay` as well, because the order cards use the same idea
+under their own class name.
+
+**Limits.** Verified against the local seed and a disposable dev cluster. Real iOS Safari, Android Chrome
+and screen readers were not used; the accessible name was read from the DOM, not heard from a screen
+reader.
+
 ### Changed - 2026-11-20: the overview states the queue once, and the figure is the way in
 
 Owner direction on `/qbpanel`: remove the "Waiting on you" panel completely, because the "Waiting on a

@@ -138,21 +138,22 @@ export function CustomersView({
             const name = row.displayName ?? row.phone ?? row.email ?? '?';
             return (
               /*
-                One dense line per account, and the line itself opens the customer - the reference's
-                customer list is read by scanning rows, not by aiming at a "View" link. The row is
-                still a `<li>` in `[data-admin-list]`, and the link is a single empty anchor stretched
-                over it (`position: absolute; inset: 0`) rather than a wrapper: the reasoned
+                One dense line per account, and the line itself opens the customer - the row is a
+                single `recordOverlay` anchor stretched over it rather than a wrapper. The reasoned
                 ban/restore forms are siblings of that anchor, never nested inside a link, so each
-                control keeps its own activation and its dialog's Tab trap. The action container is
-                raised above the overlay (it is a positioned sibling later in tree order) so a click
-                on Suspend/Restore reaches the button, and the overlay's own name is the row's
-                accessible name instead of a screen reader hearing "View" on every row.
+                control keeps its own activation and its dialog's Tab trap, and `recordRaised` lifts
+                them above the overlay. The overlay's own name is the row's accessible name, so a
+                screen reader hears "View {name}" instead of an unnamed link on every row.
+
+                This is the pattern every admin list uses now (owner direction, 2026-11-20): the
+                products, categories, brands, promo codes and integrations lists lost their per-row
+                "Edit" / "Open" links to it.
               */
-              <li className={styles.record} key={row.customerId} style={{ position: 'relative' }}>
+              <li className={`${styles.record} ${styles.recordWithOverlay}`} key={row.customerId}>
                 <Link
                   aria-label={`${t('admin.customers.view')} ${name}`}
+                  className={styles.recordOverlay}
                   href={`/qbpanel/customers/${row.customerId}`}
-                  style={{ position: 'absolute', inset: 0, zIndex: 0, outlineOffset: '-2px' }}
                 />
                 <span className={styles.recordThumb} aria-hidden="true">
                   {monogram(row)}
@@ -171,7 +172,7 @@ export function CustomersView({
                     {active ? t('admin.customers.active') : t('admin.customers.suspended')}
                   </StatusPill>
                   {row.flagged && <StatusPill tone="warning">{t('admin.customers.flagged')}</StatusPill>}
-                  <div className={styles.recordActions} style={{ position: 'relative' }}>
+                  <div className={`${styles.recordActions} ${styles.recordRaised}`}>
                     {canSuspend && active && (
                       <ConfirmSubmit
                         action="/api/qbpanel/customers"

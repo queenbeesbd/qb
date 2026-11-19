@@ -179,7 +179,13 @@ export function CatalogView({
               number. The title gets the space instead.
             */}
             {products.map((product) => (
-              <li className={`${styles.record} ${styles.recordProduct}`} key={product.id}>
+              <li className={`${styles.record} ${styles.recordProduct} ${styles.recordWithOverlay}`} key={product.id}>
+                {/* The row itself opens the editor; the products below stay siblings of this anchor. */}
+                <Link
+                  className={styles.recordOverlay}
+                  href={`/qbpanel/catalog/${product.id}`}
+                  aria-label={`${t('admin.catalog.edit')} ${product.nameEn}`}
+                />
                 {/*
                   The product's own photograph, small, so the owner recognises a row by sight rather
                   than by reading a 40-character vendor name. Decorative here: the row's title is the
@@ -198,14 +204,7 @@ export function CatalogView({
                   )}
                 </span>
                 <div className={styles.recordMain}>
-                  <span className={styles.recordTitle}>
-                    <Link
-                      className={`${styles.recordLink} ${styles.recordTitleLink}`}
-                      href={`/qbpanel/catalog/${product.id}`}
-                    >
-                      {product.nameEn}
-                    </Link>
-                  </span>
+                  <span className={styles.recordTitle}>{product.nameEn}</span>
                   <span className={styles.recordMeta}>
                     <span>{product.categoryNameEn}</span>
                     <span>{product.brandNameEn}</span>
@@ -213,7 +212,7 @@ export function CatalogView({
                     {product.imageCount === 0 && <span className={styles.tagWarn}>{t('admin.catalog.noImagesBadge')}</span>}
                   </span>
                 </div>
-                <div className={styles.recordSide}>
+                <div className={`${styles.recordSide} ${styles.recordRaised}`}>
                   <span className={styles.recordPrice}>
                     {product.priceMinor === null ? '—' : formatMoney(product.priceMinor)}
                   </span>
@@ -224,11 +223,8 @@ export function CatalogView({
                     csrfToken={csrfToken}
                     canManage={canManage}
                   />
-                  <div className={styles.recordActions}>
-                    <Link className={styles.recordLink} href={`/qbpanel/catalog/${product.id}`}>
-                      {t('admin.catalog.edit')}
-                    </Link>
-                    {canManage && (
+                  {canManage && (
+                    <div className={styles.recordActions}>
                       <ConfirmSubmit
                         action="/api/qbpanel/catalog/product"
                         csrfToken={csrfToken}
@@ -241,8 +237,8 @@ export function CatalogView({
                         cancelLabel={t('admin.common.cancel')}
                         pendingLabel={t('admin.common.working')}
                       />
-                    )}
-                  </div>
+                    </div>
+                  )}
                 </div>
               </li>
             ))}

@@ -49,7 +49,13 @@ export default async function IntegrationsPage() {
         </div>
 
         <ul className={styles.recordList} data-admin-list="">
-          <li className={styles.record}>
+          <li className={`${styles.record} ${styles.recordWithOverlay}`}>
+            {/* The row opens the integration; there is no separate "Open" control to aim at. */}
+            <Link
+              className={styles.recordOverlay}
+              href="/qbpanel/settings/integrations/telegram"
+              aria-label={`${translate('admin.integrations.open')} ${translate('admin.integrations.telegramTitle')}`}
+            />
             <span className={styles.recordThumb} aria-hidden="true">
               <AdminIcon name="bell" width={18} height={18} />
             </span>
@@ -67,15 +73,15 @@ export default async function IntegrationsPage() {
                     ? translate('admin.integrations.rosterBodyOne')
                     : translate('admin.integrations.listBody', { count: active })}
               </StatusPill>
-              <div className={styles.recordActions}>
-                <Link className={styles.recordLink} href="/qbpanel/settings/integrations/telegram">
-                  {translate('admin.integrations.open')}
-                </Link>
-              </div>
             </div>
           </li>
 
-          <li className={styles.record}>
+          <li className={`${styles.record} ${styles.recordWithOverlay}`}>
+            <Link
+              className={styles.recordOverlay}
+              href="/qbpanel/settings/integrations/steadfast"
+              aria-label={`${translate('admin.integrations.open')} ${translate('admin.integrations.steadfastTitle')}`}
+            />
             <span className={styles.recordThumb} aria-hidden="true">
               <AdminIcon name="package" width={18} height={18} />
             </span>
@@ -91,14 +97,14 @@ export default async function IntegrationsPage() {
                   ? translate('admin.integrations.steadfastReady')
                   : translate('admin.integrations.steadfastNotReady')}
               </StatusPill>
-              <div className={styles.recordActions}>
-                <Link className={styles.recordLink} href="/qbpanel/settings/integrations/steadfast">
-                  {translate('admin.integrations.open')}
-                </Link>
-              </div>
             </div>
           </li>
-          <li className={styles.record}>
+          {/*
+            Email has no screen of its own, so this row stays a plain row - and says so in markup with
+            `data-no-destination`, which is what lets the whole-row-link check tell a deliberately inert
+            row from one that forgot its link.
+          */}
+          <li className={styles.record} data-no-destination="">
             <span className={styles.recordThumb} aria-hidden="true">
               <AdminIcon name="audit" width={18} height={18} />
             </span>

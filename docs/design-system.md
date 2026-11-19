@@ -764,6 +764,42 @@ the tile renders the recorded key and its bytes decode (`naturalWidth > 0`), the
 labelled modal at `-1050.webp` with the page locked and focus on ×, Escape closes it and returns focus to
 the tile, and the worklist tile measures 34 or 40.
 
+### A list row is its own link (2026-11-20)
+
+Every admin list draws a row the owner **scans**, not a line she aims inside. A per-row **Edit** /
+**Open** link asks her to find a word in a row she is already reading, and it leaves the rest of the row
+inert. So the row is the target: `recordOverlay` is one empty anchor stretched over it
+(`position: absolute; inset: 0`), and `recordWithOverlay` on the `<li>` gives it something to be
+absolute to.
+
+| Part | Contract |
+| --- | --- |
+| The row | `<li class="record recordWithOverlay">` inside `[data-admin-list]` |
+| The link | one `<a class="recordOverlay">` whose `aria-label` names the action and the record |
+| The controls | siblings of that anchor, never inside it, lifted by `recordRaised` |
+| The inert row | a row with nowhere to go carries `data-no-destination` and draws no link |
+
+Five rules:
+
+1. **No control is ever inside the overlay.** A `<button>` or a `<form>` inside an `<a>` is invalid markup
+   and its click would be the link's. Archive confirmations, the availability switch, pause/activate and
+   the ban/restore dialogs are raised siblings, so each keeps its own activation and its dialog's Tab
+   trap.
+2. **The anchor carries the name, not the row.** A screen reader hears "Edit Skincare" once per row
+   instead of discovering an unnamed link on every line.
+3. **A row with no destination says so.** The integrations list's email row has no screen of its own, so
+   it stays a plain row with `data-no-destination=""`. A figure with nowhere to go must not look like a
+   link - and stating it in markup is what lets the check tell "deliberately inert" from "forgot the
+   link".
+4. **The order cards keep their own overlay.** `cardOverlay` is the same idea for the order family, whose
+   cards carry a photograph tile, a `tel:` link and a decision pair.
+5. **The row's own content stays inert text.** The product name is no longer a link inside a link: the
+   overlay is the only anchor, so there is one tab stop per row rather than two pointing at one place.
+
+`scripts/verify-admin.ts` sweeps every list that draws rows - including promo codes and integrations,
+which have no toolbar of their own - and fails if a row has neither an overlay nor `data-no-destination`,
+or if any control is nested inside an overlay.
+
 ### The dispatch slip (Phase 52)
 
 `/qbpanel/orders/[orderNumber]/slip` is the paper that travels with a COD parcel. It is **a document, not a

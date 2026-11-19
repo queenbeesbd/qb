@@ -2379,6 +2379,43 @@ html[dir='rtl'] .switchOn .switchKnob::after {
   border-top: 1px solid var(--admin-line);
 }
 
+/*
+ * A record row that opens its own page (owner direction, 2026-11-20).
+ *
+ * The list is read by scanning rows, so the row is the target: a per-row "Edit" / "Open" link makes the
+ * owner aim at a word inside a line she is already reading, and it leaves the rest of the line inert.
+ * `recordOverlay` is one empty anchor stretched over the row, named by `aria-label`, so a screen reader
+ * hears "Edit {name}" once instead of finding an unnamed link on every line.
+ *
+ * **The controls stay siblings of that anchor, never inside it** - an archive confirmation, an
+ * availability switch, an issue-token button. A `<button>` inside an `<a>` is invalid markup, and its
+ * click would be the link's. They are lifted above the overlay with `recordRaised`, which is what makes
+ * one whole-row link safe beside real forms. An archive dialog opened from `recordActions` still traps
+ * its own focus and keeps its own activation.
+ */
+.recordWithOverlay {
+  position: relative;
+}
+
+.recordOverlay {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+  outline-offset: -2px;
+}
+
+.recordRaised {
+  position: relative;
+  z-index: 1;
+}
+
+/* A raised column keeps its own layout; only the stacking changes. */
+.recordSide.recordRaised,
+.recordActions.recordRaised {
+  display: flex;
+}
+
 .record.recordProduct {
   grid-template-columns: auto minmax(0, 1fr) auto;
 }
@@ -2455,17 +2492,6 @@ html[dir='rtl'] .switchOn .switchKnob::after {
 .recordTitle {
   font-weight: 600;
   overflow-wrap: anywhere;
-}
-
-.recordTitleLink {
-  display: inline-flex;
-  align-items: center;
-  min-height: var(--admin-control);
-  color: var(--admin-ink);
-}
-
-.recordTitleLink:hover {
-  color: var(--admin-lavender-deep);
 }
 
 .recordMeta {

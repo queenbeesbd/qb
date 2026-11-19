@@ -155,7 +155,17 @@ export function PromoCodesView({
             {codes.map((code) => {
               const status = state(code);
               return (
-                <li key={code.id} className={styles.promoRow} data-paused={!code.isActive || undefined}>
+                <li
+                  key={code.id}
+                  className={`${styles.promoRow} ${styles.recordWithOverlay}`}
+                  data-paused={!code.isActive || undefined}
+                >
+                  {/* The row opens the editor; pause/activate stays its own control below. */}
+                  <Link
+                    className={styles.recordOverlay}
+                    href={`/qbpanel/promo-codes/${code.id}`}
+                    aria-label={`${t('admin.promo.edit')} ${code.code}`}
+                  />
                   <div className={styles.promoIdent}>
                     <span className={styles.promoCode}>{code.code}</span>
                     <StatusPill tone={status.tone}>{status.label}</StatusPill>
@@ -192,13 +202,7 @@ export function PromoCodesView({
                     </div>
                   </dl>
 
-                  <div className={styles.promoActions}>
-                    <Link
-                      className={`${styles.button} ${styles.buttonSecondary} ${styles.buttonSmall}`}
-                      href={`/qbpanel/promo-codes/${code.id}`}
-                    >
-                      {t('admin.promo.edit')}
-                    </Link>
+                  <div className={`${styles.promoActions} ${styles.recordRaised}`}>
                     <form action="/api/qbpanel/promo-codes" method="post">
                       <input type="hidden" name="csrf" value={csrfToken} />
                       <input type="hidden" name="operation" value="setActive" />

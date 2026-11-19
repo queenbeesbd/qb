@@ -128,7 +128,13 @@ export function CategoriesView({
         ) : (
           <ul className={styles.recordList} data-admin-list="">
             {categories.map((category) => (
-              <li className={styles.record} key={category.id}>
+              <li className={`${styles.record} ${styles.recordWithOverlay}`} key={category.id}>
+                {/* The row opens the editor; archive stays its own control below. */}
+                <Link
+                  className={styles.recordOverlay}
+                  href={`/qbpanel/categories/${category.id}`}
+                  aria-label={`${t('admin.categories.edit')} ${category.nameEn}`}
+                />
                 <span
                   className={styles.recordThumb}
                   data-subcategory={category.parentId === null ? undefined : 'true'}
@@ -150,12 +156,9 @@ export function CategoriesView({
                     <span>{t('admin.categories.orderValue', { count: category.sortOrder })}</span>
                   </span>
                 </div>
-                <div className={styles.recordSide}>
-                  <div className={styles.recordActions}>
-                    <Link className={styles.recordLink} href={`/qbpanel/categories/${category.id}`}>
-                      {t('admin.categories.edit')}
-                    </Link>
-                    {canManage && (
+                {canManage && (
+                  <div className={`${styles.recordSide} ${styles.recordRaised}`}>
+                    <div className={styles.recordActions}>
                       <ConfirmSubmit
                         action="/api/qbpanel/catalog/category"
                         csrfToken={csrfToken}
@@ -168,9 +171,9 @@ export function CategoriesView({
                         cancelLabel={t('admin.common.cancel')}
                         pendingLabel={t('admin.common.working')}
                       />
-                    )}
+                    </div>
                   </div>
-                </div>
+                )}
               </li>
             ))}
           </ul>

@@ -110,7 +110,13 @@ export function BrandsView({
         ) : (
           <ul className={styles.recordList} data-admin-list="">
             {brands.map((brand) => (
-              <li className={styles.record} key={brand.id}>
+              <li className={`${styles.record} ${styles.recordWithOverlay}`} key={brand.id}>
+                {/* One row, one destination: the logo editor. */}
+                <Link
+                  className={styles.recordOverlay}
+                  href={`/qbpanel/catalog/brands/${brand.id}`}
+                  aria-label={`${canManage ? t('admin.brands.editLogo') : t('admin.brands.viewLogo')} ${brand.nameEn}`}
+                />
                 <span className={styles.recordThumb} aria-hidden="true">
                   {brand.logoKey === null ? (
                     brand.nameEn.slice(0, 1).toUpperCase()
@@ -125,13 +131,6 @@ export function BrandsView({
                     <span>{t('admin.brands.productCountValue', { count: brand.productCount })}</span>
                     {brand.logoKey === null && <span>{t('admin.brands.noLogo')}</span>}
                   </span>
-                </div>
-                <div className={styles.recordSide}>
-                  <div className={styles.recordActions}>
-                    <Link className={styles.recordLink} href={`/qbpanel/catalog/brands/${brand.id}`}>
-                      {canManage ? t('admin.brands.editLogo') : t('admin.brands.viewLogo')}
-                    </Link>
-                  </div>
                 </div>
               </li>
             ))}
