@@ -102,12 +102,6 @@ export function ReviewsView({
       )}
 
       {/*
-        Writing one in, above the queue: it is the same act as publishing a customer's review, and the
-        owner should not have to leave the screen to do the other half of the same job.
-      */}
-      {products.length > 0 && <ReviewComposer products={products} csrfToken={csrfToken} />}
-
-      {/*
         The same segmented filter the order queue uses, with the count on each tab so the owner can
         see the size of the queue without opening it.
       */}
@@ -215,6 +209,15 @@ export function ReviewsView({
           ))}
         </ul>
       )}
+
+      {/*
+        Writing one in, **below the queue and closed by default** (owner direction, 2026-11-19). The
+        page's job is to decide the reviews waiting in it; adding one from Facebook or WhatsApp is the
+        occasional addition to that job, so it is a disclosure at the foot rather than an open form
+        above the worklist. It is placed here in DOM order, not moved with CSS, so reading order and
+        tab order agree.
+      */}
+      {products.length > 0 && <ReviewComposer products={products} csrfToken={csrfToken} />}
     </>
   );
 }

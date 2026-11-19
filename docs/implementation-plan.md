@@ -2006,3 +2006,44 @@ served build; scripts and fixtures only. It does **not** authorize deployment, p
 dependency. *Acceptance:* `verify:browser` and `verify:storefront` run green against a seeded real
 catalog of 1,000+ products and an empty order table, seeding and cleaning their own fixtures, with no
 assertion weakened or deleted.
+
+---
+
+## Phase 60 - the review composer asks the owner to recognise (2026-11-19)
+
+**The report.** Three complaints about `/qbpanel/reviews`, all of them the same kind of defect: the screen
+asked the owner for a task it had no business asking for.
+
+**"Choose a product is shit."** It was a `<select>` of every published product. Choosing which product a
+customer's message belongs to is **recognition**, not selection: the owner knows the product by its
+picture and roughly its name. Replaced with `ReviewProductPicker` - a button opening a searchable panel
+whose rows carry the photograph, the name and the brand, ranked by the repo's one fuzzy matcher
+(`src/lib/fuzzy.ts`), with Enter/arrows/Escape and the panel's standard focus contract.
+
+**"Mobile too need much fix in this section."** The panel is a bottom sheet below 720px: full width,
+anchored to the bottom, `88vh` plus safe-area padding, list-only scrolling, 40px controls and a 16px
+search field so iOS does not zoom. Measured at 390px with zero horizontal overflow.
+
+**"The browse button is raw basic button without css."** A literal `<input type="file">`, replaced with
+the shared `AdminImageInput`.
+
+**"Make add a review collapsed on default and move it bottom and bring up approval section."** The
+composer is a `<details>` **last in the DOM**, closed on arrival, so the queue is what the page shows
+first. Position is real DOM order, not `order:`, so reading and tab order agree.
+
+**Verified** with `typecheck`, `lint` (0 errors, 24 pre-existing warnings), `check:i18n` (1,980 keys),
+`build`, **`verify:admin` 244/244** (two new checks: the picker opens with images and a query narrows it;
+the composer sits closed below the list), a Chromium pass at 1365px and 390px, and an end-to-end compose
+through the picker landing on the product page with no "Verified buyer" label.
+**Not run:** `verify:browser`, `verify:storefront`, `verify:ui`, real devices, screen readers.
+
+### The next step
+
+**Phase 46 remains the recommendation: put the rendered-behaviour suites back on the real catalogue.**
+Four consecutive phases have now been proved by hand-driven checks, and `verify:admin` is still the only
+gate running end to end. *Why:* this change is exactly the kind a browser suite would have caught on the
+day it shipped - a control that opened a native dropdown of 500 names was visibly wrong and no automated
+check could see it. *Prerequisites:* a local database and a served build; scripts and fixtures only. It
+does **not** authorize deployment, provisioning or a new dependency. *Acceptance:* `verify:browser` and
+`verify:storefront` run green against a seeded real catalog of 1,000+ products and an empty order table,
+seeding and cleaning their own fixtures, with no assertion weakened or deleted.

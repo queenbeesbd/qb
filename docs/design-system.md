@@ -609,13 +609,39 @@ variant** - that is the bug this fixed, and it is not specific to this screen.
 
 ### Writing a review in from social media
 
-`/qbpanel/reviews` carries a composer above the queue: product, rating, words, optional photograph, one
-Publish. It is a **panel, not a page** - it is the other half of the same job as deciding a review, so it
-lives on the screen where that job happens.
+`/qbpanel/reviews` carries a composer for words a customer left on Facebook or WhatsApp. It is a
+**panel, not a page** - the other half of the same job as deciding a review - and it sits **below the
+queue, closed** (owner direction, 2026-11-19).
 
 What it must always say: the review goes on the product page **immediately**, and it is **not labelled
 Verified buyer**. The metas of an imported row read "Added by you" where a customer's row reads their
 address, because a null email rendered as an empty gap is indistinguishable from a rendering fault.
+
+**Three things this screen got wrong first, and the rule each one left behind.**
+
+1. **The composer was open, above the queue.** That put the occasional task first and pushed the
+   pending reviews - the reason the page exists - below the fold. It is a `<details>` now, last in the
+   DOM: reading order and tab order agree because the position is real, not `order:`-ed with CSS. The
+   queue is what the owner sees on arrival.
+2. **"Choose a product" was a `<select>` of every published product** - the owner's words were "choose
+   a product is shit". The mismatch is of task, not taste: this is **recognition**, not selection. The
+   owner has a customer's message open and knows the product by its picture and roughly its name. A
+   dropdown of several hundred names asks her to *read*; a thumbnail and a type-ahead ask her to
+   *recognise*. So the control is a button that opens a searchable panel (`ReviewProductPicker`), rows
+   carrying the photograph, the name and the brand, ranked by the same `src/lib/fuzzy.ts` matcher the
+   product list uses - one definition of "matches" in the repo, not two. Typing narrows, Enter takes the
+   first row, arrows move. **A `<select>` of products must not return to this screen.**
+3. **The photograph field was a raw `<input type="file">`** - the browser's own unstyled "Browse..."
+   button, the one control on the screen that did not belong to the panel. It is `AdminImageInput` now:
+   the same prepared-upload control every editor uses, which also downscales a 12 MB phone JPEG in the
+   browser so it fits the request cap.
+
+**The picker keeps the admin's dialog contract**, not a new one: focus moves to the search field, Tab is
+trapped, Escape closes, the page behind does not scroll, and focus returns to the trigger. On a phone it
+is a **bottom sheet** (full width, anchored to the bottom, `88vh`, safe-area padding) rather than a
+centred box, because the thumb reaches it and the list is the only scrolling surface. Measured at 390px:
+dialog width 390, bottom gap 0, search field 40px tall at 16px type (no iOS zoom), rows 78px with a 42px
+thumbnail, zero horizontal overflow.
 
 ### The settings pattern (delivery charges, announcement bar)
 

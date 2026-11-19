@@ -14,6 +14,49 @@ An entry may describe a deployment only once it has actually happened and been o
 
 ## [Unreleased]
 
+### Changed - 2026-11-19: the review composer asks the owner to recognise, not to read
+
+The owner's report on `/qbpanel/reviews` was three separate complaints, and each one was a task
+mismatch rather than a styling preference.
+
+**"Choose a product is shit."** It was a `<select>` of every published product. The owner does not
+*select* from a known list - she has a customer's message open and knows the product by its picture and
+roughly its name. So the control is a button that opens a searchable panel: every row carries the
+**photograph, the name and the brand**, ranked by the same `src/lib/fuzzy.ts` matcher the product list
+uses. Typing narrows, Enter takes the first row, arrows move between rows. Typed "lilc serim" and it
+still found *Lilac 5% Niacinamide Serum 30 ml*.
+
+**"Mobile too need much fix."** The panel is a **bottom sheet** below 720px - full width, anchored to
+the bottom, `88vh` with safe-area padding - because the thumb reaches it and the list, not the page, is
+the only scrolling surface. Measured at 390px: sheet 390 wide with a 0px bottom gap, search field 40px at
+16px type (no iOS zoom), rows 78px with a 42px thumbnail, zero horizontal overflow.
+
+**"The browse button is raw basic button without css."** It was a literal `<input type="file">`. It is
+`AdminImageInput` now - the prepared-upload control every editor uses, which also downscales a 12 MB
+phone JPEG in the browser so it fits the request cap.
+
+**And the composer is no longer an open form above the queue.** It was first on the screen, which put
+the occasional task above the one the page exists for and pushed the pending reviews below the fold. It
+is a collapsed `<details>` **last in the DOM**, so reading order and tab order agree by position rather
+than by `order:`, and the queue is what the owner sees on arrival.
+
+The picker keeps the panel's existing dialog contract rather than inventing one: focus into the search
+field, Tab trapped, Escape closes, the page behind locked, focus returned to the trigger.
+
+| Check | Result |
+| --- | --- |
+| `npm run typecheck` | clean |
+| `npm run lint` | 0 errors, 24 pre-existing warnings |
+| `npm run check:i18n` | 1,980 keys, 1,454 referenced, all present |
+| `npm run build` | success (after re-running past the Next.js advisory stop) |
+| `npm run verify:admin` | **244/244**, including the picker opening with images, a query narrowing it, and the composer sitting closed below the list |
+| Chromium 1365px | composer last and closed; no `select[name=productId]`; file label 40px / `#c8b6ff`-border / 12px radius; 22 rows with thumbnails; typo match; Escape returned focus and unlocked the body; Arrow+Enter wrote `productId` |
+| Chromium 390px | bottom sheet, no overflow, 40px controls, 16px search type |
+| End to end | composed through the picker → `notice=written` → the review appears on the product page with **no "Verified buyer" label** |
+
+**Limits.** `verify:browser`, `verify:storefront` and `verify:ui` were not re-run; real iOS Safari,
+Android Chrome and screen readers were not used.
+
 ### Changed - 2026-11-19: less to fill in, a Refuse button that matches, and reviews the owner can add
 
 The owner went through the panel and named what gets in the way. Six changes, all of them removals or

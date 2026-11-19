@@ -5402,17 +5402,95 @@ a.rankName:hover {
 /* ---- Review composer (owner direction, 2026-11-19) ---------------------- */
 
 /*
- * Writing a review in from social media. It sits above the queue on the same screen, so it is a panel
- * rather than a page: one card, the same field vocabulary as every editor, and the same single action.
+ * Writing a review in from social media.
+ *
+ * **It is a disclosure below the queue, closed by default** (owner direction, 2026-11-19). It used to
+ * be an open form at the top of the screen, which put the occasional task above the one the page
+ * exists for and pushed the pending queue below the fold. A `<details>` element is the disclosure: it
+ * opens without JavaScript, its summary is a real button for the keyboard and a screen reader, and the
+ * panel inside it is the same field vocabulary as every editor.
+ *
+ * It is placed at the end of the screen by the view's own order, not by `order:` here - reading order
+ * and tab order must agree, and moving a thing visually while leaving it first for a screen reader is
+ * the same defect as hiding it.
  */
 .reviewComposer {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.reviewComposerSummary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  min-height: var(--admin-control);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  list-style: none;
+}
+
+/* The platform's own triangle is drawn as the chevron, which rotates when the panel opens. */
+.reviewComposerSummary::-webkit-details-marker {
+  display: none;
+}
+
+.reviewComposerSummary:hover {
+  background: var(--admin-surface-soft);
+}
+
+.reviewComposerSummary:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+.reviewComposerSummaryText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.reviewComposerSummaryTitle {
+  font-weight: 600;
+  font-size: var(--text-sm);
+  color: var(--admin-ink);
+}
+
+.reviewComposerSummaryBody {
+  font-size: var(--text-xs);
+  color: var(--admin-muted);
+}
+
+.reviewComposerChevron {
+  display: inline-flex;
+  flex: none;
+  color: var(--admin-muted);
+  transition: transform var(--transition-fast);
+}
+
+.reviewComposer[open] .reviewComposerChevron {
+  transform: rotate(180deg);
+}
+
+.reviewComposer[open] .reviewComposerSummary {
+  border-bottom: 1px solid var(--color-border);
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+}
+
+.reviewComposerPanel {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
   padding: var(--space-4);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  background: var(--color-surface);
+}
+
+.reviewComposerIntro {
+  font-size: var(--text-sm);
+  line-height: 1.6;
+  color: var(--color-ink-muted);
 }
 
 .reviewComposerForm {
@@ -5431,5 +5509,262 @@ a.rankName:hover {
 @media (max-width: 720px) {
   .reviewComposerGrid {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* On a phone the summary is the whole target, so the chevron sits inside the tappable row. */
+  .reviewComposerSummary {
+    padding: var(--space-3);
+  }
+}
+
+/* ---- Product picker (owner direction, 2026-11-19) ----------------------- */
+
+/*
+ * The control that replaced a `<select>` of every published product. The owner recognises a product by
+ * its photograph and roughly its name, so the trigger and the rows both carry the image, and the panel
+ * carries a search field over the same fuzzy matcher the product list uses.
+ *
+ * The trigger is a button at the field height, so it sits in the form's control scale rather than
+ * introducing a third size.
+ */
+.pickerTrigger {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  min-height: var(--admin-control);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--admin-line-strong);
+  border-radius: var(--admin-radius-control);
+  background: var(--admin-surface);
+  color: var(--admin-ink);
+  font: inherit;
+  font-size: var(--text-control);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color var(--transition-fast), background var(--transition-fast);
+}
+
+.pickerTrigger:hover {
+  border-color: var(--admin-lavender);
+  background: var(--admin-surface-soft);
+}
+
+.pickerTrigger:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+.pickerTrigger[data-empty='true'] .pickerTriggerText {
+  color: var(--admin-subtle);
+}
+
+.pickerTriggerThumb {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-sunken);
+}
+
+.pickerTriggerThumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.pickerTriggerInitial,
+.pickerInitial {
+  font-weight: 600;
+  font-size: var(--text-sm);
+  color: var(--admin-muted);
+}
+
+.pickerTriggerText {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+  flex: 1;
+}
+
+.pickerTriggerName {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pickerTriggerBrand {
+  font-size: var(--text-xs);
+  color: var(--admin-muted);
+}
+
+.pickerBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-4);
+  background: rgb(32 26 41 / 45%);
+}
+
+.pickerDialog {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  width: min(560px, 100%);
+  max-height: min(80vh, 720px);
+  padding: var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-lg);
+}
+
+.pickerHead {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.pickerSearch {
+  flex: 1;
+  min-width: 0;
+  height: var(--admin-control);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--admin-line-strong);
+  border-radius: var(--admin-radius-control);
+  background: var(--admin-surface);
+  color: var(--admin-ink);
+  font: inherit;
+  font-size: var(--text-control);
+}
+
+.pickerSearch:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+.pickerClose {
+  flex: none;
+  min-height: var(--admin-control);
+  padding: 0 var(--space-3);
+  border: 1px solid var(--admin-line-strong);
+  border-radius: var(--admin-radius-control);
+  background: var(--admin-surface);
+  color: var(--admin-ink);
+  font: inherit;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.pickerClose:hover {
+  background: var(--admin-surface-soft);
+}
+
+/* The list is the only scrolling surface, so the panel's head and foot stay put. */
+.pickerList {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+  overscroll-behavior: contain;
+}
+
+.pickerRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  min-height: var(--admin-control);
+  padding: var(--space-2);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--admin-ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.pickerRow[data-active='true'] {
+  background: var(--admin-surface-soft);
+}
+
+.pickerThumb {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-sunken);
+}
+
+.pickerThumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.pickerRowText {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.pickerRowName {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.pickerRowBrand {
+  font-size: var(--text-xs);
+  color: var(--admin-muted);
+}
+
+.pickerEmpty {
+  padding: var(--space-4) 0;
+  font-size: var(--text-sm);
+  color: var(--admin-muted);
+}
+
+.pickerHint {
+  font-size: var(--text-xs);
+  color: var(--admin-subtle);
+}
+
+@media (max-width: 720px) {
+  /* A phone gets the sheet the thumb can reach, not a centred box in the middle of the screen. */
+  .pickerBackdrop {
+    align-items: flex-end;
+    padding: 0;
+  }
+
+  .pickerDialog {
+    width: 100%;
+    max-height: 88vh;
+    border-radius: var(--radius-md) var(--radius-md) 0 0;
+    padding-bottom: calc(var(--space-4) + env(safe-area-inset-bottom));
+  }
+
+  .pickerRow {
+    min-height: var(--admin-control);
+    padding: var(--space-2) var(--space-3);
   }
 }

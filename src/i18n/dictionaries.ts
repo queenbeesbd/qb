@@ -1571,10 +1571,14 @@ export const dictionary = {
    * plainly which label the page will draw.
    */
   'admin.reviews.write.title': 'Add a review',
+  'admin.reviews.write.summary': 'From a message on Facebook or WhatsApp.',
   'admin.reviews.write.body':
     'Publish words a customer left on Facebook or WhatsApp. It goes on the product page immediately, and it is not labelled Verified buyer.',
   'admin.reviews.write.product': 'Product',
-  'admin.reviews.write.productPlaceholder': 'Choose a published product',
+  'admin.reviews.write.productPlaceholder': 'Choose a product',
+  'admin.reviews.write.productSearch': 'Search by name or brand',
+  'admin.reviews.write.productEmpty': 'No product matches that. Try a shorter word.',
+  'admin.reviews.write.productHint': 'Type to narrow the list. Press Enter to choose the first match.',
   'admin.reviews.write.rating': 'Rating',
   'admin.reviews.write.body.label': 'The review',
   'admin.reviews.write.bodyPlaceholder': 'What the customer said, in their words.',

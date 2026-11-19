@@ -1,7 +1,7 @@
-import { sql } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 
 import { withTransaction } from '@/db/client';
-import { product } from '@/db/schema';
+import { brand, product } from '@/db/schema';
 import { requireAdminPage } from '@/server/auth/guard';
 import { PERMISSIONS } from '@/server/authz/permissions';
 import { countReviewsForAdmin, listReviewsForAdmin } from '@/server/reviews/service';
@@ -58,12 +58,28 @@ export default async function ReviewsPage({
     const rejected = await countReviewsForAdmin(tx, 'rejected');
     /*
      * The products the owner may attach a review to: published and not archived, which is exactly the
-     * set whose product page can draw one. Ordered by name so the select is scannable rather than a
-     * catalog dump in insertion order.
+     * set whose product page can draw one. The picker carries the **photograph** as well as the name,
+     * because the owner recognises a product by its picture on a confirmation call and by its picture
+     * here - a list of names alone is what the owner called unusable (2026-11-19). The image is the
+     * same primary-or-first projection the admin product list draws, so a product with no images is
+     * the only one that shows an initial instead.
      */
     const products = await tx
-      .select({ id: product.id, nameEn: product.nameEn })
+      .select({
+        id: product.id,
+        nameEn: product.nameEn,
+        slug: product.slug,
+        brandNameEn: brand.nameEn,
+        primaryImageKey: sql<string | null>`(
+          select "base_key" from "product_image"
+          where "product_image"."product_id" = "product"."id"
+            and "product_image"."deleted_at" is null
+          order by "product_image"."is_primary" desc, "product_image"."sort_order" asc, "product_image"."id" asc
+          limit 1
+        )`,
+      })
       .from(product)
+      .innerJoin(brand, eq(brand.id, product.brandId))
       .where(sql`${product.deletedAt} is null and ${product.isPublished}`)
       .orderBy(product.nameEn)
       .limit(500);

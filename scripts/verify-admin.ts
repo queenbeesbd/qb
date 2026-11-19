@@ -1785,8 +1785,18 @@ async function main(): Promise<void> {
             reviewPage.body.includes('/catalog/category-skincare-320.webp') &&
             reviewPage.body.includes('name="decision" value="approved"') &&
             reviewPage.body.includes('name="decision" value="rejected"') &&
-            // The composer for an imported review is on the same screen, above the queue.
-            reviewPage.body.includes('action="/api/qbpanel/reviews/compose"'),
+            // The composer for an imported review is on the same screen, below the queue and closed.
+            reviewPage.body.includes('action="/api/qbpanel/reviews/compose"') &&
+            // Its product control is the searchable picker, not a `<select>` of every product: the
+            // owner's "choose a product is shit" report is the reason, and a `<select>` returning here
+            // would silently restore the defect.
+            !/<select[^>]*name="productId"/.test(reviewPage.body) &&
+            reviewPage.body.includes('aria-haspopup="dialog"') &&
+            // The photograph control is the panel's prepared-upload field, not the browser's own.
+            reviewPage.body.includes('id="review-photo"') &&
+            /class="[^"]*fileButton[^"]*"[^>]*for="review-photo"|for="review-photo"[^>]*class="[^"]*fileButton/.test(
+              reviewPage.body,
+            ),
           `rail ${ownerOverview.body.includes('href="/qbpanel/reviews"')}, status ${reviewPage.status}`,
         );
 
@@ -3408,6 +3418,107 @@ async function main(): Promise<void> {
                 new Set(reviewButtons.radii).size === 1 &&
                 new Set(reviewButtons.weights).size === 1,
               JSON.stringify(reviewButtons),
+            );
+
+            /*
+             * The product picker (owner direction, 2026-11-19). The owner called the `<select>` of every
+             * published product unusable: choosing a product from a customer's message is recognition,
+             * not selection, so the control opens a searchable panel carrying each product's photograph
+             * and brand. What this asserts is the contract the complaint is about - a panel opens, it
+             * carries images, the search narrows it, and choosing writes the form's `productId`.
+             */
+            const pickerProbe = await browser.evaluate<{
+              hasSelect: boolean;
+              opened: boolean;
+              rows: number;
+              withImages: number;
+              narrowed: number;
+              chosen: string | null;
+              bodyLocked: boolean;
+            }>(`(async () => {
+              const details = document.querySelector('main details');
+              if (details !== null) details.open = true;
+              const trigger = document.getElementById('review-product');
+              const hasSelect = document.querySelector('select[name="productId"]') !== null;
+              if (trigger === null) {
+                return { hasSelect, opened: false, rows: 0, withImages: 0, narrowed: 0, chosen: null, bodyLocked: false };
+              }
+              trigger.click();
+              await new Promise((resolve) => setTimeout(resolve, 250));
+              const dialog = document.querySelector('[role="dialog"]');
+              const rows = [...document.querySelectorAll('[role="option"]')];
+              // Read while the panel is open: choosing closes it and restores the page's scroll.
+              const bodyLocked = document.body.style.overflow === 'hidden';
+              const withImages = rows.filter((row) => row.querySelector('img') !== null).length;
+              const field = dialog === null ? null : dialog.querySelector('input[type="search"]');
+              let narrowed = 0;
+              if (field !== null) {
+                // The query is the first row's own first word, so it narrows against whatever this
+                // catalog actually holds rather than a product name this repository happens to seed.
+                const firstName = rows[0] === undefined
+                  ? ''
+                  : (rows[0].querySelector('[class*="pickerRowName"]')?.textContent ?? '').split(/\s+/)[0];
+                const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
+                setter.call(field, firstName);
+                field.dispatchEvent(new Event('input', { bubbles: true }));
+                await new Promise((resolve) => setTimeout(resolve, 300));
+                narrowed = document.querySelectorAll('[role="option"]').length;
+              }
+              const first = document.querySelector('[role="option"] button');
+              if (first !== null) first.click();
+              await new Promise((resolve) => setTimeout(resolve, 250));
+              const hidden = document.querySelector('input[name="productId"]');
+              return {
+                hasSelect,
+                opened: dialog !== null,
+                rows: rows.length,
+                withImages,
+                narrowed,
+                chosen: hidden === null ? null : hidden.value,
+                bodyLocked,
+              };
+            })()`);
+            record(
+              'the review composer picks a product from a searchable panel showing its photograph',
+              !pickerProbe.hasSelect &&
+                pickerProbe.opened &&
+                pickerProbe.rows > 0 &&
+                pickerProbe.withImages > 0 &&
+                pickerProbe.narrowed > 0 &&
+                pickerProbe.narrowed <= pickerProbe.rows &&
+                pickerProbe.bodyLocked &&
+                pickerProbe.chosen !== null &&
+                pickerProbe.chosen !== '',
+              JSON.stringify(pickerProbe),
+            );
+
+            /*
+             * The composer is a disclosure below the queue, closed on arrival (owner direction,
+             * 2026-11-19). Reading order and tab order agree because it is last in the DOM, not
+             * `order:`-ed there - the check asserts the position, not just the attribute.
+             */
+            await browser.navigate('/qbpanel/reviews');
+            const composerPlace = await browser.evaluate<{
+              isLast: boolean;
+              open: boolean;
+              summaryHeight: number;
+            }>(`(() => {
+              const details = document.querySelector('main details');
+              if (details === null) return { isLast: false, open: false, summaryHeight: 0 };
+              const list = document.querySelector('main ul');
+              const summary = details.querySelector('summary');
+              return {
+                isLast: list === null || details.getBoundingClientRect().top > list.getBoundingClientRect().top,
+                open: details.open,
+                summaryHeight: summary === null ? 0 : Math.round(summary.getBoundingClientRect().height),
+              };
+            })()`);
+            // The summary holds a title and a line of help, so it is taller than the 40px control
+            // floor; the floor is what it must not fall below.
+            record(
+              'the composer sits below the queue and starts closed',
+              composerPlace.isLast && !composerPlace.open && composerPlace.summaryHeight >= 40,
+              JSON.stringify(composerPlace),
             );
 
             /*
