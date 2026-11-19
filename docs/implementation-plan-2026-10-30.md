@@ -358,6 +358,8 @@ Next 16.4 caching documentation read before choosing an API (item 1 of that phas
 catalog or delivery-charge edit is visible immediately, admin stays uncached, and the budget script runs
 green on a recorded baseline.
 
+**Addendum (2026-11-20).** A follow-on owner-directed UI pass on the same surface - refreshed order cards, product lines showing their recorded photograph/name/SKU/price/quantity/line total, a four-stage Placed/Confirmed/Shipped/Delivered progress bar reached only from the row's stored timestamps and fulfilment status (never an inferred date, and no delivery claimed by a cancelled or returned order), and the long explanatory notes removed from the detail - changes no phase, no schema and no state transition. It adds no roadmap slot: implementation is pending integration, and Phase 54 remains the next implementation step. Evidence: `CHANGELOG.md` and `docs/project-status.md` (2026-11-20).
+
 ---
 
 ## Phase 53 - Asset delivery and object storage (owner authorization required)

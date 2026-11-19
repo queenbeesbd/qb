@@ -8,6 +8,7 @@ import { buildQueryHref } from '@/lib/qbpanel-query';
 import { deliveryAreaName } from '@/lib/delivery-areas';
 import { paymentLabel, statusLabel } from '@/features/account/order-labels';
 import { CodOrderCard, type CodOrderRow } from '../../_ui/CodOrderCard';
+import { AdminIcon } from '../../_ui/icons';
 import { ActiveFilters, DateRangeFilter } from '../../_ui/ListFilters';
 import { FilterTabs, ListSearch, ListToolbar } from '../../_ui/ListToolbar';
 import { EmptyState } from '../../_ui/EmptyState';
@@ -315,59 +316,80 @@ export function AdminOrdersView({
         )
       ) : history ? (
         <>
-          <ul className={styles.recordList} data-admin-list="">
+          {/*
+            The order history is the same card family as the COD worklist (owner direction,
+            2026-11-20), not a table of rows: the reference shows each order as a portrait card whose
+            identity band carries what the owner scans for - reference, lifecycle state, amount - and
+            whose body carries the recorded product, the recipient and the place, over a quiet
+            time/payment footer. Every value is a column this reader already returns; the card adds no
+            field and no second read.
+          */}
+          <ul className={styles.orderList} data-admin-list="">
             {historyRows.map((row) => (
-              <li className={styles.record} key={row.orderNumber} style={{ position: 'relative' }}>
+              <li className={styles.orderCard} key={row.orderNumber} data-order-card="">
                 <Link
                   aria-label={`${t('admin.cod.viewOrder')} ${row.orderNumber}`}
+                  className={styles.cardOverlay}
                   href={`/qbpanel/orders/${encodeURIComponent(row.orderNumber)}?from=orders`}
-                  style={{ position: 'absolute', inset: 0, zIndex: 0, outlineOffset: '-2px' }}
                 />
-                {/*
-                  The recorded first line, drawn above the stretched link because the photograph is a
-                  `<button>` that enlarges the picture - two controls cannot be the same tap target.
-                  It is the existing `ItemPhoto`, so the history, the worklist and the detail all read
-                  a snapshot the same way, and a line that stored none draws no tile.
-                */}
-                <span style={{ position: 'relative', zIndex: 1, display: 'inline-flex' }}>
-                  <ItemPhoto imageKey={row.firstItemImageKey} name={row.firstItemName} size="compact" />
-                </span>
-                <div className={styles.recordMain}>
-                  <span className={styles.recordTitle}>
-                    <span className={styles.mono}>{row.orderNumber}</span>
-                  </span>
-                  <span className={styles.recordMeta}>
-                    <span>{when(row.placedAt)}</span>
-                    <span>
-                      {row.recipientName} ·{' '}
-                      <a
-                        href={`tel:${row.recipientPhone}`}
-                        style={{ position: 'relative', zIndex: 1 }}
-                      >
-                        {row.recipientPhone}
-                      </a>
-                    </span>
-                    <span>
-                      {row.districtCode === null ? t('orders.deliveryPending') : deliveryAreaName(row.districtCode)}
-                    </span>
-                    <span>{t('admin.orders.itemCountValue', { count: row.itemCount })}</span>
-                  </span>
+                <div className={styles.orderTop}>
+                  <div className={styles.orderIdentity}>
+                    <span className={styles.orderRef}>{row.orderNumber}</span>
+                    <div className={styles.orderPills}>
+                      <StatusPill tone={tone(row.status)}>{t(statusLabel(row.status))}</StatusPill>
+                      <span className={styles.orderPayment}>
+                        {t(paymentLabel(row.paymentMethod, '', row.codState))}
+                      </span>
+                    </div>
+                  </div>
+                  <div className={styles.orderAmount}>
+                    <span className={styles.orderAmountLabel}>{t('admin.cod.total')}</span>
+                    <span className={styles.orderAmountValue} data-order-total="">{price(row.totalMinor)}</span>
+                  </div>
                 </div>
-                <div className={styles.recordSide}>
-                  <StatusPill tone={tone(row.status)}>{t(statusLabel(row.status))}</StatusPill>
-                  <span className={styles.recordMeta}>
-                    {t(paymentLabel(row.paymentMethod, '', row.codState))}
-                  </span>
-                  <span className={styles.recordAmount}>
-                    <span className={styles.recordPrice}>{price(row.totalMinor)}</span>
-                    {/*
-                      The delivery charge is the snapshot the order was placed with (ADR 0016). It is
-                      shown as a sub-line of the total, never added to it - the total already contains
-                      it, and a second sum would misstate what the customer owes.
-                    */}
-                    <span className={styles.recordMeta}>
-                      {t('admin.orders.deliveryLine', { amount: price(row.shippingMinor) })}
+
+                <div className={styles.orderBody}>
+                  {/*
+                    The recorded first line, drawn above the stretched link because the photograph is a
+                    `<button>` that enlarges the picture - two controls cannot be the same tap target.
+                    It is the existing `ItemPhoto`, so the history, the worklist and the detail read a
+                    snapshot the same way, and a line that stored none draws no tile.
+                  */}
+                  <div className={styles.orderLead}>
+                    <span className={styles.orderPhoto}>
+                      <ItemPhoto imageKey={row.firstItemImageKey} name={row.firstItemName} size="compact" />
                     </span>
+                    <div className={styles.orderLeadText}>
+                      <span className={styles.orderItemName}>{row.firstItemName}</span>
+                      <span className={styles.orderItemQty}>
+                        {t('admin.orders.itemCountValue', { count: row.itemCount })}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className={styles.orderContact}>
+                    <span className={styles.orderName}>{row.recipientName}</span>
+                    <a className={`${styles.orderMetaLink} ${styles.cardRaised}`} href={`tel:${row.recipientPhone}`}>
+                      {row.recipientPhone}
+                    </a>
+                  </div>
+                  <p className={styles.orderAddress}>
+                    {row.districtCode === null ? t('orders.deliveryPending') : deliveryAreaName(row.districtCode)}
+                  </p>
+                </div>
+
+                {/*
+                  The footer states when the order was placed and carries the delivery charge as the
+                  sub-line it always was (ADR 0016): the charge is inside the total, so it is never
+                  added to it a second time.
+                */}
+                <div className={styles.orderMetaRow}>
+                  <span className={styles.orderWhen}>
+                    <AdminIcon name="clock" width={13} height={13} />
+                    {when(row.placedAt)}
+                  </span>
+                  <span className={styles.orderPayment}>
+                    {t('admin.orders.deliveryLine', { amount: price(row.shippingMinor) })}
                   </span>
                 </div>
               </li>

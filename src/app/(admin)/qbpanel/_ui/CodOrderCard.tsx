@@ -133,133 +133,140 @@ export function CodOrderCard({
       ]
         .filter(Boolean)
         .join(' ')}
-      style={{ position: 'relative' }}
     >
       {/*
-        The card's open area: one empty anchor stretched over the article (`inset: 0`), never a wrapper
-        around the decision forms. The card is the worklist entry and the order detail is the record, so
-        a tap anywhere that is not a control opens the order. The phone link, the line photographs and
-        the decision controls are raised above this overlay below, which is why each of them keeps its
-        own activation: an anchor that contained a form would submit through the link.
+        The card's open area: one empty anchor stretched over the article, never a wrapper around the
+        decision forms. The card is the worklist entry and the order detail is the record, so a tap
+        anywhere that is not a control opens the order. The phone link, the line photographs and the
+        decision controls are raised above this overlay (`cardRaised`), which is what makes one
+        whole-card link safe beside real forms: an anchor that contained a form would submit through
+        the link.
       */}
       <Link
         aria-label={`${t('admin.cod.viewOrder')} ${row.orderNumber}`}
-        className={styles.recordLink}
+        className={styles.cardOverlay}
         data-cod-card-link=""
         href={`${ORDERS_PATH}/${encodeURIComponent(row.orderNumber)}?from=orders`}
-        style={{ position: 'absolute', inset: 0, zIndex: 0, outlineOffset: '-2px' }}
       />
 
-      <div className={styles.orderMain}>
-        <div className={styles.orderTop}>
-          {/*
-            The reference is the card's own heading, so it is set at the page's body size rather than
-            the utility size a metadata line uses (owner direction, 2026-11-19): on the merged Orders
-            screen a card is the row, and the number is what the owner scans for.
-          */}
-          <span className={styles.orderRef} style={{ fontSize: 'var(--text-lg)' }}>
-            {row.orderNumber}
-          </span>
-          {decided === undefined ? (
-            <span className={hot ? `${styles.orderAge} ${styles.orderAgeHot}` : styles.orderAge}>
-              <AdminIcon name="clock" width={13} height={13} />
-              {ageText}
-            </span>
-          ) : (
-            <StatusPill tone={decided.decision === 'approved' ? 'success' : 'danger'}>
-              {decided.decision === 'approved' ? t('admin.cod.decision.approved') : t('admin.cod.decision.rejected')}
-            </StatusPill>
-          )}
-          <span className={styles.orderWhen}>
-            {decided === undefined
-              ? t('admin.cod.placedAt', { time: placed })
-              : t('admin.cod.decidedAt', { time: decidedAt ?? placed })}
-          </span>
-        </div>
-
-        <div className={styles.orderBody}>
-          <div className={styles.orderContact}>
-            <span className={styles.orderName}>{row.recipientName}</span>
-            {/*
-              Raised above the card's stretched overlay: calling the customer is its own action and must
-              not also open the order. Every control that does something other than "open the record"
-              carries this, which is what makes one whole-card link safe beside real forms.
-            */}
-            <a
-              className={styles.orderPhone}
-              href={`tel:${row.recipientPhone}`}
-              style={{ position: 'relative', zIndex: 1 }}
-            >
-              <AdminIcon name="phone" width={14} height={14} />
-              {row.recipientPhone}
-            </a>
-          </div>
-          {!compact && (
-            <p className={styles.orderAddress}>{deliveryAddressText(row)}</p>
-          )}
-          <ul className={styles.orderItems} aria-label={t('admin.cod.itemsTitle')}>
-            {(compact ? row.items.slice(0, 1) : row.items).map((item, index) => (
-              <li className={styles.orderItemLine} key={`${item.nameEn}-${index}`}>
-                {/*
-                  The line's recorded photograph (owner direction, 2026-11-19): the owner approves an
-                  order on a call and recognises the bottle, not the vendor's product name. A line with
-                  no stored snapshot draws no tile, so the name still starts where it did.
-                */}
-                <span style={{ position: 'relative', zIndex: 1, display: 'inline-flex' }}>
-                  <ItemPhoto
-                    imageKey={item.imageKey}
-                    name={pick({ bn: item.nameBn, en: item.nameEn }) ?? item.nameEn}
-                    size="compact"
-                  />
-                </span>
-                <span className={styles.orderItem}>
-                  <span className={styles.orderItemName}>
-                    {pick({ bn: item.nameBn, en: item.nameEn }) ?? item.nameEn}
-                  </span>
-                  <span className={styles.orderItemQty}>
-                    ×{item.quantity} · {price(item.lineTotalMinor)}
-                  </span>
-                </span>
-              </li>
-            ))}
-            {compact && row.items.length > 1 && (
-              <li className={styles.orderItemMore}>
-                {t('admin.cod.moreItems', { count: row.items.length - 1 })}
-              </li>
+      {/*
+        The identity band, from the reference card (screenshot 1): the order number is the heading, the
+        operational urgency sits right under it, and the total is the one large figure at the far end.
+        The reference is set at body-plus size rather than a metadata size because on the merged Orders
+        screen a card *is* the row, and the number is what the owner scans for.
+      */}
+      <div className={styles.orderTop}>
+        <div className={styles.orderIdentity}>
+          <span className={styles.orderRef}>{row.orderNumber}</span>
+          <div className={styles.orderPills}>
+            {decided === undefined ? (
+              <span className={hot ? `${styles.orderAge} ${styles.orderAgeHot}` : styles.orderAge}>
+                <AdminIcon name="clock" width={13} height={13} />
+                {ageText}
+              </span>
+            ) : (
+              <StatusPill tone={decided.decision === 'approved' ? 'success' : 'danger'}>
+                {decided.decision === 'approved'
+                  ? t('admin.cod.decision.approved')
+                  : t('admin.cod.decision.rejected')}
+              </StatusPill>
             )}
-          </ul>
+          </div>
+        </div>
+        <div className={styles.orderAmount}>
+          <span className={styles.orderAmountLabel}>{t('admin.cod.total')}</span>
+          <span className={styles.orderAmountValue}>{price(row.totalMinor)}</span>
         </div>
       </div>
 
+      <div className={styles.orderBody}>
+        <div className={styles.orderContact}>
+          <span className={styles.orderName}>{row.recipientName}</span>
+          {/*
+            Raised above the card's stretched overlay: calling the customer is its own action and must
+            not also open the order. Every control that does something other than "open the record"
+            carries `cardRaised`, which is what makes one whole-card link safe beside real forms.
+          */}
+          <a className={`${styles.orderPhone} ${styles.cardRaised}`} href={`tel:${row.recipientPhone}`}>
+            <AdminIcon name="phone" width={14} height={14} />
+            {row.recipientPhone}
+          </a>
+        </div>
+        {!compact && <p className={styles.orderAddress}>{deliveryAddressText(row)}</p>}
+        <ul className={styles.orderItems} aria-label={t('admin.cod.itemsTitle')}>
+          {(compact ? row.items.slice(0, 1) : row.items).map((item, index) => (
+            <li className={styles.orderItemLine} key={`${item.nameEn}-${index}`}>
+              {/*
+                The line's recorded photograph: the owner approves an order on a call and recognises
+                the bottle, not the vendor's product name. A line with no stored snapshot keeps the
+                tile's reserved frame so names stay aligned, and draws no control to enlarge.
+              */}
+              <span className={styles.orderPhoto}>
+                <ItemPhoto
+                  imageKey={item.imageKey}
+                  name={pick({ bn: item.nameBn, en: item.nameEn }) ?? item.nameEn}
+                  size="compact"
+                />
+              </span>
+              <span className={styles.orderItem}>
+                <span className={styles.orderItemName}>
+                  {pick({ bn: item.nameBn, en: item.nameEn }) ?? item.nameEn}
+                </span>
+                {/*
+                  Quantity only. The row carries the line total, not the unit price, and dividing one
+                  by the other would state a price the order never recorded.
+                */}
+                <span className={styles.orderItemQty}>×{item.quantity}</span>
+              </span>
+              <span className={styles.orderItemTotal}>{price(item.lineTotalMinor)}</span>
+            </li>
+          ))}
+          {compact && row.items.length > 1 && (
+            <li className={styles.orderItemMore}>
+              {t('admin.cod.moreItems', { count: row.items.length - 1 })}
+            </li>
+          )}
+        </ul>
+      </div>
+
+      {/*
+        The receipt band: the figures behind the total in the identity band. The total itself is not
+        repeated here - one figure, stated once, is what keeps the card honest.
+      */}
       <div className={styles.orderSide}>
         <dl className={styles.orderTotals}>
+          <div>
+            <dt>{t('cart.subtotal')}</dt>
+            <dd>{price(row.itemsSubtotalMinor)}</dd>
+          </div>
+          {orderDiscountMinor(row.itemsSubtotalMinor, row.shippingMinor, row.totalMinor) > 0 && (
             <div>
-              <dt>{t('cart.subtotal')}</dt>
-              <dd>{price(row.itemsSubtotalMinor)}</dd>
+              <dt>{t('orders.discount')}</dt>
+              <dd>−{price(orderDiscountMinor(row.itemsSubtotalMinor, row.shippingMinor, row.totalMinor))}</dd>
             </div>
-            {orderDiscountMinor(row.itemsSubtotalMinor, row.shippingMinor, row.totalMinor) > 0 && (
-              <div>
-                <dt>{t('orders.discount')}</dt>
-                <dd>
-                  −{price(orderDiscountMinor(row.itemsSubtotalMinor, row.shippingMinor, row.totalMinor))}
-                </dd>
-              </div>
-            )}
-            <div>
-              <dt>{t('cart.delivery')}</dt>
-              <dd>
-                {row.districtCode === null ? t('orders.deliveryPending') : price(row.shippingMinor)}
-              </dd>
-            </div>
-            <div className={styles.orderTotalRow}>
-              <dt>{t('admin.cod.total')}</dt>
-              <dd className={styles.orderTotal}>{price(row.totalMinor)}</dd>
-            </div>
+          )}
+          <div>
+            <dt>{t('cart.delivery')}</dt>
+            <dd>{row.districtCode === null ? t('orders.deliveryPending') : price(row.shippingMinor)}</dd>
+          </div>
         </dl>
       </div>
 
+      {/*
+        The closing facts line, as on the reference card's footer: when the order was placed, or when it
+        was decided. The state itself already sits in the identity band, so it is not repeated here.
+      */}
+      <div className={styles.orderMetaRow}>
+        <span className={styles.orderWhen}>
+          <AdminIcon name="clock" width={13} height={13} />
+          {decided === undefined
+            ? t('admin.cod.placedAt', { time: placed })
+            : t('admin.cod.decidedAt', { time: decidedAt ?? placed })}
+        </span>
+      </div>
+
       {decided === undefined ? (
-        <div className={styles.orderFooter} style={{ position: 'relative', zIndex: 1 }}>
+        <div className={styles.orderFooter}>
           <form
             action="/api/qbpanel/orders-cod"
             method="post"

@@ -1084,15 +1084,39 @@ html[lang='bn'] .sectionHead h2 {
   gap: var(--space-3);
 }
 
-.orderCard {
+/*
+ * The order history and the COD worklist are **one card family** (owner direction, 2026-11-20): both
+ * read top-to-bottom as a reference-ish portrait card - identity and amount, then what was bought and
+ * who receives it, then the recorded costs, then a quiet time/state footer. The history was a list of
+ * table rows and the worklist a two-column panel; they now share these classes, so a change to the
+ * card rhythm moves both and the two surfaces can never drift apart.
+ *
+ * The card itself is the tap target for the record: an empty anchor is stretched over it
+ * (`cardOverlay`) and every real control inside lifts above that overlay with `cardRaised`. That is
+ * why the shell must stay `position: relative`.
+ */
+.orderList {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: var(--space-4) var(--space-5);
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.orderCard {
+  position: relative;
+  display: grid;
+  gap: var(--space-3);
   padding: var(--space-4) var(--space-5);
   background: var(--admin-surface);
   border: 1px solid var(--admin-line);
-  border-radius: 18px;
+  border-radius: var(--admin-radius-card);
   box-shadow: var(--admin-shadow-card);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.orderCard:hover {
+  border-color: var(--admin-line-strong);
 }
 
 .orderCardDecided {
@@ -1100,20 +1124,62 @@ html[lang='bn'] .sectionHead h2 {
   box-shadow: none;
 }
 
-.orderMain {
-  display: grid;
-  align-content: start;
-  min-width: 0;
+/* The record's open area: covers the card, sits under every control, and never wraps a form. */
+.cardOverlay {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+  outline-offset: -2px;
+}
+
+/* A control inside the card that must keep its own activation (photo, phone, decision). */
+.cardRaised {
+  position: relative;
+  z-index: 1;
+}
+
+/*
+ * The recorded photograph inside a card. `ItemPhoto` keeps a reserved frame even when a line stored no
+ * snapshot, so names stay aligned down the card and an imageless line is visibly empty rather than
+ * shifted; the wrapper only lifts the tile above the card's overlay so the viewer still opens.
+ */
+.orderPhoto {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
 }
 
 .orderFooter {
-  grid-column: 1 / -1;
+  position: relative;
+  z-index: 1;
   display: flex;
   flex-wrap: wrap;
   align-items: flex-end;
   gap: var(--space-3);
   padding-top: var(--space-3);
   border-top: 1px solid var(--admin-line);
+}
+
+/*
+ * The card's closing line of facts - when it happened, what it cost to send. It is a metadata row,
+ * not the decision footer, so it carries no form and stays the quietest thing on the card.
+ */
+.orderMetaRow {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--admin-line);
+}
+
+.orderMetaRow > :not(:first-child)::before {
+  content: '·';
+  margin-inline-end: var(--space-2);
+  color: var(--admin-subtle);
 }
 
 /*
@@ -1153,19 +1219,71 @@ html[lang='bn'] .sectionHead h2 {
   min-width: 0;
 }
 
+/*
+ * The card's identity band: the reference, the state, and the amount the owner scans for.
+ *
+ * Reference anatomy (screenshot 1): the order number is the card's heading at body-plus size, the
+ * channel/payment pills sit under it, and the amount is the one large figure at the far end. The band
+ * closes with a hairline so the products below read as the card's second question.
+ */
 .orderTop {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-2) var(--space-3);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: var(--space-2) var(--space-4);
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--admin-line);
+}
+
+.orderIdentity {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
 }
 
 .orderRef {
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: var(--text-sm);
-  font-weight: 600;
-  letter-spacing: 0.02em;
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: var(--leading-tight);
   overflow-wrap: anywhere;
+}
+
+.orderPills {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-2);
+  min-width: 0;
+}
+
+/* The payment line beside the lifecycle pill: a fact, so it is text, not a second pill. */
+.orderPayment {
+  font-size: var(--text-xs);
+  color: var(--admin-muted);
+}
+
+.orderAmount {
+  display: grid;
+  justify-items: end;
+  gap: 1px;
+  min-width: 0;
+  text-align: end;
+}
+
+.orderAmountLabel {
+  font-size: var(--text-xs);
+  color: var(--admin-subtle);
+}
+
+.orderAmountValue {
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: var(--leading-tight);
+  white-space: nowrap;
 }
 
 .orderAge {
@@ -1187,25 +1305,45 @@ html[lang='bn'] .sectionHead h2 {
 }
 
 .orderWhen {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   font-size: var(--text-xs);
   color: var(--admin-subtle);
 }
 
+/* The body is one vertical stack in both cards: product, then who receives it, then where. */
 .orderBody {
   display: grid;
   gap: var(--space-3);
-  margin-top: var(--space-3);
+  min-width: 0;
+}
+
+/* The history card's leading row: the recorded first line beside the facts about it. */
+.orderLead {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.orderLeadText {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
 }
 
 .orderContact {
   display: flex;
   flex-wrap: wrap;
-  align-items: baseline;
+  align-items: center;
   gap: var(--space-1) var(--space-3);
 }
 
 .orderName {
   font-weight: 600;
+  overflow-wrap: anywhere;
 }
 
 .orderPhone {
@@ -1228,70 +1366,130 @@ html[lang='bn'] .sectionHead h2 {
   color: var(--admin-ink);
 }
 
+/*
+ * A phone number inside a card. The worklist card gives it the pill treatment because calling is the
+ * card's second action; the history card only lists the number, so it stays a quiet raised link.
+ */
+.orderMetaLink {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--admin-control-sm);
+  color: var(--admin-muted);
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+  text-decoration: none;
+}
+
+.orderMetaLink:hover {
+  color: var(--admin-lavender-deep);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
 .orderAddress {
+  margin: 0;
   color: var(--admin-muted);
   font-size: var(--text-sm);
   line-height: var(--leading-snug);
+  overflow-wrap: anywhere;
 }
 
+/*
+ * A product line inside a card: the recorded photograph, the name with its quantity, then the line
+ * total - the reference's product row (screenshot 2) at card scale. A line whose snapshot is `null`
+ * keeps the tile's reserved frame, so names stay aligned and the empty frame states "no photograph".
+ */
 .orderItems {
   display: grid;
-  gap: 2px;
   margin: 0;
   padding: 0;
   list-style: none;
-  font-size: var(--text-sm);
 }
 
 .orderItemLine {
-  display: flex;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
-  gap: var(--space-2);
-  padding: 2px 0;
+  gap: var(--space-3);
+  padding: var(--space-2) 0;
+  border-top: 1px solid var(--admin-line);
+}
+
+.orderItemLine:first-child {
+  border-top: 0;
+  padding-top: 0;
 }
 
 .orderItem {
-  display: flex;
-  flex: 1;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  gap: var(--space-2);
+  display: grid;
+  gap: 1px;
   min-width: 0;
 }
 
 .orderItemName {
-  min-width: 0;
+  font-weight: 600;
+  line-height: var(--leading-snug);
   overflow-wrap: anywhere;
 }
 
 .orderItemQty {
   color: var(--admin-muted);
+  font-size: var(--text-xs);
   font-variant-numeric: tabular-nums;
 }
 
+.orderItemTotal {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
 .orderItemMore {
-  padding-top: 2px;
+  padding-top: var(--space-1);
   color: var(--admin-subtle);
   font-size: var(--text-xs);
 }
 
 .orderCardCompact {
-  gap: var(--space-3) var(--space-5);
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
 }
 
+/* The dashboard's triage card keeps the same order but closes its bands up. */
+.orderCardCompact .orderTop,
+.orderCardCompact .orderSide,
+.orderCardCompact .orderMetaRow {
+  padding-top: var(--space-2);
+  padding-bottom: var(--space-2);
+}
+
+/*
+ * The totals band already ends with its own rule, so the facts line under it does not draw a second
+ * hairline a few pixels lower: two rules that close together read as a mistake, not a section break.
+ */
+.orderSide + .orderMetaRow {
+  border-top: 0;
+  padding-top: 0;
+}
+
+/* The receipt band: the card's own costs, closed off from the products above it. */
 .orderSide {
   display: grid;
-  align-content: start;
-  justify-items: end;
-  gap: var(--space-3);
-  min-width: 10rem;
+  gap: var(--space-2);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--admin-line);
 }
 
 .orderTotals {
   display: grid;
   gap: 2px;
-  min-width: 12rem;
   margin: 0;
+}
+
+/* Inside a card the receipt sits at the right end of its band; the detail page keeps it full width. */
+.orderSide .orderTotals {
+  width: min(100%, 22rem);
+  margin: 0 0 0 auto;
 }
 
 .orderTotals > div {
@@ -1322,11 +1520,6 @@ html[lang='bn'] .sectionHead h2 {
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
-}
-
-.orderTotalLabel {
-  font-size: var(--text-xs);
-  color: var(--admin-subtle);
 }
 
 .orderActions {
@@ -2089,15 +2282,6 @@ html[dir='rtl'] .switchOn .switchKnob::after {
 }
 
 .record.recordProduct {
-  grid-template-columns: auto minmax(0, 1fr) auto;
-}
-
-/*
- * An order line with its recorded photograph: the tile, the name and price, then the line total.
- * `auto` on the first column is what keeps a line without a snapshot aligned with the ones that have
- * one - the tile collapses to nothing rather than reserving an empty frame.
- */
-.record.recordItem {
   grid-template-columns: auto minmax(0, 1fr) auto;
 }
 
@@ -5038,20 +5222,38 @@ a.rankName:hover {
     font-size: var(--text-page-title);
   }
 
+  /*
+   * A phone card: the identity band keeps its two ends (reference left, amount right) because that is
+   * the scan the card exists for; the reference is allowed to wrap to a second line, and the type steps
+   * down one size so `QB905A76D1A3330AB1` and a four-figure taka amount both fit a 360px screen.
+   */
   .orderCard {
-    grid-template-columns: minmax(0, 1fr);
+    padding: var(--space-4);
+    gap: var(--space-2);
+  }
+
+  .orderTop {
+    gap: var(--space-2) var(--space-3);
+  }
+
+  .orderRef {
+    font-size: var(--text-md);
+  }
+
+  .orderAmountValue {
+    font-size: var(--text-lg);
   }
 
   .orderSide {
-    justify-items: stretch;
-    min-width: 0;
-    border-top: 1px solid var(--admin-line);
     padding-top: var(--space-3);
   }
 
-  .orderTotals {
+  .orderSide .orderTotals {
     width: 100%;
-    min-width: 0;
+  }
+
+  .orderItemLine {
+    gap: var(--space-2);
   }
 
   .orderActions {
@@ -5993,5 +6195,235 @@ a.rankName:hover {
   .pickerRow {
     min-height: var(--admin-control);
     padding: var(--space-2) var(--space-3);
+  }
+}
+
+/* ---- Order detail: progress and product lines ---------------------------- */
+
+/*
+ * The four-stage tracker (owner direction, 2026-11-20): Placed, Confirmed, Shipped, Delivered.
+ *
+ * The track is a record, not a promise. A stage is `done` only when the order row carries its
+ * timestamp (or a later state that could not exist without it), `current` is the furthest reached
+ * stage of an order that still has a next one, and `future` is drawn as an empty outline. A closed
+ * order marks its reached stages but is desaturated, because its track has no next step.
+ *
+ * Horizontal on a desk, where it reads as one glance; the phone turns the same list into a vertical
+ * rail so four labels and four dates never have to share a 360px line.
+ */
+.progressTrack {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.progressStep {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 2px var(--space-2);
+  min-width: 0;
+}
+
+/* The rail to the next marker: muted unless this stage is behind the order. */
+.progressStep:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  top: 13px;
+  inset-inline-start: calc(28px + var(--space-2));
+  inset-inline-end: calc(-1 * var(--space-3));
+  height: 2px;
+  border-radius: 1px;
+  background: var(--admin-line);
+}
+
+.progressStep[data-state='done']::after {
+  background: var(--admin-lavender-deep);
+}
+
+.progressMark {
+  grid-row: 1 / span 2;
+  align-self: start;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: 2px solid var(--admin-line-strong);
+  border-radius: 50%;
+  background: var(--admin-surface);
+  color: #fff;
+}
+
+.progressStep[data-state='done'] .progressMark {
+  border-color: var(--admin-lavender-deep);
+  background: var(--admin-lavender-deep);
+}
+
+.progressStep[data-state='current'] .progressMark {
+  border-color: var(--admin-lavender-deep);
+  background: var(--admin-surface);
+  box-shadow: 0 0 0 4px var(--admin-lavender-soft);
+}
+
+.progressDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--admin-line-strong);
+}
+
+.progressStep[data-state='current'] .progressDot {
+  background: var(--admin-lavender-deep);
+}
+
+.progressLabel {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  line-height: var(--leading-snug);
+  color: var(--admin-subtle);
+  overflow-wrap: anywhere;
+}
+
+.progressStep[data-state='done'] .progressLabel,
+.progressStep[data-state='current'] .progressLabel {
+  color: var(--admin-ink);
+}
+
+.progressWhen {
+  font-size: var(--text-xs);
+  color: var(--admin-subtle);
+  font-variant-numeric: tabular-nums;
+  line-height: var(--leading-snug);
+}
+
+/* A cancelled or returned order keeps its history, without claiming an active position. */
+.progressTrack[data-state='closed'] .progressStep[data-state='done']::after {
+  background: var(--admin-line);
+}
+
+.progressTrack[data-state='closed'] .progressStep[data-state='done'] .progressMark {
+  border-color: var(--admin-line-strong);
+  background: var(--admin-surface-soft);
+  color: var(--admin-muted);
+  box-shadow: none;
+}
+
+/*
+ * A product line: the recorded photograph, the name with its SKU/unit price/quantity, and the line
+ * total - the reference's product row (screenshot 2). Tinted against the card surface so each bought
+ * item reads as its own thing, not as a table row.
+ */
+.lineList {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.lineCard {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid var(--admin-line);
+  border-radius: var(--admin-radius-card);
+  background: var(--admin-surface-soft);
+}
+
+.lineBody {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.lineName {
+  font-weight: 600;
+  line-height: var(--leading-snug);
+  overflow-wrap: anywhere;
+}
+
+.lineVariant {
+  font-size: var(--text-xs);
+  color: var(--admin-muted);
+  overflow-wrap: anywhere;
+}
+
+.lineMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--admin-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.lineMeta > span + span::before {
+  content: '·';
+  margin-inline-end: var(--space-2);
+  color: var(--admin-subtle);
+}
+
+.lineTotal {
+  display: grid;
+  justify-items: end;
+  text-align: end;
+}
+
+.lineTotalValue {
+  font-family: var(--font-display);
+  font-size: var(--text-md);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+@media (max-width: 720px) {
+  /* The phone's tracker: the rail runs down the markers instead of across the labels. */
+  .progressTrack {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+  }
+
+  .progressStep {
+    padding-bottom: var(--space-3);
+  }
+
+  .progressStep:last-child {
+    padding-bottom: 0;
+  }
+
+  .progressStep:not(:last-child)::after {
+    top: 30px;
+    inset-inline-start: 13px;
+    inset-inline-end: auto;
+    width: 2px;
+    height: calc(100% - 30px);
+  }
+
+  .lineCard {
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-3);
+  }
+}
+
+.lineCard[data-order-line] {
+  min-width: 0;
+}
+
+@media (max-width: 380px) {
+  .lineCard[data-order-line] {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .lineCard[data-order-line] .lineTotal {
+    grid-column: 2;
+    justify-items: start;
+    text-align: start;
   }
 }

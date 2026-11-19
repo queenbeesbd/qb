@@ -1171,3 +1171,45 @@ and the customer row's overlay link with its reasoned controls still reachable. 
 failures recorded in `CHANGELOG.md`.
 
 **Limits.** Real iOS Safari, Android Chrome and screen readers were not used.
+
+## Order detail and order cards: presentation refresh, long notes removed (2026-11-20, owner-directed UI change)
+
+**Implementation pending, and unverified: no check was run for this entry.** It records an
+owner-directed UI change and its boundary; it is not evidence that the change is integrated or that any
+suite passed. See "Verification" at the end.
+
+**What is changing.** An owner-directed presentation pass over the Orders surface. No database column,
+table or migration; no permission code; no dependency; no route change; no change to any state
+transition, guard or audit write.
+
+- **Cards.** The order list card and the order detail's panels move to the panel's card scale - border,
+  radius, spacing - so the owner reads a set of cards rather than a wall of rows.
+- **Product lines.** A line carries its recorded snapshot photograph (`order_item.image_key_snapshot`,
+  the same `ItemPhoto` path), the product name, its SKU, unit price and quantity, and the line total, in
+  that reading order.
+- **Progress bar.** The detail shows four stages - Placed, Confirmed, Shipped, Delivered - reached only
+  from what the order row holds: its own timestamps (`placed_at`, `confirmed_at`, `shipped_at`,
+  `delivered_at`) and, where a timestamp predates the column, its stored fulfilment status. **No date is
+  inferred.** A cancelled or returned order draws its reached stages as history, offers no current step,
+  and never claims a delivery that did not happen.
+- **Long explanatory notes removed.** The cash/reconciliation commentary, the additional-cost paragraph,
+  the payment-screenshot paragraph and the guest-order explanation leave `/qbpanel/orders/[orderNumber]`,
+  with nothing replacing them. Their five keys (`admin.order.cashNote`, `admin.order.reconcileNote`,
+  `admin.order.costsBody`, `admin.order.proofBody`, `admin.order.guestCustomerNote`) are the only place
+  that copy still exists - the detail view no longer names them, so they are dead entries - and they are
+  deleted at integration. The order is not incidental: removing a key while a component still
+  referenced it fails `check:i18n`.
+
+**Preserved deliberately.** The payment screenshot is a feature, not copy: its heading, status pill,
+permission-gated image, full-size viewer and checked/rejected review form all remain. So does every money
+value and label (subtotal, delivery, total, standard fee, additional costs, net estimate), every decision
+and lifecycle control, and every server-side refusal behind them. What is removed is explanation, not
+capability - the page still states facts, it just stops restating policy.
+
+**Verification: pending, and not claimed.** `typecheck`, `lint`, `check:i18n`, unit and database tests,
+`build`, `verify:admin`, `verify:browser` and `verify:ui` were **not** run for this change, and no key
+count is reported. The parent integration runs those gates and is where the five unused keys leave the
+dictionary; until it does, treat this section as a description, not as an audit snapshot.
+
+**Limits.** Real iOS Safari, Android Chrome, 200% zoom and screen readers were not used. Neither the
+progress bar's narrow-screen layout nor the card refresh has been measured in a browser.

@@ -1141,10 +1141,6 @@ export const dictionary = {
   'admin.order.confirmedAt': 'Confirmed',
   'admin.order.cancelledAt': 'Cancelled',
   'admin.order.cancelledReason': 'Cancellation reason: {reason}',
-  'admin.order.cashNote':
-    'An approved COD order is not proof of cash. Cash arrives at the door and is recorded as its own event, never as a consequence of approval, dispatch or delivery.',
-  'admin.order.reconcileNote':
-    'Cash collection and reconciliation are separate. Matching a courier statement has no defined process yet, so no order is marked reconciled.',
   'admin.order.age': 'Age',
   'admin.order.shippedAt': 'Dispatched',
   'admin.order.deliveredAt': 'Delivered',
@@ -1246,12 +1242,8 @@ export const dictionary = {
   'admin.order.moneyUnavailable': 'Unavailable',
   'admin.order.moneyUnsubstantiated': 'Delivery split not recorded; net estimate unavailable.',
   'admin.order.costsTitle': 'Additional courier costs',
-  'admin.order.costsBody':
-    'Costs the owner bore on this order, beyond the standard delivery charge. They are never added to what the customer paid.',
   'admin.order.costsEmpty': 'No additional cost is recorded on this order.',
   'admin.order.proofTitle': 'Payment screenshot',
-  'admin.order.proofBody':
-    'Attached by the customer. Compare it with the shop\'s own bKash statement, then record what you found. Nothing here moves the order.',
   'admin.order.proofEmpty':
     'No screenshot was attached when the order was placed.',
   'admin.order.proofAlt': 'Payment screenshot the customer attached',
@@ -1308,8 +1300,6 @@ export const dictionary = {
   'admin.order.noAuditTitle': 'No audit records',
   'admin.order.noAuditBody': 'The audit trail holds nothing about this order yet.',
   'admin.order.guestCustomer': 'Guest order',
-  'admin.order.guestCustomerNote':
-    'Placed without an account. The delivery details above are the only contact record for it.',
   'admin.order.customerTitle': 'Customer',
   'admin.order.viewCustomer': 'Customer profile',
   'admin.order.customerUnnamed': 'Unnamed customer',

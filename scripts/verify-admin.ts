@@ -534,13 +534,26 @@ async function openChromium(base: string): Promise<AdminBrowser | null> {
       await new Promise<void>((resolve) => setTimeout(resolve, 120));
     },
     async key(key) {
-      if (key === 'Escape') {
-        await send('Input.dispatchKeyEvent', { type: 'rawKeyDown', key, code: key, windowsVirtualKeyCode: 27 });
-        await send('Input.dispatchKeyEvent', { type: 'keyUp', key, code: key, windowsVirtualKeyCode: 27 });
-      } else {
-        throw new Error(`unsupported key ${key}`);
+      /*
+       * Real key events, dispatched by the browser to whatever holds focus - not an `el.click()` or a
+       * synthetic event, so a control driven this way is exercised as a person would drive it.
+       *
+       * Enter is three events, not two: the browser turns a key press into a `click` on the focused
+       * button only when the `char` event follows `rawKeyDown`. Sending just down/up (or folding `text`
+       * into the key-down) reaches the page as a key event that activates nothing - measured against
+       * this Chromium build, where only the down/char/up sequence fires the handler.
+       */
+      const virtualKeyCode = key === 'Escape' ? 27 : key === 'Enter' ? 13 : null;
+      if (virtualKeyCode === null) throw new Error(`unsupported key ${key}`);
+      const base = { key, code: key, windowsVirtualKeyCode: virtualKeyCode, nativeVirtualKeyCode: virtualKeyCode };
+      await send('Input.dispatchKeyEvent', { ...base, type: 'rawKeyDown' });
+      if (key === 'Enter') {
+        await send('Input.dispatchKeyEvent', { ...base, type: 'char', text: '\r', unmodifiedText: '\r' });
       }
-      await new Promise<void>((resolve) => setTimeout(resolve, 120));
+      await send('Input.dispatchKeyEvent', { ...base, type: 'keyUp' });
+      const settled = Promise.withResolvers<void>();
+      setTimeout(settled.resolve, 120);
+      await settled.promise;
     },
     waitFor,
     async printMedia(media) {
@@ -1095,6 +1108,7 @@ async function main(): Promise<void> {
           .from(productVariant)
           .where(sql`${productVariant.isDefault}`)
           .limit(1);
+        let lineCount = 0;
         if (variant[0] !== undefined) {
           await tx.insert(orderItem).values({
             orderId,
@@ -1107,8 +1121,9 @@ async function main(): Promise<void> {
             lineTotalMinor: 10000,
             imageKeySnapshot: seededAssetKey,
           });
+          lineCount = 1;
         }
-        return { customerId, orderId, orderNumber, assetKey: snapshot[0]?.imageKey ?? null, lineCount: snapshot.length };
+        return { customerId, orderId, orderNumber, assetKey: lineCount === 1 ? seededAssetKey : null, lineCount };
       });
 
       // The worklist on the one Orders screen: the waiting view is where a pending approval lives.
@@ -1334,6 +1349,20 @@ async function main(): Promise<void> {
           orderDetail.body.includes('01712345678') &&
           orderDetail.body.includes('Dhanmondi'),
         `status ${orderDetail.status}`,
+      );
+      record(
+        'order detail draws fulfilment progress and any seeded snapshot product line',
+        orderDetail.status === 200 &&
+          orderDetail.body.includes('data-order-progress') &&
+          (codSeed.lineCount === 0 ||
+            (orderDetail.body.includes('data-order-line') &&
+              orderDetail.body.includes('Verify COD Product') &&
+              (codSeed.assetKey === null || orderDetail.body.includes('data-item-photo="row"')))),
+        codSeed.lineCount === 0
+          ? 'progress track present; no default variant exists, so no product line was seeded'
+          : codSeed.assetKey === null
+            ? 'progress track and line facts present; the stored snapshot has no catalog asset'
+            : 'progress track, line facts and recorded photo are present',
       );
       record(
         'the decided order detail shows its decision rather than a second decision form',
@@ -2417,6 +2446,48 @@ async function main(): Promise<void> {
               JSON.stringify(orderDetailUi),
             );
 
+            /*
+             * Copy removal is a statement about what the owner sees, so it is checked against the
+             * painted text rather than against the response body.
+             *
+             * The served HTML also carries Next's serialized RSC payload, and that payload can repeat
+             * dictionary strings for components that no longer render them. A `body.includes(...)` test
+             * would then fail on text nobody can see - or pass for a reason unrelated to the screen.
+             * `document.body.innerText` is the rendered document, so the four detail-scoped notes are
+             * looked for there. The guest-only note is included with them; this order belongs to an
+             * account, so its absence alone is weak evidence and the record name says "paints" rather
+             * than claiming the source string is gone. The concise proof heading must still be painted,
+             * which is what keeps the section from being satisfied by deleting the section itself.
+             */
+            const visibleCopy = await browser.evaluate<{
+              notes: string[];
+              proofHeading: boolean;
+              renderedChars: number;
+            }>(`(() => {
+              const text = document.body.innerText;
+              const wanted = [
+                'Attached by the customer. Compare it with',
+                'Costs the owner bore on this order',
+                'Placed without an account. The delivery details above',
+                'An approved COD order is not proof of cash',
+                'Cash collection and reconciliation are separate',
+                'Payment screenshot',
+              ];
+              return {
+                notes: wanted.slice(0, 5).filter((phrase) => text.includes(phrase)),
+                proofHeading: text.includes(wanted[5]),
+                renderedChars: text.trim().length,
+              };
+            })()`);
+            record(
+              'order detail paints none of the five verbose notes while retaining the payment proof heading',
+              visibleCopy.notes.length === 0 &&
+                visibleCopy.proofHeading === true &&
+                // Guards against a blank document satisfying the absence half of this check.
+                visibleCopy.renderedChars > 500,
+              JSON.stringify(visibleCopy),
+            );
+
             // ---- The line photograph on the order screen (2026-11-19) ----
             //
             // The owner recognises a product by its picture on a confirmation call, so every line draws
@@ -2458,7 +2529,37 @@ async function main(): Promise<void> {
               JSON.stringify(photoTile),
             );
 
-            await browser.click('[data-item-photo="row"]');
+            /*
+             * The dialog is opened by the control a person uses. The tile is focused and Enter is
+             * dispatched by the browser, so the open is React's own click handler firing on a real key
+             * activation - not an `el.click()` that could paper over a control that is not reachable.
+             * Hydration is awaited first: on a page whose React bundle has not run, a button is inert,
+             * and pressing Enter in that window would fail for a reason unrelated to the viewer.
+             */
+            const photoHydrated = await browser.waitFor(
+              `(() => {
+                const button = document.querySelector('[data-item-photo="row"]');
+                if (button === null) return false;
+                return Object.keys(button).some((key) => key.startsWith('__reactFiber$') || key.startsWith('__reactProps$'));
+              })()`,
+            );
+            record(
+              'the order line photograph is interactive once the page has hydrated',
+              photoHydrated === true,
+              `hydrated: ${photoHydrated}`,
+            );
+            // Focus is the only setup; it is what a keyboard user does before pressing Enter.
+            const photoFocused = await browser.evaluate<boolean>(
+              `(() => {
+                const button = document.querySelector('[data-item-photo="row"]');
+                if (button === null) return false;
+                button.focus();
+                return document.activeElement === button;
+              })()`,
+            );
+            record('the line photograph takes keyboard focus', photoFocused === true, `focused: ${photoFocused}`);
+            await browser.key('Enter');
+            await browser.waitFor("document.querySelector('[role=\"dialog\"][aria-modal=\"true\"]') !== null", 2000);
             const photoOpen = await browser.evaluate<{
               dialogs: number;
               labelled: boolean;
@@ -2477,7 +2578,7 @@ async function main(): Promise<void> {
               };
             })()`);
             record(
-              'clicking the photograph opens one labelled modal at the largest stored width, with the page locked',
+              'pressing Enter on the focused photograph opens one labelled modal at the largest stored width, with the page locked',
               photoOpen.dialogs === 1 &&
                 photoOpen.labelled === true &&
                 photoOpen.full !== null &&

@@ -11,6 +11,7 @@ import { ORDER_COST_PATH, ORDER_PROOF_REVIEW_PATH, ORDER_TRANSITION_PATH } from 
 import { paymentLabel, statusLabel } from '@/features/account/order-labels';
 import { ConfirmSubmit } from '../../../_ui/ConfirmSubmit';
 import { EmptyState } from '../../../_ui/EmptyState';
+import { AdminIcon } from '../../../_ui/icons';
 import { ItemPhoto } from '../../../_ui/ItemPhoto';
 import { Notice, type NoticeTone } from '../../../_ui/Notice';
 import { PageHeader } from '../../../_ui/PageHeader';
@@ -274,6 +275,61 @@ const STATUS_TONES: Record<string, PillTone> = {
   completed: 'success',
 };
 
+type StageState = 'done' | 'current' | 'future';
+
+type OrderStage = {
+  readonly key: TranslationKey;
+  /** The stored timestamp for this stage, or `null` when the record holds none. */
+  readonly at: string | null;
+  readonly state: StageState;
+};
+
+/**
+ * The four movement stages, read from the timestamps and the fulfilment status.
+ *
+ * The track claims nothing the row does not hold: a stage is reached because its own timestamp exists,
+ * or because a later stored state cannot be true without it - a dispatched parcel was confirmed, a
+ * delivered one was shipped. The status is only a fallback for a row whose timestamp column is empty.
+ *
+ * **`completed` is not a delivery.** Cash is often collected while the parcel is still with the
+ * courier, which completes the order without a recorded delivery; the last stage therefore rests on
+ * `delivered_at` (or the delivered status), never on `completed`. A cancelled order stops where it
+ * stopped and a returned parcel is not a delivery, so neither draws a "current" step: both are closed.
+ */
+function orderStages(order: AdminOrderDetailModel): {
+  readonly stages: readonly OrderStage[];
+  readonly terminal: boolean;
+} {
+  const delivered = order.deliveredAt !== null || order.status === 'delivered';
+  const shipped = order.shippedAt !== null || delivered || order.status === 'shipped';
+  const confirmed =
+    order.confirmedAt !== null ||
+    shipped ||
+    order.status === 'confirmed' ||
+    order.status === 'processing';
+  const reached = [true, confirmed, shipped, delivered];
+  const highest = delivered ? 3 : shipped ? 2 : confirmed ? 1 : 0;
+  // Cancelled and returned orders are closed: their reached stages are history, not a position.
+  const terminal = order.status === 'cancelled' || order.status === 'returned';
+  // A completed order has no next movement stage either, so none of its marks is "current".
+  const settled = terminal || order.status === 'completed';
+
+  const definitions: readonly { key: TranslationKey; at: string | null }[] = [
+    { key: 'account.step.placed', at: order.placedAt },
+    { key: 'account.step.confirmed', at: order.confirmedAt },
+    { key: 'orders.status.shipped', at: order.shippedAt },
+    { key: 'account.step.delivered', at: order.deliveredAt },
+  ];
+
+  return {
+    terminal,
+    stages: definitions.map((definition, index) => ({
+      ...definition,
+      state: !reached[index] ? 'future' : settled || index < highest ? 'done' : 'current',
+    })),
+  };
+}
+
 /**
  * One order, in full, for the owner - the operational workspace.
  *
@@ -324,6 +380,7 @@ export function AdminOrderDetailView({
     dateStyle: 'medium',
     timeStyle: 'short',
   });
+  const stageDate = new Intl.DateTimeFormat(INTL_LOCALE, { dateStyle: 'medium' });
 
   const waiting = order.codState === 'cod_pending_approval' && order.status === 'pending';
   const statusTone = STATUS_TONES[order.status] ?? 'neutral';
@@ -375,6 +432,8 @@ export function AdminOrderDetailView({
     completable ||
     (cancellable && canCancel);
 
+  const progress = orderStages(order);
+
   return (
     <>
       <PageHeader
@@ -422,6 +481,53 @@ export function AdminOrderDetailView({
           canRecordCosts={canRecordCosts}
         />
       )}
+
+      {/*
+        Where the parcel is, as four marks. Every reached stage is backed by a stored timestamp or a
+        stored status that could not be true without it; a stage with no recorded date shows the
+        label alone rather than a date nobody wrote.
+      */}
+      <section
+        className={`${styles.section} ${styles.panel}`}
+        aria-labelledby="order-progress"
+        data-order-progress=""
+      >
+        <div className={styles.sectionHead}>
+          <div>
+            <h2 id="order-progress">{t('account.track.label')}</h2>
+          </div>
+          <StatusPill tone={statusTone}>{t(statusLabel(order.status))}</StatusPill>
+        </div>
+        <ol className={styles.progressTrack} data-state={progress.terminal ? 'closed' : undefined}>
+          {progress.stages.map((stage) => (
+            <li
+              className={styles.progressStep}
+              key={stage.key}
+              data-state={stage.state}
+              aria-current={stage.state === 'current' ? 'step' : undefined}
+            >
+              <span className={styles.progressMark} aria-hidden="true">
+                {stage.state === 'done' ? (
+                  <AdminIcon name="check" width={13} height={13} />
+                ) : (
+                  <span className={styles.progressDot} />
+                )}
+              </span>
+              <span className={styles.progressLabel}>{t(stage.key)}</span>
+              <span className={styles.progressWhen}>
+                {stage.at === null ? '' : stageDate.format(new Date(stage.at))}
+              </span>
+            </li>
+          ))}
+        </ol>
+        {/*
+          A failed delivery is not a fifth stage - the parcel was still dispatched - but it must not
+          read as an order on its way either. The stored COD state says so in its own words.
+        */}
+        {order.codState === 'cod_failed' && (
+          <p className={styles.note}>{t(paymentLabel(order.paymentMethod, order.paymentState, order.codState))}</p>
+        )}
+      </section>
 
       {/*
         The courier record. A parcel is not a state of the order: this panel states what SteadFast
@@ -526,7 +632,6 @@ export function AdminOrderDetailView({
         <div className={styles.sectionHead}>
           <div>
             <h2 id="order-proof">{t('admin.order.proofTitle')}</h2>
-            <p>{t('admin.order.proofBody')}</p>
           </div>
           {order.paymentProof !== null && (
             <StatusPill
@@ -680,7 +785,6 @@ export function AdminOrderDetailView({
           <div className={styles.sectionHead}>
             <div>
               <h2>{t('admin.order.costsTitle')}</h2>
-              <p>{t('admin.order.costsBody')}</p>
             </div>
           </div>
           {order.costs.length === 0 ? (
@@ -749,26 +853,27 @@ export function AdminOrderDetailView({
               <p>{t('admin.order.itemsBody')}</p>
             </div>
           </div>
-          <ul className={styles.recordList}>
+          <ul className={styles.lineList}>
             {order.items.map((item) => (
-              <li className={`${styles.record} ${styles.recordItem}`} key={item.id}>
+              <li className={styles.lineCard} key={item.id} data-order-line="">
                 {/*
-                  The recorded photograph, first in the row (owner direction, 2026-11-19). A line with no
-                  snapshot renders no tile at all rather than an empty frame, so the name starts where it
-                  always did for an order this shop cannot picture.
+                  The recorded photograph, first in the row (owner direction, 2026-11-19). It stays the
+                  immutable placement snapshot; a line that stored none keeps the same reserved frame so
+                  every name in the list still starts in the same column.
                 */}
                 <ItemPhoto imageKey={item.imageKey} name={pick({ bn: item.nameBn, en: item.nameEn }) ?? item.nameEn} />
-                <div className={styles.recordMain}>
-                  <span className={styles.recordTitle}>{pick({ bn: item.nameBn, en: item.nameEn }) ?? item.nameEn}</span>
-                  <span className={styles.recordMeta}>
+                <div className={styles.lineBody}>
+                  <span className={styles.lineName}>{pick({ bn: item.nameBn, en: item.nameEn }) ?? item.nameEn}</span>
+                  {item.variantLabel !== null && <span className={styles.lineVariant}>{item.variantLabel}</span>}
+                  <span className={styles.lineMeta}>
                     <span className={styles.mono}>{item.sku}</span>
                     <span>
-                      {price(item.unitPriceMinor)} x {item.quantity}
+                      {price(item.unitPriceMinor)} × {item.quantity}
                     </span>
                   </span>
                 </div>
-                <div className={styles.recordSide}>
-                  <span className={styles.recordPrice}>{price(item.lineTotalMinor)}</span>
+                <div className={styles.lineTotal}>
+                  <span className={styles.lineTotalValue}>{price(item.lineTotalMinor)}</span>
                 </div>
               </li>
             ))}
@@ -1032,17 +1137,12 @@ export function AdminOrderDetailView({
             {order.cancelledReason !== null && (
               <p className={styles.note}>{t('admin.order.cancelledReason', { reason: order.cancelledReason })}</p>
             )}
-            <p className={styles.note}>{t('admin.order.cashNote')}</p>
-            <p className={styles.note}>{t('admin.order.reconcileNote')}</p>
           </div>
 
           <div className={styles.panel}>
             <h2 className={styles.panelTitle}>{t('admin.order.customerTitle')}</h2>
             {order.customer.id === null ? (
-              <>
-                <p className={styles.factValue}>{t('admin.order.guestCustomer')}</p>
-                <p className={styles.note}>{t('admin.order.guestCustomerNote')}</p>
-              </>
+              <p className={styles.factValue}>{t('admin.order.guestCustomer')}</p>
             ) : (
               <>
                 <p className={styles.factValue}>

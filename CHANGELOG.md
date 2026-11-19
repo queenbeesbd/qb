@@ -14,6 +14,41 @@ An entry may describe a deployment only once it has actually happened and been o
 
 ## [Unreleased]
 
+### Changed - 2026-11-20: the order cards look like the order, and the notes are gone
+
+Owner-directed presentation pass over the Orders surface. **UI and copy only:** no schema change, no
+migration, no permission, no dependency, and no change to any state transition or audit write.
+**Implementation pending:** this entry states what the pass is and where it is landing; it is not a claim
+that the change is integrated or that anything was checked.
+
+**The list and detail cards are refreshed** to the panel's card scale (border, radius, spacing), so a
+scanning owner reads a set of cards rather than a wall of rows, and a product line carries its recorded
+snapshot photograph, the product name, its SKU, unit price and quantity, and the line total in that
+order.
+
+**The detail gains a progress bar** - four stages, Placed, Confirmed, Shipped and Delivered - reached
+only from what the order row holds: its own timestamps (`placed_at`, `confirmed_at`, `shipped_at`,
+`delivered_at`) and, where a timestamp predates the column, its stored fulfilment status. No date is
+inferred and no stage is guessed. A cancelled or returned order draws its reached stages as history and
+promises no next step, so it never claims a delivery it never had.
+
+**The long explanatory notes leave the detail.** The cash/reconciliation commentary, the additional-cost
+paragraph, the payment-screenshot paragraph and the guest-order explanation are removed from
+`/qbpanel/orders/[orderNumber]`, with nothing replacing them. Their five keys -
+`admin.order.cashNote`, `admin.order.reconcileNote`, `admin.order.costsBody`, `admin.order.proofBody`,
+`admin.order.guestCustomerNote` - are the only place that copy still exists: the detail view no longer
+names them, so they are dead entries and are deleted at integration. Order matters - a key removed while
+a component still referenced it would have failed `check:i18n`.
+
+**Preserved deliberately:** the payment-screenshot section with its status pill, permission-gated image,
+full-size viewer and checked/rejected review form; every money value and its label; and every decision
+and lifecycle control with its server-side guard. What is removed is explanation, not capability.
+
+**Verification: pending and not claimed.** No `typecheck`, `lint`, `check:i18n`, `test`, `build` or
+browser suite was run for this; the parent integration runs those gates, and it is also where the five
+unused keys leave the dictionary and a key count becomes a measured fact. Do not read this entry as
+evidence that any of that happened.
+
 ### Changed - 2026-11-19: one Orders screen, and a menu that is a menu
 
 The panel had two order screens and a phone navigation that pretended to have five destinations. Both
