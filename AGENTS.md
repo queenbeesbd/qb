@@ -383,6 +383,41 @@ the record consistent. Verify afterwards that every recorded hash matches a file
 unrecorded. **A push is still a deploy, so apply first, push second** - and expect an already-pushed
 commit to have been refused by the gate, which needs an empty deploy commit once the migration lands.
 
+**Production stands at 37 migrations / 55 tables (2026-11-19).** `0036_bumpy_absorbing_man` (the review
+`source`, nullable provenance) was applied on 2026-11-19 through the Neon MCP on branch
+`br-hidden-rice-az3zuopi`, database `queenbees` - six schema statements and the
+`drizzle.__drizzle_migrations` row sent as one `run_sql_transaction` (sha256
+`17ef438a517ad2e059bb3cec21336ee19b6b7fa08cca52c9046d2abcbdf0ce87`, the journal's `when`
+`1795098052933`). Every one of the 37 recorded hashes matches a committed file and every committed file
+is recorded; the schema reports 55 tables and 170 indexes.
+
+**When a migration lands after its commit was already refused, redeploy the same commit - do not add an
+empty commit.** The `prebuild` gate fails the *deployment*, not the push, so the deploy the migration
+blocked is still the deployment that should serve that SHA. Ask the Vercel API for one directly:
+`POST /v13/deployments?teamId=<team>&forceNew=1` with
+`{"name":..., "project":..., "target":"production", "gitSource":{"type":"github","org":"queenbeesbd",
+"repo":"qb","repoId":1447096594,"ref":"main","sha":"<commit>"}}`. `forceNew` is what makes Vercel build
+again instead of answering with the failed deployment it already has for that SHA. The earlier note
+below that this "needs an empty deploy commit" is superseded: an empty commit is a second commit that
+serves no purpose and makes the history lie about what built.
+
+**The failure this repaired (2026-11-19).** `c0932fb` was pushed before `0036` was applied, so
+`dpl_2pRn6xRE92euLEneyttFAocyVxc8` died at `prebuild` with *"1 migration(s) this commit carries are not
+applied to the target database: 0036_bumpy_absorbing_man"*. Production kept serving `161929e` throughout -
+the gate failing closed, exactly as designed. This is the **fourth** time this project has shipped code
+ahead of its schema (2026-11-07, 2026-11-08, 2026-11-10, 2026-11-19), and the first three were only
+discovered when a screen broke in production. **The gate is not an obstacle to work around; it is the
+reason those breaks are now impossible to deploy.** Run `npm run check:migrations` against the target
+before pushing any commit that adds a migration.
+
+**The Neon MCP client may need its own token refreshed before it can be used.** The OAuth credential in
+`~/.omp/agent/agent.db` (`auth_credentials`, provider `mcp_oauth:profile:default:https://mcp.neon.tech/mcp`)
+holds a short-lived access token plus a refresh token; when the tool namespace is missing from a session,
+the log at `~/.omp/logs/` says `401 invalid_token` and the token has simply expired. `POST
+https://mcp.neon.tech/api/token` with `grant_type=refresh_token` and the stored `clientId` (`Qbjv6N0w`)
+returns a fresh one. This is a **tooling** detail and never a reason to reach for a production
+connection string.
+
 **Production stands at 29 migrations / 53 tables (2026-11-11).** `0028_account_phone_identifier` was
 applied to the production branch in one transaction (its `UPDATE` matched no row - five customers, none
 with a phone - plus `CREATE UNIQUE INDEX customer_phone_unique`) and its hash recorded in

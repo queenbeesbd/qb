@@ -73,6 +73,18 @@ check). Schema 55 tables, 115 indexes.
 Android Chrome and screen readers were not used. `test:db` is 292/296 with the four failures that
 reproduce on unmodified `HEAD`.
 
+**Deployed 2026-11-19.** The commit was pushed before `0036` was applied, so the first deployment of it
+(`dpl_2pRn6xRE92euLEneyttFAocyVxc8`) was refused at `prebuild` - *"1 migration(s) this commit carries are
+not applied to the target database: 0036_bumpy_absorbing_man"* - and production kept serving `161929e`.
+The migration was then applied to the production branch through the Neon MCP as one
+`run_sql_transaction` (six schema statements plus its `drizzle.__drizzle_migrations` row, sha256
+`17ef438a…`, journal `when` `1795098052933`), all 37 recorded hashes were reconciled against committed
+files in both directions, and the **same commit** was redeployed with `forceNew` rather than an empty
+commit. `dpl_FHZmGin6dkMUcs6JGfk5jkK5Gv44` is READY on `www.queenbeesbd.com`; `/` and `/products` answer
+200, a product page renders its Reviews block (which reads the new `source` column), `/qbpanel` 307s to
+sign-in, and `/api/search` answers 200. Production now stands at **37 migrations / 55 tables / 170
+indexes**.
+
 ### Changed - 2026-11-19: the receipt confirms the order, and nothing else
 
 The owner read the order confirmation page as three things that did not belong on a receipt, plus a
