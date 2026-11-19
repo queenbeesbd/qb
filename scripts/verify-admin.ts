@@ -2145,24 +2145,52 @@ async function main(): Promise<void> {
             await browser.evaluate("localStorage.setItem('queenbees.locale.v1','en')");
             await browser.navigate('/qbpanel');
 
-            const desktop = await browser.evaluate<{ nav: boolean; groups: string[]; h1: string | null; card: boolean; tel: boolean; overflow: number }>(`(() => {
+            /*
+             * The overview no longer repeats the queue (owner direction, 2026-11-20). "Waiting on you"
+             * drew the order the "Waiting on a call" figure beside it already counted, and it carried a
+             * second approve/reject pair on a page that is not the worklist. The contract now is: no
+             * COD card and no decision form on the overview, and the figure itself is the way in.
+             */
+            const desktop = await browser.evaluate<{
+              nav: boolean;
+              groups: string[];
+              h1: string | null;
+              queueCard: boolean;
+              decisionForm: boolean;
+              waitingLink: string | null;
+              telOnWaitingLink: boolean;
+              overflow: number;
+            }>(`(() => {
               const nav = document.querySelector('nav[aria-label]');
               const groupLabels = [...document.querySelectorAll('nav p')].map((p) => p.textContent?.trim()).filter(Boolean);
               const h1 = document.querySelector('h1')?.textContent?.trim();
-              const card = document.querySelector('article');
+              const waiting = [...document.querySelectorAll('a[aria-label]')].find((a) =>
+                (a.getAttribute('aria-label') ?? '').startsWith('Waiting on a call'),
+              );
               return {
                 nav: nav !== null,
                 groups: groupLabels,
                 h1,
-                card: card?.textContent?.includes(${JSON.stringify(secondCod.orderNumber)}) ?? false,
-                tel: document.querySelector('a[href^="tel:"]') !== null,
+                queueCard: document.querySelector('[data-cod-card]') !== null,
+                decisionForm: document.querySelector('form[action="/api/qbpanel/orders-cod"]') !== null,
+                waitingLink: waiting?.getAttribute('href') ?? null,
+                telOnWaitingLink: waiting !== undefined && waiting.querySelector('a[href^="tel:"]') !== null,
                 overflow: document.documentElement.scrollWidth - window.innerWidth,
               };
             })()`);
             record(
-              'the desktop shell renders the rail, grouped navigation and the COD worklist card',
-              desktop.nav === true && desktop.groups.length >= 3 && typeof desktop.h1 === 'string' && desktop.card === true && desktop.tel === true,
+              'the desktop shell renders the rail and grouped navigation, without a second worklist',
+              desktop.nav === true &&
+                desktop.groups.length >= 3 &&
+                typeof desktop.h1 === 'string' &&
+                desktop.queueCard === false &&
+                desktop.decisionForm === false,
               JSON.stringify(desktop),
+            );
+            record(
+              'the waiting figure links to the queue it counts, and does not draw a second phone link',
+              desktop.waitingLink === '/qbpanel/orders' && desktop.telOnWaitingLink === false,
+              `href=${desktop.waitingLink ?? 'none'}, nested tel link=${desktop.telOnWaitingLink}`,
             );
             record(
               'the dashboard does not overflow horizontally at 1440px',
@@ -2192,7 +2220,7 @@ async function main(): Promise<void> {
               };
             })()`);
             record(
-              'the overview shows five figures, the closing worklists and quick actions, and no SaaS prompt',
+              'the overview shows five figures, the closing panels and quick actions, and no SaaS prompt',
               dashboard.kpis === 5 &&
                 dashboard.actions >= 6 &&
                 dashboard.panels.includes('Out of stock') &&
@@ -2212,7 +2240,13 @@ async function main(): Promise<void> {
              */
             const heightSweep: Array<{ route: string; heights: number[] }> = [];
             for (const route of [
-              '/qbpanel',
+              /*
+               * `/qbpanel` is deliberately absent: the overview carries no form control any more. The
+               * duplicate worklist panel that held the decision pair and its note was removed (owner
+               * direction, 2026-11-20), and its remaining controls - the two header buttons - are
+               * links, so this sweep has nothing to measure there. The decision pair is asserted on
+               * the Orders worklist below, which is where it now lives.
+               */
               // The retired queue's replacement: the same decision controls now live on this screen.
               '/qbpanel/orders?view=waiting',
               '/qbpanel/catalog',
@@ -2239,14 +2273,18 @@ async function main(): Promise<void> {
               ),
             );
 
-            await browser.navigate('/qbpanel');
+            /*
+             * The pair is measured on the Orders worklist, not the overview: that is the one surface
+             * that decides a COD order now that the overview's duplicate card is gone.
+             */
+            await browser.navigate('/qbpanel/orders?view=waiting');
             const decision = await browser.evaluate<{
               approve: number | null;
               reject: number | null;
               noteOpen: boolean;
               noteLabel: string;
             }>(`(() => {
-              const card = document.querySelector('main article');
+              const card = document.querySelector('main article[data-cod-card]');
               if (!card) return { approve: null, reject: null, noteOpen: false, noteLabel: '' };
               const buttons = [...card.querySelectorAll('button')];
               // The COD decision pair is labelled Accept / Reject in this interface.

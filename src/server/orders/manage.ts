@@ -118,6 +118,25 @@ export async function countCodApprovalQueue(tx: Transaction, search = ''): Promi
   return rows[0]?.total ?? 0;
 }
 
+/**
+ * When the oldest waiting call was placed, or `null` when nothing waits.
+ *
+ * The overview states "Waiting on a call 3 / 8 h" and nothing else about the queue since the duplicate
+ * panel was removed (owner direction, 2026-11-20), so it needs this one aggregate rather than the rows -
+ * reading twenty-five orders and their lines to learn a single timestamp was work nobody saw. The
+ * predicate is the queue's own, so the figure and the list it opens cannot disagree.
+ */
+export async function oldestCodApprovalPlacedAt(tx: Transaction): Promise<Date | null> {
+  const rows = await tx
+    .select({ placedAt: sql<string | null>`min(${order.placedAt})::text` })
+    .from(order)
+    .where(sql`${order.codState} = 'cod_pending_approval' and ${order.status} = 'pending'`);
+  const value = rows[0]?.placedAt ?? null;
+  // `min(timestamptz)` arrives as text through the driver, so it is read back into a Date here rather
+  // than leaving every caller to remember that this one aggregate is not typed like its column.
+  return value === null ? null : new Date(value);
+}
+
 // ------------------------------------------------------------------
 // COD confirmation decisions
 // ------------------------------------------------------------------

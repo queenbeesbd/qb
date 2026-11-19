@@ -14,6 +14,54 @@ An entry may describe a deployment only once it has actually happened and been o
 
 ## [Unreleased]
 
+### Changed - 2026-11-20: the overview states the queue once, and the figure is the way in
+
+Owner direction on `/qbpanel`: remove the "Waiting on you" panel completely, because the "Waiting on a
+call" figure beside it already says the same thing; and make that figure open the queue when an order is
+actually waiting. **UI only:** no schema change, no migration, no permission, and no change to any state
+transition, read or audit write.
+
+**The panel is gone.** It redrew the pending COD order above five figures - one of which counted that same
+order - and it carried a **second accept/reject pair with its own audit note** on a page that is not the
+worklist. Deciding an order now happens on exactly one screen, `/qbpanel/orders`, where the card, the note
+and the pair live, and the overview states the queue in one line instead of two.
+
+**The "Waiting on a call" figure is the link.** `MetricCard` gained an optional `href` (and `linkLabel`,
+because the tile's own text is a set of labels rather than a name). The whole tile is the `<a>` - one tab
+stop, a visible focus ring, no JavaScript - so the target is the size of the figure instead of a word
+inside it. The arrow glyph is new (`arrowRight`); it and the hover border are what say the figure also
+leads somewhere.
+
+**With nothing waiting it is not a link.** The note reads "Nothing is waiting" and the tile stays a plain
+`<article>`: a figure with no destination must not offer one, and opening an empty list would be a promise
+the screen cannot keep.
+
+**The page reads less to learn the same thing.** With the panel gone, `codQueue` was no longer needed to
+render anything - it read twenty-five orders and their line photographs to display one order's age. It is
+replaced by `oldestCodApprovalPlacedAt`, one `min(placed_at)` aggregate over the same predicate the queue
+uses, so the figure and the list it opens cannot disagree. `OverviewView` lost `pending`, `moreCount`,
+`csrfToken`, `canApprove` and `canCancel`, and six queue copy keys, the queue-hero CSS block and the
+`CodOrderCard` import went with them.
+
+| Check | Result |
+| --- | --- |
+| `npm run typecheck` | pass |
+| `npm run lint` | 0 errors, 25 pre-existing warnings |
+| `npm run check:i18n` | pass, 1,963 keys / 1,428 referenced |
+| `npm run build` | pass after the documented Next.js security-advisory retry |
+| `npm run verify:admin` | **262/262** |
+| Chromium 1440px and 390px | panel absent, no COD card and no decision form on the overview; the tile links to `/qbpanel/orders` and navigates; empty state is a plain tile; 0 horizontal overflow at both widths |
+
+`verify:admin` changed with the contract, and the change is the point: the old checks asserted a worklist
+card and a `tel:` link **on the overview**, and measured the accept/reject pair there. They now assert the
+opposite for the overview (no card, no decision form, the figure is the link and contains no second phone
+link) and measure the pair on `/qbpanel/orders?view=waiting`, which is where it moved. The `/qbpanel` entry
+left the control-height sweep, because the page holds no form control any more - stating that in the list
+is better than sweeping a route with nothing to measure.
+
+**Limits.** Verified against the local seed and a disposable dev cluster. Real iOS Safari, Android Chrome
+and screen readers were not used.
+
 ### Changed - 2026-11-20: the order pages lose their empty space
 
 Owner report: on `/qbpanel/orders/[orderNumber]?from=orders` and `/qbpanel/orders` there was "way too

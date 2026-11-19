@@ -6,25 +6,21 @@ import { PERMISSIONS } from '@/server/authz/permissions';
 import { loadAnalytics, loadToday } from '@/server/analytics/read';
 import { countCatalog } from '@/server/catalog/read';
 import {
-  codQueue,
   countCustomers,
   countRecentDenials,
   flaggedCustomers,
   outOfStockProducts,
   recentOrders,
   revenueSummary,
-  type CodQueueItem,
   type FlaggedCustomer,
 } from '@/server/orders/qbpanel-read';
-import { countCodApprovalQueue } from '@/server/orders/manage';
+import { countCodApprovalQueue, oldestCodApprovalPlacedAt } from '@/server/orders/manage';
 import { listPromoCodes } from '@/server/promotions/service';
 import { OverviewView } from './OverviewView';
 
 /** The overview is a session-scoped page; nothing here is cached. */
 export const dynamic = 'force-dynamic';
 
-/** How many orders the overview shows before sending the owner to the full queue. */
-const OVERVIEW_LIMIT = 3;
 /** How many recent orders the dashboard lists. Five fits without scrolling on a laptop. */
 const RECENT_LIMIT = 5;
 
@@ -48,13 +44,13 @@ export default async function AdminOverviewPage() {
   const canReadPromo = hasPermission(principal, PERMISSIONS.settingsWrite);
 
   const data = await withTransaction(async (tx) => {
-    const pending = canReadOrders ? await codQueue(tx) : [];
     /*
-     * The queue is read twice on purpose: the rows are capped for the screen, the count is not.
-     * "Waiting on a call 25" beside a queue page that says 138 was the screen lying about the
-     * backlog, and the backlog is the number the owner opens the app to see.
+     * The queue is two aggregates and no rows: the count, and when the oldest waiting call was placed.
+     * The screen states those two facts and links to the list, so reading the orders and their lines
+     * here would be work for a panel that no longer exists (owner direction, 2026-11-20).
      */
     const pendingCount = canReadOrders ? await countCodApprovalQueue(tx) : 0;
+    const oldestPlacedAt = canReadOrders ? await oldestCodApprovalPlacedAt(tx) : null;
     const flagged = canReadCustomers ? await flaggedCustomers(tx) : [];
     const denials = canReadAudit ? await countRecentDenials(tx) : null;
     const catalog = canReadCatalog ? await countCatalog(tx) : null;
@@ -78,8 +74,8 @@ export default async function AdminOverviewPage() {
     }
 
     return {
-      pending,
       pendingCount,
+      oldestPlacedAt,
       flagged,
       denials,
       catalog,
@@ -93,17 +89,14 @@ export default async function AdminOverviewPage() {
     };
   });
 
-  const pending = data.pending;
-  const oldest = pending[0] ?? null;
+  const oldest = data.oldestPlacedAt;
 
   return (
     <OverviewView
       displayName={principal.displayName}
       nowIso={requestNowIso()}
-      pending={pending.slice(0, OVERVIEW_LIMIT).map(serializeOrder)}
       pendingCount={data.pendingCount}
-      oldestPlacedAt={oldest === null ? null : oldest.placedAt.toISOString()}
-      moreCount={Math.max(0, data.pendingCount - OVERVIEW_LIMIT)}
+      oldestPlacedAt={oldest === null ? null : oldest.toISOString()}
       flagged={data.flagged.map(serializeFlag)}
       denials={data.denials}
       catalog={data.catalog}
@@ -155,9 +148,6 @@ export default async function AdminOverviewPage() {
         customerEmail: row.customerEmail,
       }))}
       promo={data.promo}
-      csrfToken={principal.csrfToken}
-      canApprove={hasPermission(principal, PERMISSIONS.codApprove)}
-      canCancel={hasPermission(principal, PERMISSIONS.orderCancel)}
       canReadOrders={canReadOrders}
       canReadCustomers={canReadCustomers}
       canReadAudit={canReadAudit}
@@ -165,30 +155,6 @@ export default async function AdminOverviewPage() {
       canReadPromo={canReadPromo}
     />
   );
-}
-
-function serializeOrder(row: CodQueueItem) {
-  return {
-    orderId: row.orderId,
-    orderNumber: row.orderNumber,
-    placedAt: row.placedAt.toISOString(),
-    itemsSubtotalMinor: row.itemsSubtotalMinor,
-    shippingMinor: row.shippingMinor,
-    totalMinor: row.totalMinor,
-    recipientName: row.recipientName,
-    districtCode: row.districtCode,
-    recipientPhone: row.recipientPhone,
-    area: row.area,
-    city: row.city,
-    addressLine: row.addressLine,
-    items: row.items.map((item) => ({
-      nameBn: item.nameBn,
-      nameEn: item.nameEn,
-      quantity: item.quantity,
-      lineTotalMinor: item.lineTotalMinor,
-      imageKey: item.imageKey,
-    })),
-  };
 }
 
 function serializeFlag(row: FlaggedCustomer) {

@@ -8,7 +8,6 @@ import { ORDERS_PATH } from '@/server/auth/constants';
 import { statusLabel } from '@/features/account/order-labels';
 import { AreaChart, DonutChart, Sparkline, type ChartTone } from '../_ui/charts';
 import { AdminIcon } from '../_ui/icons';
-import { CodOrderCard, type CodOrderRow } from '../_ui/CodOrderCard';
 import { MetricCard } from '../_ui/MetricCard';
 import { PageHeader } from '../_ui/PageHeader';
 import { StatusPill } from '../_ui/StatusPill';
@@ -117,10 +116,8 @@ function compactMoney(minor: number): string {
 export function OverviewView({
   displayName,
   nowIso,
-  pending,
   pendingCount,
   oldestPlacedAt,
-  moreCount,
   flagged,
   denials,
   catalog,
@@ -131,9 +128,6 @@ export function OverviewView({
   outOfStock,
   recent,
   promo,
-  csrfToken,
-  canApprove,
-  canCancel,
   canReadOrders,
   canReadCustomers,
   canReadAudit,
@@ -142,10 +136,8 @@ export function OverviewView({
 }: {
   displayName: string;
   nowIso: string;
-  pending: readonly CodOrderRow[];
   pendingCount: number;
   oldestPlacedAt: string | null;
-  moreCount: number;
   flagged: readonly FlagRow[];
   denials: number | null;
   catalog: CatalogCounts | null;
@@ -156,9 +148,6 @@ export function OverviewView({
   outOfStock: readonly OutOfStockRow[] | null;
   recent: readonly RecentRow[];
   promo: { active: number; redemptions: number; givenMinor: number } | null;
-  csrfToken: string;
-  canApprove: boolean;
-  canCancel: boolean;
   canReadOrders: boolean;
   canReadCustomers: boolean;
   canReadAudit: boolean;
@@ -196,12 +185,6 @@ export function OverviewView({
     oldestAgeLabel === null ? '' : oldestAgeLabel.charAt(0).toLowerCase() + oldestAgeLabel.slice(1);
 
   const firstName = displayName.trim().split(/\s+/)[0] ?? '';
-  const queueSummary =
-    pendingCount === 0
-      ? t('admin.overview.queueClear')
-      : pendingCount === 1
-        ? t('admin.overview.queueSummaryOne', { age: oldestAgePhrase })
-        : t('admin.overview.queueSummary', { count: pendingCount, age: oldestAgePhrase });
 
   const orderTotal = (analytics?.statuses ?? []).reduce((total, slice) => total + slice.count, 0);
   const seriesPoints = (analytics?.series ?? []).map((point) => ({ key: point.date, value: point.revenueMinor }));
@@ -259,53 +242,13 @@ export function OverviewView({
       />
 
       {/*
-        The queue is the front door, so it comes first - above the figures. The product rule and the
-        CSS comment both said so while the DOM put five KPI tiles and a chart ahead of it, which put
-        the calls waiting 1.3 screens down a phone.
+        The waiting queue is not repeated here (owner direction, 2026-11-20). "Waiting on you" drew the
+        same pending order the "Waiting on a call" figure beside it already counts, and it put a second
+        decision surface on a page that is not the worklist - the owner decides on `/qbpanel/orders`,
+        where the card, its audit note and its approve/reject pair live. The figure is the honest
+        statement, and it is now the way in: it links to the queue when something waits, and states the
+        clear sentence when nothing does.
       */}
-      {canReadOrders && (
-        <section className={styles.queuePanel} aria-labelledby="cod-heading">
-          <div className={styles.queueHead}>
-            <div className={styles.queueIntro}>
-              <div className={styles.queueTitleRow}>
-                <h2 id="cod-heading" className={styles.queueTitle}>
-                  {t('admin.overview.worklistTitle')}
-                </h2>
-                {pendingCount > 0 && <span className={styles.queueBadge}>{pendingCount}</span>}
-                <Link className={styles.queueLink} href={ORDERS_PATH}>
-                  {t('admin.overview.viewQueue')}
-                  <span aria-hidden="true">→</span>
-                </Link>
-              </div>
-              <p className={styles.queueSub}>{queueSummary}</p>
-            </div>
-          </div>
-
-          {/* An empty queue is a sentence, not a panel: the strip above already says nothing waits,
-              and an empty state with another button would compete with the rail for the same click. */}
-          {pending.length > 0 && (
-            <div className={styles.worklist}>
-              {pending.map((row) => (
-                <CodOrderCard
-                  key={row.orderId}
-                  nowIso={nowIso}
-                  row={row}
-                  csrfToken={csrfToken}
-                  canApprove={canApprove}
-                  canCancel={canCancel}
-                  compact
-                />
-              ))}
-              {moreCount > 0 && (
-                <p className={styles.queueMore}>
-                  {t('admin.overview.moreInQueue', { count: moreCount })}{' '}
-                  <Link href={ORDERS_PATH}>{t('admin.overview.viewQueue')}</Link>
-                </p>
-              )}
-            </div>
-          )}
-        </section>
-      )}
 
       {analytics !== null && (
         <div className={styles.kpiGrid}>
@@ -351,6 +294,16 @@ export function OverviewView({
             label={t('admin.overview.kpiWaiting')}
             value={countFormat.format(pendingCount)}
             note={pendingCount === 0 ? t('admin.overview.kpiWaitingClear') : oldestAgePhrase}
+            /*
+              Only when a call is actually waiting. With nothing in the queue the figure states the clear
+              sentence and has nowhere to lead, so it stays a plain tile instead of opening an empty list.
+            */
+            href={canReadOrders && pendingCount > 0 ? ORDERS_PATH : undefined}
+            linkLabel={
+              pendingCount === 1
+                ? t('admin.overview.kpiWaitingLinkOne')
+                : t('admin.overview.kpiWaitingLink', { count: pendingCount })
+            }
           />
         </div>
       )}

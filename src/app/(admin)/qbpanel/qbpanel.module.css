@@ -4060,6 +4060,48 @@ html[dir='rtl'] .switchOn .switchKnob::after {
   color: var(--color-warning);
 }
 
+/*
+ * A figure that leads somewhere (owner direction, 2026-11-20): "Waiting on a call" opens the queue.
+ *
+ * It stays a tile, not a button - same frame, same type, same place - because the figure is still the
+ * thing being read; the arrow and the border state that it is also a way in. The whole tile is the
+ * link, so the target is the size of the figure rather than a word inside it.
+ */
+.kpiLink {
+  grid-template-columns: 40px minmax(0, 1fr) auto;
+  color: inherit;
+  text-decoration: none;
+  transition:
+    border-color var(--transition-fast),
+    box-shadow var(--transition-fast),
+    transform 120ms ease-out;
+}
+
+.kpiLink:hover {
+  border-color: var(--admin-line-strong);
+  box-shadow: var(--admin-shadow-card);
+}
+
+.kpiLink:active {
+  transform: scale(0.995);
+}
+
+.kpiLink:focus-visible {
+  outline: 2px solid var(--admin-lavender-deep);
+  outline-offset: 2px;
+}
+
+.kpiArrow {
+  align-self: center;
+  display: grid;
+  place-items: center;
+  color: var(--admin-subtle);
+}
+
+.kpiLink:hover .kpiArrow {
+  color: var(--admin-lavender-deep);
+}
+
 .kpiLabel {
   font-size: 11px;
   font-weight: 600;
@@ -4092,6 +4134,14 @@ html[dir='rtl'] .switchOn .switchKnob::after {
     grid-template-columns: 34px minmax(0, 1fr);
     column-gap: 10px;
     padding: 14px;
+  }
+  /*
+   * A linked tile keeps the third track for its arrow. It has to be stated here rather than in the
+   * block above: both are single-class selectors and this one comes later, so it wins - the arrow
+   * was being pushed into the reading column at 390px.
+   */
+  .kpi.kpiLink {
+    grid-template-columns: 34px minmax(0, 1fr) auto;
   }
   .kpiIcon {
     width: 34px;
@@ -4348,95 +4398,6 @@ a.rankName:hover {
   background: var(--admin-lavender-deep);
 }
 
-/* ---- The queue hero ------------------------------------------------------ */
-
-.queuePanel {
-  display: grid;
-  gap: var(--space-4);
-  padding: var(--space-5);
-  background: var(--admin-lavender-soft);
-  border: 1px solid var(--admin-lavender);
-  border-radius: 24px;
-  min-width: 0;
-}
-
-.queueHead {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: var(--space-3) var(--space-5);
-}
-
-.queueIntro {
-  display: grid;
-  gap: 4px;
-  min-width: 0;
-  flex: 1 1 auto;
-}
-
-.queueTitleRow {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-}
-
-.queueTitle {
-  margin: 0;
-  font-size: var(--text-lg);
-  letter-spacing: -0.01em;
-}
-
-.queueBadge {
-  display: inline-grid;
-  place-items: center;
-  min-width: 28px;
-  height: 26px;
-  padding: 0 9px;
-  border-radius: var(--radius-pill);
-  background: var(--admin-pink);
-  color: var(--admin-ink);
-  font-size: var(--text-xs);
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-}
-
-.queueSub {
-  margin: 0;
-  max-width: 62ch;
-  color: var(--admin-muted);
-  font-size: var(--text-sm);
-  line-height: var(--leading-snug);
-}
-
-.queueLink {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  min-height: var(--admin-control-sm);
-  margin-inline-start: auto;
-  color: var(--admin-lavender-deep);
-  font-size: var(--text-sm);
-  font-weight: 600;
-  white-space: nowrap;
-}
-
-.queueLink:hover {
-  text-decoration: underline;
-  text-underline-offset: 3px;
-}
-
-.queueMore {
-  margin: 0;
-  color: var(--admin-muted);
-  font-size: var(--text-sm);
-}
-
-.queueMore a {
-  color: var(--admin-lavender-deep);
-  font-weight: 600;
-}
-
 /* ---- Overview panels ----------------------------------------------------- */
 
 .overviewGrid {
@@ -4644,12 +4605,6 @@ a.rankName:hover {
 }
 
 @media (max-width: 720px) {
-  .queuePanel {
-    padding: var(--space-4);
-  }
-  .queueHead {
-    align-items: flex-start;
-  }
   .overviewGrid {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -4658,9 +4613,6 @@ a.rankName:hover {
   .catalogCard {
     grid-column: auto;
     grid-row: auto;
-  }
-  .queueLink {
-    min-height: var(--admin-control);
   }
   .catalogStats {
     gap: var(--space-2);

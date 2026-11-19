@@ -390,7 +390,16 @@ four rendered directions on the `experiment/qbpanel-redesign-v2` branch. Its wor
 behind the counter: a **white rail** with a lavender active pill, a **lavender-tinted canvas**, a
 **paper-white card** at 20px with one soft shadow, and the storefront's own lavender and blush spent
 only where they carry meaning - the current destination, the queue that waits on a person, and the
-filled primary control. The owner's two adjustments were kept: the phone bottom bar is unchanged
+filled primary control.
+
+**One surface per job (owner direction, 2026-11-20).** The overview used to carry a lavender "Waiting on
+you" panel that redrew the pending COD order, with its own accept/reject pair, directly above five
+figures - one of which counted the same order. It is removed. The **Waiting on a call** figure is the
+overview's whole statement about the queue: it states the count and the oldest wait, and when a call is
+waiting **the tile itself is the link** to `/qbpanel/orders`, where the card, the audit note and the
+decision pair live. With nothing waiting the sentence is "Nothing is waiting" and the tile is a plain
+`<article>` - a figure with no destination must not look like one. Deciding an order therefore happens
+on exactly one screen, and no page states the same queue twice. The owner's two adjustments were kept: the phone bottom bar is unchanged
 (lavender field, ink labels, 2px active rule), and the palette stays the storefront's.
 
 The phone is the primary device, and its navigation is a **bottom tab bar** at the bottom of the
@@ -409,7 +418,7 @@ redesign; the class names in `admin.module.css` were kept so every component kep
 | `--admin-ink` | `#201A29` | Text. |
 | `--admin-muted` | `#6A6172` | Secondary text. |
 | `--admin-subtle` | `#79718A` | Metadata and hints. |
-| `--admin-lavender` | `#C8B6FF` | The active rail pill, the queue hero, avatars. |
+| `--admin-lavender` | `#C8B6FF` | The active rail pill, search fields, avatars. |
 | `--admin-lavender-soft` | `#EFE9FF` | Icon plates, filter tracks, quiet fills. |
 | `--admin-lavender-deep` | `#8155EF` | Links and the one accent on a white card. |
 | `--admin-pink` | `#F6B3CC` | The queue count badge only. |
@@ -746,8 +755,9 @@ Four rules:
    (`imageVariantPath(key, 320)` and `imageVariantPath(key, 1050)`); no URL, key or derivative is added
    anywhere.
 
-The same component is on all three surfaces that state order lines - the order detail, the COD worklist and
-the dashboard's worklist - because a product the owner cannot recognise is the same problem on each.
+The same component is on both surfaces that state order lines - the order detail and the Orders worklist -
+because a product the owner cannot recognise is the same problem on each. The overview used to draw a third
+copy inside its own queue panel; that panel is gone (2026-11-20), and with it the duplicate card.
 
 `scripts/verify-admin.ts` seeds a snapshot on the verification order and drives the control in Chromium:
 the tile renders the recorded key and its bytes decode (`naturalWidth > 0`), the click opens exactly one
