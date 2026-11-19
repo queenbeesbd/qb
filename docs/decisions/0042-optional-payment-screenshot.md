@@ -1,6 +1,6 @@
 # ADR 0042 - The optional payment screenshot, and what it is not
 
-Status: accepted (owner direction, 2026-11-18). **Amends ADR 0015**, which withdrew customer-submitted
+Status: accepted (owner direction, 2026-11-18); **amended 2026-11-19** - the receipt no longer carries the field. **Amends ADR 0015**, which withdrew customer-submitted
 payment artefacts together with the manual prepaid flow. It does **not** restore that flow: Cash on
 Delivery remains the only payment method an order records, there is still no prepaid payment state, no
 verification queue, no claim allocation and no gateway.
@@ -48,6 +48,29 @@ the words true: a customer-supplied image still proves nothing on its own.
 7. **The bytes are re-encoded, not trusted.** `saveProof` decodes with `sharp` (40 MP ceiling, EXIF
    rotated away), re-encodes to WebP at a 1600px long edge, and records the type, size and dimensions from
    the decoded image. The request supplies bytes and nothing else.
+
+## Amendment (2026-11-19) - the receipt no longer carries the field
+
+Owner report: the **Payment screenshot** card on the order receipt is a defect. It was added as part of
+this ADR (decision 2 above), and the owner asked for it to go - the receipt confirms an order, and a
+second upload form on it is not what a confirmation page is for.
+
+Consequences of the narrowing, all applied:
+
+- The receipt (`/orders/[orderNumber]`) draws no field, no notice and no screenshot state.
+- `POST /api/orders/[orderNumber]/proof` is **deleted**, so nothing can attach or replace an image after
+  placement. `proofTarget`, `attachProof` and `loadProofSummary` went with it rather than being left
+  unreferenced. `tests/db/payment-proof.test.ts` was rewritten around the surviving rules and seeds its
+  row the way checkout writes it.
+- `saveProof` and `payment_proof` are unchanged; **checkout** still writes the one optional image at
+  placement (`order/create.ts`). `payment.proof_enabled` now switches only the checkout field.
+- The owner's review is untouched: `payment.proof_review` at `/qbpanel/orders/[orderNumber]` still reads
+  the image and records checked or rejected, and still moves no order column.
+- The permission, the table, the private storage prefix and the admin `GET` route all stay. Decision 3, 4,
+  6 and 7 above continue to bind.
+
+Nothing about this amendment restores ADR 0015's withdrawn prepaid flow, and no screenshot still proves
+anything on its own.
 
 ## Consequences
 

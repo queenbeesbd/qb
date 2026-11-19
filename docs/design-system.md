@@ -869,6 +869,38 @@ both come from the shop's existing header icon buttons and the phone tab bar's "
 untouched `/products` page reports the identical pair. **Not verified:** real iOS Safari, Android Chrome,
 screen readers, and 200% zoom.
 
+## The order receipt (2026-11-19)
+
+`/orders/[orderNumber]` is the one receipt, for a guest and for a signed-in customer alike. The owner
+reported three things on it that did not belong, and the composition below is what remains.
+
+| Block | Rule |
+| --- | --- |
+| Thank-you | Only with `?placed=1`: a centred **Thank you!** over **Your order has been placed ❤️**, on a bordered panel - not a flat strip beside the heading |
+| The order | Number and placement time, then one sentence of what the store does next |
+| Items | The frozen lines with subtotal, a real discount, delivery and total |
+| Delivery details | Recipient, phone and the composed address |
+| The guest claim card | Offered once, in place of any second instruction |
+
+Three removals, each deliberate:
+
+- **The status card is gone.** Its three rows - status, method, payment - restated the method and the
+  cash state the customer had chosen two screens earlier. The single **what happens next** sentence
+  stays outside any card, because a receipt that cannot say "this order was cancelled" or "this delivery
+  did not complete" would be less honest than the table was, and it is read from the order row rather
+  than from a policy guess. No delivery deadline is stated because the shop publishes none.
+- **"This order was placed without an account, so this page's address is the only way to see it again.
+  Keep it."** is gone. It sat directly under a guest's order number and read as a warning attached to the
+  confirmation; the claim card beneath it already says what to do.
+- **The payment-screenshot card is gone** (ADR 0042, narrowed): the field is a checkout field. With it go
+  `POST /api/orders/[orderNumber]/proof`, `proofTarget`, `attachProof` and `loadProofSummary` - deleted,
+  not left unreferenced. An order now carries at most the one image attached while it was placed, and the
+  owner still reviews it at `/qbpanel/orders/[orderNumber]`.
+
+Measured on the served build: the centred block is 1297x130 at a 1365px viewport and 358x130 at 390px,
+`text-align: center`, heading 28px; `#order-status` and `#order-proof` are absent; no horizontal overflow
+at either width and the fixed tab bar overlaps no text.
+
 ## Layout width system
 
 Two tokens in `globals.css` define the content grid, and every piece of page

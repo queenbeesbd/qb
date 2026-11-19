@@ -478,7 +478,7 @@ export const dictionary = {
   'admin.payment.bkashHelp': 'An 11-digit Bangladeshi mobile. Leave blank to publish no advance-payment number.',
   'admin.payment.proofLabel': 'Payment screenshot field',
   'admin.payment.proofHelp':
-    'Optional for the customer. They may attach one screenshot of an advance payment at checkout or on the order receipt. It is stored privately and shown on the order, where you mark it checked or rejected. It does not mark anything paid.',
+    'Optional for the customer. They may attach one screenshot of an advance payment while placing the order. It is stored privately and shown on the order, where you mark it checked or rejected. It does not mark anything paid.',
   'admin.payment.visibleLabel': 'Show the number at checkout',
   'admin.payment.visibleHelp':
     'Off hides the number block on the payment card without deleting the number. The notice above it is always printed.',
@@ -1257,7 +1257,7 @@ export const dictionary = {
   'admin.order.proofBody':
     'Attached by the customer. Compare it with the shop\'s own bKash statement, then record what you found. Nothing here moves the order.',
   'admin.order.proofEmpty':
-    'No screenshot was attached. The customer can add one from the order receipt.',
+    'No screenshot was attached when the order was placed.',
   'admin.order.proofAlt': 'Payment screenshot the customer attached',
   'admin.order.proofUploadedAt': 'Attached {time}.',
   'admin.order.proofOpenFull': 'Open full size',
@@ -2020,8 +2020,6 @@ export const dictionary = {
   'orders.orderNumber': 'Order number',
   'orders.placedAt': 'Placed',
   'orders.itemCount': 'Items',
-  'orders.status': 'Status',
-  'orders.payment': 'Payment',
   'orders.method': 'Method',
   'orders.next.reviewing': 'The store is reviewing your order. It will be sent once it is approved.',
   'orders.next.codAwaitingApproval':
@@ -2046,19 +2044,6 @@ export const dictionary = {
     'It was placed without an account. Add it and it appears in your order history.',
   'orders.claim.action': 'Add this order to my account',
   'orders.claim.doneTitle': 'This order is in your account now',
-  'account.order.proofTitle': 'Payment screenshot',
-  'account.order.proofLabel': 'Screenshot of your payment',
-  'account.order.proofUpload': 'Attach screenshot',
-  'account.order.proofReplace': 'Replace screenshot',
-  'account.order.proofUploaded': 'Your screenshot was attached. The shop checks it against its statement.',
-  'account.order.proofInvalid':
-    'That screenshot could not be used. Attach a JPEG, PNG or WebP image under 4 MB.',
-  'account.order.proofUnavailable':
-    'Attaching a screenshot is switched off right now. Send it on WhatsApp instead, or contact the shop.',
-  'account.order.proofStatePending': 'Attached. Not checked by the shop yet.',
-  'account.order.proofStateChecked': 'The shop has checked this screenshot against its statement.',
-  'account.order.proofStateRejected':
-    'The shop could not match this screenshot to a payment. Send it on WhatsApp, or contact the shop.',
   'orders.claim.doneBody': 'You will find it in your order history from now on.',
   'orders.claim.viewOrders': 'See all your orders',
   'orders.backToOrders': 'Back to your orders',
@@ -2066,9 +2051,8 @@ export const dictionary = {
   'orders.legacyPaymentNote':
     'This order predates cash on delivery being the only method.',
   'orders.guestTitle': 'Your order',
-  'orders.guestKeepLink':
-    'This order was placed without an account, so this page’s address is the only way to see it again. Keep it.',
-  'orders.placedTitle': 'Order placed',
+  'orders.placedTitle': 'Thank you!',
+  'orders.placedLine': 'Your order has been placed ❤️',
   'orders.status.pending': 'Pending',
   'orders.status.confirmed': 'Confirmed',
   'orders.status.processing': 'Processing',

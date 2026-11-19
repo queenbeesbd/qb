@@ -1935,3 +1935,37 @@ database and a served build; scripts and fixtures only. It does **not** authoriz
 a new dependency. *Acceptance:* both suites run green against a seeded real catalog of 1,000+ products and an
 empty order table, they seed and clean up their own order fixtures, and no assertion is weakened or deleted
 to make them pass - a check that no longer means anything is removed with a written reason.
+
+---
+
+## Phase 58 - the receipt confirms the order, and nothing else (2026-11-19)
+
+**The report.** The owner opened a confirmation page and named three things that did not belong on it,
+plus a heading that was too flat for the moment: a paragraph saying the page's address was the only way
+back to a guest order, a status card restating the method and the cash state, and a payment-screenshot
+card that had been copied onto the receipt while the checkout upload was built. The confirmation heading
+was "Order placed".
+
+**Implemented.** `?placed=1` now draws a centred **Thank you!** over **Your order has been placed ❤️**.
+The status card is gone; one **what happens next** sentence survives outside any card, because a receipt
+must still be able to state that an order was cancelled or that a delivery did not complete. The
+guest "keep this address" line is gone - the claim card beneath already offers an account. The
+screenshot card and its route (`POST /api/orders/[orderNumber]/proof`) are deleted, along with
+`proofTarget`, `attachProof`, `loadProofSummary` and the ten `account.order.proof*` strings; the field
+remains a checkout field, and the owner's review is untouched. ADR 0042 carries the amendment.
+
+**Verified** with `typecheck`, `lint` (0 errors, 24 pre-existing warnings), `check:i18n` (1,985 keys),
+`npm test` 329/329, `build`, a rewritten `tests/db/payment-proof.test.ts` passing 5/5, and a served-build
+walk-through in Chromium at 1365 and 390 confirming both cards are absent, the centred block's geometry,
+and no overflow. `test:db` is 292/296 with the four failures reproducing on unmodified `HEAD`.
+**Not run:** `verify:browser`, `verify:storefront`, `verify:admin`, real devices, screen readers.
+
+### The next step
+
+**Phase 46 remains the recommendation: put the rendered-behaviour suites back on the real catalogue.**
+Phase 57 and Phase 58 were both proved by hand-driven checks and neither ran `verify:browser`,
+`verify:storefront` or `verify:admin`, which is the same gap Phase 46 exists to close. *Why:* a gate that
+is not run is not a gate. *Prerequisites:* a local database and a served build; scripts and fixtures only.
+It does **not** authorize deployment, provisioning or a new dependency. *Acceptance:* both suites run green
+against a seeded real catalog of 1,000+ products and an empty order table, they seed and clean up their own
+order fixtures, and no assertion is weakened or deleted to make them pass.

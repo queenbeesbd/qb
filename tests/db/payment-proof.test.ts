@@ -1,12 +1,17 @@
 /**
- * The optional payment screenshot against real PostgreSQL (ADR 0042).
+ * The optional payment screenshot against real PostgreSQL (ADR 0042, narrowed 2026-11-19).
  *
  * The rules this file exists to prove are the ones a screen cannot:
  *
- * - one order holds **one** screenshot, and a re-upload replaces it rather than accumulating images;
- * - a new image returns the row to `pending` - an old "checked" never silently covers a new claim;
+ * - one order holds **one** screenshot, and the schema refuses a second row;
  * - a rejection must state why, and a decision must name the owner who made it;
  * - the owner's decision writes an audit row and changes **nothing** about the order.
+ *
+ * **The customer's write path is checkout only (owner direction, 2026-11-19).** The receipt used to draw
+ * the same field and a route accepted a replacement image; both are gone, so the helpers that attached
+ * from the receipt no longer exist and this file seeds its row the way checkout writes it - one insert at
+ * placement. What a customer can no longer do is therefore not asserted as a screen behaviour here; it is
+ * absent by construction.
  *
  * Nothing here proves anything was paid. The table has no payment state to set and the order has no
  * column for one - that absence is the design, so there is no assertion for it beyond "the order rows
@@ -19,20 +24,18 @@ import { after, before, describe, it } from 'node:test';
 import type { ActorContext } from '../../src/server/authz/authorize';
 import { ValidationError } from '../../src/server/authz/authorize';
 import { PERMISSIONS } from '../../src/server/authz/permissions';
-import {
-  attachProof,
-  loadProofSummary,
-  proofTarget,
-  reviewPaymentProof,
-} from '../../src/server/orders/proof';
+import { reviewPaymentProof } from '../../src/server/orders/proof';
 import { withTransaction } from '../../src/db/client';
 import { SKIP_REASON, seedOrder, startMigratedDatabase, toolingAvailable, type DbFixture, type Seeded } from './helpers';
 
-const owner: ActorContext = {
-  staffUserId: 1,
-  permissions: new Set([PERMISSIONS.paymentProofReview]),
-  roleCodes: ['owner'],
-};
+/** The owner as the service sees them: one privileged permission, and the id the audit row names. */
+function ownerActor(staffUserId: number): ActorContext {
+  return {
+    staffUserId,
+    permissions: new Set([PERMISSIONS.paymentProofReview]),
+    roleCodes: ['owner'],
+  };
+}
 
 /** A key shape the row's own check accepts: the private prefix, lowercase, one WebP file. */
 const asset = {
@@ -43,14 +46,26 @@ const asset = {
   height: 1200,
 } as const;
 
+/** What checkout writes when a customer attached an image while placing the order. */
+async function attachAtPlacement(fixture: DbFixture, orderId: number, key: string): Promise<void> {
+  await fixture.pool.query(
+    `insert into payment_proof (order_id, storage_key, content_type, byte_size, width, height, uploaded_by)
+     values ($1, $2, $3, $4, $5, $6, 'customer')`,
+    [orderId, key, asset.contentType, asset.byteSize, asset.width, asset.height],
+  );
+}
+
 describe('payment screenshot', { skip: toolingAvailable ? false : SKIP_REASON }, () => {
   let fixture: DbFixture;
   let seeded: Seeded;
+  /** Built in `before` once the fixture has a staff id; the audit row must name a real one. */
+  let owner: ActorContext;
 
   before(async () => {
     fixture = await startMigratedDatabase();
     seeded = await seedOrder(fixture.pool, { guest: false });
-    (owner as { staffUserId: number }).staffUserId = seeded.staffId;
+    owner = ownerActor(seeded.staffId);
+    await attachAtPlacement(fixture, seeded.orderId, asset.storageKey);
   });
 
   after(async () => {
@@ -58,12 +73,6 @@ describe('payment screenshot', { skip: toolingAvailable ? false : SKIP_REASON },
   });
 
   it('holds one screenshot per order, and a direct second insert is refused', async () => {
-    await withTransaction(async (tx) => {
-      const target = await proofTarget(tx, seeded.customerId, seeded.orderNumber);
-      assert.ok(target !== null);
-      await attachProof(tx, target, asset);
-    });
-
     await assert.rejects(
       fixture.pool.query(
         `insert into payment_proof (order_id, storage_key, content_type, byte_size, width, height)
@@ -74,20 +83,14 @@ describe('payment screenshot', { skip: toolingAvailable ? false : SKIP_REASON },
     );
   });
 
-  it('replaces the image and returns the row to pending', async () => {
-    await withTransaction((tx) =>
-      reviewPaymentProof(tx, owner, { orderNumber: seeded.orderNumber, decision: 'checked', note: '' }),
+  it('starts a screenshot as pending, decided by nobody', async () => {
+    const row = await fixture.pool.query<{ review_state: string; reviewed_by: number | null; reviewed_at: Date | null }>(
+      `select review_state, reviewed_by, reviewed_at from payment_proof where order_id = $1`,
+      [seeded.orderId],
     );
-
-    await withTransaction(async (tx) => {
-      const target = await proofTarget(tx, seeded.customerId, seeded.orderNumber);
-      assert.ok(target !== null);
-      await attachProof(tx, target, { ...asset, storageKey: 'payment-proof/proof-replaced.webp' });
-    });
-
-    const summary = await withTransaction((tx) => loadProofSummary(tx, seeded.orderNumber));
-    assert.equal(summary?.reviewState, 'pending');
-    assert.equal(summary?.reviewedAt, null);
+    assert.equal(row.rows[0]?.review_state, 'pending');
+    assert.equal(row.rows[0]?.reviewed_by, null);
+    assert.equal(row.rows[0]?.reviewed_at, null);
   });
 
   it('refuses a rejection with no reason, and records one with it', async () => {
@@ -106,10 +109,13 @@ describe('payment screenshot', { skip: toolingAvailable ? false : SKIP_REASON },
       }),
     );
 
-    const summary = await withTransaction((tx) => loadProofSummary(tx, seeded.orderNumber));
-    assert.equal(summary?.reviewState, 'rejected');
-    assert.equal(summary?.reviewNote, 'No matching transaction in the statement.');
-    assert.ok(summary?.reviewedAt instanceof Date);
+    const row = await fixture.pool.query<{ review_state: string; review_note: string; reviewed_at: Date }>(
+      `select review_state, review_note, reviewed_at from payment_proof where order_id = $1`,
+      [seeded.orderId],
+    );
+    assert.equal(row.rows[0]?.review_state, 'rejected');
+    assert.equal(row.rows[0]?.review_note, 'No matching transaction in the statement.');
+    assert.ok(row.rows[0]?.reviewed_at instanceof Date);
   });
 
   it('writes an audit row and moves no order column', async () => {

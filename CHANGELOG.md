@@ -14,6 +14,42 @@ An entry may describe a deployment only once it has actually happened and been o
 
 ## [Unreleased]
 
+### Changed - 2026-11-19: the receipt confirms the order, and nothing else
+
+The owner read the order confirmation page as three things that did not belong on a receipt, plus a
+heading that was too flat for the moment. All four are fixed.
+
+- **The confirmation now thanks the customer.** `?placed=1` draws a centred panel - **Thank you!** over
+  **Your order has been placed ❤️** - instead of a flat "Order placed" strip inline beside the heading.
+  It appears only on the fresh placement, never on a revisit.
+- **The status card is removed.** Status / method / payment restated what checkout had just asked the
+  customer to choose. The single **what happens next** sentence stays, outside any card, because a
+  receipt must still be able to say "this order was cancelled" or "this delivery did not complete" -
+  read from the order row, never from a policy guess, with no delivery deadline invented.
+- **The "this page's address is the only way to see it again. Keep it."** line under a guest's order
+  number is removed. The claim card below it already offers sign-in or an account; repeating it as a
+  warning under the order number read as a problem with the order.
+- **The payment-screenshot card is removed** - a defect from the checkout upload work, not a feature of
+  the receipt. With it go `POST /api/orders/[orderNumber]/proof` and the three helpers that only it used
+  (`proofTarget`, `attachProof`, `loadProofSummary`), and the ten `account.order.proof*` strings. The
+  field remains at checkout, where an image is attached **while the order is placed**; the owner's
+  `payment.proof_review` at `/qbpanel/orders/[orderNumber]` is unchanged. ADR 0042 is amended.
+
+**Verification (2026-11-19, local; nothing deployed).**
+
+| Check | Result |
+| --- | --- |
+| `npm run typecheck` | clean |
+| `npm run lint` | 0 errors, 24 pre-existing warnings |
+| `npm run check:i18n` | 1,985 keys, every referenced key present |
+| `npm test` | 329/329 |
+| `npm run test:db` | 292/296 - the same four failures reproduce on unmodified `HEAD` (owner/schema fixtures), and `tests/db/payment-proof.test.ts` rewritten here passes 5/5 |
+| `npm run build` | success (after re-running past the Next.js security advisory stop) |
+| Chromium, served build | `#order-status` and `#order-proof` absent; the centred block measures 1297x130 at 1365px and 358x130 at 390px with `text-align: center`; the next-step sentence and both item lines render; no body-text occurrence of "only way to see it again"; no horizontal overflow at 390px and the fixed tab bar overlaps no text |
+
+**Limits.** `verify:browser`, `verify:storefront` and `verify:admin` were not re-run for this change; real
+iOS Safari, Android Chrome and screen readers were not used.
+
 ### Changed - 2026-11-19: every order line shows the product photograph, and clicking it enlarges it
 
 The owner confirms a COD order on a phone call, and reported that the order screen is not usable for that

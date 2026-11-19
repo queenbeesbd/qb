@@ -44,8 +44,9 @@ export const PAYMENT_ADVANCE_THRESHOLD_KEY = 'payment.advance_threshold_minor';
 /** Whether the advance-payment number block is drawn at checkout, independent of the number itself. */
 export const PAYMENT_BKASH_VISIBLE_KEY = 'payment.bkash_visible';
 /**
- * The owner's switch for the optional payment-screenshot field at checkout and on a receipt
- * (ADR 0042). **Off by default**: nothing new appears on the storefront until the owner turns it on.
+ * The owner's switch for the optional payment-screenshot field at checkout (ADR 0042, narrowed
+ * 2026-11-19: the receipt no longer carries the field). **Off by default**: nothing new appears on the
+ * storefront until the owner turns it on.
  */
 export const PAYMENT_PROOF_ENABLED_KEY = 'payment.proof_enabled';
 

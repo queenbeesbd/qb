@@ -7,7 +7,6 @@ import { deliveryAddressText } from '@/lib/delivery-address';
 import { orderDiscountMinor } from '@/lib/money';
 import { ClearCart } from '@/features/checkout/ClearCart';
 import { ContactLink } from '@/components/ContactLink';
-import { methodLabel, paymentLabel, statusLabel } from './order-labels';
 import styles from '@/app/account.module.css';
 import { INTL_LOCALE } from '@/i18n/config';
 
@@ -89,16 +88,15 @@ export function OrderDetailView({
   claimable = false,
   claimed = false,
   csrfToken = null,
-  proofEnabled = false,
-  paymentProof = null,
-  proofNotice = null,
 }: {
   order: OrderDetail;
   placed: boolean;
   /**
    * True when no session resolved for this request. A guest has no order list and no account, so the
-   * page must not offer either - and must say plainly that this link is the only way back, because the
-   * shop publishes no self-service order lookup (an unanswered product question, OD-2).
+   * page must not offer either - the claim card is the way to keep the order, and there is no second
+   * instruction that repeats it (owner direction, 2026-11-19: the "this address is the only way back"
+   * line was removed from the page, because it read as a warning under a receipt that had just been
+   * placed).
    */
   guest: boolean;
   /**
@@ -109,14 +107,6 @@ export function OrderDetailView({
   /** The order was just claimed - say so once, instead of silently changing the page's owner. */
   claimed?: boolean;
   csrfToken?: string | null;
-  /**
-   * The owner's switch for the optional payment screenshot (ADR 0042). Off hides the form; an image
-   * already attached is still stated, because hiding a fact about the customer's own order would be
-   * worse than the switch not offering a new one.
-   */
-  proofEnabled?: boolean;
-  paymentProof?: { reviewState: string; uploadedAt: string } | null;
-  proofNotice?: 'uploaded' | 'invalid' | 'unavailable' | null;
 }) {
   const { t, price } = useTranslation();
   const receipt = `/orders/${order.orderNumber}`;
@@ -125,9 +115,16 @@ export function OrderDetailView({
     <div className={styles.page}>
       {placed && <ClearCart />}
 
+      {/*
+        The thank-you that closes a checkout (owner direction, 2026-11-19). It replaces the flat "Order
+        placed" strip with the owner's own wording, centred, the way the reference's confirmation page
+        reads: the customer has just finished, and the first thing they see should acknowledge that
+        before the receipt starts listing amounts.
+      */}
       {placed && (
         <section className={styles.placed} role="status">
           <h1>{t('orders.placedTitle')}</h1>
+          <p className={styles.placedLine}>{t('orders.placedLine')}</p>
         </section>
       )}
 
@@ -190,120 +187,39 @@ export function OrderDetailView({
           {t('orders.orderNumber')} <strong>{order.orderNumber}</strong>
         </p>
         <p className={styles.muted}>{formatWhen(order.placedAt)}</p>
-        {guest && <p className={styles.muted}>{t('orders.guestKeepLink')}</p>}
       </header>
 
-      <section className={styles.card} aria-labelledby="order-status">
-        <h2 id="order-status">{t('orders.status')}</h2>
-        <dl className={styles.facts}>
-          <div>
-            <dt>{t('orders.status')}</dt>
-            <dd>{t(statusLabel(order.status))}</dd>
-          </div>
-          <div>
-            <dt>{t('orders.method')}</dt>
-            <dd>{t(methodLabel(order.paymentMethod))}</dd>
-          </div>
-          <div>
-            <dt>{t('orders.payment')}</dt>
-            <dd>{t(paymentLabel(order.paymentMethod, order.paymentState, order.codState))}</dd>
-          </div>
-        </dl>
-        {/*
-          Owner direction, 2026-11-09: the cash-on-delivery sentence ("the owner approves the order
-          before dispatch, and courier cash is reconciled separately") is gone from the order page. It
-          described the shop's internal process on a page the customer reads, and the two facts that
-          matter to them are already stated above and in what happens next. The legacy note stays,
-          because it describes a historical order's own payment method rather than our process.
-        */}
+      {/*
+        The status card is gone (owner direction, 2026-11-19). Its three rows restated the method and the
+        payment state the customer had chosen two screens earlier, on a page whose job is the receipt.
+
+        One statement of the stored state is kept, because a receipt that cannot say "this order was
+        cancelled" or "this delivery did not complete" would be less honest than the table was: it is
+        read from the order row and never from a policy guess. There is no delivery deadline here,
+        because the store publishes none.
+      */}
+      <p className={styles.nextStep}>
+        {t(nextStepKey(order))}
         {order.paymentMethod !== 'cod' && (
-          <p className={styles.muted}>
+          <>
+            {' '}
             {t('orders.legacyPaymentNote')} <ContactLink />
-          </p>
+          </>
         )}
         {/*
-          What happens next is read from the stored order state, never from a policy guess. There is no
-          delivery deadline here because the store publishes none, and no cash-collection claim because
-          only the owner's real-world action can establish that.
+          Three stored states leave something to settle with a person: a failed delivery, a
+          cancellation, and a returned parcel. The sentence states the fact; the link is the route that
+          used to be missing.
         */}
-        <p className={styles.nextStep}>
-          {t(nextStepKey(order))}
-          {/*
-            Three stored states leave something to settle with a person: a failed delivery, a
-            cancellation, and a returned parcel. The sentence states the fact; the link is the route that
-            used to be missing.
-          */}
-          {(order.status === 'cancelled' ||
-            order.status === 'returned' ||
-            (order.paymentMethod === 'cod' && order.codState === 'cod_failed')) && (
-            <>
-              {' '}
-              <ContactLink />
-            </>
-          )}
-        </p>
-      </section>
-
-      {/*
-        The optional payment screenshot (ADR 0042).
-
-        The receipt is here because an advance payment is usually made *around* the order, not before it:
-        a customer who ordered first and paid after would otherwise have no way to attach what the
-        notice asked for. The form is drawn only while the owner's switch is on; a screenshot already
-        attached is still stated after the switch goes off, because that is a fact about this order.
-
-        Nothing on this card says the order is paid. The owner compares the image with the shop's own
-        bKash statement, and the order stays Cash on Delivery.
-      */}
-      {proofNotice !== null && (
-        <p className={styles.notice} role="status">
-          {proofNotice === 'uploaded'
-            ? t('account.order.proofUploaded')
-            : proofNotice === 'invalid'
-              ? t('account.order.proofInvalid')
-              : t('account.order.proofUnavailable')}
-        </p>
-      )}
-
-      {(paymentProof !== null || proofEnabled) && (
-        <section className={styles.card} aria-labelledby="order-proof">
-          <h2 id="order-proof">{t('account.order.proofTitle')}</h2>
-          {paymentProof !== null && (
-            <p className={styles.muted}>
-              {paymentProof.reviewState === 'checked'
-                ? t('account.order.proofStateChecked')
-                : paymentProof.reviewState === 'rejected'
-                  ? t('account.order.proofStateRejected')
-                  : t('account.order.proofStatePending')}
-            </p>
-          )}
-          {proofEnabled && (
-            <form
-              className={styles.inlineForm}
-              method="post"
-              encType="multipart/form-data"
-              action={`/api/orders/${order.orderNumber}/proof`}
-            >
-              {csrfToken !== null && <input type="hidden" name="csrf" value={csrfToken} />}
-              <label className={styles.field} htmlFor="paymentProofFile">
-                <span>{t('account.order.proofLabel')}</span>
-                <input
-                  id="paymentProofFile"
-                  type="file"
-                  name="paymentProof"
-                  accept="image/jpeg,image/png,image/webp"
-                  required
-                />
-              </label>
-              <button type="submit" className={styles.secondaryAction}>
-                {paymentProof === null
-                  ? t('account.order.proofUpload')
-                  : t('account.order.proofReplace')}
-              </button>
-            </form>
-          )}
-        </section>
-      )}
+        {(order.status === 'cancelled' ||
+          order.status === 'returned' ||
+          (order.paymentMethod === 'cod' && order.codState === 'cod_failed')) && (
+          <>
+            {' '}
+            <ContactLink />
+          </>
+        )}
+      </p>
 
       <section className={styles.card} aria-labelledby="order-items">
         <h2 id="order-items">{t('orders.itemsTitle')}</h2>
