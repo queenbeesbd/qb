@@ -1056,12 +1056,20 @@ html[lang='bn'] .sectionHead h2 {
   font-size: var(--text-sm);
 }
 
+.orderItemLine {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 2px 0;
+}
+
 .orderItem {
   display: flex;
+  flex: 1;
   flex-wrap: wrap;
   justify-content: space-between;
   gap: var(--space-2);
-  padding: 2px 0;
+  min-width: 0;
 }
 
 .orderItemName {
@@ -1894,6 +1902,15 @@ html[dir='rtl'] .switchOn .switchKnob::after {
 }
 
 .record.recordProduct {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+}
+
+/*
+ * An order line with its recorded photograph: the tile, the name and price, then the line total.
+ * `auto` on the first column is what keeps a line without a snapshot aligned with the ones that have
+ * one - the tile collapses to nothing rather than reserving an empty frame.
+ */
+.record.recordItem {
   grid-template-columns: auto minmax(0, 1fr) auto;
 }
 

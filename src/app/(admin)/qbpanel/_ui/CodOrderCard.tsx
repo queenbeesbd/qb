@@ -8,6 +8,7 @@ import { orderDiscountMinor } from '@/lib/money';
 import { useTranslation } from '@/i18n/useTranslation';
 import { AdminIcon } from './icons';
 import { ConfirmSubmit } from './ConfirmSubmit';
+import { ItemPhoto } from './ItemPhoto';
 import { RequiredMark } from './RequiredMark';
 import { StatusPill } from './StatusPill';
 import { SubmitButton } from './SubmitButton';
@@ -19,6 +20,8 @@ export type CodOrderItem = {
   nameEn: string;
   quantity: number;
   lineTotalMinor: number;
+  /** The photograph recorded on the order line, or `null` when it stored none (2026-11-19). */
+  imageKey: string | null;
 };
 
 export type CodOrderRow = {
@@ -173,12 +176,24 @@ export function CodOrderCard({
           )}
           <ul className={styles.orderItems} aria-label={t('admin.cod.itemsTitle')}>
             {(compact ? row.items.slice(0, 1) : row.items).map((item, index) => (
-              <li className={styles.orderItem} key={`${item.nameEn}-${index}`}>
-                <span className={styles.orderItemName}>
-                  {pick({ bn: item.nameBn, en: item.nameEn }) ?? item.nameEn}
-                </span>
-                <span className={styles.orderItemQty}>
-                  ×{item.quantity} · {price(item.lineTotalMinor)}
+              <li className={styles.orderItemLine} key={`${item.nameEn}-${index}`}>
+                {/*
+                  The line's recorded photograph (owner direction, 2026-11-19): the owner approves an
+                  order on a call and recognises the bottle, not the vendor's product name. A line with
+                  no stored snapshot draws no tile, so the name still starts where it did.
+                */}
+                <ItemPhoto
+                  imageKey={item.imageKey}
+                  name={pick({ bn: item.nameBn, en: item.nameEn }) ?? item.nameEn}
+                  size="compact"
+                />
+                <span className={styles.orderItem}>
+                  <span className={styles.orderItemName}>
+                    {pick({ bn: item.nameBn, en: item.nameEn }) ?? item.nameEn}
+                  </span>
+                  <span className={styles.orderItemQty}>
+                    ×{item.quantity} · {price(item.lineTotalMinor)}
+                  </span>
                 </span>
               </li>
             ))}

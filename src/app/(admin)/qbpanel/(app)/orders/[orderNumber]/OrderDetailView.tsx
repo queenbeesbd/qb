@@ -11,6 +11,7 @@ import { ORDER_COST_PATH, ORDER_PROOF_REVIEW_PATH, ORDER_TRANSITION_PATH } from 
 import { paymentLabel, statusLabel } from '@/features/account/order-labels';
 import { ConfirmSubmit } from '../../../_ui/ConfirmSubmit';
 import { EmptyState } from '../../../_ui/EmptyState';
+import { ItemPhoto } from '../../../_ui/ItemPhoto';
 import { Notice, type NoticeTone } from '../../../_ui/Notice';
 import { PageHeader } from '../../../_ui/PageHeader';
 import { StatusPill, type PillTone } from '../../../_ui/StatusPill';
@@ -109,6 +110,12 @@ export type AdminOrderDetailModel = {
     unitPriceMinor: number;
     quantity: number;
     lineTotalMinor: number;
+    /**
+     * The key of the photograph the order recorded when it was placed, or `null` for a line that
+     * stored none. It is the snapshot, never the product's current image: the owner is looking at
+     * what the customer bought.
+     */
+    imageKey: string | null;
   }[];
   returns: readonly AdminOrderReturnModel[];
   /** Additional courier costs, voided ones included, newest first. */
@@ -744,7 +751,13 @@ export function AdminOrderDetailView({
           </div>
           <ul className={styles.recordList}>
             {order.items.map((item) => (
-              <li className={styles.record} key={item.id}>
+              <li className={`${styles.record} ${styles.recordItem}`} key={item.id}>
+                {/*
+                  The recorded photograph, first in the row (owner direction, 2026-11-19). A line with no
+                  snapshot renders no tile at all rather than an empty frame, so the name starts where it
+                  always did for an order this shop cannot picture.
+                */}
+                <ItemPhoto imageKey={item.imageKey} name={pick({ bn: item.nameBn, en: item.nameEn }) ?? item.nameEn} />
                 <div className={styles.recordMain}>
                   <span className={styles.recordTitle}>{pick({ bn: item.nameBn, en: item.nameEn }) ?? item.nameEn}</span>
                   <span className={styles.recordMeta}>

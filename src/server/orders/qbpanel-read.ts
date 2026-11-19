@@ -141,6 +141,14 @@ export type CodOrderItem = {
   readonly quantity: number;
   readonly unitPriceMinor: number;
   readonly lineTotalMinor: number;
+  /**
+   * The photograph the order recorded for the line, or `null` when it stored none.
+   *
+   * The owner recognises a product by its picture on a confirmation call, so the worklist carries the
+   * frozen snapshot rather than the product's current image - a worklist entry must show what was
+   * bought, not what the catalog says today.
+   */
+  readonly imageKey: string | null;
 };
 
 export type CodQueueItem = CodQueueRow & { readonly items: readonly CodOrderItem[] };
@@ -165,6 +173,7 @@ async function itemsByOrder(
       quantity: orderItem.quantity,
       unitPriceMinor: orderItem.unitPriceMinor,
       lineTotalMinor: orderItem.lineTotalMinor,
+      imageKey: orderItem.imageKeySnapshot,
     })
     .from(orderItem)
     .where(inArray(orderItem.orderId, [...orderIds]))
@@ -177,6 +186,7 @@ async function itemsByOrder(
       quantity: row.quantity,
       unitPriceMinor: row.unitPriceMinor,
       lineTotalMinor: row.lineTotalMinor,
+      imageKey: row.imageKey,
     });
     grouped.set(row.orderId, list);
   }

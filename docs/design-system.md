@@ -626,6 +626,44 @@ controls in the record, because inspecting one line belongs beside that line.
 `scripts/verify-admin.ts` asserts the band precedes the money facts on a pending order and is absent on a
 settled one.
 
+### A line's photograph (2026-11-19)
+
+The owner confirms an order by phone, and on that call a product is recognised **by its picture, not by
+its name** - `Fasmc Bath Salts (Milk) 380g` is not what anyone remembers. So every order line draws the
+photograph the order recorded, and clicking it shows the whole picture.
+
+| Part | Contract |
+| --- | --- |
+| The key | `order_item.image_key_snapshot`, frozen at placement and refused by the immutability trigger |
+| The tile | 52 x 68 in the order detail's items list; `--admin-control-sm` (34px, 40px on a phone) on a worklist card |
+| The control | a real `<button>`, one tab stop, named "Show the photograph of {product} at full size" |
+| The viewer | `role="dialog"` `aria-modal`, labelled with the product name, at the 1050 variant |
+| Closing | Escape, the backdrop and the ×; focus moves to × on open and back to the tile on close; the page is locked while it is open |
+
+Four rules:
+
+1. **The snapshot, never the live product.** The line shows what the customer bought. A product that has
+   since been re-photographed, archived or re-priced does not change an old order's picture, exactly as its
+   name and price do not change.
+2. **No picture is invented.** A line whose snapshot is `null` (an older order, or an import that resolved
+   none) reserves the tile's box so the list stays aligned, and draws **no button** - there is nothing to
+   enlarge and nothing to announce. A file that has gone hides itself on `onError` the same way.
+3. **The tile is on the control scale.** It looks decorative and is not: it is a button, so on the worklist
+   it is `--admin-control-sm`, or `verify:admin`'s height sweep would find a third value on the admin
+   surface. The order detail's own tile is a list-row element rather than a control, like the catalog
+   list's 52 x 68 `recordPhoto`.
+4. **Nothing new is stored or served.** The bytes are the existing catalog variants
+   (`imageVariantPath(key, 320)` and `imageVariantPath(key, 1050)`); no URL, key or derivative is added
+   anywhere.
+
+The same component is on all three surfaces that state order lines - the order detail, the COD worklist and
+the dashboard's worklist - because a product the owner cannot recognise is the same problem on each.
+
+`scripts/verify-admin.ts` seeds a snapshot on the verification order and drives the control in Chromium:
+the tile renders the recorded key and its bytes decode (`naturalWidth > 0`), the click opens exactly one
+labelled modal at `-1050.webp` with the page locked and focus on ×, Escape closes it and returns focus to
+the tile, and the worklist tile measures 34 or 40.
+
 ### The dispatch slip (Phase 52)
 
 `/qbpanel/orders/[orderNumber]/slip` is the paper that travels with a COD parcel. It is **a document, not a
@@ -688,7 +726,7 @@ unwritten one at 1440 and 390 - including the footer's population rule.
 `AdminShell` (rail, bottom tab bar, More sheet, account menu, skip link), `PageHeader`, `Notice` (one polite/alert region
 per page), `SubmitButton` (pending state from `useFormStatus`), `ConfirmSubmit` (reason-capable dialog
 with focus trap, Escape and focus restoration), `StatusPill`, `EmptyState`, `AvailabilitySwitch`,
-`CodOrderCard`, and the Phase 30 list primitives: `ListToolbar`, `ListSearch`, `FilterTabs`,
+`CodOrderCard`, `ItemPhoto` (an order line's recorded photograph and its full-size viewer), and the Phase 30 list primitives: `ListToolbar`, `ListSearch`, `FilterTabs`,
 `DateRangeFilter`, `ActiveFilters`, `Pagination`. All are small local components under
 `src/app/(admin)/qbpanel/_ui`; styling stays in `admin.module.css` on the tokens above, and the pure query
 helpers live in `src/lib/qbpanel-query.ts` so they are unit-testable without a cluster.

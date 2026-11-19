@@ -1294,6 +1294,9 @@ export const dictionary = {
   'admin.order.notice.inspected': 'Inspection result recorded.',
   'admin.order.itemsTitle': 'Items',
   'admin.order.itemsBody': 'The prices and quantities recorded when the order was placed.',
+  'admin.order.photoOpen': 'Show the photograph of {name} at full size',
+  'admin.order.photoDialog': 'Photograph of {name}',
+  'admin.order.photoClose': 'Close the photograph',
   'admin.order.legacyDeliveryNote':
     'This order has no delivery area: it was placed before delivery charges were configured. No district has been inferred for it.',
   'admin.order.deliveryTitle': 'Delivery',

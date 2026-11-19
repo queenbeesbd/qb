@@ -1,0 +1,153 @@
+/* ---------------------------------------------------------------------------
+ * An order line's photograph: the tile in the list, and the full-size viewer.
+ * ------------------------------------------------------------------------- */
+
+.trigger {
+  display: block;
+  padding: 0;
+  cursor: zoom-in;
+  /* The tile is a control, so it must not inherit the browser's button chrome. */
+  appearance: none;
+}
+
+/*
+ * The tile's box, and the reservation a line without a photograph keeps.
+ *
+ * `frame` is the shared part - the border, radius and background a picture sits in - so an empty frame
+ * reads as "no photograph recorded" rather than as a hole in the row.
+ */
+.frame {
+  overflow: hidden;
+  border: 1px solid var(--admin-line);
+  border-radius: var(--admin-radius-sm);
+  background: var(--admin-surface-soft);
+}
+
+.trigger.frame:hover {
+  border-color: var(--admin-lavender-deep);
+}
+
+.trigger:focus-visible {
+  outline: 2px solid var(--admin-lavender-deep);
+  outline-offset: 2px;
+}
+
+/*
+ * The order detail's own tile: 52 x 68, the same 4:5-ish crop the catalog list uses for a product row,
+ * so a line reads the same whether the owner is scanning products or an order.
+ */
+.row {
+  width: 52px;
+  height: 68px;
+  flex: none;
+}
+
+/*
+ * The worklist card's tile on a phone.
+ *
+ * It is pinned to `--admin-control-sm` because that card is one of the pages `verify:admin` sweeps for a
+ * third control height: a decorative-looking image is still a `<button>`, and a 48px one would put a
+ * value on the admin scale that the approved rule does not have. 40px is the phone's small-control
+ * height and 34px is the desktop one, so the tile is on scale at both widths and still big enough to
+ * recognise a bottle.
+ */
+.compact {
+  width: var(--admin-control-sm);
+  height: var(--admin-control-sm);
+  flex: none;
+}
+
+.thumb {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  background: var(--admin-surface-soft);
+}
+
+/* ---- The viewer ---------------------------------------------------------- */
+
+.backdrop {
+  position: fixed;
+  inset: 0;
+  /* Above the admin shell's sticky bars and dialogs (60), below nothing else on the page. */
+  z-index: 70;
+  display: grid;
+  place-items: center;
+  padding: var(--space-4);
+  background: rgba(32, 26, 41, 0.72);
+  cursor: zoom-out;
+}
+
+.dialog {
+  position: relative;
+  display: grid;
+  place-items: center;
+  max-width: min(720px, 100%);
+  padding: var(--space-3);
+  border-radius: var(--admin-radius-card);
+  background: var(--admin-surface);
+  box-shadow: var(--admin-shadow-pop);
+  cursor: default;
+}
+
+.close {
+  position: absolute;
+  top: var(--space-2);
+  right: var(--space-2);
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 1px solid var(--admin-line);
+  border-radius: 50%;
+  background: var(--admin-surface);
+  color: var(--admin-ink);
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.close:hover {
+  background: var(--admin-lavender-soft);
+  color: var(--admin-lavender-deep);
+}
+
+.close:focus-visible {
+  outline: 2px solid var(--admin-lavender-deep);
+  outline-offset: 2px;
+}
+
+.figure {
+  display: block;
+  margin: 0;
+  max-height: calc(100vh - 80px);
+  overflow: auto;
+}
+
+/*
+ * The whole photograph at the width the catalog generated for a detail view (1050). `contain` inside a
+ * viewport-sized box is what makes it "full view" on a phone as well: nothing is cropped and the image
+ * scales down rather than being cut off at the bottom of the screen.
+ */
+.full {
+  display: block;
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: calc(100vh - 80px);
+  object-fit: contain;
+  border-radius: var(--admin-radius-sm);
+}
+
+@media (max-width: 720px) {
+  .dialog {
+    max-width: 100%;
+    padding: var(--space-2);
+  }
+
+  .full {
+    max-height: calc(100vh - 130px);
+  }
+}

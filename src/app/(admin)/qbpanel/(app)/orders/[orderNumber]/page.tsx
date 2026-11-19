@@ -137,6 +137,7 @@ export default async function AdminOrderDetailPage({
           unitPriceMinor: item.unitPriceMinor,
           quantity: item.quantity,
           lineTotalMinor: item.lineTotalMinor,
+          imageKey: item.imageKey,
         })),
         returns: detail.returns.map((entry) => ({
           id: entry.id,

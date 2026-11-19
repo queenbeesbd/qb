@@ -108,6 +108,7 @@ export default async function AdminCodPage({
       nameEn: item.nameEn,
       quantity: item.quantity,
       lineTotalMinor: item.lineTotalMinor,
+      imageKey: item.imageKey,
     })),
     ...(isDecided(row) ? { decision: row.decision, decidedAt: row.decidedAt.toISOString() } : {}),
   }));

@@ -1893,3 +1893,45 @@ owner recorded **Checked**, and the order's status, payment state, COD state and
 database row (which is why the owner control worked), but the seed, the moderator-access screen and the
 catalogue tests had no idea the code existed. All three now include it.
 
+
+---
+
+## Phase 57 - the order line's photograph, and a 2026-11-19 owner report (2026-11-19)
+
+**The report.** On a confirmation call the owner recognises a product by its picture, not by its name. The
+order detail's items section stated a name, a vendor SKU and a price, so the owner could not tell which
+bottle a line meant - `Fasmc Bath Salts (Milk) 380g` reads as nothing in particular. The owner asked for a
+photograph beside every line, and for a click to show it full size.
+
+**Implemented.** `_ui/ItemPhoto.tsx` renders `order_item.image_key_snapshot` - the key the order froze at
+placement, never the live `product_image` - as a 52x68 tile in the order detail's items list and at
+`--admin-control-sm` on the COD worklist and dashboard cards. The tile is a real button: its accessible
+name states the product, Enter and Space open it, and a click opens a focus-trapped `role="dialog"`
+viewer at the 1050 variant with Escape, the backdrop and a labelled × closing it, focus returning to the
+tile, and the page locked while it is open. A line with no snapshot reserves the box (the list is a grid,
+so an absent first child would shift every name) and draws no control at all - no picture is invented, and
+a missing file hides itself the same way.
+
+**Nothing changed underneath.** No migration, no table, no column, no endpoint and no new asset: the
+column already existed and the bytes are the catalog's existing 320/1050 WebP variants through
+`imageVariantPath`. The three surfaces share one component so they cannot drift.
+
+**Verified** with `typecheck`, `lint` (0 errors, 24 pre-existing warnings), `check:i18n` (1,997 keys),
+`build`, and `verify:admin` **239/239** including four new Chromium checks (the recorded key renders and
+its bytes decode, one labelled modal at `-1050.webp` with focus on ×, Escape closes and restores focus, and
+the worklist tile measures 34 or 40). A hand-driven walk-through on a served build at 1440 and 390 measured
+the tiles, the dialog box and zero horizontal overflow on the order detail, the COD queue and the
+dashboard, including a seeded order with one imageless line. **Not run:** `verify:browser`,
+`verify:storefront`, the db suite, real devices and screen readers.
+
+### The next step
+
+**Phase 46 remains the recommendation: put the rendered-behaviour suites back on the real catalogue.** It is
+unchanged by Phase 57, and this phase is another instance of the same cost - the photograph work was proved
+by four new `verify:admin` checks and a hand-driven walk-through, while `verify:browser`, `verify:storefront`
+and the db suite were not run at all. *Why:* a gate that is not run is not a gate, and the two suites that do
+cover rendered behaviour still assume 22 products and a pre-existing order fixture. *Prerequisites:* a local
+database and a served build; scripts and fixtures only. It does **not** authorize deployment, provisioning or
+a new dependency. *Acceptance:* both suites run green against a seeded real catalog of 1,000+ products and an
+empty order table, they seed and clean up their own order fixtures, and no assertion is weakened or deleted
+to make them pass - a check that no longer means anything is removed with a written reason.

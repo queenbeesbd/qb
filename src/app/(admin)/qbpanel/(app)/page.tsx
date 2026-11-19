@@ -186,6 +186,7 @@ function serializeOrder(row: CodQueueItem) {
       nameEn: item.nameEn,
       quantity: item.quantity,
       lineTotalMinor: item.lineTotalMinor,
+      imageKey: item.imageKey,
     })),
   };
 }

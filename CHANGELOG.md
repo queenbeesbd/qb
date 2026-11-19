@@ -14,6 +14,51 @@ An entry may describe a deployment only once it has actually happened and been o
 
 ## [Unreleased]
 
+### Changed - 2026-11-19: every order line shows the product photograph, and clicking it enlarges it
+
+The owner confirms a COD order on a phone call, and reported that the order screen is not usable for that
+job: the items section stated a name, a vendor SKU and a price, while what the owner recognises on the call
+is the bottle. A vendor title like `Fasmc Bath Salts (Milk) 380g` or `Laxzin 1% Kojic Acid Body Wash 280ml`
+is not how anyone remembers a product.
+
+- **The line's own snapshot is what renders.** `order_item.image_key_snapshot` is written at placement and
+  frozen by the order-item immutability trigger, so an old order keeps the picture the customer bought even
+  after the catalog is re-photographed or the product is archived. The live `product_image` is never read
+  for an order line.
+- **Three surfaces, one component** (`_ui/ItemPhoto.tsx`): the order detail's items list (52 x 68 beside the
+  name), the COD worklist card and the dashboard's worklist card (`--admin-control-sm`, 34px, 40px on a
+  phone). All three state order lines, and an unrecognisable product is the same problem on each.
+- **The tile is a real button, and the viewer is a real modal.** The click opens `role="dialog"`
+  `aria-modal` labelled with the product name, showing the 1050 variant at its own proportions; Escape, the
+  backdrop and a labelled × close it, focus moves to × on open and back to the tile on close, and the page
+  behind is locked. Enter and Space open it from the keyboard, because it is a button and not a decorated
+  image.
+- **No picture is invented.** A line whose snapshot is `null` - an older order, or an import that could not
+  resolve one - reserves the tile's box so the names stay aligned and draws **no** control: nothing to
+  enlarge, nothing to announce. A missing file hides itself on `onError` the same way.
+- **Nothing new is stored, generated or served.** The bytes are the catalog's existing 320 and 1050 WebP
+  variants through `imageVariantPath`. No migration, no new table, no new endpoint, and the frozen
+  `image_key_snapshot` column was already there.
+
+**Verification (2026-11-19, local; nothing deployed).**
+
+| Check | Result |
+| --- | --- |
+| `npm run typecheck` | clean |
+| `npm run lint` | 0 errors, 24 pre-existing warnings |
+| `npm run check:i18n` | 1,997 keys, every referenced key present |
+| `npm run build` | success (after re-running past the Next.js security advisory stop) |
+| `npm run verify:admin` | **239/239**, including four new checks |
+| Chromium, served build | a four-line order draws 4 tiles at 52x68 with the bytes decoded (320x427 natural), the viewer opens at `-1050.webp` (1050x1400 natural) in a 516x688 box, Escape restores focus; at 390px the dialog is 342x456 with no overflow; the COD card's tiles measure 34px at 1440 and 40px at 390; a mixed order's imageless line keeps the names aligned at x=373 while dropping its button |
+
+The four new `verify:admin` checks seed a snapshot on the verification order and assert that the tile
+renders that key **and its bytes decode** (`naturalWidth > 0`), that one click opens exactly one labelled
+modal at `-1050.webp` with the page locked and focus on ×, that Escape closes it and returns focus to the
+tile, and that the worklist tile measures 34 or 40.
+
+**Limits.** `verify:browser`, `verify:storefront` and the db suite were not re-run; real iOS Safari, Android
+Chrome and screen readers were not used, so the dialog's behaviour with a real screen reader is unverified.
+
 ### Changed - 2026-11-19: the announcement strip is the shop's primary lavender with a bold ink line
 
 The owner asked for the announcement bar's background to match the site's primary colour and for the

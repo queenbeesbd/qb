@@ -1881,6 +1881,9 @@ async function main(): Promise<void> {
               unitPriceMinor: 50000,
               quantity: 1,
               lineTotalMinor: 50000,
+              // The snapshot the order records. The line photograph is drawn from this column, not from
+              // the product's current image, so the check below proves the frozen key is what renders.
+              imageKeySnapshot: assetKey,
             });
           }
           return { customerId, orderId, orderNumber };
@@ -2151,6 +2154,109 @@ async function main(): Promise<void> {
                 orderDetailUi.overflow <= 1,
               JSON.stringify(orderDetailUi),
             );
+
+            // ---- The line photograph on the order screen (2026-11-19) ----
+            //
+            // The owner recognises a product by its picture on a confirmation call, so every line draws
+            // the frozen `image_key_snapshot` and opens it at full size. This drives the real control:
+            // the thumbnail is a button, the dialog is a labelled modal, Escape closes it, and focus goes
+            // back to the thumbnail it came from. The tile is also measured, because it is a button and
+            // the admin has one control scale (34 / 40) that a decorative size must not break.
+            await browser.navigate('/qbpanel/orders/' + secondCod.orderNumber);
+            // The tile is lazy by design; wait for the bytes to decode so "drawn" means observed.
+            await browser.waitFor(
+              "(() => { const i = document.querySelector('[data-item-photo=\"row\"] img'); return i !== null && i.complete && i.naturalWidth > 0; })()",
+            );
+            const photoTile = await browser.evaluate<{
+              present: boolean;
+              src: string | null;
+              height: number;
+              labelled: boolean;
+              drawnWidth: number;
+            }>(`(() => {
+              const button = document.querySelector('[data-item-photo="row"]');
+              const image = button?.querySelector('img');
+              return {
+                present: button !== null,
+                src: image?.getAttribute('src') ?? null,
+                height: button === null ? 0 : Math.round(button.getBoundingClientRect().height),
+                labelled: (button?.getAttribute('aria-label') ?? '').includes('Verify Product'),
+                // Non-zero only once the file decoded: a URL that 404s reports 0.
+                drawnWidth: image?.naturalWidth ?? 0,
+              };
+            })()`);
+            record(
+              'every order line draws its recorded photograph as a labelled control',
+              photoTile.present === true &&
+                photoTile.src !== null &&
+                photoTile.src.includes(assetKey) &&
+                photoTile.height > 0 &&
+                photoTile.labelled === true &&
+                photoTile.drawnWidth > 0,
+              JSON.stringify(photoTile),
+            );
+
+            await browser.click('[data-item-photo="row"]');
+            const photoOpen = await browser.evaluate<{
+              dialogs: number;
+              labelled: boolean;
+              full: string | null;
+              locked: boolean;
+              focus: string;
+            }>(`(() => {
+              const dialog = document.querySelector('[role="dialog"][aria-modal="true"]');
+              const full = dialog?.querySelector('img');
+              return {
+                dialogs: document.querySelectorAll('[role="dialog"][aria-modal="true"]').length,
+                labelled: (dialog?.getAttribute('aria-label') ?? '').includes('Verify Product'),
+                full: full?.getAttribute('src') ?? null,
+                locked: document.body.style.overflow === 'hidden',
+                focus: document.activeElement?.getAttribute('aria-label') ?? '',
+              };
+            })()`);
+            record(
+              'clicking the photograph opens one labelled modal at the largest stored width, with the page locked',
+              photoOpen.dialogs === 1 &&
+                photoOpen.labelled === true &&
+                photoOpen.full !== null &&
+                photoOpen.full.includes('-1050.webp') &&
+                photoOpen.locked === true &&
+                photoOpen.focus === 'Close the photograph',
+              JSON.stringify(photoOpen),
+            );
+
+            await browser.key('Escape');
+            const photoClosed = await browser.evaluate<{
+              dialogs: number;
+              locked: boolean;
+              focusIsTrigger: boolean;
+            }>(`(() => ({
+              dialogs: document.querySelectorAll('[role="dialog"][aria-modal="true"]').length,
+              locked: document.body.style.overflow === 'hidden',
+              focusIsTrigger: document.activeElement?.getAttribute('data-item-photo') === 'row',
+            }))()`);
+            record(
+              'Escape closes the photograph, unlocks the page and returns focus to the line it came from',
+              photoClosed.dialogs === 0 && photoClosed.locked === false && photoClosed.focusIsTrigger === true,
+              JSON.stringify(photoClosed),
+            );
+
+            // The worklist card draws the same picture at the small control height, so the dense queue
+            // is recognisable by sight too - and still on the two-height scale.
+            await browser.navigate('/qbpanel/orders-cod');
+            const queueTile = await browser.evaluate<{ tiles: number; height: number }>(`(() => {
+              const tiles = [...document.querySelectorAll('[data-item-photo="compact"]')];
+              return {
+                tiles: tiles.length,
+                height: tiles.length === 0 ? 0 : Math.round(tiles[0].getBoundingClientRect().height),
+              };
+            })()`);
+            record(
+              'the COD worklist draws the recorded photograph at the small control height',
+              queueTile.tiles > 0 && (queueTile.height === 40 || queueTile.height === 34),
+              JSON.stringify(queueTile),
+            );
+            await browser.navigate('/qbpanel/orders/' + secondCod.orderNumber);
 
             // ---- Phase 52: the dispatch slip, on screen and on both paper sizes ----
             //
