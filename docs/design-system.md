@@ -681,10 +681,13 @@ An order detail is a **record you act on**, not a profile you read. Its shape fo
 | --- | --- |
 | Page header | the order reference, when it was placed, and the way back to the list it came from |
 | Action band | the **next legal step**, first under the header - title, one-line reason, the order total, and the forms |
-| Money facts | the four amounts, separate as always; read as context for the action, never collapsed |
-| The record | items, delivery contact, events and audit, with return inspection beside the returned line |
+| Progress card | the four movement stages, then the facts the track cannot state (payment line, method, age, and the completed/cancelled timestamps) as **one wrapping strip** |
+| Money card | the four amounts, separate as always; the payment screenshot sits inside this card, never in a section of its own |
+| Items card | the product lines and the totals - nothing else |
+| Aside | delivery, then customer |
+| History card | the events, with the **audit trail folded shut** behind a summary and its count; spans both columns |
 
-Three rules behind it:
+Five rules behind it:
 
 1. **The action comes before the evidence.** The owner opens an order to decide or advance it; scrolling
    past the items, the history and the audit to reach the button admitted the wrong priority.
@@ -694,6 +697,17 @@ Three rules behind it:
 3. **The total travels with the decision.** Accepting a COD order without its amount in view is a decision
    made blind, so the band carries the same stored order total the record shows below - not a second
    calculation.
+4. **One card per question, and no card for an absence.** Items, money, delivery, history are four
+   questions. "No screenshot was attached" is one line inside the money card, not a 56px panel of its own.
+5. **Never print what the card above already states.** The timeline carries confirmed, dispatched and
+   delivered as its own dates, so the facts strip carries only what is left. A separate "Status" fact
+   beside a status pill in the same card is the same fact twice.
+
+**The history is scanned, so it is a row (2026-11-20).** `/qbpanel/orders` draws each record as one
+aligned row above 720px - reference and state, recorded product, recipient and area, then the amount over
+its time and delivery sub-line - and as a stacked card below it. The portrait card it replaced cost 275px
+for six short facts and left two thirds of every card empty. The COD **worklist** card (`data-cod-card`)
+keeps the portrait shape: it carries the decision controls, and a worklist entry is not a row.
 
 Actions wrap into columns at wide widths; the payment form spans the row because it also carries the
 optional additional-cost entry. Below 720px every action is full width. Returns keep their own inspect

@@ -14,6 +14,69 @@ An entry may describe a deployment only once it has actually happened and been o
 
 ## [Unreleased]
 
+### Changed - 2026-11-20: the order pages lose their empty space
+
+Owner report: on `/qbpanel/orders/[orderNumber]?from=orders` and `/qbpanel/orders` there was "way too
+much space taken for blank" and the section text read as unfriendly. Measured on the local seed before
+touching anything: the order history was three cards of **275px each (1,267px of page)**, the order
+detail was **2,248px tall**, and the Items card alone was **1,554px** because the line list, delivery
+address, the whole order history and the whole audit trail were bands inside one card. **UI only:** no
+schema change, no migration, no permission, no dependency, and no change to any state transition, read
+or audit write.
+
+| Surface | Before | After |
+| --- | --- | --- |
+| `/qbpanel/orders`, 3 orders | 1,267px | **789px** |
+| one history card | 275px | **116px** |
+| order detail, completed order | 2,248px | **1,661px** |
+| the detail's Items card | 1,554px | **280px** |
+| a phone history card (390px) | 275px | **247px** |
+
+**The history is one aligned row, not a portrait card.** The record is something the owner *scans*, so
+above 720px each order is one row with four cells - reference and state, the recorded product, the
+recipient and area, the amount over its time and delivery sub-line - instead of four stacked full-width
+bands that left two thirds of every card empty. `data-order-card` and the stretched overlay link are
+kept, so the whole row still opens the order and the phone link still keeps its own activation. Below
+720px the same four cells stack back into the card, with only the identity band drawing a rule. The COD
+worklist card (`CodOrderCard`, `data-cod-card`) is **unchanged**: it carries the Accept/Cancel controls
+and a 576px decision card is a worklist, not a row.
+
+**The detail is four cards instead of a card with six bands in it.** Items keeps the product lines and
+the totals; Delivery moves beside Customer in the aside, where the owner reads it while on the phone;
+Order history becomes its own card spanning both columns. **The audit trail folds shut** behind a
+summary that reads "Audit record" with the count beside it - it is the same events with actor ids
+attached, and the owner opens it to check one thing rather than read it on arrival. The payment
+screenshot moves **into the money card**: "none was attached" used to occupy a 56px panel of its own to
+state an absence.
+
+**The facts panel is now one strip.** Six label/value stacks in a panel beside the timeline mostly
+repeated the timeline - confirmed, dispatched and delivered are the track's own dates - so what is left
+(payment line, method, age, and the completed/cancelled timestamps) is a single wrapping definition
+list inside the progress card. The status pill stays in that card's head; the separate "Status" fact is
+gone with the panel.
+
+**Section copy is one caveat, not a paragraph.** `Items` / `Delivery` / `Order history` / `Audit record`
+no longer carry a sentence explaining themselves. Their four keys - `admin.order.itemsBody`,
+`admin.order.deliveryBody`, `admin.order.historyBody`, `admin.order.auditBody` - were unreferenced by the
+time the copy went, and `admin.orders.itemCountValue` went with the plural fix below, so all five are
+deleted from the dictionary (1,972 -> 1,967 keys); `check:i18n` passes with every referenced key present.
+
+**The card states "1 item", not "1 items".** The history card asked `admin.orders.itemCountValue`, which
+had no singular form; it now uses the same `account.itemsCountOne` / `account.itemsCount` pair the
+account screens already use.
+
+| Check | Result |
+| --- | --- |
+| `npm run typecheck` | pass |
+| `npm run lint` | 0 errors, 25 pre-existing warnings |
+| `npm run check:i18n` | pass, 1,967 keys / 1,432 referenced |
+| `npm run build` | pass after the documented Next.js security-advisory retry |
+| `npm run verify:admin` | **261/261** |
+| Chromium 1440px and 390px | measured above; no horizontal overflow at either width |
+
+**Limits.** Measured against the local seed and a disposable dev cluster, not production data. Real iOS
+Safari, Android Chrome and screen readers were not used.
+
 ### Changed - 2026-11-20: the order cards look like the order, and the notes are gone
 
 Owner-directed presentation pass over the Orders surface. **UI and copy only:** no schema change, no

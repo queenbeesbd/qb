@@ -326,64 +326,61 @@ export function AdminOrdersView({
           */}
           <ul className={styles.orderList} data-admin-list="">
             {historyRows.map((row) => (
-              <li className={styles.orderCard} key={row.orderNumber} data-order-card="">
+              <li className={styles.orderRowCard} key={row.orderNumber} data-order-card="">
                 <Link
                   aria-label={`${t('admin.cod.viewOrder')} ${row.orderNumber}`}
                   className={styles.cardOverlay}
                   href={`/qbpanel/orders/${encodeURIComponent(row.orderNumber)}?from=orders`}
                 />
-                <div className={styles.orderTop}>
-                  <div className={styles.orderIdentity}>
-                    <span className={styles.orderRef}>{row.orderNumber}</span>
-                    <div className={styles.orderPills}>
-                      <StatusPill tone={tone(row.status)}>{t(statusLabel(row.status))}</StatusPill>
-                      <span className={styles.orderPayment}>
-                        {t(paymentLabel(row.paymentMethod, '', row.codState))}
-                      </span>
-                    </div>
-                  </div>
-                  <div className={styles.orderAmount}>
-                    <span className={styles.orderAmountLabel}>{t('admin.cod.total')}</span>
-                    <span className={styles.orderAmountValue} data-order-total="">{price(row.totalMinor)}</span>
+
+                {/*
+                  The history is a record to scan, not a worklist to act on, so it is one row per order
+                  rather than a portrait card (owner direction, 2026-11-20): reference and state, what
+                  was bought, who receives it, and the amount - each in its own column above 720px, so
+                  twelve orders read as a list of twelve rather than a 3,300px stack. Below 720px the
+                  same cells stack into the card, because four columns do not fit a phone.
+                */}
+                <div className={styles.rowIdentity}>
+                  <span className={styles.orderRef}>{row.orderNumber}</span>
+                  <div className={styles.orderPills}>
+                    <StatusPill tone={tone(row.status)}>{t(statusLabel(row.status))}</StatusPill>
+                    <span className={styles.orderPayment}>
+                      {t(paymentLabel(row.paymentMethod, '', row.codState))}
+                    </span>
                   </div>
                 </div>
 
-                <div className={styles.orderBody}>
-                  {/*
-                    The recorded first line, drawn above the stretched link because the photograph is a
-                    `<button>` that enlarges the picture - two controls cannot be the same tap target.
-                    It is the existing `ItemPhoto`, so the history, the worklist and the detail read a
-                    snapshot the same way, and a line that stored none draws no tile.
-                  */}
-                  <div className={styles.orderLead}>
-                    <span className={styles.orderPhoto}>
-                      <ItemPhoto imageKey={row.firstItemImageKey} name={row.firstItemName} size="compact" />
+                <div className={styles.rowLead}>
+                  <span className={styles.orderPhoto}>
+                    <ItemPhoto imageKey={row.firstItemImageKey} name={row.firstItemName} size="compact" />
+                  </span>
+                  <div className={styles.orderLeadText}>
+                    <span className={styles.orderItemName}>{row.firstItemName}</span>
+                    <span className={styles.orderItemQty}>
+                      {t(row.itemCount === 1 ? 'account.itemsCountOne' : 'account.itemsCount', {
+                        count: row.itemCount,
+                      })}
                     </span>
-                    <div className={styles.orderLeadText}>
-                      <span className={styles.orderItemName}>{row.firstItemName}</span>
-                      <span className={styles.orderItemQty}>
-                        {t('admin.orders.itemCountValue', { count: row.itemCount })}
-                      </span>
-                    </div>
                   </div>
+                </div>
 
-                  <div className={styles.orderContact}>
-                    <span className={styles.orderName}>{row.recipientName}</span>
-                    <a className={`${styles.orderMetaLink} ${styles.cardRaised}`} href={`tel:${row.recipientPhone}`}>
-                      {row.recipientPhone}
-                    </a>
-                  </div>
-                  <p className={styles.orderAddress}>
+                <div className={styles.rowWho}>
+                  <span className={styles.orderName}>{row.recipientName}</span>
+                  <a className={`${styles.orderMetaLink} ${styles.cardRaised}`} href={`tel:${row.recipientPhone}`}>
+                    {row.recipientPhone}
+                  </a>
+                  <span className={styles.orderAddress}>
                     {row.districtCode === null ? t('orders.deliveryPending') : deliveryAreaName(row.districtCode)}
-                  </p>
+                  </span>
                 </div>
 
                 {/*
-                  The footer states when the order was placed and carries the delivery charge as the
-                  sub-line it always was (ADR 0016): the charge is inside the total, so it is never
-                  added to it a second time.
+                  The amount and the two facts behind it. The delivery charge is inside the total
+                  (ADR 0016), so it is stated as a sub-line and never added to it a second time.
                 */}
-                <div className={styles.orderMetaRow}>
+                <div className={styles.rowAmount}>
+                  <span className={styles.orderAmountLabel}>{t('admin.cod.total')}</span>
+                  <span className={styles.orderAmountValue} data-order-total="">{price(row.totalMinor)}</span>
                   <span className={styles.orderWhen}>
                     <AdminIcon name="clock" width={13} height={13} />
                     {when(row.placedAt)}

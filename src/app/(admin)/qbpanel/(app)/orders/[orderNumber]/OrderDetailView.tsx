@@ -527,6 +527,42 @@ export function AdminOrderDetailView({
         {order.codState === 'cod_failed' && (
           <p className={styles.note}>{t(paymentLabel(order.paymentMethod, order.paymentState, order.codState))}</p>
         )}
+
+        {/*
+          The facts the track cannot state, on one line rather than in a second panel of their own.
+          Status is the pill in the head; confirmed, dispatched and delivered are the track's own
+          dates; what is left is how it is being paid, which method, how old it is, and the two
+          terminal timestamps the four stages do not carry.
+        */}
+        <dl className={styles.factStrip}>
+          <div>
+            <dt>{t('admin.order.paymentState')}</dt>
+            <dd>{t(paymentLabel(order.paymentMethod, order.paymentState, order.codState))}</dd>
+          </div>
+          <div>
+            <dt>{t('orders.method')}</dt>
+            <dd>{t(order.paymentMethod === 'cod' ? 'orders.method.cod' : 'orders.method.unknown')}</dd>
+          </div>
+          <div>
+            <dt>{t('admin.order.age')}</dt>
+            <dd>{ageText}</dd>
+          </div>
+          {order.completedAt !== null && (
+            <div>
+              <dt>{t('admin.order.completedAt')}</dt>
+              <dd>{dateTime.format(new Date(order.completedAt))}</dd>
+            </div>
+          )}
+          {order.cancelledAt !== null && (
+            <div>
+              <dt>{t('admin.order.cancelledAt')}</dt>
+              <dd>{dateTime.format(new Date(order.cancelledAt))}</dd>
+            </div>
+          )}
+        </dl>
+        {order.cancelledReason !== null && (
+          <p className={styles.note}>{t('admin.order.cancelledReason', { reason: order.cancelledReason })}</p>
+        )}
       </section>
 
       {/*
@@ -621,127 +657,6 @@ export function AdminOrderDetailView({
       )}
 
       {/*
-        The customer's optional payment screenshot (ADR 0042).
-
-        This section states **what arrived**, not that anything was paid. The advance payment is made
-        outside the site, so the screenshot is the only trace of it here; the owner compares it with the
-        shop's own bKash statement and records that they looked. The image is served by a permission-gated
-        route, so it is never a public asset.
-      */}
-      <section className={styles.section} aria-labelledby="order-proof">
-        <div className={styles.sectionHead}>
-          <div>
-            <h2 id="order-proof">{t('admin.order.proofTitle')}</h2>
-          </div>
-          {order.paymentProof !== null && (
-            <StatusPill
-              tone={
-                order.paymentProof.reviewState === 'checked'
-                  ? 'success'
-                  : order.paymentProof.reviewState === 'rejected'
-                    ? 'danger'
-                    : 'warning'
-              }
-            >
-              {order.paymentProof.reviewState === 'checked'
-                ? t('admin.order.proofStateChecked')
-                : order.paymentProof.reviewState === 'rejected'
-                  ? t('admin.order.proofStateRejected')
-                  : t('admin.order.proofStatePending')}
-            </StatusPill>
-          )}
-        </div>
-
-        {order.paymentProof === null ? (
-          <p className={styles.note}>{t('admin.order.proofEmpty')}</p>
-        ) : (
-          <>
-            <a
-              className={styles.proofLink}
-              href={`/api/qbpanel/orders/${encodeURIComponent(order.orderNumber)}/proof`}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                className={styles.proofImage}
-                src={`/api/qbpanel/orders/${encodeURIComponent(order.orderNumber)}/proof`}
-                alt={t('admin.order.proofAlt')}
-                width={order.paymentProof.width}
-                height={order.paymentProof.height}
-              />
-            </a>
-            <p className={styles.note}>
-              {t('admin.order.proofUploadedAt', {
-                time: dateTime.format(new Date(order.paymentProof.uploadedAt)),
-              })}
-              {' - '}
-              {t('admin.order.proofOpenFull')}
-            </p>
-            {order.paymentProof.reviewedAt !== null && (
-              <p className={styles.note}>
-                {order.paymentProof.reviewState === 'checked'
-                  ? t('admin.order.proofCheckedAt', {
-                      time: dateTime.format(new Date(order.paymentProof.reviewedAt)),
-                    })
-                  : t('admin.order.proofRejectedAt', {
-                      time: dateTime.format(new Date(order.paymentProof.reviewedAt)),
-                    })}
-              </p>
-            )}
-            {order.paymentProof.reviewNote !== null && (
-              <p className={styles.note}>{order.paymentProof.reviewNote}</p>
-            )}
-
-            {canReviewProof && (
-              <form action={ORDER_PROOF_REVIEW_PATH} method="post" className={styles.proofForm}>
-                <input type="hidden" name="csrf" value={csrfToken} />
-                <input type="hidden" name="orderNumber" value={order.orderNumber} />
-                <fieldset className={styles.proofChoices}>
-                  <legend className={styles.factLabel}>{t('admin.order.proofDecision')}</legend>
-                  <label className={styles.proofChoice}>
-                    <input
-                      type="radio"
-                      name="decision"
-                      value="checked"
-                      defaultChecked={order.paymentProof.reviewState !== 'rejected'}
-                    />
-                    <span>{t('admin.order.proofChecked')}</span>
-                  </label>
-                  <label className={styles.proofChoice}>
-                    <input
-                      type="radio"
-                      name="decision"
-                      value="rejected"
-                      defaultChecked={order.paymentProof.reviewState === 'rejected'}
-                    />
-                    <span>{t('admin.order.proofRejected')}</span>
-                  </label>
-                </fieldset>
-                <label className={styles.factLabel} htmlFor="proof-note">
-                  {t('admin.order.proofNote')}
-                </label>
-                <input
-                  id="proof-note"
-                  name="note"
-                  className={styles.input}
-                  maxLength={500}
-                  defaultValue={order.paymentProof.reviewNote ?? ''}
-                />
-                <p className={styles.note}>{t('admin.order.proofHint')}</p>
-                <div className={styles.proofActions}>
-                  <SubmitButton
-                    label={t('admin.order.proofSave')}
-                    pendingLabel={t('admin.common.working')}
-                  />
-                </div>
-              </form>
-            )}
-          </>
-        )}
-      </section>
-
-      {/*
         The money facts, kept separate on purpose. The customer's payment is gross; the standard
         delivery fee inside it is what the courier keeps; additional costs are the shop's own; and the
         net figure is an estimate, labelled as one, or "unavailable" when the order cannot substantiate
@@ -779,6 +694,124 @@ export function AdminOrderDetailView({
           {order.money.estimatedNetProceedsMinor === null && (
             <p className={styles.note}>{t('admin.order.moneyUnsubstantiated')}</p>
           )}
+
+          {/*
+            The payment screenshot belongs to this card, not to a section of its own (owner direction,
+            2026-11-20). It is a fact about the money, and "none was attached" used to occupy a whole
+            panel to state an absence. With no image the card states one quiet line and stops.
+          */}
+          <div className={styles.moneyProof}>
+            <div className={styles.sectionHead}>
+              <div>
+                <h3 className={styles.subTitle}>{t('admin.order.proofTitle')}</h3>
+              </div>
+              {order.paymentProof !== null && (
+                <StatusPill
+                  tone={
+                    order.paymentProof.reviewState === 'checked'
+                      ? 'success'
+                      : order.paymentProof.reviewState === 'rejected'
+                        ? 'danger'
+                        : 'warning'
+                  }
+                >
+                  {order.paymentProof.reviewState === 'checked'
+                    ? t('admin.order.proofStateChecked')
+                    : order.paymentProof.reviewState === 'rejected'
+                      ? t('admin.order.proofStateRejected')
+                      : t('admin.order.proofStatePending')}
+                </StatusPill>
+              )}
+            </div>
+
+            {order.paymentProof === null ? (
+              <p className={styles.note}>{t('admin.order.proofEmpty')}</p>
+            ) : (
+              <>
+                <a
+                  className={styles.proofLink}
+                  href={`/api/qbpanel/orders/${encodeURIComponent(order.orderNumber)}/proof`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    className={styles.proofImage}
+                    src={`/api/qbpanel/orders/${encodeURIComponent(order.orderNumber)}/proof`}
+                    alt={t('admin.order.proofAlt')}
+                    width={order.paymentProof.width}
+                    height={order.paymentProof.height}
+                  />
+                </a>
+                <p className={styles.note}>
+                  {t('admin.order.proofUploadedAt', {
+                    time: dateTime.format(new Date(order.paymentProof.uploadedAt)),
+                  })}
+                  {' - '}
+                  {t('admin.order.proofOpenFull')}
+                </p>
+                {order.paymentProof.reviewedAt !== null && (
+                  <p className={styles.note}>
+                    {order.paymentProof.reviewState === 'checked'
+                      ? t('admin.order.proofCheckedAt', {
+                          time: dateTime.format(new Date(order.paymentProof.reviewedAt)),
+                        })
+                      : t('admin.order.proofRejectedAt', {
+                          time: dateTime.format(new Date(order.paymentProof.reviewedAt)),
+                        })}
+                  </p>
+                )}
+                {order.paymentProof.reviewNote !== null && (
+                  <p className={styles.note}>{order.paymentProof.reviewNote}</p>
+                )}
+
+                {canReviewProof && (
+                  <form action={ORDER_PROOF_REVIEW_PATH} method="post" className={styles.proofForm}>
+                    <input type="hidden" name="csrf" value={csrfToken} />
+                    <input type="hidden" name="orderNumber" value={order.orderNumber} />
+                    <fieldset className={styles.proofChoices}>
+                      <legend className={styles.factLabel}>{t('admin.order.proofDecision')}</legend>
+                      <label className={styles.proofChoice}>
+                        <input
+                          type="radio"
+                          name="decision"
+                          value="checked"
+                          defaultChecked={order.paymentProof.reviewState !== 'rejected'}
+                        />
+                        <span>{t('admin.order.proofChecked')}</span>
+                      </label>
+                      <label className={styles.proofChoice}>
+                        <input
+                          type="radio"
+                          name="decision"
+                          value="rejected"
+                          defaultChecked={order.paymentProof.reviewState === 'rejected'}
+                        />
+                        <span>{t('admin.order.proofRejected')}</span>
+                      </label>
+                    </fieldset>
+                    <label className={styles.factLabel} htmlFor="proof-note">
+                      {t('admin.order.proofNote')}
+                    </label>
+                    <input
+                      id="proof-note"
+                      name="note"
+                      className={styles.input}
+                      maxLength={500}
+                      defaultValue={order.paymentProof.reviewNote ?? ''}
+                    />
+                    <p className={styles.note}>{t('admin.order.proofHint')}</p>
+                    <div className={styles.proofActions}>
+                      <SubmitButton
+                        label={t('admin.order.proofSave')}
+                        pendingLabel={t('admin.common.working')}
+                      />
+                    </div>
+                  </form>
+                )}
+              </>
+            )}
+          </div>
         </div>
 
         <div className={styles.section}>
@@ -850,7 +883,6 @@ export function AdminOrderDetailView({
           <div className={styles.sectionHead}>
             <div>
               <h2>{t('admin.order.itemsTitle')}</h2>
-              <p>{t('admin.order.itemsBody')}</p>
             </div>
           </div>
           <ul className={styles.lineList}>
@@ -999,14 +1031,16 @@ export function AdminOrderDetailView({
               <p className={styles.note}>{t('admin.order.returnsStockNote')}</p>
             </>
           )}
+        </div>
 
-          <div className={styles.sectionHead}>
-            <div>
-              <h2>{t('admin.order.deliveryTitle')}</h2>
-              <p>{t('admin.order.deliveryBody')}</p>
-            </div>
-          </div>
+
+        <aside className={styles.section}>
+          {/*
+            Where the parcel goes - the owner reads it while on the phone, so it sits beside the
+            customer rather than under the line list.
+          */}
           <div className={styles.panel}>
+            <h2 className={styles.panelTitle}>{t('admin.order.deliveryTitle')}</h2>
             <p className={styles.orderName}>{order.contact.recipientName}</p>
             <a className={styles.orderPhone} href={'tel:' + order.contact.recipientPhone}>
               {order.contact.recipientPhone}
@@ -1014,128 +1048,6 @@ export function AdminOrderDetailView({
             <p className={styles.orderAddress}>{deliveryAddressText(order.contact)}</p>
             {order.contact.deliveryNote !== null && (
               <p className={styles.note}>{t('admin.order.deliveryNote', { note: order.contact.deliveryNote })}</p>
-            )}
-          </div>
-
-          <div className={styles.sectionHead}>
-            <div>
-              <h2>{t('admin.order.historyTitle')}</h2>
-              <p>{t('admin.order.historyBody')}</p>
-            </div>
-          </div>
-          {order.events.length === 0 ? (
-            <EmptyState title={t('admin.order.noHistoryTitle')} body={t('admin.order.noHistoryBody')} icon="clock" />
-          ) : (
-            <ul className={styles.dividerList}>
-              {order.events.map((event) => (
-                <li className={styles.dividerItem} key={event.id}>
-                  <span className={styles.recordTitle}>
-                    {EVENT_KEYS[event.eventType] === undefined ? (
-                      <span className={styles.mono}>{event.eventType}</span>
-                    ) : (
-                      t(EVENT_KEYS[event.eventType] as TranslationKey)
-                    )}{' '}
-                    <span className={styles.tag}>{t(ACTOR_KEYS[event.actorType] ?? 'admin.order.actor.unknown')}</span>
-                  </span>
-                  <span className={styles.recordMeta}>
-                    {dateTime.format(new Date(event.occurredAt))}
-                    {event.toValue === null ? '' : ' - ' + event.toValue}
-                  </span>
-                  {event.reason !== null && <span className={styles.recordMeta}>{event.reason}</span>}
-                </li>
-              ))}
-            </ul>
-          )}
-
-          <div className={styles.sectionHead}>
-            <div>
-              <h2>{t('admin.order.auditTitle')}</h2>
-              <p>{t('admin.order.auditBody')}</p>
-            </div>
-          </div>
-          {!canReadAudit || order.audit === null ? (
-            <p className={styles.note}>{t('admin.order.auditPermission')}</p>
-          ) : order.audit.length === 0 ? (
-            <EmptyState title={t('admin.order.noAuditTitle')} body={t('admin.order.noAuditBody')} icon="audit" />
-          ) : (
-            <ul className={styles.dividerList}>
-              {order.audit.map((entry) => (
-                <li className={styles.dividerItem} key={entry.id}>
-                  <span className={styles.recordTitle}>
-                    <span className={styles.tag}>{entry.action}</span>{' '}
-                    {entry.actorType === 'system'
-                      ? t('admin.audit.system')
-                      : t('admin.order.actor.staff') + ' #' + (entry.actorStaffId ?? '-')}
-                  </span>
-                  <span className={styles.recordMeta}>
-                    {dateTime.format(new Date(entry.occurredAt))}
-                    {entry.actorRoleCodes.length > 0 ? ' - ' + entry.actorRoleCodes.join(', ') : ''}
-                  </span>
-                  {entry.reason !== null && <span className={styles.recordMeta}>{entry.reason}</span>}
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-
-        <aside className={styles.section}>
-          <div className={styles.panel}>
-            <div className={styles.factGrid}>
-              <div className={styles.fact}>
-                <span className={styles.factLabel}>{t('admin.order.status')}</span>
-                <span>
-                  <StatusPill tone={statusTone}>{t(statusLabel(order.status))}</StatusPill>
-                </span>
-              </div>
-              <div className={styles.fact}>
-                <span className={styles.factLabel}>{t('admin.order.paymentState')}</span>
-                <span className={styles.factValue}>
-                  {t(paymentLabel(order.paymentMethod, order.paymentState, order.codState))}
-                </span>
-              </div>
-              <div className={styles.fact}>
-                <span className={styles.factLabel}>{t('orders.method')}</span>
-                <span className={styles.factValue}>
-                  {t(order.paymentMethod === 'cod' ? 'orders.method.cod' : 'orders.method.unknown')}
-                </span>
-              </div>
-              <div className={styles.fact}>
-                <span className={styles.factLabel}>{t('admin.order.age')}</span>
-                <span className={styles.factValue}>{ageText}</span>
-              </div>
-              {order.confirmedAt !== null && (
-                <div className={styles.fact}>
-                  <span className={styles.factLabel}>{t('admin.order.confirmedAt')}</span>
-                  <span className={styles.factValue}>{dateTime.format(new Date(order.confirmedAt))}</span>
-                </div>
-              )}
-              {order.shippedAt !== null && (
-                <div className={styles.fact}>
-                  <span className={styles.factLabel}>{t('admin.order.shippedAt')}</span>
-                  <span className={styles.factValue}>{dateTime.format(new Date(order.shippedAt))}</span>
-                </div>
-              )}
-              {order.deliveredAt !== null && (
-                <div className={styles.fact}>
-                  <span className={styles.factLabel}>{t('admin.order.deliveredAt')}</span>
-                  <span className={styles.factValue}>{dateTime.format(new Date(order.deliveredAt))}</span>
-                </div>
-              )}
-              {order.completedAt !== null && (
-                <div className={styles.fact}>
-                  <span className={styles.factLabel}>{t('admin.order.completedAt')}</span>
-                  <span className={styles.factValue}>{dateTime.format(new Date(order.completedAt))}</span>
-                </div>
-              )}
-              {order.cancelledAt !== null && (
-                <div className={styles.fact}>
-                  <span className={styles.factLabel}>{t('admin.order.cancelledAt')}</span>
-                  <span className={styles.factValue}>{dateTime.format(new Date(order.cancelledAt))}</span>
-                </div>
-              )}
-            </div>
-            {order.cancelledReason !== null && (
-              <p className={styles.note}>{t('admin.order.cancelledReason', { reason: order.cancelledReason })}</p>
             )}
           </div>
 
@@ -1177,6 +1089,74 @@ export function AdminOrderDetailView({
             )}
           </div>
         </aside>
+
+        {/*
+          What happened to it: its own card rather than another band under the line list (owner
+          direction, 2026-11-20). The audit trail folds shut - it is the same events with actor ids
+          attached, and the owner opens it to check one thing, not to read it on arrival.
+        */}
+        <div className={`${styles.section} ${styles.detailWide}`}>
+          <div className={styles.sectionHead}>
+            <div>
+              <h2>{t('admin.order.historyTitle')}</h2>
+            </div>
+          </div>
+          {order.events.length === 0 ? (
+            <EmptyState title={t('admin.order.noHistoryTitle')} body={t('admin.order.noHistoryBody')} icon="clock" />
+          ) : (
+            <ul className={styles.dividerList}>
+              {order.events.map((event) => (
+                <li className={styles.dividerItem} key={event.id}>
+                  <span className={styles.recordTitle}>
+                    {EVENT_KEYS[event.eventType] === undefined ? (
+                      <span className={styles.mono}>{event.eventType}</span>
+                    ) : (
+                      t(EVENT_KEYS[event.eventType] as TranslationKey)
+                    )}{' '}
+                    <span className={styles.tag}>{t(ACTOR_KEYS[event.actorType] ?? 'admin.order.actor.unknown')}</span>
+                  </span>
+                  <span className={styles.recordMeta}>
+                    {dateTime.format(new Date(event.occurredAt))}
+                    {event.toValue === null ? '' : ' - ' + event.toValue}
+                  </span>
+                  {event.reason !== null && <span className={styles.recordMeta}>{event.reason}</span>}
+                </li>
+              ))}
+            </ul>
+          )}
+
+          {!canReadAudit || order.audit === null ? (
+            <p className={styles.note}>{t('admin.order.auditPermission')}</p>
+          ) : (
+            <details className={styles.trailDetails}>
+              <summary>
+                <h2>{t('admin.order.auditTitle')}</h2>
+                <span className={styles.trailCount}>{order.audit.length}</span>
+              </summary>
+              {order.audit.length === 0 ? (
+                <EmptyState title={t('admin.order.noAuditTitle')} body={t('admin.order.noAuditBody')} icon="audit" />
+              ) : (
+                <ul className={styles.dividerList}>
+                  {order.audit.map((entry) => (
+                    <li className={styles.dividerItem} key={entry.id}>
+                      <span className={styles.recordTitle}>
+                        <span className={styles.tag}>{entry.action}</span>{' '}
+                        {entry.actorType === 'system'
+                          ? t('admin.audit.system')
+                          : t('admin.order.actor.staff') + ' #' + (entry.actorStaffId ?? '-')}
+                      </span>
+                      <span className={styles.recordMeta}>
+                        {dateTime.format(new Date(entry.occurredAt))}
+                        {entry.actorRoleCodes.length > 0 ? ' - ' + entry.actorRoleCodes.join(', ') : ''}
+                      </span>
+                      {entry.reason !== null && <span className={styles.recordMeta}>{entry.reason}</span>}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </details>
+          )}
+        </div>
       </div>
     </>
   );
