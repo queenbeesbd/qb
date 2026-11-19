@@ -41,17 +41,19 @@ const GROUP_KEYS: Record<AdminNavGroup, TranslationKey> = {
 /**
  * The authenticated application shell.
  *
- * **Desktop** keeps a lavender rail and a hairline top bar. **Below 1024px** the rail is replaced by
- * a fixed bottom tab bar - the pattern the owner asked for, and the one a phone in a shop actually
- * supports: four ranked destinations plus a More sheet. There is no drawer and no hamburger, because
- * two mobile navigation models would each have to be learned and maintained.
+ * **Desktop** keeps a persistent, grouped rail and a hairline top bar. **Below 1024px** the rail is
+ * replaced by two phone surfaces that answer different questions: a fixed bottom bar carries up to four
+ * ranked destinations (Overview, Orders, Products, Customers) plus a separate **Menu** control, and the
+ * Menu opens a side drawer holding the same grouped navigation the rail renders, the signed-in account,
+ * sign out and the storefront link. One information architecture, three placements: only the container
+ * changes with the viewport, never the groups, the order or the labels.
  *
- * The More sheet is the only modal surface here, so it is the only place that traps focus: opening it
- * moves focus to its close control, Escape closes it, and closing returns focus to the More tab.
- * Sign-out is a native form post, so it works without JavaScript and is CSRF-checked by the same
- * guard as every other mutation.
+ * The drawer is the only modal surface here, so it is the only place that traps focus: opening it moves
+ * focus to its close control, Escape closes it, the page behind is locked, a resize past 1023px closes
+ * it, and closing returns focus to the Menu control. Sign-out is a native form post, so it works without
+ * JavaScript and is CSRF-checked by the same guard as every other mutation.
  *
- * The destinations arrive already filtered by the session's permissions, so no tab can advertise a
+ * The destinations arrive already filtered by the session's permissions, so no entry can advertise a
  * refusal. This component is presentation only; every route re-checks its own permission.
  */
 export function AdminShell({
@@ -65,28 +67,35 @@ export function AdminShell({
 }) {
   const pathname = usePathname();
   const { t } = useTranslation();
-  const [moreOpen, setMoreOpen] = useState(false);
-  const moreButtonRef = useRef<HTMLButtonElement>(null);
-  const sheetRef = useRef<HTMLDivElement>(null);
-  const sheetCloseRef = useRef<HTMLButtonElement>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuButtonRef = useRef<HTMLButtonElement>(null);
+  const drawerRef = useRef<HTMLDivElement>(null);
+  const drawerCloseRef = useRef<HTMLButtonElement>(null);
+
 
   useEffect(() => {
-    if (!moreOpen) return;
-    const trigger = moreButtonRef.current;
-    sheetCloseRef.current?.focus();
+    if (!menuOpen) return;
+    const trigger = menuButtonRef.current;
     const { overflow } = document.body.style;
     document.body.style.overflow = 'hidden';
+    drawerCloseRef.current?.focus();
+    /*
+     * The owner opens this to reach a destination, so the row for the page they are already on is
+     * brought into view: twenty-odd rows in a 100dvh panel otherwise start at the top every time. The
+     * body is locked first, so revealing the row can only scroll the drawer.
+     */
+    drawerRef.current?.querySelector<HTMLElement>('[aria-current="page"]')?.scrollIntoView({ block: 'center' });
 
     const onKeyDown = (event: KeyboardEvent): void => {
       if (event.key === 'Escape') {
         event.preventDefault();
-        setMoreOpen(false);
+        setMenuOpen(false);
         return;
       }
       if (event.key !== 'Tab') return;
-      const sheet = sheetRef.current;
-      if (sheet === null) return;
-      const focusable = sheet.querySelectorAll<HTMLElement>(
+      const drawer = drawerRef.current;
+      if (drawer === null) return;
+      const focusable = drawer.querySelectorAll<HTMLElement>(
         'a[href], button:not([disabled]), input, select, textarea, summary',
       );
       if (focusable.length === 0) return;
@@ -105,11 +114,27 @@ export function AdminShell({
     return () => {
       document.removeEventListener('keydown', onKeyDown);
       document.body.style.overflow = overflow;
-      // Return to the control that opened the sheet. Clicking a button does not focus it, so saving
+      // Return to the control that opened the drawer. Clicking a button does not focus it, so saving
       // `document.activeElement` would restore focus to <body>.
       trigger?.focus();
     };
-  }, [moreOpen]);
+  }, [menuOpen]);
+  const closeForNavigation = (): void => setMenuOpen(false);
+
+
+  /*
+   * The drawer is a phone surface. The rail returns at 1024px, and an open drawer left behind would
+   * cover a workspace that already has its own navigation - so a resize past the breakpoint closes it.
+   */
+  useEffect(() => {
+    if (!menuOpen) return;
+    const query = window.matchMedia('(min-width: 1024px)');
+    const onChange = (): void => {
+      if (query.matches) setMenuOpen(false);
+    };
+    query.addEventListener('change', onChange);
+    return () => query.removeEventListener('change', onChange);
+  }, [menuOpen]);
 
   /*
    * A focused field must never sit underneath the fixed bottom bar.
@@ -183,17 +208,21 @@ export function AdminShell({
     .sort((a, b) => (a.mobileRank ?? 0) - (b.mobileRank ?? 0))
     .slice(0, 4);
   const primaryHrefs = new Set(primaryTabs.map((item) => item.href));
-  const moreActive = active !== undefined && !primaryHrefs.has(active.href);
+  // The current page lives in the drawer when the bar ranks no destination for it, so Menu carries the
+  // current-route mark rather than leaving the bar looking like it is on another tab.
+  const menuCurrent = active !== undefined && !primaryHrefs.has(active.href);
   const activeLabel = active === undefined ? t('admin.nav.overview') : t(active.labelKey);
 
   const renderNav = (onNavigate?: () => void) => (
-    <nav className={styles.nav} aria-label={t('admin.nav.label')}>
+    <nav className={styles.nav} aria-label={t('admin.nav.label')} data-admin-nav="">
       {GROUP_ORDER.map((group) => {
         const groupItems = items.filter((item) => item.group === group);
         if (groupItems.length === 0) return null;
         return (
-          <div className={styles.navGroup} key={group}>
-            <p className={styles.navGroupLabel}>{t(GROUP_KEYS[group])}</p>
+          <div className={styles.navGroup} key={group} data-admin-nav-group={group}>
+            <p className={styles.navGroupLabel} data-admin-nav-label="">
+              {t(GROUP_KEYS[group])}
+            </p>
             {groupItems.map((item) => {
               const isActive = active?.href === item.href;
               return (
@@ -203,6 +232,7 @@ export function AdminShell({
                   className={isActive ? `${styles.navLink} ${styles.navLinkActive}` : styles.navLink}
                   aria-current={isActive ? 'page' : undefined}
                   onClick={onNavigate}
+                  data-admin-nav-link=""
                 >
                   <AdminIcon name={item.icon} className={styles.navIcon} />
                   <span>{t(item.labelKey)}</span>
@@ -244,7 +274,8 @@ export function AdminShell({
 
         <ColdStartBackGuard parentHref={parentHref} />
         <NativeBackButton parentHref={parentHref} />
-      <div className={styles.workspace}>
+
+        <div className={styles.workspace}>
           <header className={styles.topbar}>
             <div className={styles.topbarInner}>
               <Link href="/qbpanel" className={`${styles.brand} ${styles.mobileBrand}`} aria-label={t('admin.nav.overview')}>
@@ -312,68 +343,92 @@ export function AdminShell({
       </div>
 
       <nav className={styles.bottomNav} aria-label={t('admin.nav.mobileLabel')} data-admin-bottom-nav>
-        {primaryTabs.map((tab) => {
-          const isActive = active?.href === tab.href;
-          return (
-            <Link
-              key={tab.href}
-              href={tab.href}
-              className={isActive ? `${styles.tab} ${styles.tabActive}` : styles.tab}
-              aria-current={isActive ? 'page' : undefined}
-            >
-              <AdminIcon name={tab.icon} className={styles.tabIcon} width={22} height={22} />
-              <span className={styles.tabLabel}>{t(tab.labelKey)}</span>
-            </Link>
-          );
-        })}
+        {/*
+          The destination cluster and the Menu control are separate shapes: four uniform links, then a
+          plate across a hairline. The menu is a control that opens a surface, not a fifth destination,
+          so it is not ranked by `mobileRank` and can never be displaced by adding one.
+        */}
+        <div className={styles.tabCluster}>
+          {primaryTabs.map((tab) => {
+            const isActive = active?.href === tab.href;
+            return (
+              <Link
+                key={tab.href}
+                href={tab.href}
+                className={isActive ? `${styles.tab} ${styles.tabActive}` : styles.tab}
+                aria-current={isActive ? 'page' : undefined}
+              >
+                <AdminIcon name={tab.icon} className={styles.tabIcon} width={22} height={22} />
+                <span className={styles.tabLabel}>{t(tab.labelKey)}</span>
+              </Link>
+            );
+          })}
+        </div>
+        <span className={styles.barDivider} aria-hidden="true" />
         <button
-          ref={moreButtonRef}
+          ref={menuButtonRef}
           type="button"
-          className={moreActive ? `${styles.tab} ${styles.tabActive}` : styles.tab}
-          aria-current={moreActive ? 'page' : undefined}
-          aria-expanded={moreOpen}
-          aria-controls="admin-more-sheet"
-          onClick={() => setMoreOpen(true)}
+          className={menuCurrent ? `${styles.menuPlate} ${styles.menuPlateCurrent}` : styles.menuPlate}
+          aria-current={menuCurrent ? 'page' : undefined}
+          aria-expanded={menuOpen}
+          aria-controls="admin-menu-drawer"
+          data-admin-menu-trigger=""
+          onClick={() => setMenuOpen(true)}
         >
-          <AdminIcon name="more" className={styles.tabIcon} width={22} height={22} />
-          <span className={styles.tabLabel}>{t('admin.nav.more')}</span>
+          <AdminIcon name="menu" className={styles.menuPlateIcon} width={20} height={20} />
+          <span className={styles.menuPlateLabel}>{t('nav.menu')}</span>
+          {menuCurrent && <span className={styles.menuPlateDot} aria-hidden="true" />}
         </button>
       </nav>
 
-      {moreOpen && (
+      {menuOpen && (
         <>
           <button
             type="button"
             className={styles.sheetBackdrop}
             aria-label={t('admin.nav.closeMenu')}
-            onClick={() => setMoreOpen(false)}
+            onClick={() => setMenuOpen(false)}
             tabIndex={-1}
           />
           <div
-            ref={sheetRef}
-            id="admin-more-sheet"
-            className={styles.moreSheet}
+            ref={drawerRef}
+            id="admin-menu-drawer"
+            className={styles.menuDrawer}
             role="dialog"
             aria-modal="true"
-            aria-labelledby="admin-more-title"
+            aria-labelledby="admin-menu-title"
+            data-admin-nav-drawer=""
           >
-            <span className={styles.sheetGrabber} aria-hidden="true" />
             <div className={styles.sheetHead}>
-              <h2 id="admin-more-title" className={styles.sheetTitle}>
+              <h2 id="admin-menu-title" className={styles.sheetTitle}>
                 {t('admin.more.title')}
               </h2>
               <button
-                ref={sheetCloseRef}
+                ref={drawerCloseRef}
                 type="button"
                 className={styles.sheetClose}
-                onClick={() => setMoreOpen(false)}
+                onClick={() => setMenuOpen(false)}
                 aria-label={t('admin.nav.closeMenu')}
               >
                 <AdminIcon name="close" />
               </button>
             </div>
             <div className={styles.sheetScroll}>
-              {renderNav(() => setMoreOpen(false))}
+              {/*
+                The same identity the rail's brand row and the account popover carry: the owner's logo,
+                the role-named surface, and who is signed in. It is what makes the drawer a place rather
+                than a list of links.
+              */}
+              <div className={styles.drawerIdentity}>
+                <span className={styles.brandMark} aria-hidden="true">
+                  <AdminBrandMark />
+                </span>
+                <div className={styles.drawerIdentityText}>
+                  <span className={styles.brandName}>QueenBee&apos;s</span>
+                  <span className={styles.brandArea}>{surfaceLabel}</span>
+                </div>
+              </div>
+              {renderNav(closeForNavigation)}
               <div className={styles.sheetAccount}>
                 <p className={styles.sheetAccountName}>{identity.displayName}</p>
                 <p className={styles.sheetAccountMeta}>{identity.email}</p>

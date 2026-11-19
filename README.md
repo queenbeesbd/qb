@@ -26,9 +26,11 @@ nothing is paid in the browser.
 
 - Overview with the COD worklist, refused actions and catalog counts; `/qbpanel/analytics` for the last
   7 / 30 / 90 days, derived from the shop's own rows.
-- Orders: the COD queue, the recallable order list, one order in full with its event history; approve,
-  cancel, dispatch, deliver, record a failed delivery, receive the return, mark Payment Received (which
-  completes the order) and record per-order courier costs.
+- Orders: one screen for the whole order surface - the COD queue's waiting and decided-today filters sit
+  above the recallable order history, and a pending approval keeps its inline Accept / Cancel controls -
+  plus one order in full with its event history; approve, cancel, dispatch, deliver, record a failed
+  delivery, receive the return, mark Payment Received (which completes the order) and record per-order
+  courier costs. There is no separate COD page: `/qbpanel/orders-cod` is retired.
 - Catalog: products (create, edit, availability, image association), categories, brands.
 - Customers, promo codes, delivery charges, announcement bar, integrations, audit trail, owner accounts.
 
@@ -90,7 +92,7 @@ channel.
 | `/account`, `/account/login`, `/account/register`, `/account/recover` | Customer session and the owner-issued reset |
 | `/account/orders`, `/orders/[orderNumber]` | The customer's own order list, and the receipt for one order. The receipt is the canonical route for **both** viewers: a guest reaches it by its own number, a customer through the list, and another customer's number is a 404. `/account/orders/[orderNumber]` redirects to it. |
 | `/qbpanel` | Overview: COD worklist, refused actions, catalog counts |
-| `/qbpanel/orders-cod`, `/qbpanel/orders`, `/qbpanel/orders/[orderNumber]` | The COD queue, order history, one order in full |
+| `/qbpanel/orders`, `/qbpanel/orders?view=waiting\|decided`, `/qbpanel/orders/[orderNumber]` | The order surface: COD waiting and decided worklists merged into the order history, and one order in full. `/qbpanel/orders-cod` is retired and returns 404; the decision endpoint `/api/qbpanel/orders-cod` remains |
 | `/qbpanel/catalog`, `/qbpanel/catalog/new`, `/qbpanel/catalog/[productId]` | Products: list and full-height editor |
 | `/qbpanel/categories`, `/qbpanel/promo-codes`, `/qbpanel/customers` | Taxonomy, codes and the customer list |
 | `/qbpanel/analytics`, `/qbpanel/audit`, `/qbpanel/owners` | Derived figures, the audit trail, owner accounts |
@@ -98,7 +100,10 @@ channel.
 | `/api/...` | Every mutation: checkout, account, and the `/api/qbpanel/*` routes behind a session and a permission |
 
 The admin surface uses **one control scale** (40px / 34px, and 40px for both on a phone) and the
-storefront **never lets a phone zoom the page** - see [design system](docs/design-system.md).
+storefront **never lets a phone zoom the page** - see [design system](docs/design-system.md). Below
+1024px the panel's navigation is a fixed bar of four ranked destinations plus a **Menu** control that
+opens the grouped drawer (the same permission-filtered groups the desktop rail lists); the drawer traps
+focus, closes on Escape and returns focus to the Menu control.
 
 ## Project layout
 

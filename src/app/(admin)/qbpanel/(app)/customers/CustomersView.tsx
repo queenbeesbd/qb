@@ -36,6 +36,25 @@ const NOTICE_KEYS: Record<CustomerNotice, TranslationKey> = {
 };
 
 /**
+ * The avatar is a monogram, never a photograph: a customer account has no image, and two letters are
+ * what makes a column of accounts scannable. The display name gives the initials; an account without
+ * one falls back to the start of the phone number or the email, which are the only identifiers the
+ * list holds.
+ */
+function monogram(row: CustomerRow): string {
+  const name = row.displayName?.trim() ?? '';
+  if (name !== '') {
+    const words = name.split(/\s+/).filter((word) => word !== '');
+    const first = words[0] ?? '';
+    const second = words[1] ?? '';
+    const letters = second === '' ? first.slice(0, 2) : first.slice(0, 1) + second.slice(0, 1);
+    return letters === '' ? '?' : letters.toUpperCase();
+  }
+  const fallback = (row.phone ?? row.email ?? '').slice(0, 2).toUpperCase();
+  return fallback === '' ? '?' : fallback;
+}
+
+/**
  * Customer moderation.
  *
  * Lookup, standing, order count and the two standing actions. Not a CRM, and not a role or permission
@@ -116,15 +135,30 @@ export function CustomersView({
         <ul className={styles.recordList} data-admin-list="">
           {rows.map((row) => {
             const active = row.status === 'active';
+            const name = row.displayName ?? row.phone ?? row.email ?? '?';
             return (
-              <li className={styles.record} key={row.customerId}>
+              /*
+                One dense line per account, and the line itself opens the customer - the reference's
+                customer list is read by scanning rows, not by aiming at a "View" link. The row is
+                still a `<li>` in `[data-admin-list]`, and the link is a single empty anchor stretched
+                over it (`position: absolute; inset: 0`) rather than a wrapper: the reasoned
+                ban/restore forms are siblings of that anchor, never nested inside a link, so each
+                control keeps its own activation and its dialog's Tab trap. The action container is
+                raised above the overlay (it is a positioned sibling later in tree order) so a click
+                on Suspend/Restore reaches the button, and the overlay's own name is the row's
+                accessible name instead of a screen reader hearing "View" on every row.
+              */
+              <li className={styles.record} key={row.customerId} style={{ position: 'relative' }}>
+                <Link
+                  aria-label={`${t('admin.customers.view')} ${name}`}
+                  href={`/qbpanel/customers/${row.customerId}`}
+                  style={{ position: 'absolute', inset: 0, zIndex: 0, outlineOffset: '-2px' }}
+                />
                 <span className={styles.recordThumb} aria-hidden="true">
-                  {(row.displayName ?? row.phone ?? row.email ?? '?').slice(0, 1).toUpperCase()}
+                  {monogram(row)}
                 </span>
                 <div className={styles.recordMain}>
-                  <span className={styles.recordTitle}>
-                    {row.displayName ?? row.phone ?? row.email}
-                  </span>
+                  <span className={styles.recordTitle}>{name}</span>
                   <span className={styles.recordMeta}>
                     {row.phone !== null && <span>{row.phone}</span>}
                     {row.email !== null && <span>{row.email}</span>}
@@ -137,16 +171,14 @@ export function CustomersView({
                     {active ? t('admin.customers.active') : t('admin.customers.suspended')}
                   </StatusPill>
                   {row.flagged && <StatusPill tone="warning">{t('admin.customers.flagged')}</StatusPill>}
-                  <div className={styles.recordActions}>
-                    <Link className={styles.recordLink} href={`/qbpanel/customers/${row.customerId}`}>
-                      {t('admin.customers.view')}
-                    </Link>
+                  <div className={styles.recordActions} style={{ position: 'relative' }}>
                     {canSuspend && active && (
                       <ConfirmSubmit
                         action="/api/qbpanel/customers"
                         csrfToken={csrfToken}
                         fields={{ customerId: row.customerId, operation: 'ban' }}
                         triggerLabel={t('admin.customers.suspend')}
+                        small
                         title={t('admin.customers.suspendTitle')}
                         body={t('admin.customers.suspendBody')}
                         confirmLabel={t('admin.customers.suspend')}
@@ -168,6 +200,7 @@ export function CustomersView({
                         fields={{ customerId: row.customerId, operation: 'restore' }}
                         triggerLabel={t('admin.customers.restore')}
                         triggerVariant="secondary"
+                        small
                         title={t('admin.customers.restoreTitle')}
                         body={t('admin.customers.restoreBody')}
                         confirmLabel={t('admin.customers.restore')}

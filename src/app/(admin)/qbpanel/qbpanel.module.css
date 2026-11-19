@@ -40,8 +40,8 @@
   color: var(--admin-ink);
   display: flex;
   flex-direction: column;
-  gap: var(--space-5);
-  padding: var(--space-5) var(--space-3) var(--space-4);
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-3) var(--space-4);
   position: sticky;
   top: 0;
   height: 100vh;
@@ -109,18 +109,31 @@
 
 .nav {
   display: grid;
-  gap: var(--space-4);
+  gap: var(--space-2);
   align-content: start;
+  min-width: 0;
 }
 
+/*
+ * A group is an inset card, not a run of rows separated by air.
+ *
+ * The rail is the panel's contents page, and a reader scanning it needs the division before the
+ * destinations: a quiet surface, a hairline and one micro-label per group do that with no extra
+ * chrome. The same class is drawn inside the phone drawer, where the grouping is the whole point of
+ * the drawer existing.
+ */
 .navGroup {
   display: grid;
   gap: 2px;
+  padding: var(--space-2);
+  background: var(--admin-surface-soft);
+  border: 1px solid var(--admin-line);
+  border-radius: var(--admin-radius-control);
 }
 
 .navGroupLabel {
-  margin: 0 0 var(--space-2);
-  padding: 0 var(--space-3);
+  margin: 0 0 var(--space-1);
+  padding: 0 var(--space-2);
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.08em;
@@ -149,8 +162,12 @@ html[lang='bn'] .navGroupLabel {
   transition: background-color 140ms ease, color 140ms ease;
 }
 
+/*
+ * A row sits on a group card, so its hover is a step *up* the surface ladder - a white field - rather
+ * than the group's own soft tint, which would have made hover invisible on the rail.
+ */
 .navLink:hover {
-  background: var(--admin-surface-soft);
+  background: var(--admin-surface);
   color: var(--admin-ink);
 }
 
@@ -176,6 +193,32 @@ html[lang='bn'] .navGroupLabel {
 
 .navLinkActive .navIcon {
   opacity: 1;
+}
+
+/*
+ * The dense desktop rail (Zatiq's 32px cadence, at this shop's 40px touch floor).
+ *
+ * Between 1024 and 1279px the rail and the workspace compete for a laptop screen, so the groups close
+ * up: less air between cards, tighter row padding and a smaller group gap. The row height stays at the
+ * control floor - a rail row is still something a finger may hit on a touch laptop.
+ */
+@media (min-width: 1024px) and (max-width: 1279px) {
+  .nav {
+    gap: var(--space-1);
+  }
+
+  .navGroup {
+    padding: 6px;
+  }
+
+  .navLink {
+    padding-inline: var(--space-2);
+  }
+
+  .navGroupLabel {
+    margin-bottom: 2px;
+    padding-inline: var(--space-2);
+  }
 }
 
 .sidebarFoot {
@@ -387,6 +430,92 @@ html[lang='bn'] .navGroupLabel {
   display: none;
 }
 
+/*
+ * The bar's four destinations: a capped, centred cluster rather than five equal fifths.
+ *
+ * `minmax(4.25rem, 1fr)` is what keeps three tabs from becoming three 300px slabs on a 1023px tablet,
+ * and what lets a bar be legitimately shorter than four (a moderator without a permission). Labels
+ * never truncate: a primary label is short by contract, so the tab is sized to the word.
+ */
+.tabCluster {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(4.25rem, 1fr);
+  max-inline-size: 30rem;
+  margin-inline: auto;
+}
+
+/* The hairline that separates the destinations from the control that opens the rest. */
+.barDivider {
+  width: 1px;
+  height: 24px;
+  margin-inline: var(--space-2);
+  background: rgb(32 26 41 / 0.18);
+}
+
+/*
+ * The Menu plate: a control, not a fifth destination.
+ *
+ * It carries a bordered surface and a 20px glyph on one line where the tabs carry an icon over a label,
+ * so it reads as a door rather than another room. The current-route mark is a dot, because the tab's
+ * top rule would claim the plate is the current page.
+ */
+.menuPlate {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-width: 3.5rem;
+  min-height: var(--admin-control);
+  padding: 0 var(--space-3);
+  border: 1px solid rgb(32 26 41 / 0.18);
+  border-radius: var(--admin-radius-control);
+  background: color-mix(in srgb, var(--admin-surface) 92%, transparent);
+  color: var(--admin-ink);
+  font: inherit;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.menuPlate:hover {
+  background: var(--admin-surface);
+}
+
+.menuPlate:active {
+  background: var(--admin-surface-soft);
+}
+
+.menuPlateCurrent {
+  background: var(--admin-lavender-soft);
+}
+
+.menuPlateCurrent .menuPlateIcon {
+  color: var(--color-action);
+}
+
+.menuPlateIcon {
+  flex: none;
+}
+
+.menuPlateLabel {
+  line-height: 1;
+  white-space: nowrap;
+}
+
+/* The "you are somewhere inside this menu" mark, drawn to match the tabs' indicator in weight. */
+.menuPlateDot {
+  position: absolute;
+  top: 5px;
+  inset-inline-end: 6px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-action);
+}
+
 .tab {
   position: relative;
   display: grid;
@@ -432,39 +561,44 @@ html[lang='bn'] .navGroupLabel {
   font-size: 0.6875rem;
   font-weight: 600;
   line-height: 1;
+  white-space: nowrap;
 }
 
 .sheetBackdrop {
   position: fixed;
   inset: 0;
   z-index: 60;
+  width: 100%;
   border: 0;
   padding: 0;
   background: rgba(32, 26, 41, 0.48);
   animation: fade-in 160ms ease-out;
 }
 
-.moreSheet {
+/*
+ * The menu drawer: the rail's narrow-screen presentation, not a second navigation model.
+ *
+ * It is a **side** sheet, opened from the inline end because its trigger (the Menu control) is the last
+ * thing in the bar. `inset-inline-end` and the logical corner radii mean a future RTL layout mirrors
+ * without a second rule. Full height and modal: the bar sits behind the backdrop rather than looking
+ * live under a dialog that declares the page inert.
+ */
+.menuDrawer {
   position: fixed;
-  inset-inline: 0;
-  bottom: 0;
+  inset-block: 0;
+  inset-inline-end: 0;
   z-index: 61;
   display: grid;
-  grid-template-rows: auto auto minmax(0, 1fr);
-  max-height: 86dvh;
+  grid-template-rows: auto minmax(0, 1fr);
+  width: min(88vw, 22rem);
+  height: 100vh;
+  height: 100dvh;
   background: var(--admin-surface);
-  border-radius: 24px 24px 0 0;
-  box-shadow: 0 -12px 40px rgba(32, 26, 41, 0.18);
+  border-start-start-radius: var(--admin-radius-card);
+  border-end-start-radius: var(--admin-radius-card);
+  box-shadow: var(--admin-shadow-pop);
   padding-bottom: env(safe-area-inset-bottom);
-  animation: sheet-up 220ms var(--ease-drawer);
-}
-
-.sheetGrabber {
-  width: 36px;
-  height: 4px;
-  margin: 8px auto 0;
-  border-radius: var(--radius-pill);
-  background: var(--admin-line-strong);
+  animation: drawer-in 220ms var(--ease-drawer);
 }
 
 .sheetHead {
@@ -472,13 +606,32 @@ html[lang='bn'] .navGroupLabel {
   align-items: center;
   justify-content: space-between;
   gap: var(--space-4);
-  padding: var(--space-1) var(--space-5) var(--space-3);
+  min-height: 3.5rem;
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--admin-line);
 }
 
 .sheetTitle {
   margin: 0;
   font-size: var(--text-lg);
   letter-spacing: -0.01em;
+}
+
+/*
+ * The drawer's identity block: the same logo, surface name and sign-in the rail's brand row carries, so
+ * the drawer states whose panel this is before it lists anywhere to go.
+ */
+.drawerIdentity {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.drawerIdentityText {
+  display: grid;
+  min-width: 0;
+  line-height: 1.15;
 }
 
 .sheetClose {
@@ -499,12 +652,14 @@ html[lang='bn'] .navGroupLabel {
 
 .sheetScroll {
   display: grid;
-  gap: var(--space-5);
-  padding: 0 var(--space-4) var(--space-5);
+  gap: var(--space-4);
+  align-content: start;
+  padding: var(--space-4);
   overflow-y: auto;
   overscroll-behavior: contain;
 }
 
+/* The signed-in account, the sign-out form and the storefront link: the drawer's foot. */
 .sheetAccount {
   display: grid;
   gap: 2px;
@@ -546,6 +701,22 @@ html[lang='bn'] .navGroupLabel {
   text-underline-offset: 3px;
 }
 
+/*
+ * The drawer's rows are a touch target on a phone, not a dense rail.
+ *
+ * A link is not a control, so this does not touch the documented two-height control scale; it is the
+ * touch-target floor for a list the owner reads with a thumb. From 720px the rail's own 40px row applies.
+ */
+@media (max-width: 720px) {
+  .sheetScroll .navLink {
+    min-height: 44px;
+  }
+
+  .sheetScroll .navGroupLabel {
+    padding-inline: var(--space-2);
+  }
+}
+
 @keyframes fade-in {
   from {
     opacity: 0;
@@ -555,15 +726,31 @@ html[lang='bn'] .navGroupLabel {
   }
 }
 
-@keyframes sheet-up {
+/*
+ * The drawer slides in from the edge its trigger sits on. Only `transform` is animated, so the panel
+ * never reflows; the global reduced-motion rule collapses it to a state change.
+ */
+@keyframes drawer-in {
   from {
-    opacity: 0.4;
-    transform: translateY(18px);
+    transform: translateX(100%);
   }
   to {
-    opacity: 1;
     transform: none;
   }
+}
+
+/* In RTL the inline end is the left edge, so the panel enters from the other side. */
+@keyframes drawer-in-rtl {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: none;
+  }
+}
+
+html[dir='rtl'] .menuDrawer {
+  animation-name: drawer-in-rtl;
 }
 
 /* ---- Page ---------------------------------------------------------------- */
@@ -4713,14 +4900,15 @@ a.rankName:hover {
 
   .bottomNav {
     display: grid;
-    grid-auto-flow: column;
-    grid-auto-columns: minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    align-items: center;
     position: fixed;
     inset-inline: 0;
     bottom: 0;
     z-index: 45;
     background: var(--brand-primary);
     border-top: 0;
+    padding-inline: var(--space-2);
     padding-bottom: env(safe-area-inset-bottom);
   }
 
@@ -4936,6 +5124,45 @@ a.rankName:hover {
 @media (max-width: 480px) {
   .accountName {
     display: none;
+  }
+
+  /*
+   * A 360px bar: four tabs plus a labelled Menu plate is ~13px too wide, so the plate keeps its 40px
+   * hit area and drops the word. The word stays in the markup as the control's accessible name - hidden
+   * from sight, not from a screen reader - rather than the control shrinking below the touch floor.
+   */
+  .menuPlate {
+    min-width: var(--admin-control);
+    padding: 0;
+  }
+
+  /*
+   * The bar's inner padding closes up so the four labels still fit a 320px screen without shrinking a
+   * tab below the word: the words are the navigation, and an ellipsised "Cust…" is not a destination.
+   */
+  .bottomNav {
+    padding-inline: var(--space-1);
+  }
+
+  .barDivider {
+    margin-inline: var(--space-1);
+  }
+
+  .menuPlateLabel {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .tabCluster {
+    grid-auto-columns: minmax(0, 1fr);
+  }
+
+  .tabLabel {
+    font-size: 0.625rem;
   }
 
   .toolbarMeta {

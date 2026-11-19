@@ -7,7 +7,6 @@ import {
   BRANDS_PATH,
   CATALOG_PATH,
   CATEGORIES_PATH,
-  COD_PATH,
   CUSTOMERS_PATH,
   ANNOUNCEMENT_SETTINGS_PATH,
   CONTACT_SETTINGS_PATH,
@@ -77,19 +76,18 @@ export default async function AdminShellLayout({ children }: { children: React.R
     items.push({ href: ANALYTICS_PATH, labelKey: 'admin.nav.analytics', group: 'overview', icon: 'analytics' });
     // Directly under Analitics in the same group: the shop's own readers, as a fact of their own.
     items.push({ href: TRAFFIC_PATH, labelKey: 'admin.nav.traffic', group: 'overview', icon: 'overview' });
-    items.push({
-      href: COD_PATH,
-      labelKey: 'admin.nav.cod',
-      group: 'commerce',
-      icon: 'orders',
-      mobileRank: 2,
-    });
+    /*
+     * Orders is the second destination on the phone bar (owner direction, 2026-11-19): the bar carries
+     * the four places the panel is opened for - Overview, Orders, Products, Customers. The COD decision
+     * queue is folded into the order screen rather than kept as a rail entry of its own, so no
+     * destination here points at `/qbpanel/orders-cod`.
+     */
     items.push({
       href: ORDERS_PATH,
       labelKey: 'admin.nav.orders',
       group: 'commerce',
       icon: 'list',
-      mobileRank: 4,
+      mobileRank: 2,
     });
   }
   if (hasPermission(principal, PERMISSIONS.catalogWrite)) {
@@ -131,7 +129,13 @@ export default async function AdminShellLayout({ children }: { children: React.R
     });
   }
   if (hasPermission(principal, PERMISSIONS.customerRead)) {
-    items.push({ href: CUSTOMERS_PATH, labelKey: 'admin.nav.customers', group: 'customers', icon: 'customers' });
+    items.push({
+      href: CUSTOMERS_PATH,
+      labelKey: 'admin.nav.customers',
+      group: 'customers',
+      icon: 'customers',
+      mobileRank: 4,
+    });
   }
   if (hasPermission(principal, PERMISSIONS.settingsWrite)) {
     items.push({

@@ -91,10 +91,13 @@ export default async function AdminOrderDetailPage({
 
   const detail = data.detail;
   const canReadCustomers = hasPermission(principal, PERMISSIONS.customerRead);
-  const returnTo =
-    single(query.from) === 'queue'
-      ? { href: '/qbpanel/orders-cod', labelKey: 'admin.order.backToQueue' as const }
-      : { href: '/qbpanel/orders', labelKey: 'admin.order.back' as const };
+  /*
+   * The return link always goes to the one Orders screen (owner-approved merge, 2026-11-19). `from`
+   * is still read so a link written before the merge, or by a hand-edited URL, lands on the history
+   * rather than failing - but no destination in the app points at the retired COD route any more, so
+   * there is only one label: back to orders.
+   */
+  const returnTo = { href: '/qbpanel/orders', labelKey: 'admin.order.back' as const };
 
   return (
     <AdminOrderDetailView

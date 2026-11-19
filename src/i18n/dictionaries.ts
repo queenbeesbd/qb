@@ -417,7 +417,6 @@ export const dictionary = {
 
   'admin.nav.label': 'Admin navigation',
   'admin.nav.mobileLabel': 'Admin sections',
-  'admin.nav.more': 'More',
   'admin.nav.overview': 'Overview',
   'admin.nav.analytics': 'Analytics',
   'admin.nav.traffic': 'Traffic',
@@ -427,7 +426,6 @@ export const dictionary = {
   'admin.nav.brands': 'Brands',
   'admin.nav.owners': 'Owner accounts',
   'admin.nav.audit': 'Audit trail',
-  'admin.nav.cod': 'COD orders',
   'admin.nav.orders': 'All orders',
   'admin.nav.customers': 'Customers',
   'admin.nav.delivery': 'Delivery charges',
@@ -1138,7 +1136,6 @@ export const dictionary = {
 
   'admin.order.eyebrow': 'Order',
   'admin.order.back': 'Back to orders',
-  'admin.order.backToQueue': 'Back to the COD queue',
   'admin.order.status': 'Status',
   'admin.order.paymentState': 'Payment state',
   'admin.order.confirmedAt': 'Confirmed',

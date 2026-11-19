@@ -380,6 +380,13 @@ export type AdminOrderRow = {
    */
   readonly shippingMinor: number;
   readonly itemCount: number;
+  /**
+   * The first recorded order line, for the history card's photo. The image is the frozen
+   * `order_item.image_key_snapshot`, so a list shows the bottle that was bought rather than the
+   * catalog's current picture; it is `null` when that line stored no snapshot.
+   */
+  readonly firstItemImageKey: string | null;
+  readonly firstItemName: string;
 };
 
 export type AdminOrderPage = {
@@ -458,6 +465,18 @@ export async function listOrdersForAdmin(
       // so this cannot drift from what the order says it contains.
       itemCount: sql<number>`(
         select count(*)::int from "order_item" where "order_item"."order_id" = "order"."id"
+      )`,
+      // The card's photograph: the first recorded line's frozen snapshot, read in the same query so
+      // the history never needs a second round trip per row.
+      firstItemImageKey: sql<string | null>`(
+        select "order_item"."image_key_snapshot" from "order_item"
+        where "order_item"."order_id" = "order"."id"
+        order by "order_item"."id" limit 1
+      )`,
+      firstItemName: sql<string>`(
+        select coalesce("order_item"."product_name_en", '') from "order_item"
+        where "order_item"."order_id" = "order"."id"
+        order by "order_item"."id" limit 1
       )`,
     })
     .from(order)

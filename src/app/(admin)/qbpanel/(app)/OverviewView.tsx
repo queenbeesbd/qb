@@ -4,6 +4,7 @@ import Link from 'next/link';
 
 import { useTranslation } from '@/i18n/useTranslation';
 import { INTL_LOCALE } from '@/i18n/config';
+import { ORDERS_PATH } from '@/server/auth/constants';
 import { statusLabel } from '@/features/account/order-labels';
 import { AreaChart, DonutChart, Sparkline, type ChartTone } from '../_ui/charts';
 import { AdminIcon } from '../_ui/icons';
@@ -271,7 +272,7 @@ export function OverviewView({
                   {t('admin.overview.worklistTitle')}
                 </h2>
                 {pendingCount > 0 && <span className={styles.queueBadge}>{pendingCount}</span>}
-                <Link className={styles.queueLink} href="/qbpanel/orders-cod">
+                <Link className={styles.queueLink} href={ORDERS_PATH}>
                   {t('admin.overview.viewQueue')}
                   <span aria-hidden="true">→</span>
                 </Link>
@@ -298,7 +299,7 @@ export function OverviewView({
               {moreCount > 0 && (
                 <p className={styles.queueMore}>
                   {t('admin.overview.moreInQueue', { count: moreCount })}{' '}
-                  <Link href="/qbpanel/orders-cod">{t('admin.overview.viewQueue')}</Link>
+                  <Link href={ORDERS_PATH}>{t('admin.overview.viewQueue')}</Link>
                 </p>
               )}
             </div>
@@ -435,7 +436,7 @@ export function OverviewView({
                 {t('admin.overview.recentTitle')}
               </h2>
               {canReadOrders && (
-                <Link className={styles.sectionLink} href="/qbpanel/orders">
+                <Link className={styles.sectionLink} href={ORDERS_PATH}>
                   {t('admin.overview.recentLink')}
                 </Link>
               )}
@@ -459,7 +460,7 @@ export function OverviewView({
                         </span>
                         <Link
                           className={`${styles.mono} ${styles.recentRef}`}
-                          href={`/qbpanel/orders/${row.orderNumber}`}
+                          href={`${ORDERS_PATH}/${row.orderNumber}`}
                         >
                           {row.orderNumber}
                         </Link>
@@ -514,7 +515,7 @@ export function OverviewView({
                 <h2 id="revenue-heading" className={styles.panelTitle}>
                   {t('admin.overview.revenueTitle')}
                 </h2>
-                <Link className={styles.sectionLink} href="/qbpanel/orders">
+                <Link className={styles.sectionLink} href={ORDERS_PATH}>
                   {t('admin.overview.revenueLink')}
                 </Link>
               </div>
@@ -682,11 +683,11 @@ export function OverviewView({
               </Link>
             )}
             {canReadOrders && (
-              <Link className={styles.quickAction} href="/qbpanel/orders-cod">
+              <Link className={styles.quickAction} href={ORDERS_PATH}>
                 <span className={styles.quickIcon} data-tone="blue" aria-hidden="true">
                   <AdminIcon name="orders" width={18} height={18} />
                 </span>
-                {t('admin.overview.quickCod')}
+                {t('admin.nav.orders')}
               </Link>
             )}
             {canReadCatalog && (

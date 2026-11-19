@@ -57,7 +57,7 @@ import { OWNER_ROLE, PERMISSIONS } from '../src/server/authz/permissions';
 import { listAssetKeys } from '../src/server/catalog/assets';
 import { checkOrderability } from '../src/server/catalog/orderability';
 import { resetServerEnvCache } from '../src/server/env';
-import { revenueSummary } from '../src/server/orders/qbpanel-read';
+import { codQueue, revenueSummary } from '../src/server/orders/qbpanel-read';
 
 const OWNER_EMAIL = 'owner@verify.test';
 const OWNER_PASSWORD = 'verify-owner-password-1';
@@ -1011,20 +1011,49 @@ async function main(): Promise<void> {
           `status ${response.status}`,
         );
       }
+      /*
+       * The COD queue is no longer its own destination (owner-approved redesign, 2026-11-19). One
+       * Orders screen carries the worklist and the history, so the rail must link it and must not
+       * point at the retired queue route any more.
+       */
       record(
-        'the owner navigation links the COD worklist and no prepaid verification screen',
-        overview.body.includes('href="/qbpanel/orders-cod"') && !overview.body.includes('/qbpanel/payments'),
-        'COD link shown; no payment-verification link',
+        'the owner navigation links the one Orders screen and no retired COD queue',
+        overview.body.includes('href="/qbpanel/orders"') &&
+          !overview.body.includes('href="/qbpanel/orders-cod"') &&
+          !overview.body.includes('/qbpanel/payments'),
+        'Orders link shown; no COD queue, no payment-verification link',
       );
       record(
         'no admin page offers a prepaid recipient form',
         !limitedShellPage.body.includes('payment-recipient') && !overview.body.includes('payment-recipient'),
         'no recipient control in the shell',
-      );      // ---- Phase 17: the COD worklist end to end over HTTP ----
-      //
-      // The queue read, the route guard, the decision and its effect are separate things, and only a
-      // served request exercises all four. A COD order is seeded directly (the customer flow that
-      // creates one is verified by verify:storefront); the owner then decides it through the route.
+      );      /*
+       * ---- Phase 52b: the retired COD queue, and one Orders worklist over HTTP ----
+       *
+       * The queue read, the route guard, the decision and its effect are separate things, and only a
+       * served request exercises all four. A COD order is seeded directly (the customer flow that
+       * creates one is verified by verify:storefront); the owner then decides it through the route.
+       *
+       * The separate `/qbpanel/orders-cod` screen was retired in the owner-approved redesign of
+       * 2026-11-19: the worklist lives on the one Orders screen, and a retired route must 404 rather
+       * than alias, because a page that still answered would still be an administrative surface.
+       */
+      const retiredCodPage = await call(base, '/qbpanel/orders-cod', { jar: ownerJar });
+      const retiredCodAnonymous = await call(base, '/qbpanel/orders-cod');
+      record(
+        'the retired COD queue page is a 404 for the owner and for an anonymous request',
+        retiredCodPage.status === 404 && retiredCodAnonymous.status !== 200,
+        `owner ${retiredCodPage.status}, anonymous ${retiredCodAnonymous.status}`,
+      );
+
+      /*
+       * The recorded photograph the worklist card draws comes from the order line's own snapshot, so
+       * the fixture stores a real catalog asset key when one exists. Nothing invents a URL: the key is
+       * read from the same local catalog the product editor lists, and a catalog with no asset leaves
+       * the snapshot null, which the assertion below states rather than papers over.
+       */
+      const seededAssetKey = (await listAssetKeys())[0] ?? null;
+
       const codSeed = await withTransaction(async (tx) => {
         const customerRow = await tx
           .insert(customer)
@@ -1057,16 +1086,124 @@ async function main(): Promise<void> {
           area: 'Dhanmondi',
           city: 'Dhaka',
         });
-        return { customerId, orderId, orderNumber };
+        /*
+         * Any product's default variant will do: the order line is a snapshot, and this fixture is about
+         * what the worklist card renders, not about which product it is.
+         */
+        const variant = await tx
+          .select({ id: productVariant.id })
+          .from(productVariant)
+          .where(sql`${productVariant.isDefault}`)
+          .limit(1);
+        if (variant[0] !== undefined) {
+          await tx.insert(orderItem).values({
+            orderId,
+            variantId: variant[0].id,
+            productNameBn: 'যাচাই পণ্য',
+            productNameEn: 'Verify COD Product',
+            sku: 'VERIFY-COD-SKU',
+            unitPriceMinor: 10000,
+            quantity: 1,
+            lineTotalMinor: 10000,
+            imageKeySnapshot: seededAssetKey,
+          });
+        }
+        return { customerId, orderId, orderNumber, assetKey: snapshot[0]?.imageKey ?? null, lineCount: snapshot.length };
       });
 
-      const codPage = await call(base, '/qbpanel/orders-cod', { jar: ownerJar });
+      // The worklist on the one Orders screen: the waiting view is where a pending approval lives.
+      const waitingList = await call(base, '/qbpanel/orders?view=waiting', { jar: ownerJar });
       record(
-        'the owner sees a pending COD order in the COD worklist with a decision form',
-        codPage.status === 200 &&
-          codPage.body.includes(codSeed.orderNumber) &&
-          codPage.body.includes('/api/qbpanel/orders-cod'),
-        `status ${codPage.status}, order shown: ${codPage.body.includes(codSeed.orderNumber)}`,
+        'the owner sees a pending COD order in the All Orders worklist with a decision form',
+        waitingList.status === 200 &&
+          waitingList.body.includes(codSeed.orderNumber) &&
+          waitingList.body.includes('/api/qbpanel/orders-cod') &&
+          // The card is marked as a worklist card, and both decisions target the guarded endpoint - the
+          // decision path did not move with the screen.
+          waitingList.body.includes('data-cod-card') &&
+          waitingList.body.includes('name="decision" value="approve"') &&
+          waitingList.body.includes('name="decision" value="reject"'),
+        `status ${waitingList.status}, order shown: ${waitingList.body.includes(codSeed.orderNumber)}`,
+      );
+
+      /*
+       * The photograph is asserted only when the fixture actually stored a key, and only inside the
+       * fixture's own card: other seeded orders may also be waiting, so a page-wide absence would be a
+       * statement about them rather than about this screen. An order line with a null snapshot draws no
+       * tile on purpose, so when the catalog holds no asset the check claims nothing.
+       */
+      const cardWindow = (orderNumber: string, html: string): string => {
+        const cards = html.matchAll(/<article\b[^>]*data-cod-card[^>]*>[\s\S]*?<\/article>/g);
+        for (const card of cards) {
+          if (card[0]?.includes(orderNumber)) return card[0];
+        }
+        return '';
+      };
+      const seededCard = cardWindow(codSeed.orderNumber, waitingList.body);
+      record(
+        'a waiting card draws the order line photo only when the line stored a snapshot',
+        codSeed.assetKey === null || seededCard.includes('data-item-photo="compact"'),
+        codSeed.assetKey === null
+          ? 'the catalog holds no asset, so no snapshot was seeded and no photograph is claimed'
+          : `snapshot ${codSeed.assetKey} rendered on the card`,
+      );
+
+      /*
+       * The card's open area is a link to the same order's detail, and it is a sibling of the decision
+       * forms rather than their wrapper. The markup assertion is what keeps an approval from also
+       * navigating: an approve form nested inside the card's anchor would submit through the link.
+       */
+      record(
+        'the worklist card opens the order detail from its own link, outside the decision forms',
+        waitingList.body.includes('data-cod-card-link') &&
+          waitingList.body.includes('/qbpanel/orders/' + codSeed.orderNumber) &&
+          !/<a[^>]*>\s*<form[^>]*action="\/api\/qbpanel\/orders-cod"/.test(waitingList.body),
+        'detail link present; no decision form nested inside an anchor',
+      );
+
+      // A decided order leaves the waiting worklist and appears under the decided view.
+      const decidedBefore = await call(base, '/qbpanel/orders?view=decided', { jar: ownerJar });
+      record(
+        'a still-pending order is not listed among what was decided today',
+        decidedBefore.status === 200 && !decidedBefore.body.includes(codSeed.orderNumber),
+        `status ${decidedBefore.status}, pending order listed as decided: ${decidedBefore.body.includes(codSeed.orderNumber)}`,
+      );
+
+      // The lifecycle filters the merged screen must not have swallowed.
+      const lifecycleFilters = await Promise.all(
+        (['pending', 'confirmed', 'shipped', 'delivered', 'completed', 'cancelled', 'returned'] as const).map(
+          (value) => call(base, '/qbpanel/orders?filter=' + value, { jar: ownerJar }),
+        ),
+      );
+      record(
+        'every lifecycle status filter still serves its own filtered list',
+        lifecycleFilters.every((response) => response.status === 200),
+        lifecycleFilters.map((response) => response.status).join(', '),
+      );
+
+      /*
+       * The two worklist views are links that carry their own state, and the waiting tab states how
+       * much waits. Both are read from the rendered text with tags stripped, because the count is a
+       * sibling node of the label rather than part of one string.
+       */
+      const waitingText = waitingList.body.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ');
+      record(
+        'the worklist offers waiting and decided views as their own links, and states the waiting count',
+        waitingList.body.includes('view=waiting') &&
+          waitingList.body.includes('view=decided') &&
+          /Waiting\s+\d+/.test(waitingText),
+        waitingText.slice(0, 240),
+      );
+
+      const worklistSearch = await call(
+        base,
+        '/qbpanel/orders?view=waiting&q=' + encodeURIComponent(codSeed.orderNumber),
+        { jar: ownerJar },
+      );
+      record(
+        'the waiting worklist narrows by the same server-side search as the history',
+        worklistSearch.status === 200 && worklistSearch.body.includes(codSeed.orderNumber),
+        `status ${worklistSearch.status}`,
       );
 
       const limitedCod = await call(base, '/api/qbpanel/orders-cod', {
@@ -1129,6 +1266,9 @@ async function main(): Promise<void> {
         'the owner approves the COD order: cod_approved and confirmed, audited against the acting owner',
         approvedCod.status === 303 &&
           (approvedCod.location ?? '').includes('notice=approved') &&
+          // The decision screen moved, so the notice must come back to the screen that now holds it.
+          (approvedCod.location ?? '').includes('/qbpanel/orders') &&
+          !(approvedCod.location ?? '').includes('/qbpanel/orders-cod') &&
           codAfterApproval[0]?.codState === 'cod_approved' &&
           codAfterApproval[0]?.status === 'confirmed' &&
           codAudit.length === 1 &&
@@ -1163,6 +1303,22 @@ async function main(): Promise<void> {
           (codRepeat.location ?? '').includes('notice=conflict') &&
           codAuditAfterRepeat.length === 1,
         `status ${codRepeat.status} → ${codRepeat.location ?? ''}, ${codAuditAfterRepeat.length} approval record(s)`,
+      );
+
+      /*
+       * The decision moved the order between the two views. This is the pair that makes the merged
+       * screen a worklist rather than two lists on one page: a decided order leaves waiting and appears
+       * under what was decided today.
+       */
+      const waitingAfter = await call(base, '/qbpanel/orders?view=waiting', { jar: ownerJar });
+      const decidedAfter = await call(base, '/qbpanel/orders?view=decided', { jar: ownerJar });
+      record(
+        'an approved order leaves the waiting view and is listed among what was decided',
+        waitingAfter.status === 200 &&
+          decidedAfter.status === 200 &&
+          !waitingAfter.body.includes(codSeed.orderNumber) &&
+          decidedAfter.body.includes(codSeed.orderNumber),
+        `waiting ${waitingAfter.status} (listed: ${waitingAfter.body.includes(codSeed.orderNumber)}), decided ${decidedAfter.status} (listed: ${decidedAfter.body.includes(codSeed.orderNumber)})`,
       );
 
       // ---- Phase 20: the order detail and the order history over HTTP ----
@@ -1708,9 +1864,10 @@ async function main(): Promise<void> {
       // ---- Phase 18: the redesigned shell, exercised in a real browser ----
       //
       // The HTTP checks above prove authorization and persistence. These prove the things only a
-      // rendered page can show: the rail exists at desktop width, the phone uses a bottom tab bar
-      // whose More sheet handles focus, nothing overflows horizontally at 360/390px, a destructive
-      // confirmation traps focus and closes on Escape, and the inline decision actually submits.
+      // rendered page can show: the grouped rail exists at desktop width, the phone bar carries four
+      // destinations plus a Menu control whose grouped drawer handles focus, nothing overflows
+      // horizontally at 360/390px, a destructive confirmation traps focus and closes on Escape, and the
+      // inline decision actually submits.
       console.log('\nreview moderation');
 
       /*
@@ -2027,7 +2184,8 @@ async function main(): Promise<void> {
             const heightSweep: Array<{ route: string; heights: number[] }> = [];
             for (const route of [
               '/qbpanel',
-              '/qbpanel/orders-cod',
+              // The retired queue's replacement: the same decision controls now live on this screen.
+              '/qbpanel/orders?view=waiting',
               '/qbpanel/catalog',
               '/qbpanel/settings/delivery',
               '/qbpanel/settings/other',
@@ -2086,7 +2244,8 @@ async function main(): Promise<void> {
             const mobileNav = await browser.evaluate<{
               railHidden: boolean;
               barVisible: boolean;
-              tabs: number;
+              links: number;
+              menuButton: boolean;
               active: string | null;
               overflow: number;
             }>(`(() => {
@@ -2096,66 +2255,110 @@ async function main(): Promise<void> {
               return {
                 railHidden: rail !== null && getComputedStyle(rail).display === 'none',
                 barVisible: bar !== null && getComputedStyle(bar).display !== 'none',
-                tabs: bar?.querySelectorAll('a[href], button').length ?? 0,
+                // Four ranked destinations plus the Menu control: the menu opens a surface, so it is a
+                // button rather than a fifth link.
+                links: bar?.querySelectorAll('a[href]').length ?? 0,
+                menuButton: bar?.querySelector('[data-admin-menu-trigger]') !== null,
                 active: current?.textContent?.trim() ?? null,
                 overflow: document.documentElement.scrollWidth - window.innerWidth,
               };
             })()`);
             record(
-              'at 390px the rail is gone, a five-tab bottom bar navigates, and Overview is current',
+              'at 390px the rail is gone and four ranked destinations plus a Menu control navigate',
               mobileNav.railHidden === true &&
                 mobileNav.barVisible === true &&
-                mobileNav.tabs === 5 &&
+                mobileNav.links === 4 &&
+                mobileNav.menuButton === true &&
                 mobileNav.active === 'Overview' &&
                 mobileNav.overflow <= 1,
               JSON.stringify(mobileNav),
             );
             await browser.screenshot('/tmp/qb-admin-dashboard-mobile.png');
 
-            await browser.click('[data-admin-bottom-nav] button[aria-controls="admin-more-sheet"]');
-            const sheet = await browser.evaluate<{
+            await browser.click('[data-admin-menu-trigger]');
+            const drawer = await browser.evaluate<{
               open: boolean;
               focus: string | null;
               bodyLocked: boolean;
               links: number;
+              groups: string[];
+              expanded: string | null;
             }>(`(() => {
-              const sheet = document.getElementById('admin-more-sheet');
+              const drawer = document.getElementById('admin-menu-drawer');
+              const trigger = document.querySelector('[data-admin-menu-trigger]');
               return {
-                open: sheet?.getAttribute('aria-modal') === 'true',
+                open: drawer?.getAttribute('aria-modal') === 'true',
                 focus: document.activeElement?.getAttribute('aria-label'),
                 bodyLocked: getComputedStyle(document.body).overflow === 'hidden',
-                links: sheet?.querySelectorAll('a[href]').length ?? 0,
+                links: drawer?.querySelectorAll('[data-admin-nav-link]').length ?? 0,
+                groups: [...(drawer?.querySelectorAll('[data-admin-nav-group]') ?? [])].map(
+                  (group) => group.getAttribute('data-admin-nav-group') ?? '',
+                ),
+                expanded: trigger?.getAttribute('aria-expanded') ?? null,
               };
             })()`);
             record(
-              'the More tab opens a modal sheet with every section, locks the page and focuses its close control',
-              sheet.open === true && sheet.focus === 'Close menu' && sheet.bodyLocked === true && sheet.links >= 6,
-              JSON.stringify(sheet),
+              'the Menu control opens a grouped modal drawer, locks the page and focuses its close control',
+              drawer.open === true &&
+                drawer.focus === 'Close menu' &&
+                drawer.bodyLocked === true &&
+                drawer.links >= 6 &&
+                drawer.groups.length >= 3 &&
+                drawer.expanded === 'true',
+              JSON.stringify(drawer),
             );
             await browser.screenshot('/tmp/qb-admin-dashboard-mobile-more.png');
 
+            /*
+             * Tab is trapped inside the drawer. The driver has no Tab key, so the assertion dispatches
+             * the same `keydown` the component listens for from the last focusable child: a working trap
+             * moves focus to the first, and an absent one leaves focus on the last.
+             */
+            const trapped = await browser.evaluate<{ moved: boolean; from: string | null; to: string | null }>(
+              `(() => {
+                const drawer = document.getElementById('admin-menu-drawer');
+                if (drawer === null) return { moved: false, from: null, to: null };
+                const focusable = [...drawer.querySelectorAll('a[href], button:not([disabled]), input, select, textarea, summary')];
+                if (focusable.length < 2) return { moved: false, from: null, to: null };
+                const first = focusable[0];
+                const last = focusable[focusable.length - 1];
+                last.focus();
+                const from = document.activeElement === last ? 'last' : null;
+                document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true }));
+                return { moved: document.activeElement === first, from, to: document.activeElement?.tagName ?? null };
+              })()`,
+            );
+            record(
+              'Tab from the drawer’s last control wraps to its first, so focus cannot leave the drawer',
+              trapped.moved === true && trapped.from === 'last',
+              JSON.stringify(trapped),
+            );
+
             await browser.key('Escape');
-            const sheetClosed = await browser.evaluate<{
-              sheet: boolean;
-              focus: string | null;
+            const drawerClosed = await browser.evaluate<{
+              drawer: boolean;
+              focus: boolean;
               bodyLocked: boolean;
             }>(`(() => ({
-              sheet: document.getElementById('admin-more-sheet') !== null,
-              focus: document.activeElement?.getAttribute('aria-controls'),
+              drawer: document.getElementById('admin-menu-drawer') !== null,
+              focus: document.activeElement?.getAttribute('data-admin-menu-trigger') !== null,
               bodyLocked: getComputedStyle(document.body).overflow === 'hidden',
             }))()`);
             record(
-              'Escape closes the More sheet and returns focus to the More tab',
-              sheetClosed.sheet === false && sheetClosed.focus === 'admin-more-sheet' && sheetClosed.bodyLocked === false,
-              JSON.stringify(sheetClosed),
+              'Escape closes the drawer, unlocks the page and returns focus to the Menu control',
+              drawerClosed.drawer === false &&
+                drawerClosed.focus === true &&
+                drawerClosed.bodyLocked === false,
+              JSON.stringify(drawerClosed),
             );
 
             const overflowAt360: string[] = [];
             await browser.viewport(360, 800);
             const overflowRoutes = [
               '/qbpanel',
-              '/qbpanel/orders-cod',
               '/qbpanel/orders',
+              '/qbpanel/orders?view=waiting',
+              '/qbpanel/orders?view=decided',
               '/qbpanel/orders/' + codSeed.orderNumber,
               '/qbpanel/catalog',
               '/qbpanel/customers',
@@ -2177,8 +2380,8 @@ async function main(): Promise<void> {
             );
 
             await browser.viewport(390, 844);
-            await browser.navigate('/qbpanel/orders-cod');
-            await browser.screenshot('/tmp/qb-admin-cod-mobile.png');
+            await browser.navigate('/qbpanel/orders?view=waiting');
+            await browser.screenshot('/tmp/qb-admin-orders-worklist-mobile.png');
 
             // ---- Phase 20: the order detail and history in a real browser ----
             await browser.viewport(1440, 900);
@@ -2302,7 +2505,7 @@ async function main(): Promise<void> {
 
             // The worklist card draws the same picture at the small control height, so the dense queue
             // is recognisable by sight too - and still on the two-height scale.
-            await browser.navigate('/qbpanel/orders-cod');
+            await browser.navigate('/qbpanel/orders?view=waiting');
             const queueTile = await browser.evaluate<{ tiles: number; height: number }>(`(() => {
               const tiles = [...document.querySelectorAll('[data-item-photo="compact"]')];
               return {
@@ -2553,8 +2756,34 @@ async function main(): Promise<void> {
             await browser.screenshot('/tmp/qb-admin-orders-history.png');
 
             await browser.viewport(1440, 900);
-            await browser.navigate('/qbpanel/orders-cod');
-            await browser.click('article form + form button[type="submit"]');
+            await browser.navigate('/qbpanel/orders?view=waiting');
+            /*
+             * The card offers two decisions and one open area. The controls are located by walking the
+             * card that holds this order's reference, not by position in the document: several orders
+             * may be waiting, and a positional selector would click another order's decision.
+             */
+            const clickInCard = async (orderNumber: string, decision: 'approve' | 'reject'): Promise<void> => {
+              const clicked = await browser.evaluate(
+                `(() => {
+                  const card = [...document.querySelectorAll('article[data-cod-card]')].find(
+                    (node) => node.textContent?.includes(${JSON.stringify(orderNumber)}),
+                  );
+                  if (card === undefined) return false;
+                  const form = [...card.querySelectorAll('form')].find(
+                    (node) => node.querySelector('input[name="decision"][value="${decision}"]') !== null,
+                  );
+                  const button = form?.querySelector('button[type="submit"]');
+                  if (!(button instanceof HTMLButtonElement)) return false;
+                  button.click();
+                  return true;
+                })()`,
+              );
+              if (clicked !== true) throw new Error(`no ${decision} control on the card for ${orderNumber}`);
+              const settled = Promise.withResolvers<void>();
+              setTimeout(settled.resolve, 120);
+              await settled.promise;
+            };
+            await clickInCard(secondCod.orderNumber, 'reject');
             const dialog = await browser.evaluate<{ open: boolean; required: boolean; focus: string | null; order: boolean }>(`(() => {
               const d = document.querySelector('[role="dialog"][aria-modal="true"]');
               const reason = d?.querySelector('textarea[name="reason"]');
@@ -2562,7 +2791,9 @@ async function main(): Promise<void> {
                 open: d !== null,
                 required: reason instanceof HTMLTextAreaElement ? reason.required : false,
                 focus: document.activeElement?.textContent?.trim(),
-                order: document.querySelector('article')?.textContent?.includes(${JSON.stringify(secondCod.orderNumber)}) ?? false,
+                order: [...document.querySelectorAll('article[data-cod-card]')].some(
+                  (card) => card.textContent?.includes(${JSON.stringify(secondCod.orderNumber)}),
+                ),
               };
             })()`);
             /*
@@ -2583,8 +2814,48 @@ async function main(): Promise<void> {
             const beforeApprove = await withTransaction((tx) =>
               tx.select({ codState: order.codState, status: order.status }).from(order).where(sql`${order.id} = ${secondCod.orderId}`),
             );
-            await browser.click('article form button[type="submit"]');
+            /*
+             * The card's open area is a link to the detail. It is asserted before the decision is taken,
+             * while the card still exists: the href is the record route, so a whole-card tap is the same
+             * navigation a row makes.
+             */
+            const cardLink = await browser.evaluate<{ href: string | null; coversCard: boolean; formsOutside: boolean }>(
+              `(() => {
+                const card = [...document.querySelectorAll('article[data-cod-card]')].find(
+                  (node) => node.textContent?.includes(${JSON.stringify(secondCod.orderNumber)}),
+                );
+                const link = card?.querySelector('a[data-cod-card-link]');
+                if (card === undefined || link === null || link === undefined) return { href: null, coversCard: false, formsOutside: true };
+                const cardBox = card.getBoundingClientRect();
+                const linkBox = link.getBoundingClientRect();
+                const cardArea = cardBox.width * cardBox.height;
+                const linkArea = linkBox.width * linkBox.height;
+                return {
+                  href: link.getAttribute('href'),
+                  // The empty anchor covers the card; a border or radius is not what this measures, so
+                  // the check is a coverage ratio rather than exact pixel equality.
+                  coversCard: cardArea > 0 && linkArea / cardArea >= 0.9,
+                  // A form inside the anchor would submit through the link.
+                  formsOutside: link.querySelector('form') === null,
+                };
+              })()`,
+            );
+            record(
+              'the worklist card’s open area links to that order’s detail, with the decisions outside it',
+              cardLink.href !== null &&
+                cardLink.href.startsWith('/qbpanel/orders/' + secondCod.orderNumber) &&
+                cardLink.coversCard === true &&
+                cardLink.formsOutside === true,
+              JSON.stringify(cardLink),
+            );
+            await clickInCard(secondCod.orderNumber, 'approve');
             await browser.waitFor("document.querySelector('[role=status]') !== null || location.search.includes('notice=')");
+            const decidedLocation = await browser.evaluate<string>('location.pathname + location.search');
+            record(
+              'the decision returns to the All Orders screen, never to the retired queue',
+              decidedLocation.startsWith('/qbpanel/orders') && !decidedLocation.includes('orders-cod'),
+              decidedLocation,
+            );
             const afterApprove = await withTransaction((tx) =>
               tx.select({ codState: order.codState, status: order.status }).from(order).where(sql`${order.id} = ${secondCod.orderId}`),
             );
@@ -3526,7 +3797,7 @@ async function main(): Promise<void> {
              * button, value control and date input on these five routes resolves to 40px or 34px, and
              * every page exposes exactly one list toolbar.
              */
-            const listRoutes = ['/qbpanel/orders', '/qbpanel/orders-cod', '/qbpanel/catalog', '/qbpanel/categories', '/qbpanel/customers'];
+            const listRoutes = ['/qbpanel/orders', '/qbpanel/orders?view=waiting', '/qbpanel/catalog', '/qbpanel/categories', '/qbpanel/customers'];
             const toolbarSweep: Array<{ route: string; toolbars: number; heights: number[] }> = [];
             for (const route of listRoutes) {
               await browser.navigate(route);
@@ -4063,6 +4334,66 @@ async function main(): Promise<void> {
             await browser.navigate('/qbpanel/orders');
             await browser.screenshot('/tmp/qb-admin-orders-mobile.png');
             await browser.navigate('/qbpanel/customers');
+            /*
+             * The customer list opens a row by tapping the row (owner-approved redesign, 2026-11-19):
+             * an overlay anchor carries the whole line's hit area and its accessible name, and the
+             * reasoned Suspend / Restore controls are siblings above it rather than children, so each
+             * keeps its own activation and dialog.
+             */
+            const customerRow = await browser.evaluate<{
+              rows: number;
+              overlays: number;
+              geometry: boolean;
+              reasoned: number;
+              nested: boolean;
+              label: string | null;
+            }>(`(() => {
+              const rows = [...document.querySelectorAll('[data-admin-list] > li')];
+              if (rows.length === 0) {
+                return { rows: 0, overlays: 0, geometry: false, reasoned: 0, nested: false, label: null };
+              }
+              const row = rows[0];
+              const overlay = row.querySelector('a[aria-label^="View "]');
+              const rowBox = row.getBoundingClientRect();
+              const overlayBox = overlay?.getBoundingClientRect();
+              const rowArea = rowBox.width * rowBox.height;
+              const overlayArea = (overlayBox?.width ?? 0) * (overlayBox?.height ?? 0);
+              return {
+                rows: rows.length,
+                overlays: document.querySelectorAll('[data-admin-list] > li a[aria-label^="View "]').length,
+                // The anchor covers the row rather than sitting beside it as a small link.
+                geometry: rowArea > 0 && overlayArea / rowArea >= 0.9,
+                reasoned: document.querySelectorAll('[data-admin-list] > li form button[type="submit"]').length,
+                // An anchor inside a form, or a form inside a link, would break activation.
+                nested: row.querySelector('a[href] form') !== null || row.querySelector('form a[href]') !== null,
+                label: overlay?.getAttribute('aria-label') ?? null,
+              };
+            })()`);
+            record(
+              'a customer row is opened by tapping the row, and the reasoned controls stay outside the link',
+              customerRow.rows > 0 &&
+                customerRow.overlays === customerRow.rows &&
+                customerRow.geometry === true &&
+                customerRow.nested === false &&
+                customerRow.reasoned > 0 &&
+                customerRow.label !== null &&
+                customerRow.label.startsWith('View '),
+              JSON.stringify(customerRow),
+            );
+            // The suspension confirmation is reached from the row and opens as its own dialog.
+            await browser.click('[data-admin-list] > li form button[type="submit"]');
+            const customerDialog = await browser.evaluate<{ open: boolean; focus: string | null }>(
+              `(() => ({
+                open: document.querySelector('[role="dialog"][aria-modal="true"]') !== null,
+                focus: document.activeElement?.textContent?.trim() ?? null,
+              }))()`,
+            );
+            record(
+              'a row’s reasoned action still opens its own confirmation, focused on the safe answer',
+              customerDialog.open === true && customerDialog.focus === 'Cancel',
+              JSON.stringify(customerDialog),
+            );
+            await browser.key('Escape');
             await browser.screenshot('/tmp/qb-admin-customers-mobile.png');
             await browser.viewport(1440, 900);
             await browser.navigate('/qbpanel/orders');

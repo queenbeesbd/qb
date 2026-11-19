@@ -26,7 +26,6 @@ const SECTIONS: Record<string, true> = {
   catalog: true,
   categories: true,
   orders: true,
-  'orders-cod': true,
   customers: true,
   'promo-codes': true,
   reviews: true,

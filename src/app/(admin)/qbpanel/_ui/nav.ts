@@ -22,9 +22,13 @@ export type AdminNavItem = {
   group: AdminNavGroup;
   icon: AdminIconName;
   /**
-   * Position in the phone bottom bar (1-4), or absent when the destination belongs only in the
-   * rail and the More sheet. Ranked explicitly rather than by sidebar order because the phone is
-   * used for a different first move: decide the queue, then check stock, then look up an order.
+   * Position (1-4) in the fixed bottom bar shown below 1024px, or absent when the destination belongs
+   * only in the grouped rail and the Menu drawer.
+   *
+   * The bar answers a different question from the rail: the four places the owner opens the panel for
+   * - Overview, Orders, Products, Customers - so the ranking is explicit rather than inherited from
+   * group order. It is applied to the permission-filtered list, so a bar can legitimately be shorter
+   * than four and is never padded with a destination the session may not open.
    */
   mobileRank?: 1 | 2 | 3 | 4;
 };

@@ -14,6 +14,57 @@ An entry may describe a deployment only once it has actually happened and been o
 
 ## [Unreleased]
 
+### Changed - 2026-11-19: one Orders screen, and a menu that is a menu
+
+The panel had two order screens and a phone navigation that pretended to have five destinations. Both
+were splits the owner had to hold in her head, and both are now gone.
+
+**`/qbpanel/orders` is the worklist.** The COD queue's waiting and decided views live inside the order
+history: a pending approval renders as the full decision card - recorded line photographs, the `tel:`
+contact, the delivery address, subtotal/delivery/total, the audit note and the Accept/Cancel controls -
+above the records that are already decided or already moving. `waiting` and `decided` are the `view`
+values in the URL, beside the existing status filter, search and date range, so a filtered screen is
+still a link and back still works. The card's open area is its own link to
+`/qbpanel/orders/[orderNumber]`; the decision controls are siblings of that link, never wrapped by it, so
+approving an order can never also open it.
+
+**`/qbpanel/orders-cod` is deleted, not aliased.** A retired route must 404: an unlinked screen that still
+answered would still be an administrative surface, and the same rule retired the prepaid queue in Phase
+17. **The endpoint is not retired:** the approve form and the reasoned reject dialog still post to the
+guarded `POST /api/qbpanel/orders-cod` (session, CSRF, origin, `order.read` for entry and `cod.approve` /
+`order.cancel` per decision), and its notices - including *approved but the courier booking failed* - now
+return to `ORDERS_PATH`. It stays because it is the decision's only write path and because the order
+detail reuses it; removing it would mean inventing a second one.
+
+**The phone bar's fifth item is a Menu control, not a fifth destination.** Below 1024px the bar keeps
+four ranked destinations - Overview, **Orders**, Products, Customers, which are the four places the
+panel is opened for - and a distinct Menu plate that opens the **grouped drawer**: the same
+`GROUP_ORDER` groups, labels, links and active-route rule the desktop rail renders, built from the same
+permission-filtered list, so the drawer can never advertise a refusal. The drawer is a modal: focus moves to its close control, Tab is trapped,
+Escape and the backdrop close it, the page behind is locked, focus returns to the Menu plate, and a resize
+past 1024px releases the lock instead of stranding it. The existing route-derived back link, the native
+Android back handling and the bottom-bar focus clearance are unchanged.
+
+**A customer row is the link.** The customer list's rows are read by scanning, so the whole line opens
+the customer; the reasoned Suspend / Restore confirmations remain siblings of that overlay rather than
+nested inside it, so each keeps its own activation, its own dialog and its own Tab trap. No schema
+change, no new permission, no new dependency, and no change to any order, customer or audit write.
+
+| Check | Result |
+| --- | --- |
+| `npm run typecheck` | pass |
+| `npm run lint` | 0 errors, 24 existing warnings |
+| `npm run check:i18n` / `npm run check:catalog` | pass |
+| `npm test` | **329/329** |
+| `npm run db:validate` / `npm run db:check` | pass |
+| `npm run build` | pass after the documented Next.js security-advisory retry |
+| `BASE_URL=http://localhost:3001 npm run verify:admin` | **257/257** |
+
+`npm run test:db` is **298/302**: the four failures are the pre-existing owner-role and schema-count fixture assumptions, not this UI change. `npm run check:secrets` also flags the documented SHA-256 migration hash in `AGENTS.md`, not an application secret.
+
+**Limits.** Real iOS Safari, Android Chrome and screen readers were not used. The installed Next.js version still emits a security advisory; upgrading it is a separate dependency task.
+
+
 ### Changed - 2026-11-19: the review composer asks the owner to recognise, not to read
 
 The owner's report on `/qbpanel/reviews` was three separate complaints, and each one was a task

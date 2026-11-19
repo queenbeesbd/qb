@@ -130,23 +130,12 @@ export const OTHER_SETTINGS_PATH = '/qbpanel/settings/other';
 export const TELEGRAM_SETTINGS_PATH = '/qbpanel/settings/integrations/telegram';
 export const STEADFAST_SETTINGS_PATH = '/qbpanel/settings/integrations/steadfast';
 
-/**
- * Phase 16 worklists: COD confirmation and customer moderation.
- *
- * Phase 17 removed the prepaid verification queue and the payment-recipient screen along with the
- * manual-payment subsystem, so `/qbpanel/payments` and `/qbpanel/payments/recipients` are retired paths.
- * They are not kept as aliases: a route that no longer exists should 404, not quietly render something
- * else.
- */
-export const COD_PATH = '/qbpanel/orders-cod';
+/** Customer management list. */
 export const CUSTOMERS_PATH = '/qbpanel/customers';
 
 /**
- * The order history and one order's detail (Phase 20).
- *
- * The queue stays its own destination because it is a worklist - the one list that waits on a person -
- * while this is the record of everything taken. They share the decision route and the guarded service
- * underneath, so the two screens cannot disagree about what an approval does.
+ * The order history, its COD worklists and one order's detail (owner-approved merge, 2026-11-19).
+ * All three views live under one route so the owner has one place to find any order.
  */
 export const ORDERS_PATH = '/qbpanel/orders';
 
@@ -155,8 +144,8 @@ export const ORDERS_PATH = '/qbpanel/orders';
  *
  * One endpoint for dispatch, delivery outcome, return receipt, inspection, collection, completion and
  * pre-dispatch cancellation, because they share a single validated action set and a single redirect
- * convention. `orders-cod` stays separate: it is the decision the queue posts to, and it keeps its own
- * notices so a queue decision is never mistaken for an operation.
+ * convention. COD approval/rejection remains on its guarded, audited decision endpoint and is not an
+ * operational transition.
  */
 export const ORDER_TRANSITION_PATH = '/api/qbpanel/orders/transition';
 /** Recording and voiding the additional courier costs an order incurred (Phase 22). */

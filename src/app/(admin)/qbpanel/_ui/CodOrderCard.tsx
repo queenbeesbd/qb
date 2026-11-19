@@ -5,6 +5,7 @@ import type { FormEvent } from 'react';
 
 import { deliveryAddressText } from '@/lib/delivery-address';
 import { orderDiscountMinor } from '@/lib/money';
+import { ORDERS_PATH } from '@/server/auth/constants';
 import { useTranslation } from '@/i18n/useTranslation';
 import { AdminIcon } from './icons';
 import { ConfirmSubmit } from './ConfirmSubmit';
@@ -124,6 +125,7 @@ export function CodOrderCard({
 
   return (
     <article
+      data-cod-card=""
       className={[
         styles.orderCard,
         decided === undefined ? '' : styles.orderCardDecided,
@@ -131,10 +133,33 @@ export function CodOrderCard({
       ]
         .filter(Boolean)
         .join(' ')}
+      style={{ position: 'relative' }}
     >
+      {/*
+        The card's open area: one empty anchor stretched over the article (`inset: 0`), never a wrapper
+        around the decision forms. The card is the worklist entry and the order detail is the record, so
+        a tap anywhere that is not a control opens the order. The phone link, the line photographs and
+        the decision controls are raised above this overlay below, which is why each of them keeps its
+        own activation: an anchor that contained a form would submit through the link.
+      */}
+      <Link
+        aria-label={`${t('admin.cod.viewOrder')} ${row.orderNumber}`}
+        className={styles.recordLink}
+        data-cod-card-link=""
+        href={`${ORDERS_PATH}/${encodeURIComponent(row.orderNumber)}?from=orders`}
+        style={{ position: 'absolute', inset: 0, zIndex: 0, outlineOffset: '-2px' }}
+      />
+
       <div className={styles.orderMain}>
         <div className={styles.orderTop}>
-          <span className={styles.orderRef}>{row.orderNumber}</span>
+          {/*
+            The reference is the card's own heading, so it is set at the page's body size rather than
+            the utility size a metadata line uses (owner direction, 2026-11-19): on the merged Orders
+            screen a card is the row, and the number is what the owner scans for.
+          */}
+          <span className={styles.orderRef} style={{ fontSize: 'var(--text-lg)' }}>
+            {row.orderNumber}
+          </span>
           {decided === undefined ? (
             <span className={hot ? `${styles.orderAge} ${styles.orderAgeHot}` : styles.orderAge}>
               <AdminIcon name="clock" width={13} height={13} />
@@ -150,23 +175,21 @@ export function CodOrderCard({
               ? t('admin.cod.placedAt', { time: placed })
               : t('admin.cod.decidedAt', { time: decidedAt ?? placed })}
           </span>
-          {/*
-            The card is the worklist entry; the order detail is the record. Opening it from here keeps
-            the queue as the place a decision is made for the common case, without making the card the
-            only view of an order the owner ever gets.
-          */}
-          <Link
-            className={styles.recordLink}
-            href={`/qbpanel/orders/${encodeURIComponent(row.orderNumber)}?from=queue`}
-          >
-            {t('admin.cod.viewOrder')}
-          </Link>
         </div>
 
         <div className={styles.orderBody}>
           <div className={styles.orderContact}>
             <span className={styles.orderName}>{row.recipientName}</span>
-            <a className={styles.orderPhone} href={`tel:${row.recipientPhone}`}>
+            {/*
+              Raised above the card's stretched overlay: calling the customer is its own action and must
+              not also open the order. Every control that does something other than "open the record"
+              carries this, which is what makes one whole-card link safe beside real forms.
+            */}
+            <a
+              className={styles.orderPhone}
+              href={`tel:${row.recipientPhone}`}
+              style={{ position: 'relative', zIndex: 1 }}
+            >
               <AdminIcon name="phone" width={14} height={14} />
               {row.recipientPhone}
             </a>
@@ -182,11 +205,13 @@ export function CodOrderCard({
                   order on a call and recognises the bottle, not the vendor's product name. A line with
                   no stored snapshot draws no tile, so the name still starts where it did.
                 */}
-                <ItemPhoto
-                  imageKey={item.imageKey}
-                  name={pick({ bn: item.nameBn, en: item.nameEn }) ?? item.nameEn}
-                  size="compact"
-                />
+                <span style={{ position: 'relative', zIndex: 1, display: 'inline-flex' }}>
+                  <ItemPhoto
+                    imageKey={item.imageKey}
+                    name={pick({ bn: item.nameBn, en: item.nameEn }) ?? item.nameEn}
+                    size="compact"
+                  />
+                </span>
                 <span className={styles.orderItem}>
                   <span className={styles.orderItemName}>
                     {pick({ bn: item.nameBn, en: item.nameEn }) ?? item.nameEn}
@@ -234,7 +259,7 @@ export function CodOrderCard({
       </div>
 
       {decided === undefined ? (
-        <div className={styles.orderFooter}>
+        <div className={styles.orderFooter} style={{ position: 'relative', zIndex: 1 }}>
           <form
             action="/api/qbpanel/orders-cod"
             method="post"

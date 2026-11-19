@@ -1114,3 +1114,60 @@ the plain-text and HTML link now read
 `?error=invalid`**, and `customer.email_verified_at` was set once. That probe was then **deleted
 outright** (customer row with its cascaded credential, session and token; no order, flag or review
 referenced it), so production is back to five customers and no `deleted` rows.
+
+## One Orders screen and a grouped phone menu (2026-11-19, owner-approved UI redesign)
+
+**What changed in the panel.** The owner's order work is now **one screen**. `/qbpanel/orders` carries
+the whole order surface: the COD **waiting** worklist and what was **decided today** as server-side
+`view` values (`?view=waiting` and `?view=decided`, with no `view` meaning every order) beside the
+existing status `filter`, search, date range
+and pagination, above the recallable history of every order. A pending approval renders as the full
+decision card it had in the queue - recorded line photographs, `tel:` contact, the delivery address, the
+subtotal/delivery/total breakdown, the audit note and the Accept / Cancel controls - and the card's open
+area is a link to `/qbpanel/orders/[orderNumber]`, with the decision forms as siblings rather than
+children of that link so a decision can never also navigate.
+
+**`/qbpanel/orders-cod` is retired.** The route is removed and answers **404**; it is not aliased to the
+merged screen. A retired screen that still answered would still be an administrative surface, which is
+the rule that retired the prepaid queue in Phase 17. **The endpoint is not retired:**
+`POST /api/qbpanel/orders-cod` remains the single guarded write path for a COD decision (session, CSRF,
+origin, `order.read` to enter, `cod.approve` / `order.cancel` per decision, audited, idempotent), and the
+order detail still posts to it. Its notices - `approved`, `approvedBooked`, `approvedBookingFailed`,
+`rejected`, `denied`, `conflict`, `invalid` - now redirect to `ORDERS_PATH`, so an approval whose courier
+booking failed still says so on the screen the owner is looking at.
+
+**The phone navigation is grouped, with the menu as a control.** Below 1024px the fixed bar keeps four
+ranked destinations - Overview, **Orders**, Products, Customers, the four places the panel is opened
+for - and a distinct **Menu** plate, which is a control rather than a fifth destination. It opens a **drawer** that
+renders the same `GROUP_ORDER` groups, labels, links and active-route rule as the desktop rail, from the
+same permission-filtered list, so it cannot advertise a refusal. The drawer is the panel's only modal
+surface below 1024px: focus enters on its close control, Tab is trapped, Escape and the backdrop close it,
+the page behind is locked, focus returns to the Menu plate, and crossing 1024px closes it and releases the
+lock. The desktop rail is unchanged in content; the bar's 64px height, safe-area padding, focus clearance
+and the route-derived back link (with the native Android back handler and cold-start guard) are untouched.
+
+**A customer row is its own link.** The customer list draws one overlay anchor per row
+(`position: absolute; inset: 0`) carrying the row's accessible name, so scanning and tapping a whole line
+opens the customer. The reasoned Suspend / Restore confirmations sit in a raised sibling container, never
+nested inside the anchor, so each keeps its own activation, dialog, Tab trap and focus return.
+
+**What did not change.** No database column, table or migration; no permission code; no dependency; no
+new route constant beyond deleting the retired one; no change to what a decision writes or audits. The
+approval note is still a placeholder with a server-side default, rejection is still a confirmation with
+an optional note, and the order detail remains the only place the post-approval lifecycle (dispatch,
+delivery, failed delivery, receipt, inspection, cash, completion, courier cost) is offered.
+
+**Verification.** `scripts/verify-admin.ts` was updated rather than weakened: the retired route is
+asserted 404, every existing COD decision POST on `/api/qbpanel/orders-cod` is preserved unmodified, and
+new assertions cover the merged worklist (pending card with the recorded photograph only when the seeded
+line has an image snapshot, approve and reject forms still posting to the guarded endpoint, waiting and
+decided filters separating the rows, the card's open area reaching the detail, and no
+`/qbpanel/orders-cod` page), the grouped drawer (open, focus, Tab trap, Escape, body lock, focus restore),
+and the customer row's overlay link with its reasoned controls still reachable. **Verified locally:**
+`npm run typecheck`, `npm run check:i18n`, `npm run check:catalog`, `npm test`, `npm run db:validate`,
+`npm run db:check`, `npm run build` (after the documented Next.js security advisory retry), and
+`BASE_URL=http://localhost:3001 npm run verify:admin` **257/257**. `npm run lint` has zero errors and
+24 existing warnings; `npm run test:db` is **298/302** with the four pre-existing owner/schema fixture
+failures recorded in `CHANGELOG.md`.
+
+**Limits.** Real iOS Safari, Android Chrome and screen readers were not used.

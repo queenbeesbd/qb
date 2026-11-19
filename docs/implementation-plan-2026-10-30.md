@@ -281,6 +281,85 @@ to fill the gap.
 
 ---
 
+## Phase 52b - One Orders screen and the grouped phone shell (implemented 2026-11-19)
+
+**Status: implemented locally, not deployed.** Owner-approved UI redesign; **no schema, permission,
+dependency or business-state change.** Evidence: `CHANGELOG.md` (2026-11-19), the
+`docs/project-status.md` entry of the same date, and the assertions in `scripts/verify-admin.ts`.
+
+**Why.** The panel split one job across two screens and told a phone it had five destinations. The owner
+decided a COD order on `/qbpanel/orders-cod` and looked up any other order on `/qbpanel/orders`, so
+"which screen do I open" was a question the interface asked her every time - and the queue's inline
+decision card, which is the whole point of the queue, was absent from the list she used to find orders.
+Meanwhile the phone bar's fifth tab was an ellipsis labelled *More*: drawn as a destination, opening a
+surface, and covering the bar that opened it.
+
+**Work items, as implemented**
+
+1. **One order surface at `ORDERS_PATH`.** `/qbpanel/orders` renders the COD waiting worklist (with the
+   exact waiting count), what was decided today, and every lifecycle order. The worklist choice is the
+   `view` parameter (`view=waiting`, `view=decided`, absent = all orders) and the lifecycle status stays
+   the existing `filter` parameter, so search, date range and pagination remain server-side and every
+   screen is a link. **The default is All orders**, so a filtered screen is never what a bookmark
+   silently shows.
+2. **The decision card moved with the queue.** A pending approval renders the full card - recorded
+   `order_item.image_key_snapshot` photographs, `tel:` contact, delivery address, subtotal/delivery/total,
+   the approval note (placeholder, server-side default) and Accept / Cancel. The row's recorded snapshot
+   is the only picture drawn; a line with none draws none.
+3. **The card's open area is a link to the detail** (`ORDERS_PATH/[orderNumber]`), and every decision
+   control is a *sibling* of that overlay, never nested inside an anchor, so a decision cannot also
+   navigate.
+4. **`/qbpanel/orders-cod` is deleted, not aliased**, and answers 404. `CodView.tsx`, its page and the
+   `COD_PATH` constant are gone; no caller points at a retired screen.
+5. **The decision endpoint is untouched in contract.**
+   `POST /api/qbpanel/orders-cod` keeps `guardMutation(…, orderRead)`, `decideCod`, and
+   `bookApprovedOrder` after commit, and keeps all seven notices (`approved`, `approvedBooked`,
+   `approvedBookingFailed`, `rejected`, `denied`, `conflict`, `invalid`). Its redirects now target
+   `ORDERS_PATH`, so an approval whose courier booking failed is still stated on screen.
+6. **The phone bar carries four destinations and a Menu control.** Menu opens the grouped drawer, which
+   renders the same `GROUP_ORDER` groups and the same permission-filtered `items` as the rail; below
+   1024px the rail is hidden and the drawer is the panel's only modal surface. Focus enters on the close
+   control, Tab is trapped, Escape and the backdrop close, the page is locked, focus returns to the Menu
+   plate, and crossing 1024px closes the drawer and releases the lock. The four ranked destinations are
+   Overview, Orders, Products and Customers.
+7. **A customer row is its own link.** One overlay anchor (`inset: 0`) carries the row's accessible name;
+   the reasoned Suspend / Restore confirmations sit in a raised sibling container, keeping their own
+   activation, dialog, Tab trap and focus return.
+
+**ADR boundary.** This is presentation and routing over behaviour already approved: COD-only payment
+(ADR 0015), approval-before-dispatch and the guarded decision (ADR 0014/0027), availability as the only
+ordering gate (ADR 0013), owner-only administration (ADR 0009) and the single-store model (ADR 0008).
+Nothing here grants a capability, changes a state transition, or writes a new kind of row.
+
+**Acceptance**
+
+- `/qbpanel/orders-cod` answers **404** for a signed-in owner and for an anonymous request.
+- `/qbpanel/orders` shows a pending COD order with its decision forms, and those forms post to
+  `/api/qbpanel/orders-cod`; a decided order appears under the decided filter and not under waiting.
+- Server-side search and pagination hold on every filter, and the lifecycle status filters are still
+  reachable.
+- The card's open area opens the order detail; the decision controls do not.
+- Below 1024px the drawer opens, traps focus, closes on Escape, locks and restores the page, and returns
+  focus to the Menu control.
+
+**Verification.** `scripts/verify-admin.ts` was updated, not weakened: the retired route is asserted 404,
+every pre-existing decision POST on `/api/qbpanel/orders-cod` is preserved, and the new assertions cover
+the merged worklist, the filters, the card's open area, the drawer's focus contract and the customer
+row's overlay. **The suites were not run as part of writing these documents.**
+
+**Limits.** Chromium only; no real phone (iOS Safari, Android Chrome) and no screen reader. A drawer
+opened before a cold start still relies on the existing `ColdStartBackGuard` and `NativeBackButton`
+behaviour, which this change neither tested nor altered.
+
+**Next step.** **Phase 54 (caching and performance budget)**, on the reasoning that the merged screen is
+now the panel's heaviest read: it runs the worklist, the decided worklist and the paged order history on
+one request. Prerequisites: none beyond owner authorization to implement Phase 54, and the installed
+Next 16.4 caching documentation read before choosing an API (item 1 of that phase). Acceptance: a
+catalog or delivery-charge edit is visible immediately, admin stays uncached, and the budget script runs
+green on a recorded baseline.
+
+---
+
 ## Phase 53 - Asset delivery and object storage (owner authorization required)
 
 **Why.** AUD-15, AUD-13. 666 MB / 15,568 files under `public/catalog` cannot ship, and imagery cannot be
