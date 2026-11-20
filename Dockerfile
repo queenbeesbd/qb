@@ -39,9 +39,12 @@ COPY --from=builder /app/src ./src
 COPY --from=builder /app/scripts ./scripts
 COPY --from=builder /app/drizzle ./drizzle
 
-# Volumes are mounted at these paths. Creating them here makes a fresh container writable before the
-# host directories exist.
-RUN mkdir -p public/catalog public/hero .data/payment-proof \
+# Coolify's health check shells out to curl or wget. Debian slim ships neither, and Resend/SMS calls
+# need a CA bundle. Install both before dropping to the unprivileged user.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends curl ca-certificates \
+    && rm -rf /var/lib/apt/lists/* \
+    && mkdir -p public/catalog public/hero .data/payment-proof \
     && chown -R node:node /app/.next public/catalog public/hero .data
 
 USER node
