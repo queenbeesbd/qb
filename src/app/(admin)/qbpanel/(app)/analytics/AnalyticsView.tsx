@@ -15,18 +15,17 @@ import styles from '../../qbpanel.module.css';
 export type AnalyticsStatusSlice = { status: string; count: number };
 export type AnalyticsTopProduct = { name: string; units: number; revenueMinor: number };
 
-
 export type AnalyticsViewData = {
   period: 7 | 30 | 90;
   summary: {
-    ordersPlaced: number;
-    completedOrders: number;
     revenueMinor: number;
+    completedOrders: number;
+    ordersPlaced: number;
     itemsSold: number;
     customersServed: number;
     averageOrderValueMinor: number | null;
-    deliveryMinor: number;
     discountMinor: number;
+    deliveryMinor: number;
     additionalCostsMinor: number;
     netEstimateMinor: number | null;
   };
@@ -66,18 +65,27 @@ const STATUS_TONES: Record<string, ChartTone> = {
 /**
  * Analytics.
  *
- * The screen answers three questions in order: what came in, what is in the pipeline, and what actually
- * sold. Every figure is derived from the order rows on read, so nothing here can disagree with the
- * order list it came from.
+ * The screen answers three questions in order: **what came in**, **what is in the pipeline**, and
+ * **what actually sold**. Every figure is derived from the order rows on read, so nothing here can
+ * disagree with the order list it came from.
  *
- * Two clocks are kept visually apart and labelled: money is bucketed by the day the owner recorded
- * payment (completed), the pipeline by the day the customer placed the order. They are never summed,
- * because "orders placed" and "orders paid" are different facts about different moments.
+ * **Mobile-first composition (owner direction, 2026-11-21).** A phone opens on the period tabs, the
+ * four figures the owner actually watches, and the revenue chart. Everything that is a *reference*
+ * rather than a *reading* - the status ring, what sold, promo use, the money split - is a disclosure
+ * below them, folded by default, whose summary states the one fact it is opened for. The page is
+ * therefore one to two screens instead of four, and no figure was dropped: the disclosures carry every
+ * panel the page ever had.
  *
- * The traffic questions live on their own screen (`/qbpanel/traffic`, ADR 0033). They are not folded in
- * here because a visit is not an order and the two are never added together.
+ * **Folded by default is the point.** A summary that already answers the question ("Orders by status
+ * · 6 orders") means opening it is optional; a summary that said "Details" would make the fold a hiding
+ * place. The rule is the same one `docs/design-system.md` sets for a list filter: the closed summary
+ * names what is inside.
+ *
+ * Two clocks stay apart and labelled: money is bucketed by the day the owner recorded payment
+ * (completed), the pipeline by the day the customer placed the order. They are never summed.
+ *
+ * The traffic questions live on their own screen (`/qbpanel/traffic`, ADR 0033).
  */
-
 export function AnalyticsView({ data }: { data: AnalyticsViewData }) {
   const { t, price } = useTranslation();
   const { summary, series, statuses, topProducts, promos, period } = data;
@@ -102,7 +110,10 @@ export function AnalyticsView({ data }: { data: AnalyticsViewData }) {
       <PageHeader
         title={t('admin.analytics.title')}
         actions={
-          <nav className={styles.filterTabs} aria-label={t('admin.analytics.periodLabel')}>
+          <nav
+            className={`${styles.filterTabs} ${styles.filterTabsShort}`}
+            aria-label={t('admin.analytics.periodLabel')}
+          >
             {periods.map((value) => (
               <Link
                 key={value}
@@ -117,7 +128,15 @@ export function AnalyticsView({ data }: { data: AnalyticsViewData }) {
         }
       />
 
-      <div className={`${styles.kpiGrid} ${styles.kpiGridSix}`}>
+      {/*
+        Four figures, not six (owner direction, 2026-11-21).
+
+        "Items sold" and "Average order" were tiles the owner read once and never acted on; they are
+        still stated, as headline figures under the chart, where they belong to the reading rather than
+        competing with the money. The four here are the ones the phone is opened for: what came in, how
+        many orders, who bought and what was given away.
+      */}
+      <div className={`${styles.kpiGrid} ${styles.kpiGridFour}`}>
         <MetricCard
           tone="green"
           icon="analytics"
@@ -135,29 +154,11 @@ export function AnalyticsView({ data }: { data: AnalyticsViewData }) {
           spark={<Sparkline points={series.map((point) => point.orders)} tone="blue" />}
         />
         <MetricCard
-          tone="violet"
-          icon="package"
-          label={t('admin.analytics.kpiItems')}
-          value={countFormat.format(summary.itemsSold)}
-          note={t('admin.analytics.kpiItemsNote')}
-        />
-        <MetricCard
           tone="amber"
           icon="customers"
           label={t('admin.analytics.kpiCustomers')}
           value={countFormat.format(summary.customersServed)}
           note={t('admin.analytics.kpiCustomersNote')}
-        />
-        <MetricCard
-          tone="teal"
-          icon="list"
-          label={t('admin.analytics.kpiAverage')}
-          value={summary.averageOrderValueMinor === null ? '—' : price(summary.averageOrderValueMinor)}
-          note={
-            summary.averageOrderValueMinor === null
-              ? t('admin.analytics.kpiAverageEmpty')
-              : t('admin.analytics.kpiAverageNote')
-          }
         />
         <MetricCard
           tone="rose"
@@ -168,152 +169,190 @@ export function AnalyticsView({ data }: { data: AnalyticsViewData }) {
         />
       </div>
 
-      <div className={styles.chartGrid}>
-        <section className={styles.panel} aria-labelledby="analytics-revenue">
-          <div className={styles.panelHead}>
-            <h2 id="analytics-revenue" className={styles.panelTitle}>
-              {t('admin.analytics.revenueTitle')}
-            </h2>
-            {peak !== undefined && peak.revenueMinor > 0 && (
-              <span className={styles.statNote}>
-                {t('admin.analytics.peakDay', {
-                  date: dayLabel(peak.date),
-                  amount: price(peak.revenueMinor),
-                })}
+      <section className={styles.panel} aria-labelledby="analytics-revenue">
+        <div className={styles.panelHead}>
+          <h2 id="analytics-revenue" className={styles.panelTitle}>
+            {t('admin.analytics.revenueTitle')}
+          </h2>
+          {peak !== undefined && peak.revenueMinor > 0 && (
+            <span className={styles.statNote}>
+              {t('admin.analytics.peakDay', {
+                date: dayLabel(peak.date),
+                amount: price(peak.revenueMinor),
+              })}
+            </span>
+          )}
+        </div>
+        {/*
+          The two figures that left the tile row. They are readings of this chart, not a second band of
+          headline numbers: items sold is the volume under the money, average order is the money per
+          order - both of them are the chart's own facts, stated beneath it.
+        */}
+        <dl className={styles.chartStats}>
+          <div>
+            <dt>{t('admin.analytics.kpiItems')}</dt>
+            <dd>{countFormat.format(summary.itemsSold)}</dd>
+          </div>
+          <div>
+            <dt>{t('admin.analytics.kpiAverage')}</dt>
+            <dd>
+              {summary.averageOrderValueMinor === null
+                ? t('admin.analytics.kpiAverageEmpty')
+                : price(summary.averageOrderValueMinor)}
+            </dd>
+          </div>
+          <div>
+            <dt>{t('admin.analytics.kpiOrders')}</dt>
+            <dd>{countFormat.format(summary.ordersPlaced)}</dd>
+          </div>
+        </dl>
+        <AreaChart
+          points={series.map((point) => ({ key: point.date, value: point.revenueMinor }))}
+          label={t('admin.analytics.revenueChartLabel')}
+          caption={t('admin.analytics.revenueChartCaption')}
+          summary={
+            summary.completedOrders === 0
+              ? t('admin.analytics.revenueEmpty')
+              : t('admin.analytics.revenueSummary', {
+                  amount: price(summary.revenueMinor),
+                  count: summary.completedOrders,
+                })
+          }
+          formatValue={(value) => price(value)}
+          formatAxis={compactMoney}
+          formatDay={dayLabel}
+        />
+      </section>
+
+      {/*
+        The reference panels, folded (owner direction, 2026-11-21).
+
+        A phone was scrolling 2,244px past five panels to reach nothing: the ring, what sold, promo use
+        and the money split are read occasionally and change with the period, so they are disclosures
+        whose closed summary states the fact they answer. Nothing is hidden that the owner cannot name
+        from the summary, and each one opens in place, without JavaScript and without a route change.
+      */}
+      <div className={styles.foldSection}>
+        <details>
+          <summary className={styles.foldSummary}>
+            <span className={styles.foldSummaryText}>
+              <h2 className={styles.foldSummaryTitle} id="analytics-status">
+                {t('admin.analytics.statusTitle')}
+              </h2>
+              <span className={styles.foldSummaryMeta}>
+                {orderTotal === 0
+                  ? t('admin.analytics.statusEmpty')
+                  : t('admin.analytics.statusSummary', { count: orderTotal })}
               </span>
+            </span>
+            <span className={styles.foldSummaryChevron} aria-hidden="true">
+              <ChevronIcon />
+            </span>
+          </summary>
+          <div className={styles.foldBody} aria-labelledby="analytics-status">
+            {orderTotal === 0 ? (
+              <p className={styles.hint}>{t('admin.analytics.statusEmpty')}</p>
+            ) : (
+              <DonutChart
+                label={t('admin.analytics.statusTitle')}
+                centerLabel={t('admin.analytics.statusCenter')}
+                total={orderTotal}
+                slices={statuses.map((slice) => ({
+                  label: t(statusLabel(slice.status) as TranslationKey),
+                  value: slice.count,
+                  tone: STATUS_TONES[slice.status] ?? 'slate',
+                }))}
+              />
             )}
           </div>
-          <AreaChart
-            points={series.map((point) => ({ key: point.date, value: point.revenueMinor }))}
-            label={t('admin.analytics.revenueChartLabel')}
-            caption={t('admin.analytics.revenueChartCaption')}
-            summary={
-              summary.completedOrders === 0
-                ? t('admin.analytics.revenueEmpty')
-                : t('admin.analytics.revenueSummary', {
-                    amount: price(summary.revenueMinor),
-                    count: summary.completedOrders,
-                  })
-            }
-            formatValue={(value) => price(value)}
-            formatAxis={compactMoney}
-            formatDay={dayLabel}
-          />
-        </section>
-
-        <section className={styles.panel} aria-labelledby="analytics-status">
-          <div className={styles.panelHead}>
-            <h2 id="analytics-status" className={styles.panelTitle}>
-              {t('admin.analytics.statusTitle')}
-            </h2>
-          </div>
-          {orderTotal === 0 ? (
-            <p className={styles.hint}>{t('admin.analytics.statusEmpty')}</p>
-          ) : (
-            <DonutChart
-              label={t('admin.analytics.statusTitle')}
-              centerLabel={t('admin.analytics.statusCenter')}
-              total={orderTotal}
-              slices={statuses.map((slice) => ({
-                label: t(statusLabel(slice.status) as TranslationKey),
-                value: slice.count,
-                tone: STATUS_TONES[slice.status] ?? 'slate',
-              }))}
-            />
-          )}
-        </section>
+        </details>
       </div>
 
-      <div className={styles.splitGrid}>
-        <div className={styles.stack}>
-        <section className={styles.panel} aria-labelledby="analytics-products">
-          <div className={styles.panelHead}>
-            <h2 id="analytics-products" className={styles.panelTitle}>
-              {t('admin.analytics.productsTitle')}
-            </h2>
-            <span className={styles.statNote}>{t('admin.analytics.productsNote')}</span>
-          </div>
-          {topProducts.length === 0 ? (
-            <EmptyState
-              title={t('admin.analytics.productsEmptyTitle')}
-              body={t('admin.analytics.productsEmptyBody')}
-              icon="package"
-            />
-          ) : (
-            <div className={styles.tableWrap}>
-              <table className={styles.table}>
-                <caption className="sr-only">{t('admin.analytics.productsCaption')}</caption>
-                <thead>
-                  <tr>
-                    <th scope="col">{t('admin.analytics.columnProduct')}</th>
-                    <th scope="col">{t('admin.analytics.columnUnits')}</th>
-                    <th scope="col">{t('admin.analytics.columnRevenue')}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {topProducts.map((product) => (
-                    <tr key={product.name}>
-                      <td>
-                        <span className={styles.rankCell}>
-                          <span>{product.name}</span>
-                          {/* A bar with one row compares the product to itself: it reads as an underline,
-                              so it is only drawn when there is something to rank against. */}
-                          {topProducts.length > 1 && (
-                            <span className={styles.rankTrack} aria-hidden="true">
-                              <span
-                                className={styles.rankFill}
-                                style={{ width: `${Math.round((product.units / Math.max(1, busiest)) * 100)}%` }}
-                              />
-                            </span>
-                          )}
-                        </span>
-                      </td>
-                      <td className={styles.mono}>{product.units}</td>
-                      <td className={styles.mono}>{price(product.revenueMinor)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </section>
-
-          <section className={styles.panel} aria-labelledby="analytics-promos">
-            <div className={styles.panelHead}>
-              <h2 id="analytics-promos" className={styles.panelTitle}>
-                {t('admin.analytics.promoTitle')}
+      <div className={styles.foldSection}>
+        <details>
+          <summary className={styles.foldSummary}>
+            <span className={styles.foldSummaryText}>
+              <h2 className={styles.foldSummaryTitle} id="analytics-products">
+                {t('admin.analytics.productsTitle')}
               </h2>
-              <Link className={styles.sectionLink} href="/qbpanel/promo-codes">
-                {t('admin.analytics.promoLink')}
-              </Link>
-            </div>
-            <dl className={styles.moneyList}>
-              <div>
-                <dt>{t('admin.analytics.promoRedemptions')}</dt>
-                <dd>{promos.redemptions}</dd>
-              </div>
-              <div>
-                <dt>{t('admin.analytics.promoCodes')}</dt>
-                <dd>{promos.distinctCodes}</dd>
-              </div>
-              <div>
-                <dt>{t('admin.analytics.promoGiven')}</dt>
-                <dd>{price(promos.discountGivenMinor)}</dd>
-              </div>
-            </dl>
-            {promos.redemptions === 0 && (
-              <p className={styles.note}>{t('admin.analytics.promoNone')}</p>
+              <span className={styles.foldSummaryMeta}>
+                {topProducts.length === 0
+                  ? t('admin.analytics.productsEmptyTitle')
+                  : t('admin.analytics.productsSummary', {
+                      name: topProducts[0]?.name ?? '',
+                      count: busiest,
+                    })}
+              </span>
+            </span>
+            <span className={styles.foldSummaryChevron} aria-hidden="true">
+              <ChevronIcon />
+            </span>
+          </summary>
+          <div className={styles.foldBody} aria-labelledby="analytics-products">
+            {topProducts.length === 0 ? (
+              <EmptyState
+                title={t('admin.analytics.productsEmptyTitle')}
+                body={t('admin.analytics.productsEmptyBody')}
+                icon="package"
+              />
+            ) : (
+              /*
+                A ranked list, not a table (owner direction, 2026-11-21). The table was 736px wide
+                inside a 324px phone panel, so the fold's content arrived as a horizontal scroll -
+                three columns of which only two were ever on screen. Rows carry the same three facts:
+                rank, name with its volume bar, units and money on the right.
+              */
+              <ol className={styles.rankList}>
+                {topProducts.map((product) => (
+                  <li key={product.name} className={styles.rankRow}>
+                    <span className={styles.rankNumber} aria-hidden="true">
+                      {topProducts.indexOf(product) + 1}
+                    </span>
+                    <span className={styles.rankCell}>
+                      <span className={styles.rankName}>{product.name}</span>
+                      <span className={styles.rankTrack} aria-hidden="true">
+                        <span
+                          className={styles.rankFill}
+                          style={{
+                            width: `${Math.round((product.units / Math.max(1, busiest)) * 100)}%`,
+                          }}
+                        />
+                      </span>
+                    </span>
+                    <span className={styles.rankMeta}>
+                      {t('admin.analytics.soldUnits', {
+                        units: product.units,
+                        amount: price(product.revenueMinor),
+                      })}
+                    </span>
+                  </li>
+                ))}
+              </ol>
             )}
-          </section>
-        </div>
+          </div>
+        </details>
+      </div>
 
-        <div className={styles.stack}>
-          <section className={styles.panel} aria-labelledby="analytics-money">
-            <div className={styles.panelHead}>
-              <h2 id="analytics-money" className={styles.panelTitle}>
+      <div className={styles.foldSection}>
+        <details>
+          <summary className={styles.foldSummary}>
+            <span className={styles.foldSummaryText}>
+              <h2 className={styles.foldSummaryTitle} id="analytics-money">
                 {t('admin.analytics.moneyTitle')}
               </h2>
-            </div>
+              <span className={styles.foldSummaryMeta}>
+                {summary.netEstimateMinor === null
+                  ? t('admin.analytics.unavailable')
+                  : t('admin.analytics.moneySummary', {
+                      amount: price(summary.netEstimateMinor),
+                    })}
+              </span>
+            </span>
+            <span className={styles.foldSummaryChevron} aria-hidden="true">
+              <ChevronIcon />
+            </span>
+          </summary>
+          <div className={styles.foldBody} aria-labelledby="analytics-money">
             <dl className={styles.moneyList}>
               <div>
                 <dt>{t('admin.analytics.moneyPayment')}</dt>
@@ -338,11 +377,77 @@ export function AnalyticsView({ data }: { data: AnalyticsViewData }) {
                 </dd>
               </div>
             </dl>
-          </section>
-        </div>
-
+          </div>
+        </details>
       </div>
 
+      <div className={styles.foldSection}>
+        <details>
+          <summary className={styles.foldSummary}>
+            <span className={styles.foldSummaryText}>
+              <h2 className={styles.foldSummaryTitle} id="analytics-promos">
+                {t('admin.analytics.promoTitle')}
+              </h2>
+              <span className={styles.foldSummaryMeta}>
+                {promos.redemptions === 0
+                  ? t('admin.analytics.promoNone')
+                  : t('admin.analytics.promoSummaryLine', {
+                      count: promos.redemptions,
+                      amount: price(promos.discountGivenMinor),
+                    })}
+              </span>
+            </span>
+            <span className={styles.foldSummaryChevron} aria-hidden="true">
+              <ChevronIcon />
+            </span>
+          </summary>
+          <div className={styles.foldBody} aria-labelledby="analytics-promos">
+            <dl className={styles.moneyList}>
+              <div>
+                <dt>{t('admin.analytics.promoRedemptions')}</dt>
+                <dd>{promos.redemptions}</dd>
+              </div>
+              <div>
+                <dt>{t('admin.analytics.promoCodes')}</dt>
+                <dd>{promos.distinctCodes}</dd>
+              </div>
+              <div>
+                <dt>{t('admin.analytics.promoGiven')}</dt>
+                <dd>{price(promos.discountGivenMinor)}</dd>
+              </div>
+            </dl>
+            <Link className={styles.foldAction} href="/qbpanel/promo-codes">
+              {t('admin.analytics.promoLink')}
+            </Link>
+          </div>
+        </details>
+      </div>
     </>
+  );
+}
+
+/**
+ * The disclosure chevron.
+ *
+ * Drawn here rather than added to the shared icon set: it marks a state (open / closed, by rotation),
+ * not a destination or an action, and the storefront screen's richer summary does not use it. One
+ * glyph, one file, so a change to the fold's affordance is a change in one place.
+ */
+function ChevronIcon() {
+  return (
+    <svg
+      width={18}
+      height={18}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.8}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <path d="m6 9 6 6 6-6" />
+    </svg>
   );
 }

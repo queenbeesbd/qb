@@ -1906,6 +1906,25 @@ html[lang='bn'] .sectionHead h2 {
   box-shadow: 0 1px 3px rgba(32, 26, 41, 0.1);
 }
 
+/*
+ * Three period labels on a 320px screen (UI-06's subject).
+ *
+ * At that width the three 40px links need 289px inside an 288px track, so the third wrapped onto a row
+ * of its own and the group read as two filters and an orphan. The short variant drops one padding step
+ * and one label size: the words are the same, they fit one row, and each control keeps its 40px height.
+ */
+@media (max-width: 359px) {
+  .filterTabsShort {
+    padding: 2px;
+    gap: 0;
+  }
+
+  .filterTabsShort .filterTab {
+    padding: 0 var(--space-2);
+    font-size: var(--text-xs);
+  }
+}
+
 .filterCount {
   font-variant-numeric: tabular-nums;
   color: var(--admin-subtle);
@@ -4060,17 +4079,6 @@ html[dir='rtl'] .switchOn .switchKnob::after {
   gap: var(--space-3);
 }
 
-/*
- * Six figures read as two rows of three, never one row of six.
- *
- * At six columns each card was ~150px wide on a 1440px screen: the label wrapped to two lines, the note
- * to three, and the icon plate took a third of the reading column. Three columns give each figure the
- * width its sentence needs, and the band still fits above the fold.
- */
-.kpiGridSix {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-
 @media (max-width: 1199px) {
   .kpiGrid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -4078,8 +4086,7 @@ html[dir='rtl'] .switchOn .switchKnob::after {
 }
 
 @media (max-width: 720px) {
-  .kpiGrid,
-  .kpiGridSix {
+  .kpiGrid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
   .kpiGrid > :last-child:nth-child(odd) {
@@ -5798,11 +5805,11 @@ a.rankName:hover {
  * The summary is a plain 40px-scale row: a heading-sized title, a count in muted type, and a chevron
  * that rotates. The panel opens under it as one card, matching the rest of the admin.
  */
-.storefrontSection {
+.foldSection {
   min-width: 0;
 }
 
-.storefrontSection > details {
+.foldSection > details {
   background: var(--admin-surface);
   border: 1px solid var(--admin-line);
   border-radius: var(--admin-radius-card);
@@ -5810,7 +5817,7 @@ a.rankName:hover {
   overflow: hidden;
 }
 
-.storefrontSummary {
+.foldSummary {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -5821,30 +5828,32 @@ a.rankName:hover {
   list-style: none;
 }
 
-.storefrontSummary::-webkit-details-marker {
+.foldSummary::-webkit-details-marker {
   display: none;
 }
 
-.storefrontSummary:focus-visible {
+.foldSummary:focus-visible {
   outline: 2px solid var(--admin-lavender-deep);
   outline-offset: -2px;
 }
 
-.storefrontSummaryText {
+.foldSummaryText {
   display: grid;
   gap: 1px;
   min-width: 0;
 }
 
-.storefrontSummaryTitle {
+.foldSummaryTitle {
+  margin: 0;
   font-family: var(--font-display);
   font-size: var(--text-md);
   font-weight: 600;
+  line-height: 1.25;
   letter-spacing: -0.01em;
   color: var(--admin-ink);
 }
 
-.storefrontSummaryMeta {
+.foldSummaryMeta {
   font-size: var(--text-xs);
   color: var(--admin-muted);
   line-height: var(--leading-snug);
@@ -5852,7 +5861,7 @@ a.rankName:hover {
 }
 
 /* The chevron is a state, so it turns rather than being replaced by a second glyph. */
-.storefrontSummaryChevron {
+.foldSummaryChevron {
   display: grid;
   place-items: center;
   flex: none;
@@ -5860,11 +5869,11 @@ a.rankName:hover {
   transition: transform 160ms cubic-bezier(0.23, 1, 0.32, 1);
 }
 
-details[open] > .storefrontSummary .storefrontSummaryChevron {
+details[open] > .foldSummary .foldSummaryChevron {
   transform: rotate(180deg);
 }
 
-.storefrontBody {
+.foldBody {
   display: grid;
   gap: var(--space-3);
   padding: 0 var(--space-4) var(--space-4);
@@ -5878,8 +5887,33 @@ details[open] > .storefrontSummary .storefrontSummaryChevron {
   justify-self: start;
 }
 
+/*
+ * The one action inside a folded panel (analytics: "Manage codes").
+ *
+ * A folded body is a reading, so its action is a quiet link on the panel's own surface rather than a
+ * filled button that would outrank the figures above it.
+ */
+.foldAction {
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: var(--admin-control);
+  padding: 0 var(--space-3);
+  border: 1px solid var(--admin-line-strong);
+  border-radius: var(--admin-radius-control);
+  color: var(--admin-ink);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.foldAction:hover {
+  background: var(--admin-surface-soft);
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .storefrontSummaryChevron {
+  .foldSummaryChevron {
     transition: none;
   }
 }
@@ -5964,46 +5998,6 @@ details[open] > .storefrontSummary .storefrontSummaryChevron {
   font-family: var(--font-mono, ui-monospace, monospace);
   font-size: var(--text-xs);
   color: var(--admin-subtle);
-}
-
-/* ---- Back to the page's parent (owner report, 2026-11-12) ----------------- */
-
-/*
- * A 40px control in the top bar, the same height as everything beside it, drawn only on a page that has
- * a parent. It is a link to a route rather than a history call: a panel opened from a bookmark, a link
- * or the Android shell has no history to go back to, and this control must work anyway.
- */
-.topbarBack {
-  display: grid;
-  place-items: center;
-  width: var(--admin-control);
-  height: var(--admin-control);
-  flex: none;
-  border: 1px solid var(--admin-line);
-  border-radius: var(--admin-radius-sm);
-  background: var(--admin-surface);
-  color: var(--admin-ink);
-  text-decoration: none;
-  transition: border-color var(--transition-fast), color var(--transition-fast),
-    background var(--transition-fast);
-}
-
-.topbarBack:hover {
-  border-color: var(--admin-lavender-deep);
-  color: var(--admin-lavender-deep);
-}
-
-.topbarBack:focus-visible {
-  outline: 2px solid var(--admin-lavender-deep);
-  outline-offset: 2px;
-}
-
-@media (max-width: 720px) {
-  /* On a phone the back control is a primary target, and the small variant never applies to it. */
-  .topbarBack {
-    width: var(--admin-control);
-    height: var(--admin-control);
-  }
 }
 
 /*

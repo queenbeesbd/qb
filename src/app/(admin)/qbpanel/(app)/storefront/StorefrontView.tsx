@@ -285,25 +285,25 @@ function Picker({
    * page is opened to check or reorder what is already chosen.
    */
   return (
-    <section className={styles.storefrontSection} aria-labelledby={`sf-${section}`}>
+    <section className={styles.foldSection} aria-labelledby={`sf-${section}`}>
       <details open={open} onToggle={(event) => setOpen(event.currentTarget.open)}>
-        <summary className={styles.storefrontSummary}>
-          <span className={styles.storefrontSummaryText}>
-            <span className={styles.storefrontSummaryTitle} id={`sf-${section}`}>
+        <summary className={styles.foldSummary}>
+          <span className={styles.foldSummaryText}>
+            <span className={styles.foldSummaryTitle} id={`sf-${section}`}>
               {title}
             </span>
-            <span className={styles.storefrontSummaryMeta}>
+            <span className={styles.foldSummaryMeta}>
               {value.length === 0
                 ? emptyNote
                 : t('admin.storefront.chosenOf', { count: value.length, limit })}
             </span>
           </span>
-          <span className={styles.storefrontSummaryChevron} aria-hidden="true">
+          <span className={styles.foldSummaryChevron} aria-hidden="true">
             <AdminIcon name="arrowDown" width={16} height={16} />
           </span>
         </summary>
 
-        <div className={styles.storefrontBody}>
+        <div className={styles.foldBody}>
           {/* The row's own explanation lives inside the disclosure, not under the summary line. */}
           <p className={styles.hint}>{body}</p>
           {chosenRows.length === 0 ? (

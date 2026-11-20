@@ -478,6 +478,10 @@ how a page grows a second, conflicting set of filter conventions.
   Below 1024px the breadcrumb gives way to the current section name and the brand mark. There is no
   hamburger in the top bar: the phone's one door to the rest of the panel is the **Menu** pill at the
   end of the bottom bar, and everything else is a ranked destination in that bar.
+  - **The 40px Back control was removed (owner direction, 2026-11-21).** It repeated what the bottom
+    bar, the drawer and the device's own back gesture already do, and on a 390px first screen it spent
+    a whole control slot on a page that had three other ways up. `panelParent` still feeds
+    `ColdStartBackGuard` and `NativeBackButton`, so the gesture still lands on the parent route.
 - **Bottom bar (phone): a floating white pill, not a strip** (owner direction, 2026-11-21). The
   full-bleed lavender bar was replaced with a rounded `--admin-surface` plate - 20px radius, one
   `--admin-shadow-pop`, inset 8px from each side and lifted `env(safe-area-inset-bottom) + 12px` off
@@ -1024,6 +1028,28 @@ with focus trap, Escape and focus restoration), `StatusPill`, `EmptyState`, `Ava
 `DateRangeFilter`, `ActiveFilters`, `Pagination`. All are small local components under
 `src/app/(admin)/qbpanel/_ui`; styling stays in `admin.module.css` on the tokens above, and the pure query
 helpers live in `src/lib/qbpanel-query.ts` so they are unit-testable without a cluster.
+
+### The fold (disclosure) pattern
+
+A secondary panel on a phone is a `<details>` whose **summary states the fact it answers**, not a label
+saying "Details". The closed summary is the whole value: "Orders by status · 6 orders placed", "What
+sold · Top: Lilac 5% Niacinamide Serum 30 ml · 1 sold", "Money · Estimated net Tk 690". Opening it is
+therefore optional rather than required, and nothing is hidden that the owner cannot name from the row.
+
+- **Native `<details>`/`<summary>`, never a scripted accordion.** It opens without JavaScript, it is
+  keyboard operable by default (Enter/Space on a focused summary), and the back button cannot leave a
+  half-open fold behind. `ChevronIcon` rotates on `details[open]` and is `aria-hidden`.
+- **One convention, shared classes:** `foldSection`, `foldSummary`, `foldSummaryText`, `foldSummaryTitle`,
+  `foldSummaryMeta`, `foldSummaryChevron`, `foldBody`, `foldAction`. The Storefront customisation page
+  uses the same set; do not add a second disclosure vocabulary.
+- **The title is the panel's `h2`.** It sits inside the summary, so the heading list still reaches every
+  panel a reader might want to open (`h2 { margin: 0 }` in `.foldSummaryTitle`).
+- **The fold is not a hiding place for the task.** A screen's reason for existing stays open; only
+  reference material folds - and `ReviewComposer` (a composer, not a reading) likewise stays a closed
+  `<details>` *below* its queue.
+- **Analytics (2026-11-21)** is the worked example: four figures and the revenue chart are open, and the
+  four reference panels - status ring, what sold, money split, promo use - are folded. The phone page is
+  1,353px instead of 2,244px, and no figure was dropped.
 
 ### Motion
 

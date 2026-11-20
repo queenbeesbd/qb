@@ -14,6 +14,44 @@ An entry may describe a deployment only once it has actually happened and been o
 
 ## [Unreleased]
 
+### Changed - 2026-11-21: analytics folds its reference panels, and the top-bar Back control is gone
+
+Owner direction: the admin panel is used on a phone most of the time and the user asked for the
+secondary blocks to be **collapsed with a dropdown**. **UI only** - no schema, no migration, no
+permission, no query change.
+
+**Analytics, phone: 2,244px to 1,353px**, with every figure kept.
+
+- **Four figures, not six.** Revenue, orders placed, customers served and discounts stay in the tile
+  band. Items sold and average order moved under the revenue chart as its headline figures - they are
+  readings of that chart, not a competing row of headline numbers. `kpiGridSix` was deleted.
+- **Four disclosures replace four stacked panels.** Orders by status, What sold, Money and Promo codes
+  are now `<details>` blocks, **collapsed by default**, whose **summary states the fact it answers**:
+  "6 orders placed", "Top: Lilac 5% Niacinamide Serum 30 ml · 1 sold", "Estimated net Tk 690", "No code
+  was used in this period". Opening one is optional, not required, and nothing was dropped - each body
+  carries the panel the page always had. The pattern is documented as the system's fold vocabulary in
+  `docs/design-system.md`, and the Storefront screen's classes were renamed onto it (`storefrontSection`
+  -> `foldSection`, etc.) so there is one convention rather than two.
+- **The sold table became a ranked list.** It was 736px wide inside a 324px phone panel, so the fold's
+  content arrived as a horizontal scroll with the money column off screen. Rows carry the same three
+  facts - rank, name with its volume bar, "1 × · Tk 750".
+- **The period tabs stay on one row at 320px.** They wrapped to a second row with an orphan label; a
+  short variant at ≤359px drops one padding step and one label size, keeping every control 40px.
+- **The top-bar Back control is removed** (owner direction, same pass). The bottom bar, the Menu drawer
+  and the device's back gesture already answer "up"; on a 390px screen it spent a whole control slot
+  repeating one of them. `panelParent` still drives `ColdStartBackGuard` and `NativeBackButton`, so a
+  deep page opened from a bookmark still lands on its parent. `topbarBack` CSS and the `admin.nav.back`
+  label were deleted rather than left unused.
+
+**Verified:** `typecheck`, `lint` (0 errors, 25 pre-existing warnings), `check:i18n` (1,915 keys),
+`build`, and a Chromium sweep against the production build at 320/360/390/414/768/1023/1440 - zero
+horizontal overflow anywhere, the three period tabs on one row at every width, four figures and four
+collapsed folds at every width, every fold opening and closing from a **keyboard-focused summary** with
+native `<details>`, and no `[data-admin-back]` element on any page. `verify:admin` was not re-run; no
+assertion in it referenced the removed control.
+
+### Changed - 2026-11-21: the dashboard is built for a phone, and stops explaining itself
+
 ### Changed - 2026-11-21: the dashboard is built for a phone, and stops explaining itself
 
 Owner direction: the admin panel is used on a phone most of the time and `/qbpanel` was too long.

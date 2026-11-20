@@ -284,20 +284,13 @@ export function AdminShell({
                 </span>
               </Link>
               {/*
-                A real link to the parent route, drawn on every page except the overview. It is what
-                the browser's back button is not allowed to be: always present, always in-app, and never
-                dependent on where the owner came from.
+                The 40px "Back" control is gone (owner direction, 2026-11-21). Every panel page already
+                has three ways up - the bottom bar's destinations, the Menu drawer, and the browser or
+                Android back gesture - and the top bar was spending a 40px slot on the first screen to
+                repeat one of them. `panelParent` still drives `ColdStartBackGuard` and
+                `NativeBackButton`, so a docs-deep page still lands on its parent, not on the
+                storefront.
               */}
-              {parentHref !== null && (
-                <Link
-                  className={styles.topbarBack}
-                  href={parentHref}
-                  aria-label={t('admin.nav.back')}
-                  data-admin-back=""
-                >
-                  <AdminIcon name="arrowLeft" width={16} height={16} />
-                </Link>
-              )}
               <nav className={styles.breadcrumb} aria-label={t('admin.breadcrumbLabel')}>
                 <span className={styles.breadcrumbRoot}>{surfaceLabel}</span>
                 <span className={styles.breadcrumbSeparator} aria-hidden="true">
