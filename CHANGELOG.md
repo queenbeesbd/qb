@@ -14,6 +14,51 @@ An entry may describe a deployment only once it has actually happened and been o
 
 ## [Unreleased]
 
+### Changed - 2026-11-21: the dashboard is built for a phone, and stops explaining itself
+
+Owner direction: the admin panel is used on a phone most of the time and `/qbpanel` was too long.
+Measured before touching it: **3,731px / 4.4 screens** at 390x844, nine panels, five explanatory
+paragraphs. After: **2,887px**, seven panels, no prose, every figure kept. **UI only** - no schema, no
+migration, no permission, no new data or state transition.
+
+**The prose is gone.** Five sentences and the accounting essay were deleted on owner direction:
+"What is happening in your shop today, and what needs you next." (the page has no subtitle now),
+"From N completed orders whose payment was recorded.", "No code is live. Create one to offer a
+discount.", "Ranked by units on completed, paid orders in the last 30 days...", "Availability is a state,
+not a count...", "The jobs you do most often, one click away.", plus the audit-explanation line under
+refusals. The one caveat that stays is the one where a figure would otherwise overstate itself:
+"Excludes N orders without a recorded delivery split."
+
+**Work first.** The waiting figure left the KPI row and became its own band: the count in display type,
+the oldest wait beside it, and a 40px filled "Open the queue" link that fills the band's width on a
+phone. It uses the warning pair only while a call waits; with nothing waiting it is a neutral surface
+with a green tick and "Nothing is waiting" - a dashboard that shouts on a quiet morning is lying. The
+four remaining figures (revenue today, orders today, active products, customers) are context and sit
+below it in a 2x2 grid, so the one thing that is *work* no longer has to be found by reading.
+
+**One money panel, not two.** "Revenue recorded" (chart) and "Recorded revenue" (the four amounts) were
+the same fact 1,780px apart on a phone. They are one panel now - payments headline, the fee split, the
+three chart headlines and the chart itself - sitting in the wide column at a desk and full width on a
+phone, with the status ring and promo codes beside/below it.
+
+**Quick actions removed.** All six shortcuts pointed at something already on screen: the header (Add
+product), the bottom bar (All orders), the panel above (Categories via Active products, Analytics via
+the money panel) or the rail. A shortcut to a shortcut cost ~300px of phone scroll. `quickGrid`,
+`quickAction`, `quickIcon` and `tripleGrid` were deleted from the stylesheet rather than left unused.
+
+**Recent orders fit a phone.** A row stacked three bands and reserved a 34px disc; five rows measured
+616px. Below 720px the disc is dropped and the row is two columns - identity with its reference and
+time on the left, total and status on the right - taking the panel to 522px. The disc is unchanged
+above 720px, where it has the room.
+
+**Verified:** `typecheck`, `lint` (0 errors, 25 pre-existing warnings), `check:i18n` (1,918 keys),
+`build`, and a Chromium pass against the production build at 390x844 and 1440x900 - no horizontal
+overflow at 320/360/390/414/768/1440, the waiting link is a real 40px anchor into `/qbpanel/orders`,
+the phone first fold holds the band, the four figures and the top of recent orders, and none of the
+removed sentences appears anywhere in the rendered text. `verify:admin` was **not** re-run for this
+change; its two dashboard assertions were updated to the new composition (four figures plus a waiting
+band, and the merged money panel) but the suite would need a disposable cluster.
+
 ### Changed - 2026-11-21: the admin phone navigation is a floating pill
 
 Owner direction, first priority over the previous rule: the admin bottom bar was the full-bleed lavender

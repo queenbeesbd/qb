@@ -386,9 +386,7 @@ export function OverviewView({
               </ul>
             )}
           </section>
-        </div>
 
-        <div className={styles.stack}>
           {/*
             One money panel, not two (owner direction, 2026-11-21). "Revenue recorded" and "Recorded
             revenue" were the same fact in a chart and a breakdown, 1,780px apart on a phone: a reader
@@ -475,6 +473,9 @@ export function OverviewView({
             </section>
           )}
 
+        </div>
+
+        <div className={styles.stack}>
           {analytics !== null && (
             <section className={styles.panel} aria-labelledby="overview-status">
               <div className={styles.panelHead}>

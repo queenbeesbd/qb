@@ -2205,27 +2205,27 @@ async function main(): Promise<void> {
              */
             const dashboard = await browser.evaluate<{
               kpis: number;
-              actions: number;
+              waiting: number;
               panels: string[];
               saas: string[];
             }>(`(() => {
               const text = document.body.textContent ?? '';
               return {
                 kpis: document.querySelectorAll('[class*="kpiLabel"]').length,
-                actions: document.querySelectorAll('[class*="quickAction"]').length,
-                panels: [...document.querySelectorAll('[class*="tripleGrid"] h2')].map((h) => h.textContent?.trim() ?? ''),
+                // The one band that is work, not context (owner direction, 2026-11-21).
+                waiting: document.querySelectorAll('[class*="waitingBand"]').length,
+                panels: [...document.querySelectorAll('[class*="duoGrid"] h2')].map((h) => h.textContent?.trim() ?? ''),
                 saas: ['renew', 'subscription', 'upgrade', 'billing', 'trial', 'website visits'].filter((word) =>
                   new RegExp('\\\\b' + word + '\\\\b', 'i').test(text),
                 ),
               };
             })()`);
             record(
-              'the overview shows five figures, the closing panels and quick actions, and no SaaS prompt',
-              dashboard.kpis === 5 &&
-                dashboard.actions >= 6 &&
+              'the overview opens on the waiting band, four figures and the closing panels, with no SaaS prompt',
+              dashboard.waiting === 1 &&
+                dashboard.kpis === 4 &&
                 dashboard.panels.includes('Out of stock') &&
                 dashboard.panels.includes('Top selling') &&
-                dashboard.panels.includes('Quick actions') &&
                 dashboard.saas.length === 0,
               JSON.stringify(dashboard),
             );
@@ -3205,7 +3205,7 @@ async function main(): Promise<void> {
             }>(`(() => {
               const text = document.body.textContent ?? '';
               return {
-                shown: text.includes('Recorded revenue'),
+                shown: text.includes('Revenue recorded') && text.includes('Customer payments'),
                 labels:
                   text.includes('Customer payments') &&
                   text.includes('Standard delivery fee') &&
@@ -3214,7 +3214,7 @@ async function main(): Promise<void> {
               };
             })()`);
             record(
-              'the dashboard shows recorded revenue with its money labels and no accounting essay',
+              'the merged money panel shows the payments, the fee split and the chart, with no accounting essay',
               revenueUi.shown !== null && revenueUi.labels === true && revenueUi.essay === false,
               JSON.stringify(revenueUi),
             );
