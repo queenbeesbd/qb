@@ -149,7 +149,7 @@ export function ConfirmSubmit({
                 <textarea
                   id={`${uid}-reason`}
                   name="reason"
-                  className={styles.textarea}
+                  className={`${styles.textarea} ${styles.dialogReason}`}
                   placeholder={reason.placeholder}
                   minLength={reason.minLength}
                   maxLength={reason.maxLength}

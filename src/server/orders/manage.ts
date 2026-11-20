@@ -285,8 +285,11 @@ export type CustomerQueueRow = {
   readonly status: string;
   readonly createdAt: Date;
   readonly orderCount: number;
-  readonly lastOrderAt: Date | null;
+  readonly lastOrderAt: Date | string | null;
   readonly flagged: boolean;
+  /** The reason the latest suspension recorded, for a suspended row only. */
+  readonly suspendedReason: string | null;
+  readonly suspendedAt: Date | string | null;
 };
 
 /** Rows per page for the customer worklist. */
@@ -300,7 +303,16 @@ export const CUSTOMER_PAGE_SIZE = 25;
  */
 export async function listCustomers(
   tx: Transaction,
-  options: { readonly search?: string; readonly limit?: number; readonly offset?: number } = {},
+  options: {
+    readonly search?: string;
+    readonly limit?: number;
+    readonly offset?: number;
+    /**
+     * Standing filter. `all` is the default; `flagged` is a raised review flag, which blocks nothing
+     * and is not a suspension.
+     */
+    readonly filter?: 'all' | 'active' | 'suspended' | 'flagged';
+  } = {},
 ): Promise<{ readonly rows: CustomerQueueRow[]; readonly total: number }> {
   const limit = Math.min(Math.max(options.limit ?? CUSTOMER_PAGE_SIZE, 1), 100);
   const offset = Math.max(options.offset ?? 0, 0);
@@ -311,6 +323,23 @@ export async function listCustomers(
       : sql`(${customer.email} ilike ${likeTerm(search)}
           or coalesce(${customer.phone}, '') ilike ${likeTerm(search)}
           or coalesce(${customer.displayName}, '') ilike ${likeTerm(search)})`;
+  /*
+   * The standing filter, applied in SQL beside the search so the pager's total is the filtered total.
+   * `flagged` reads a raised review flag rather than a status: a flag blocks nothing (D20), and the
+   * screen words it that way, so a shared predicate would be a lie about what the chip does.
+   */
+  const filter = options.filter ?? 'all';
+  const filterClause =
+    filter === 'active'
+      ? sql`${customer.status} = 'active'`
+      : filter === 'suspended'
+        ? sql`${customer.status} = 'suspended'`
+        : filter === 'flagged'
+          ? sql`exists (
+              select 1 from customer_flag
+              where customer_flag.customer_id = customer.id and customer_flag.state = 'raised'
+            )`
+          : sql`true`;
   const rows = await tx
     .select({
       customerId: customer.id,
@@ -322,15 +351,46 @@ export async function listCustomers(
       orderCount: sql<number>`(
         select count(*)::int from "order" where "order"."customer_id" = customer.id
       )`,
-      lastOrderAt: sql<Date | null>`(
+      /*
+       * A `max()` aggregate over a raw sql`` fragment arrives from the driver as a string, not a Date:
+       * there is no column type to map it against. The page serialises both shapes; typed as it really
+       * is, so a caller cannot assume a Date and throw on the first customer who has actually ordered.
+       */
+      lastOrderAt: sql<Date | string | null>`(
         select max("order"."placed_at") from "order" where "order"."customer_id" = customer.id
       )`,
       flagged: sql<boolean>`exists (
         select 1 from customer_flag where customer_flag.customer_id = customer.id and customer_flag.state = 'raised'
       )`,
+      /*
+       * Why the account stands as it does (owner direction, 2026-11-21).
+       *
+       * A suspension row stated the fact and nothing else: the owner was asked to decide an
+       * irreversible restore - sessions do not come back - with no memory of the finding behind it, and
+       * the reason lived only on the audit screen. It is the same appended record the suspension wrote,
+       * read for the row that carries it, not a second stored field.
+       */
+      suspendedReason: sql<string | null>`(
+        select audit_event.reason from audit_event
+        where audit_event.action = 'customer.banned'
+          and audit_event.entity_type = 'customer'
+          and audit_event.entity_id = customer.id
+        order by audit_event.occurred_at desc
+        limit 1
+      )`,
+      /*
+       * `max()` over a timestamptz arrives from the driver as a string, not a Date: a raw sql``
+       * expression carries no column type for it to map against. The page serialises both shapes.
+       */
+      suspendedAt: sql<Date | string | null>`(
+        select max(audit_event.occurred_at) from audit_event
+        where audit_event.action = 'customer.banned'
+          and audit_event.entity_type = 'customer'
+          and audit_event.entity_id = customer.id
+      )`,
     })
     .from(customer)
-    .where(sql`${customer.deletedAt} is null and ${searchClause}`)
+    .where(sql`${customer.deletedAt} is null and ${searchClause} and ${filterClause}`)
     .orderBy(sql`${customer.createdAt} desc`)
     .limit(limit)
     .offset(offset);
@@ -338,7 +398,7 @@ export async function listCustomers(
   const counted = await tx
     .select({ total: sql<number>`count(*)::int` })
     .from(customer)
-    .where(sql`${customer.deletedAt} is null and ${searchClause}`);
+    .where(sql`${customer.deletedAt} is null and ${searchClause} and ${filterClause}`);
 
   return { rows, total: counted[0]?.total ?? 0 };
 }

@@ -306,10 +306,50 @@ export async function codDecidedToday(
   return { rows: mapped, total: counted[0]?.total ?? 0 };
 }
 
+/**
+ * The customer list's own counts, for the filter that says how many are behind each option.
+ *
+ * Derived on read from the same rows the list pages through - never a stored counter, so a suspension
+ * cannot leave a chip stating a number the list would not produce. `all` is every non-deleted account,
+ * matching the list's own predicate; `flagged` is raised review flags, which is a different fact from a
+ * suspension and is worded as one.
+ */
+export type CustomerFilter = 'all' | 'active' | 'suspended' | 'flagged';
+
+export async function customerCounts(
+  tx: Transaction,
+): Promise<Record<CustomerFilter, number>> {
+  const rows = await tx
+    .select({
+      all: sql<number>`count(*)::int`,
+      active: sql<number>`count(*) filter (where ${customer.status} = 'active')::int`,
+      suspended: sql<number>`count(*) filter (where ${customer.status} = 'suspended')::int`,
+    })
+    .from(customer)
+    .where(sql`${customer.deletedAt} is null`);
+  const flagged = await tx
+    .select({ total: sql<number>`count(*)::int` })
+    .from(customerFlag)
+    .innerJoin(customer, sql`${customer.id} = ${customerFlag.customerId}`)
+    .where(sql`${customerFlag.state} = 'raised' and ${customer.deletedAt} is null`);
+  const row = rows[0];
+  return {
+    all: row?.all ?? 0,
+    active: row?.active ?? 0,
+    suspended: row?.suspended ?? 0,
+    flagged: flagged[0]?.total ?? 0,
+  };
+}
+
 /** Customers with their standing, for the moderation screen. Nothing beyond what it needs. */
 export async function customers(
   tx: Transaction,
-  options: { readonly search?: string; readonly limit?: number; readonly offset?: number } = {},
+  options: {
+    readonly search?: string;
+    readonly limit?: number;
+    readonly offset?: number;
+    readonly filter?: CustomerFilter;
+  } = {},
 ): Promise<{ readonly rows: CustomersQueueItem[]; readonly total: number }> {
   return listCustomers(tx, options);
 }

@@ -534,6 +534,34 @@ how a page grows a second, conflicting set of filter conventions.
   inside the same card starts a new band rather than running on. The action band still precedes the
   money facts.
 
+### Customer list anatomy (2026-11-21)
+
+The customers screen is the **moderation** list, and its composition follows from one measured fact:
+six accounts at 390px used to fill 1,523px and three fitted above the fold.
+
+- **One row, one line on a desk and two on a phone.** Identity (title, identifiers, last order) on the
+  left; standing pills and the reasoned control in a right column that never wraps onto a third band.
+  Below 720px the monogram is dropped **on this list only** - 44px of a 342px column for letters, and on
+  a phone-only account those letters are `01`. Products and categories keep theirs: there the photograph
+  is what is being recognised.
+- **An identifier appears once.** The title is the display name, else the account's first identifier;
+  the metadata omits whatever the title already prints. A phone-only row used to state its number twice.
+- **Standing is a URL**, not a checkbox: All / Active / Suspended / Flagged, each a link carrying a
+  count from the same predicate the list pages through. Old desktop segmented row, phone 40px
+  disclosure whose closed summary names the filter in force.
+- **A flag is not a standing.** The four chips are *not* a partition; a review flag blocks nothing
+  (D20), and one line under the filter says so rather than leaving the chip to imply a third status.
+- **A suspended row states why and when**, from the `customer.banned` audit record, on a line of its
+  own across the row. A reason wrapped inside a 197px identity column tripled the row's height.
+- **Specificity note:** `.record.recordCustomer` is two classes on purpose. The shared `.record` phone
+  rule sets `auto minmax(0, 1fr)`; with the monogram hidden on this list that collapsed the second
+  track to 0px and pushed the standing column to zero width.
+
+Two shared-component defects were found here and fixed for every list, not just this one: the search
+field's `min-width: 14rem` floor overflowed a 320px screen by 36px once "Clear" appeared (it is now
+`min-width: 0` with a wrapping form), and "Clear" was a 20.8px text link at 4.32:1 (now a 40px control
+at 4.6:1 in `--color-action`).
+
 ### List anatomy (Phase 30)
 
 Every admin list is built from the same four parts, in the same order, so the panel reads as one product

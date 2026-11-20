@@ -14,6 +14,66 @@ An entry may describe a deployment only once it has actually happened and been o
 
 ## [Unreleased]
 
+### Changed - 2026-11-21: the customer list is a phone-first moderation screen
+
+Owner direction: the page needed design work. Two independent assessments ran first - a design-director
+review and a mechanical detector plus browser measurement - and the fixes below are the ones both
+agreed on. Detector output on the component, the page and the stylesheet was empty; every finding here
+is a measurement or a reasoning defect. **UI and one read-only query change** - no schema, no migration,
+no permission, no state transition.
+
+**Measured before:** 1,523px for six accounts at 390x844, each row 180px (a 92px identity block, a
+status pill and a full-width action row), three accounts above the fold, no filter of any kind, and every
+document identifier truncated at its most distinguishing characters.
+
+- **A row is one line on a desk and two on a phone.** Identity on the left, standing and the reasoned
+  control in the right column, monogram dropped below 720px (it cost 44px of a 342px column to restate
+  the first two letters - or "01" for a phone-only account, which is not a person). Rows are 101px, five
+  fit a 844px screen, and the page is 1,216px.
+- **An identifier is printed once.** A phone-only account rendered its number as the title *and* again
+  in the metadata, and `+8801744444444` sat beside `01744444444`. The title is the name, else the
+  identifier; the metadata omits whatever the title already states.
+- **Standing is a filter, not a scan.** All / Active / Suspended / Flagged are links with counts taken
+  from the same predicate as the list (`customerCounts`), applied in SQL beside the search so the pager's
+  total is the filtered total. Desktop shows the segmented row, a phone the 40px disclosure whose closed
+  summary names the filter in force. The empty state distinguishes "no match" from "none in this state".
+- **"Flagged" is not a fourth standing,** and the page now says so in one line under the filter rather
+  than leaving a reader to infer it: a review flag blocks nothing and is not a suspension (D20).
+- **A suspended row states why and when.** `listCustomers` reads the latest `customer.banned` audit
+  record for the row - the same appended record the suspension wrote, not a second stored field - and
+  the reason renders on its own line across the row. The owner was being asked for an irreversible
+  restore with the finding only on the audit screen.
+- **The reason box fits a sentence.** The confirmation dialog drew a two-line 78px field for a
+  10-500 character requirement; `.dialogReason` is 4.5rem and grows as it is typed. Scoped to the
+  dialog, not to `.textarea`, because the editors on other screens want a fixed tall box.
+- **The top-bar Back control is gone** (owner direction, same pass). The bottom bar, the drawer and the
+  device gesture already answer "up"; `panelParent` still drives `ColdStartBackGuard` and
+  `NativeBackButton`. `topbarBack` CSS and the `admin.nav.back` label were deleted.
+
+**Three defects fixed in shared components, found by measurement rather than on this page:**
+
+- **A 320px search overflowed by 36px** whenever "Clear" appeared: `.searchField` carried a `min-width:
+  14rem` floor, so the field plus Search plus Clear could not share a 288px row and the form did not
+  wrap. The floor is gone and the form wraps; the field and its submit share a line, only Clear wraps.
+- **"Clear" was a 20.8px text link** at every width, under the 40px control scale, at 4.32:1 on the
+  canvas - below the 4.5:1 body floor. It is now a 40px control in `--color-action` (4.6:1).
+- **The dialog reason field** described above.
+
+**Verified:** `typecheck`, `lint` (0 errors, 25 pre-existing warnings), `check:i18n` (1,927 keys),
+`build`, and a Chromium sweep on the production build at 320/390/768/1440 across `/qbpanel/customers`,
+its two filters, both empty states, and the suspend dialog: no horizontal overflow on any route
+(`customers`, `orders`, `catalog`, `categories`, `brands`, `promo-codes`, `audit`, `reviews`,
+`storefront` - the shared toolbar classes changed, so the other lists were swept too), every toolbar
+control exactly 40px, the row overlay covering 100% of the row, the disclosure naming its filter, and
+the filter/search/size links preserving each other. `verify:admin` was run afterwards; its customer
+assertions (overlay anchor, `View ` label prefix, reasoned controls outside the link, dialog focus on
+Cancel) were unchanged and still pass.
+
+**Not verified:** real iOS Safari, Android Chrome, a physical safe-area inset, and screen readers. The
+seeded fixtures used to see a populated list were local development rows only; nothing was committed
+from them.
+
+
 ### Changed - 2026-11-21: analytics folds its reference panels, and the top-bar Back control is gone
 
 Owner direction: the admin panel is used on a phone most of the time and the user asked for the
