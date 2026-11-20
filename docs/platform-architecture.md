@@ -316,6 +316,8 @@ Product photography must not live in the application filesystem on a serverless 
 
 **Recommendation: Neon Object Storage**, with derivatives (thumbnail/medium/large, WebP only) generated **on upload** rather than at request time.
 
+**Superseded for production on 2026-11-20 (ADR 0045).** The storefront moved to the owner's RackNerd VPS. Image bytes now live in local persistent volumes mounted at `/app/public/catalog`, `/app/public/hero` and `/app/.data/payment-proof`; `CATALOG_ASSET_BASE_URL` is unset and Next serves the files directly. Neon Object Storage is not part of the runtime. The duplicate JPEG objects left in its bucket are unreferenced and are a separate cleanup. The comparison below remains the design history for the object-storage era.
+
 ### Verified evidence (official Neon documentation, 2026-10-11)
 
 | Question | Verified answer |

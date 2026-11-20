@@ -165,13 +165,16 @@ Expand, then migrate, then contract - never a destructive change in the same ste
 (`docs/data-model.md` section 16.2). Additive changes are preferred because a rollback then needs no
 data migration.
 
-**A production deploy does not apply migrations, so the build now refuses to start without them.**
-`main` is connected to Vercel and every push deploys; Vercel's build step runs no migration. The
-sequence remains: `npm run db:status` against the target (it prints every pending migration by name),
-`npm run db:migrate`, `npm run db:validate`, **then** push. Applied history is per database, so a
-migration applied locally is applied nowhere else.
+**A production deploy does not apply migrations, so the rollout refuses to start without them.**
+Since 2026-11-20 (ADR 0045) production is the Coolify application on the owner's VPS. A push builds the
+Dockerfile and the application's `pre_deployment_command` runs `npm run check:migrations` in the
+running container, so a pending migration stops the rollout. The sequence remains: `npm run db:status`
+against the target (it prints every pending migration by name), `npm run db:migrate`, `npm run
+db:validate`, **then** push. Applied history is per database, so a migration applied locally is applied
+nowhere else. On the VPS, run those commands inside the application container, where `DATABASE_URL` is
+already present; never write the connection string into a shell, a ticket or a commit.
 
-**Production is migrated through the Neon MCP (owner instruction, 2026-11-12).** No production connection
+**Production migration history - Neon MCP, 2026-11-12 to 2026-11-20 (owner instruction at the time).** No production connection
 string is kept in any shell, so `npm run db:migrate` is for local and disposable targets only. For the
 production branch - project `autumn-wave-01272789`, branch `br-hidden-rice-az3zuopi`, database
 `queenbees` - send the committed migration's statements in order with `run_sql_transaction`, then write
