@@ -314,7 +314,7 @@ Product photography must not live in the application filesystem on a serverless 
 | **AWS S3 / Backblaze B2** | Durable, portable, standard | Second vendor; S3 charges egress; neither aligns with database branching |
 | **Committed static assets** (current demo approach) | No dependency; works for 22 images | Does not scale to catalog uploads; every image becomes a deploy |
 
-**Recommendation: Neon Object Storage**, with derivatives (thumbnail/medium/large, WebP + fallback) generated **on upload** rather than at request time.
+**Recommendation: Neon Object Storage**, with derivatives (thumbnail/medium/large, WebP only) generated **on upload** rather than at request time.
 
 ### Verified evidence (official Neon documentation, 2026-10-11)
 

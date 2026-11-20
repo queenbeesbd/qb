@@ -4,9 +4,8 @@
  *
  * This is the one command that turns the licence list in `src/server/catalog/discovery-imagery.ts`
  * into files the storefront can render. It writes into `public/catalog/` in exactly the shape the
- * product photography already uses - `<key>-<width>.webp` and `<key>-<width>.jpg` for every declared
- * width - so the asset inventory, the admin picker and `/catalog/<key>-<width>.<ext>` need no special
- * case for them.
+ * product photography already uses - `<key>-<width>.webp` only for every declared width (ADR 0044) -
+ * so the asset inventory, the admin picker and `/catalog/<key>-<width>.webp` need no special case for them.
  *
  * ## Why a brand logo is verified rather than merely fetched
  *
@@ -73,25 +72,23 @@ function saveState(state: State): void {
 
 /** True when every declared variant of `key` is already on disk. */
 function variantsPresent(key: string): boolean {
-  return DISCOVERY_WIDTHS.every(
-    (width) => existsSync(join(OUT_DIR, `${key}-${width}.webp`)) && existsSync(join(OUT_DIR, `${key}-${width}.jpg`)),
-  );
+  return DISCOVERY_WIDTHS.every((width) => existsSync(join(OUT_DIR, `${key}-${width}.webp`)));
 }
 
 /**
- * Writes the two variants for one square master image.
+ * Writes one WebP variant per declared width for one square master image.
  *
  * The master is cropped to a square first, because a category tile is a square: a 3:2 photograph
  * stretched into one would either crop the subject out on a phone or leave the tile's own frame doing
- * the crop at every size.
+ * the crop at every size. The in-memory PNG master is never written to disk (ADR 0044).
  */
 async function writeVariants(key: string, master: Buffer): Promise<void> {
   for (const width of DISCOVERY_WIDTHS) {
-    const base = sharp(master)
+    await sharp(master)
       .resize(width, width, { fit: 'cover', position: 'attention' })
-      .flatten({ background: '#f4f1f8' });
-    await base.clone().webp({ quality: 82 }).toFile(join(OUT_DIR, `${key}-${width}.webp`));
-    await base.clone().jpeg({ quality: 84, mozjpeg: true }).toFile(join(OUT_DIR, `${key}-${width}.jpg`));
+      .flatten({ background: '#f4f1f8' })
+      .webp({ quality: 82 })
+      .toFile(join(OUT_DIR, `${key}-${width}.webp`));
   }
 }
 

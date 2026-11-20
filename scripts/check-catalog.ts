@@ -3,7 +3,7 @@
  * dependency-free. Fails on any violated invariant, including the rule that the
  * demo warning can never be configured away.
  */
-import { existsSync } from 'node:fs';
+import { existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { products } from '../src/data/catalog';
 import { categories } from '../src/data/categories';
@@ -22,6 +22,26 @@ const errors: string[] = [];
 const ids = new Set<string>();
 const slugs = new Set<string>();
 const categoryIds = new Set(categories.map((category) => category.id));
+
+/*
+ * WebP is the only raster format stored under the generated asset trees (ADR 0044). A second format
+ * doubles disk and bucket bytes for pixels nothing renders, and a script that silently writes one back
+ * would go unnoticed until the next migration. SVG placeholders are the one other allowed file type.
+ */
+const ASSET_DIRS = ['public/catalog', 'public/hero'] as const;
+const FORBIDDEN_RASTER = /\.(?:jpe?g|png|gif|bmp|tiff?|avif)$/i;
+for (const dir of ASSET_DIRS) {
+  const full = join(process.cwd(), dir);
+  if (!existsSync(full)) {
+    errors.push(`${dir}: asset directory is missing`);
+    continue;
+  }
+  for (const entry of readdirSync(full, { withFileTypes: true })) {
+    if (entry.isFile() && FORBIDDEN_RASTER.test(entry.name)) {
+      errors.push(`${dir}: forbidden raster variant ${entry.name}; WebP only (ADR 0044)`);
+    }
+  }
+}
 
 for (const product of products) {
   const label = product.slug;

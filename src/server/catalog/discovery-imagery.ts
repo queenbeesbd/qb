@@ -37,7 +37,7 @@
 
 /** One generated image variant, in the shape `public/catalog` already uses. */
 export type AssetVariantSet = {
-  /** `/catalog/<key>-<width>.webp` and `.jpg` are written for each width. */
+  /** `/catalog/<key>-<width>.webp` is written for each width (ADR 0044: WebP only). */
   readonly widths: readonly number[];
 };
 

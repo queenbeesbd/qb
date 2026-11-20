@@ -9,12 +9,11 @@
  * smaller card image, without touching the database: `src/lib/images.ts` derives paths from the key,
  * so the files are the contract.
  *
- * - The **best available source** for each key is the widest JPEG, falling back to the widest WebP.
- *   Re-encoding from the widest frame avoids compounding a previous resize.
+ * - The **source** for each key is its widest WebP. Re-encoding from the widest frame avoids
+ *   compounding a previous resize. JPEGs are never read or written: since ADR 0044 (2026-11-20) the
+ *   stored tree is WebP-only and `check:catalog` fails on a legacy raster variant.
  * - The source's own aspect ratio is kept (`fit: cover`), so a 3:4 product photo and a 1:1 category
  *   photograph are both cropped to their real frame rather than forced into one shape.
- * - Existing JPEGs are left on disk and in the bucket; nothing references them any more, and deleting
- *   bytes under a name that was once served is a separate, riskier decision.
  *
  * Usage:
  *   npm run assets:optimize
@@ -76,9 +75,7 @@ async function optimizeCatalog(): Promise<void> {
       const key = queue.shift();
       if (key === undefined) return;
 
-      const wideJpeg = join(CATALOG, `${key}-1050.jpg`);
-      const wideWebp = join(CATALOG, `${key}-1050.webp`);
-      const source = (await exists(wideJpeg)) ? wideJpeg : wideWebp;
+      const source = join(CATALOG, `${key}-1050.webp`);
       if (!(await exists(source))) continue;
 
       const metadata = await sharp(source).metadata();
@@ -114,9 +111,7 @@ async function optimizeHero(): Promise<void> {
   let before = 0;
   let after = 0;
   for (const key of [...keys].sort()) {
-    const wideJpeg = join(HERO, `${key}-1600.jpg`);
-    const wideWebp = join(HERO, `${key}-1600.webp`);
-    const source = (await exists(wideJpeg)) ? wideJpeg : wideWebp;
+    const source = join(HERO, `${key}-1600.webp`);
     if (!(await exists(source))) continue;
 
     for (const width of HERO_IMAGE_WIDTHS) {

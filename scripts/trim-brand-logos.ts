@@ -35,9 +35,7 @@ async function exists(path: string): Promise<boolean> {
 }
 
 async function rebuild(key: string): Promise<boolean> {
-  const wideJpeg = join(DIR, `${key}-1050.jpg`);
-  const wideWebp = join(DIR, `${key}-1050.webp`);
-  const source = (await exists(wideJpeg)) ? wideJpeg : wideWebp;
+  const source = join(DIR, `${key}-1050.webp`);
   if (!(await exists(source))) return false;
 
   let trimmed: Buffer;
@@ -68,7 +66,7 @@ async function main(): Promise<void> {
   const entries = await readdir(DIR);
   const keys = new Set<string>();
   for (const entry of entries) {
-    const match = /^(brand-logo-.+)-(?:600|1050)\.(?:jpg|webp)$/.exec(entry);
+    const match = /^(brand-logo-.+)-(?:600|1050)\.webp$/.exec(entry);
     if (match?.[1] !== undefined) keys.add(match[1]);
   }
 
