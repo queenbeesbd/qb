@@ -59,6 +59,10 @@ build-time command, not a Vercel API call.
 - Vercel's automatic per-push deploy is retired with the project. Coolify's webhook replaces it; a push
   to another branch does not deploy production.
 
+**Operational detail:** `docs/deployment.md` states what a commit must satisfy so its image serves the
+new code; `docs/deployment-vps.md` is the host runbook (addresses, env keys, backups, restore and
+rollback).
+
 ## Verification (2026-11-20)
 
 - 37/37 migrations applied and `npm run db:validate` passes on the VPS (55 tables, 227 checks, 115
