@@ -14,6 +14,37 @@ An entry may describe a deployment only once it has actually happened and been o
 
 ## [Unreleased]
 
+### Changed - 2026-11-21: the admin phone navigation is a floating pill
+
+Owner direction, first priority over the previous rule: the admin bottom bar was the full-bleed lavender
+strip with a 2px top rule on the current tab. It is now the **floating white pill** the owner pointed at
+- a rounded `--admin-surface` plate, 20px radius, one `--admin-shadow-pop`, inset 8px from each side and
+lifted `env(safe-area-inset-bottom) + 12px` off the bottom edge, capped at `34rem` and centred above
+1024px. The four ranked destinations are unchanged in order, permission filtering and `aria-current`; the
+Menu control stays a button, not a fifth destination.
+
+**What changed inside it:** the row is `display: flex` (was a four-column grid) so a moderator's pruned
+set fills the width instead of leaving a hole; the current destination is a `--admin-lavender-soft`
+plate with icon and label in `--color-action` (7.8:1) instead of a 2px underline; **Menu** is the only
+saturated field - a filled `--admin-lavender-deep` pill with a white mark and label (4.7:1), deepening to
+`--color-action` when the current page lives inside the drawer. Labels never ellipsise: 11px (10px at
+480px and below) was measured to fit "Customers" at 320px alongside the Menu pill.
+
+`--admin-bottom-nav-height` became `4.75rem` - the **whole reserved band**, not the bar's face - so the
+workspace padding, the scroll padding and the storefront support rail clear the pill and its shadow.
+`tabCluster`, `barDivider`, `menuPlateDot` and the old top-rule indicator were removed rather than left
+unused.
+
+**Verification:** typecheck, lint (0 errors), `check:i18n` (1936 keys), `check:catalog`, `build`,
+`verify:ui` **8 passed / 1 skipped / 0 failed** (focused fields still clear the bar), and `verify:admin`
+**265/265** on a disposable cluster - including the bar's four links, the Menu drawer's modal focus, Tab
+trap, Escape and focus restoration, and no horizontal overflow at 360px. Measured in Chromium on a
+logged-in session at 320/360/390/414/768/1023/1280: no overflow at any width, no clipped label, 8px side
+insets, bar centred at 1023px and hidden from 1024px.
+
+**Not run, and not claimed:** real iOS Safari, Android Chrome, a physical safe-area inset, and screen
+readers. Nothing is deployed by this change yet.
+
 ### Changed - 2026-11-21: the Docker image is part of "done"
 
 Owner instruction: production is a Coolify application built from the repository's `Dockerfile` on every

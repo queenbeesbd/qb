@@ -224,8 +224,13 @@
   --admin-radius-sm: 10px;
   --admin-shadow-card: 0 1px 2px rgba(32, 26, 41, 0.04), 0 12px 32px -20px rgba(86, 53, 140, 0.45);
   --admin-shadow-pop: 0 2px 6px rgba(32, 26, 41, 0.06), 0 24px 60px -28px rgba(86, 53, 140, 0.5);
-  /* The mobile tab bar: 64px of controls plus the device's own safe-area inset. */
-  --admin-bottom-nav-height: 4rem;
+  /*
+   * The floating phone navigation pill (owner direction, 2026-11-21): 52px of tab plus 8px of inner
+   * padding and a 12px lift off the bottom edge, before the device's own safe-area inset. The token is
+   * the whole reserved band, so the workspace padding, the scroll padding and any fixed control above
+   * the bar all clear the pill and its shadow rather than only its face.
+   */
+  --admin-bottom-nav-height: 4.75rem;
 
   /*
    * Admin control scale (Phase 27): two heights only. The module files cannot declare global

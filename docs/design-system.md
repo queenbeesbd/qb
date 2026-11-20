@@ -433,7 +433,7 @@ redesign; the class names in `admin.module.css` were kept so every component kep
 | `--admin-sidebar-width` | `16rem` | Desktop rail width; below 1024px the rail is replaced by the bottom bar. |
 | `--admin-topbar-height` | `3.75rem` | Top bar, including the breadcrumb and account menu. |
 | `--admin-content-width` | `78rem` | Workspace cap. Narrower than the storefront container because a worklist is read in a column. |
-| `--admin-bottom-nav-height` | `4rem` | Phone tab bar, before the device safe-area inset is added. |
+| `--admin-bottom-nav-height` | `4.75rem` | The reserved phone-navigation band: the floating pill plus its lift and shadow, before the device safe-area inset is added. |
 | `--ease-out-ui` | `cubic-bezier(0.23, 1, 0.32, 1)` | State and entrance motion. |
 | `--ease-drawer` | `cubic-bezier(0.32, 0.72, 0, 1)` | The More sheet's slide-up only. |
 
@@ -475,15 +475,33 @@ how a page grows a second, conflicting set of filter conventions.
   audit trail) - then a storefront link. The active item is a **lavender pill with ink text**;
   `aria-current` carries the same fact. No border strip is used as a marker.
 - **Top bar:** a breadcrumb (Admin / current page) and the account menu (name, email, role, sign out).
-  Below 1024px the breadcrumb gives way to the current section name and the brand mark; there is **no
-  hamburger and no drawer**.
-- **Bottom bar (phone):** four ranked destinations - Overview, COD orders, Products, All orders - plus
-  **More**, fixed above the safe-area inset. It keeps the storefront's lavender field and ink labels
-  (owner instruction, 2026-11-07): labels are 11px under 22px icons, each tab is a 64px touch target,
-  and the current tab carries `aria-current`, the action-purple label and a 2px indicator.
-- **More sheet:** every remaining destination grouped, the signed-in account, sign out and the
+  Below 1024px the breadcrumb gives way to the current section name and the brand mark. There is no
+  hamburger in the top bar: the phone's one door to the rest of the panel is the **Menu** pill at the
+  end of the bottom bar, and everything else is a ranked destination in that bar.
+- **Bottom bar (phone): a floating white pill, not a strip** (owner direction, 2026-11-21). The
+  full-bleed lavender bar was replaced with a rounded `--admin-surface` plate - 20px radius, one
+  `--admin-shadow-pop`, inset 8px from each side and lifted `env(safe-area-inset-bottom) + 12px` off
+  the bottom edge, capped at `34rem` and centred on a tablet. It was the owner's reference: the
+  reference app's floating bottom navigation, in this shop's palette.
+  - **Inside it:** the permission-ranked destinations - Overview, All orders, Products, Customers - then
+    a filled **Menu** pill. The row is `display: flex`, not a four-column grid, so a moderator whose
+    permissions prune the set sees two tabs that still fill the row rather than a hole and a stretched
+    Menu.
+  - **The current destination is a pale plate:** a `--admin-lavender-soft` field with icon and label in
+    `--color-action` (7.8:1). The old 2px top rule and the action-coloured label are gone - a tab
+    underline reads as a desktop idiom rather than as "you are here".
+  - **Menu is the only saturated field:** `--admin-lavender-deep` with a white mark and label (4.7:1),
+    because it is a door and not a fifth destination. When the current page lives inside the drawer its
+    field deepens to `--color-action`, the same answer the tabs give in the channel the pill owns.
+  - **Labels are 11px (`10px` at 480px and below) under 22px icons**, on a 52px tab, and they never
+    ellipsise: the two sizes are chosen so "Customers" still fits a 320px screen with the Menu pill
+    present. A truncated destination is not a destination.
+  - **`--admin-bottom-nav-height` is the whole reserved band (`4.75rem`)**, not the bar's face, so the
+    workspace padding, the scroll padding and the storefront support rail all clear the pill and its
+    shadow.
+- **Menu drawer:** every remaining destination grouped, the signed-in account, sign out and the
   storefront link. It is a modal surface: focus moves to close, Tab is trapped, Escape closes, body
-  scroll locks, and focus returns to the More tab.
+  scroll locks, and focus returns to the Menu pill.
 - **Overview:** a greeting instead of an eyebrow; the COD queue as a full-width **lavender hero card**
   with a blush count badge and the oldest wait in one sentence; then five white KPI cards, the revenue
   and status charts, and the closing panels. On a phone the order is queue, figures, money, catalog.
@@ -982,7 +1000,7 @@ unwritten one at 1440 and 390 - including the footer's population rule.
 
 ### Components
 
-`AdminShell` (rail, bottom tab bar, More sheet, account menu, skip link), `PageHeader`, `Notice` (one polite/alert region
+`AdminShell` (rail, floating phone navigation pill, Menu drawer, account menu, skip link), `PageHeader`, `Notice` (one polite/alert region
 per page), `SubmitButton` (pending state from `useFormStatus`), `ConfirmSubmit` (reason-capable dialog
 with focus trap, Escape and focus restoration), `StatusPill`, `EmptyState`, `AvailabilitySwitch`,
 `CodOrderCard`, `ItemPhoto` (an order line's recorded photograph and its full-size viewer), and the Phase 30 list primitives: `ListToolbar`, `ListSearch`, `FilterTabs`,

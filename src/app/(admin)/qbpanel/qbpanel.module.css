@@ -426,94 +426,32 @@ html[lang='bn'] .navGroupLabel {
 
 /* ---- Phone navigation ---------------------------------------------------- */
 
+/*
+ * The floating navigation pill (owner direction, 2026-11-21).
+ *
+ * The full-bleed lavender strip is gone. The bar is now a **white rounded surface that floats clear of
+ * the screen edges**, with the four ranked destinations inside it and the **Menu** control a filled
+ * deep-lavender pill at the end of the row - the reference composition, in this shop's palette.
+ *
+ * Three facts this draws and the old strip could not:
+ *
+ * - **The current destination is a pale plate, not a hairline.** A rounded `--admin-lavender-soft`
+ *   field behind the icon and the label, with both in `--color-action` (7.8:1). The 2px top rule read
+ *   as a tab underline from a desktop idiom, not as "you are here".
+ * - **Menu is a door, and it is drawn as one.** A filled `--admin-lavender-deep` pill with a white
+ *   mark and label (4.7:1), the only saturated field on the row, so it cannot be mistaken for a fifth
+ *   destination. When the current page lives inside it the field deepens to `--color-action` - the same
+ *   answer the pale plate gives the tabs, expressed in the only channel the pill has.
+ * - **Nothing is pinned to the physical edge.** The gap below the pill is the device's own safe-area
+ *   inset plus one spacing step, so a home indicator never sits on the bar's face.
+ *
+ * Flex rather than a fixed four-column grid: the ranked set is permission-filtered, so a moderator can
+ * legitimately see two destinations, a three-item bar must not leave a hole, and Menu is always last.
+ * Labels never ellipsise on a phone by contract - a truncated "Cust…" is not a destination - and the
+ * two label sizes below are chosen so the longest word still fits a 320px screen.
+ */
 .bottomNav {
   display: none;
-}
-
-/*
- * The bar's four destinations: a capped, centred cluster rather than five equal fifths.
- *
- * `minmax(4.25rem, 1fr)` is what keeps three tabs from becoming three 300px slabs on a 1023px tablet,
- * and what lets a bar be legitimately shorter than four (a moderator without a permission). Labels
- * never truncate: a primary label is short by contract, so the tab is sized to the word.
- */
-.tabCluster {
-  display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: minmax(4.25rem, 1fr);
-  max-inline-size: 30rem;
-  margin-inline: auto;
-}
-
-/* The hairline that separates the destinations from the control that opens the rest. */
-.barDivider {
-  width: 1px;
-  height: 24px;
-  margin-inline: var(--space-2);
-  background: rgb(32 26 41 / 0.18);
-}
-
-/*
- * The Menu plate: a control, not a fifth destination.
- *
- * It carries a bordered surface and a 20px glyph on one line where the tabs carry an icon over a label,
- * so it reads as a door rather than another room. The current-route mark is a dot, because the tab's
- * top rule would claim the plate is the current page.
- */
-.menuPlate {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-2);
-  min-width: 3.5rem;
-  min-height: var(--admin-control);
-  padding: 0 var(--space-3);
-  border: 1px solid rgb(32 26 41 / 0.18);
-  border-radius: var(--admin-radius-control);
-  background: color-mix(in srgb, var(--admin-surface) 92%, transparent);
-  color: var(--admin-ink);
-  font: inherit;
-  font-size: 0.6875rem;
-  font-weight: 600;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.menuPlate:hover {
-  background: var(--admin-surface);
-}
-
-.menuPlate:active {
-  background: var(--admin-surface-soft);
-}
-
-.menuPlateCurrent {
-  background: var(--admin-lavender-soft);
-}
-
-.menuPlateCurrent .menuPlateIcon {
-  color: var(--color-action);
-}
-
-.menuPlateIcon {
-  flex: none;
-}
-
-.menuPlateLabel {
-  line-height: 1;
-  white-space: nowrap;
-}
-
-/* The "you are somewhere inside this menu" mark, drawn to match the tabs' indicator in weight. */
-.menuPlateDot {
-  position: absolute;
-  top: 5px;
-  inset-inline-end: 6px;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--color-action);
 }
 
 .tab {
@@ -521,36 +459,42 @@ html[lang='bn'] .navGroupLabel {
   display: grid;
   place-items: center;
   align-content: center;
+  justify-items: center;
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 3.25rem;
   gap: 3px;
-  min-height: var(--admin-bottom-nav-height);
   padding: 6px 4px;
-  border: 0;
-  background: none;
-  color: var(--color-ink);
+  border-radius: var(--admin-radius-control);
+  color: var(--admin-muted);
   font: inherit;
   text-decoration: none;
   cursor: pointer;
+  transition:
+    background-color 140ms var(--ease-out-ui),
+    color 140ms var(--ease-out-ui);
   -webkit-tap-highlight-color: transparent;
 }
 
+@media (hover: hover) and (pointer: fine) {
+  .tab:hover {
+    background: var(--admin-surface-soft);
+    color: var(--admin-ink);
+  }
+}
+
 .tab:active {
-  background: rgb(255 255 255 / 0.28);
+  background: var(--admin-lavender-soft);
 }
 
 .tabActive {
+  background: var(--admin-lavender-soft);
   color: var(--color-action);
 }
 
-.tabActive::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 50%;
-  width: 20px;
-  height: 2px;
-  border-radius: 0 0 2px 2px;
-  background: var(--color-action);
-  transform: translateX(-50%);
+.tabActive:hover {
+  background: var(--admin-lavender-soft);
+  color: var(--color-action);
 }
 
 .tabIcon {
@@ -559,8 +503,64 @@ html[lang='bn'] .navGroupLabel {
 
 .tabLabel {
   font-size: 0.6875rem;
+  font-weight: 500;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+
+.tabActive .tabLabel {
   font-weight: 600;
-  line-height: 1;
+}
+
+/*
+ * The Menu pill: filled, and the only saturated field in the row.
+ *
+ * `min-inline-size` is a floor, not a width, so the pill takes the words "Menu" on a phone and never
+ * shrinks below a 52px target on the narrowest screen - the same 52px height the tabs beside it keep,
+ * so the row has one baseline and the pill reads as part of the bar rather than a chip stuck onto it.
+ */
+.menuPlate {
+  display: grid;
+  place-items: center;
+  align-content: center;
+  justify-items: center;
+  flex: 0 0 auto;
+  min-inline-size: 3.75rem;
+  min-height: 3.25rem;
+  gap: 3px;
+  padding: 6px 10px;
+  border: 0;
+  border-radius: var(--admin-radius-control);
+  background: var(--admin-lavender-deep);
+  color: #ffffff;
+  font: inherit;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  line-height: 1.1;
+  cursor: pointer;
+  transition: background-color 140ms var(--ease-out-ui);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.menuPlate:hover {
+  background: var(--color-action);
+}
+
+.menuPlate:active {
+  background: var(--color-action);
+}
+
+/* The current page lives inside the drawer: the same field, one step down. */
+.menuPlateCurrent {
+  background: var(--color-action);
+}
+
+.menuPlateIcon {
+  flex: none;
+}
+
+.menuPlateLabel {
+  line-height: 1.1;
   white-space: nowrap;
 }
 
@@ -5238,18 +5238,29 @@ a.rankName:hover {
     display: none;
   }
 
+  /*
+   * The floating pill (owner direction, 2026-11-21).
+   *
+   * A white rounded surface with one soft shadow, inset from both sides and lifted off the bottom
+   * edge by the device's safe-area inset plus one spacing step - the reference composition, in this
+   * shop's palette. It is a `role`-neutral `<nav>` of the same four ranked destinations plus Menu, so
+   * the information architecture is untouched; only the container changed.
+   */
   .bottomNav {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto auto;
-    align-items: center;
+    display: flex;
+    align-items: stretch;
+    gap: var(--space-1);
     position: fixed;
-    inset-inline: 0;
-    bottom: 0;
+    inset-inline: var(--space-3);
+    bottom: calc(env(safe-area-inset-bottom) + var(--space-3));
     z-index: 45;
-    background: var(--brand-primary);
-    border-top: 0;
-    padding-inline: var(--space-2);
-    padding-bottom: env(safe-area-inset-bottom);
+    max-inline-size: 34rem;
+    margin-inline: auto;
+    padding: var(--space-1);
+    background: var(--admin-surface);
+    border: 1px solid var(--admin-line);
+    border-radius: var(--admin-radius-card);
+    box-shadow: var(--admin-shadow-pop);
   }
 
   .breadcrumb {
@@ -5485,41 +5496,32 @@ a.rankName:hover {
   }
 
   /*
-   * A 360px bar: four tabs plus a labelled Menu plate is ~13px too wide, so the plate keeps its 40px
-   * hit area and drops the word. The word stays in the markup as the control's accessible name - hidden
-   * from sight, not from a screen reader - rather than the control shrinking below the touch floor.
-   */
-  .menuPlate {
-    min-width: var(--admin-control);
-    padding: 0;
-  }
-
-  /*
-   * The bar's inner padding closes up so the four labels still fit a 320px screen without shrinking a
-   * tab below the word: the words are the navigation, and an ellipsised "Cust…" is not a destination.
+   * A 320px pill: four tabs plus a labelled Menu pill is roughly 30px too wide at 11px labels, so the
+   * bar closes up its inner padding and each tab gives one pixel of side padding. The words stay - an
+   * ellipsised "Cust…" is not a destination - and the Menu pill keeps its word and its 40px touch
+   * floor, because a filled control with a bare glyph would read as a second glyph run rather than as
+   * the door to every other screen.
    */
   .bottomNav {
-    padding-inline: var(--space-1);
+    inset-inline: var(--space-2);
+    gap: 2px;
+    padding: 3px;
   }
 
-  .barDivider {
-    margin-inline: var(--space-1);
-  }
-
-  .menuPlateLabel {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip-path: inset(50%);
-    white-space: nowrap;
-  }
-
-  .tabCluster {
-    grid-auto-columns: minmax(0, 1fr);
+  .tab {
+    padding-inline: 2px;
   }
 
   .tabLabel {
+    font-size: 0.625rem;
+  }
+
+  .menuPlate {
+    min-inline-size: 3.25rem;
+    padding-inline: 6px;
+  }
+
+  .menuPlateLabel {
     font-size: 0.625rem;
   }
 

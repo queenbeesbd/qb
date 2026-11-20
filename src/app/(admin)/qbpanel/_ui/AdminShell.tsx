@@ -344,27 +344,25 @@ export function AdminShell({
 
       <nav className={styles.bottomNav} aria-label={t('admin.nav.mobileLabel')} data-admin-bottom-nav>
         {/*
-          The destination cluster and the Menu control are separate shapes: four uniform links, then a
-          plate across a hairline. The menu is a control that opens a surface, not a fifth destination,
-          so it is not ranked by `mobileRank` and can never be displaced by adding one.
+          One row: the ranked destinations, then the control that opens every other screen. They sit in
+          the same white pill now (owner direction, 2026-11-21), so the separation is drawn rather than
+          structural - a plain tab for a room the owner walks into, a filled `--admin-lavender-deep`
+          pill for the door that opens the rest.
         */}
-        <div className={styles.tabCluster}>
-          {primaryTabs.map((tab) => {
-            const isActive = active?.href === tab.href;
-            return (
-              <Link
-                key={tab.href}
-                href={tab.href}
-                className={isActive ? `${styles.tab} ${styles.tabActive}` : styles.tab}
-                aria-current={isActive ? 'page' : undefined}
-              >
-                <AdminIcon name={tab.icon} className={styles.tabIcon} width={22} height={22} />
-                <span className={styles.tabLabel}>{t(tab.labelKey)}</span>
-              </Link>
-            );
-          })}
-        </div>
-        <span className={styles.barDivider} aria-hidden="true" />
+        {primaryTabs.map((tab) => {
+          const isActive = active?.href === tab.href;
+          return (
+            <Link
+              key={tab.href}
+              href={tab.href}
+              className={isActive ? `${styles.tab} ${styles.tabActive}` : styles.tab}
+              aria-current={isActive ? 'page' : undefined}
+            >
+              <AdminIcon name={tab.icon} className={styles.tabIcon} width={22} height={22} />
+              <span className={styles.tabLabel}>{t(tab.labelKey)}</span>
+            </Link>
+          );
+        })}
         <button
           ref={menuButtonRef}
           type="button"
@@ -377,7 +375,6 @@ export function AdminShell({
         >
           <AdminIcon name="menu" className={styles.menuPlateIcon} width={20} height={20} />
           <span className={styles.menuPlateLabel}>{t('nav.menu')}</span>
-          {menuCurrent && <span className={styles.menuPlateDot} aria-hidden="true" />}
         </button>
       </nav>
 
