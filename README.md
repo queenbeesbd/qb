@@ -5,11 +5,12 @@ storefront on the public web and one private admin panel for the owner who runs 
 over PostgreSQL, with the catalog, customers, orders, promotions and analytics owned by this repository -
 Zatiq Easy was a UX reference, not a backend ([ADR 0004](docs/decisions/0004-independent-platform-direction.md)).
 
-**Status: implemented locally, deployed nowhere.** No cloud resource, credential, bucket or DNS record
-exists for this product, and provisioning is a separate owner authorization
-([ADR 0005](docs/decisions/0005-neon-postgresql-and-vercel-hosting.md)). The storefront carries a global
-`noindex`, and **Cash on Delivery is the only payment method** ([ADR 0015](docs/decisions/0015-cod-only-release.md)) -
-nothing is paid in the browser.
+**Status: running in production on the owner's VPS.** Since 2026-11-20 the storefront, the owner panel,
+PostgreSQL and the uploaded images run on one host through Coolify, built from the repository's
+`Dockerfile` on every push to `main` ([ADR 0045](docs/decisions/0045-self-hosted-vps-deployment.md), which
+supersedes the hosting half of [ADR 0005](docs/decisions/0005-neon-postgresql-and-vercel-hosting.md)). The
+storefront carries a global `noindex`, and **Cash on Delivery is the only payment method**
+([ADR 0015](docs/decisions/0015-cod-only-release.md)) - nothing is paid in the browser.
 
 ## What exists
 
@@ -202,6 +203,7 @@ replacement for now is a set of task-specific CDP probes, which is weaker than a
 - [Data model](docs/data-model.md) - tables, constraints, state machines, transactions
 - [Security](docs/security.md) - authorization matrix and threat model
 - [Design system](docs/design-system.md) - tokens, control scales, surfaces, phone rules
+- [Deployment](docs/deployment.md) - the image, the migration gate, what a commit must carry
 - [Admin dashboard](docs/qbpanel-dashboard.md), [payment workflow](docs/payment-workflow.md)
 - [Implementation plan](docs/implementation-plan.md) and [verified status](docs/project-status.md)
 - [Decisions](docs/decisions/), [agent rules](AGENTS.md)

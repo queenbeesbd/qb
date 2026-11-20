@@ -14,6 +14,43 @@ An entry may describe a deployment only once it has actually happened and been o
 
 ## [Unreleased]
 
+### Changed - 2026-11-21: the Docker image is part of "done"
+
+Owner instruction: production is a Coolify application built from the repository's `Dockerfile` on every
+push to `main`, so a commit must leave the image correct for the code it carries. The commit-and-push rule
+in `AGENTS.md` now says so, and `docs/deployment.md` records what the image carries and what a change can
+break. **Documentation and rules only:** no application code, schema, permission or behaviour changed.
+
+**The rule, in `AGENTS.md`:** a commit that adds a **runtime path** the app writes to or reads (a new
+upload directory, a file outside `.next`, a CLI the deploy calls) must extend the Dockerfile's
+`COPY`/`mkdir`/`chown` in the same commit; a dependency needing a **system package** must extend the
+`apt-get install` line, because the image is `-slim`; `public/catalog`, `public/hero` and
+`.data/payment-proof` stay excluded from the build context because they are volumes; and no deploy
+credential is ever committed.
+
+**`docs/database.md` and ADR 0045 were already ahead of this note, and they were right.** The rollout
+section has said since 2026-11-20 that the application's `pre_deployment_command` runs
+`npm run check:migrations` in the running container. That is true and it **does** gate a pending migration
+- a first draft of this document claimed the container path was ungated because
+`src/db/check-migrations.ts --build` skips outside a Vercel production build. That was wrong: the skip is
+about the *image build*, and the container deploy gates through the explicit command instead. The claim is
+corrected here and in `AGENTS.md`, and `docs/deployment.md` now points at ADR 0045 as the authority rather
+than restating it.
+
+**What `docs/deployment.md` adds** is the part ADR 0045 does not cover, because it is about everyday
+changes rather than the deployment decision:
+
+| The change | What it needs in the same commit |
+| --- | --- |
+| application code | nothing - `COPY . .` and the build carry it |
+| a dependency with glibc prebuilds | nothing; add a system package if it needs one |
+| a **new runtime path** | that path in the runner's `COPY`/`mkdir`/`chown` |
+| a new CLI the deploy calls | it must live under `src/` or `scripts/`, which are copied |
+| a new migration | applied to production **before** the push |
+
+**Not run, and not claimed:** this workstation has no `docker`, so the image was not built or run for this
+change. It is a documentation commit; nothing in the image changed.
+
 ### Changed - 2026-11-20: the storefront picks open as three disclosures, not one long page
 
 Owner report on `/qbpanel/storefront`: the page was far too tall on a phone. Measured before touching it:

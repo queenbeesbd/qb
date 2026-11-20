@@ -22,7 +22,7 @@ Every implementation prompt and completed implementation report must end with on
 - **A dependency change usually needs no Dockerfile edit** - `package.json` and the lockfile are copied, so `npm ci` carries it. But a dependency that needs a **system package** (a CA bundle, an image codec, `curl`) must be added to the `apt-get install` line, because the image is `-slim`.
 - **`.dockerignore` is the other half of the build context.** It excludes `.git`, `.next`, `node_modules`, every `.env*`, `.vps*`, `.data`, `android-app`, `docs`, the test output and **`public/catalog` / `public/hero`** - those two are **mounted volumes**, not image content, so uploaded bytes survive a container replacement. Do not remove them from `.dockerignore`, and do not `COPY` them back into the image.
 - **Do not commit `.vps*` or any deploy credential.** `AGENTS.md` records no Coolify token, host or SSH key; they belong in the Coolify UI.
-- **The migration gate still only knows Vercel.** `src/db/check-migrations.ts` skips itself unless `VERCEL_ENV === 'production'`, so a Coolify build runs **no** gate and will happily start code that expects an unapplied migration. Treat the registry sequence as mandatory, not advisory: `npm run db:status` against the target, apply the pending migrations, `npm run db:validate`, **then** push - because the push is the deploy. If a migration cannot be applied to the production target before the push, do not push that commit.
+- **A migration must be applied to production before the push.** `src/db/check-migrations.ts --build` skips itself outside a Vercel production build, but Coolify runs `npm run check:migrations` as the application's `pre_deployment_command`, in the running container - so a pending migration **refuses the rollout** and the previous container stays live. That refuses; it never applies. `npm run db:status` against the target, apply the pending migrations, `npm run db:validate`, **then** push. If a migration cannot reach production before the push, do not push that commit - do not look for a way around the gate. See ADR 0045 and `docs/deployment.md`.
 - **A commit that changes the build must be smoke-checked as an image, not only as a local dev server.** Where a Docker daemon is available: `docker build -t queenbees .` and `docker run --rm -p 3000:3000 --env-file .env queenbees`, then load `/`. Where it is not available (this workstation has no `docker`), say so in the report and state that the image itself was not built - never claim a container check that was not run.
 
 ## Scope and authority
@@ -370,7 +370,9 @@ were applied to the production branch as one transaction and recorded in `drizzl
 (hashes of the committed SQL, the journal's `when` timestamps), taking production to **21 migrations**;
 `visit_session.division` exists and one live storefront load recorded a session with a division.
 
-**The GitHub `main` branch is connected to Vercel and every push deploys production.** Within that same
+**A push to `main` deploys production - through Coolify since 2026-11-20 (ADR 0045); through Vercel
+until then.** The paragraphs below are that history, kept because the failure they describe is why the
+gate exists. **Do not read "Vercel" in them as the current path.** Within that same
 day, the four feature pushes after this fix each auto-deployed, so production then ran code expecting
 migrations `0021`-`0023` (per-product delivery columns; optional hero and popup descriptions) while the
 database was still at `0020`. The storefront kept answering 200 only because the Data Cache still held a
@@ -389,7 +391,13 @@ a migration, never prints the connection string, and has **no override flag** - 
 `npm run db:migrate` against that target. **Run `npm run check:migrations` before pushing any commit
 that adds a migration.** If a production build fails at this step, the site is still up on the
 previous deployment; do not reach for a way around the gate. See `docs/database.md` (Rollout
-sequencing).
+sequencing). **On the current container deploy the equivalent is Coolify's `pre_deployment_command`
+(`npm run check:migrations` in the running container), which refuses the rollout the same way.**
+
+**This section's build-time gate is Vercel-only by construction** (`VERCEL_ENV === 'production'`), so it
+is correct to say the *image* build does not gate itself. The container path relies on the explicit
+`check:migrations` call above. Do not move a migration gate into `prebuild` and assume it covers both
+paths without reading `src/db/check-migrations.ts`.
 
 **Apply production migrations through the Neon MCP, always (owner instruction, 2026-11-12).** There is no
 production connection string in the shell, and there does not need to be: use the Neon MCP
