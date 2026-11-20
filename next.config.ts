@@ -67,6 +67,19 @@ const nextConfig: NextConfig = {
         source: '/api/qbpanel/:path*',
         headers: [{ key: 'X-Robots-Tag', value: 'noindex, nofollow, noarchive, nosnippet' }],
       },
+      /**
+       * Catalog keys name immutable bytes: a replaced photograph is a new key. The files are served
+       * from a mounted volume in the VPS deployment, so without this header Next's public handler
+       * answers `max-age=0` and every card revalidates on every view.
+       */
+      {
+        source: '/catalog/:path*',
+        headers: [{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable' }],
+      },
+      {
+        source: '/hero/:path*',
+        headers: [{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable' }],
+      },
     ];
   },
   /**
