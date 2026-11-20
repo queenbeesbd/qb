@@ -226,7 +226,6 @@ export function HeroSettingsView({
       <section className={styles.section} aria-labelledby="hero-add-title">
         <div className={styles.sectionHead}>
           <h2 id="hero-add-title">{t('admin.hero.addTitle')}</h2>
-          <p>{t('admin.hero.addBody')}</p>
         </div>
 
         {atMaximum ? (

@@ -764,6 +764,34 @@ the tile renders the recorded key and its bytes decode (`naturalWidth > 0`), the
 labelled modal at `-1050.webp` with the page locked and focus on ×, Escape closes it and returns focus to
 the tile, and the worklist tile measures 34 or 40.
 
+### A heading carries no note (2026-11-20)
+
+A section heading states **what the section is**. It does not also explain it. The panel had grown a
+sentence under nearly every heading - "The English name is what the storefront lists; the Bangla name is
+the same brand for Bangla readers" - and beside a field already labelled *Name* that sentence said
+nothing the label did not, while making every screen read as though it were written for someone who had
+never used it.
+
+| Where a fact belongs | Example |
+| --- | --- |
+| the heading | "Logo" - it names the section |
+| the field's own label | "Name", "Description Optional" |
+| **beside the value it qualifies** | "Status read from SteadFast {time}." under the courier's readings |
+| a short caveat under a figure, only where the number misleads | "Excludes 2 orders without a recorded delivery split." |
+
+Three rules:
+
+1. **A caveat sits where its value is, not under the heading.** The courier status being SteadFast's own
+   belongs on the status line; acceptance not restoring stock belongs under the return records. Both
+   survived this pass by moving, not by staying.
+2. **A computed count is not a note.** "3 of 5 banners" and the Telegram roster count are read from rows
+   and stay wherever they are useful.
+3. **Read the value before deleting the markup.** `admin.integrations.listBody` was a heading note *and*
+   the count beside each integration row's pill; removing it as a note broke the live use.
+
+The admin overview's rule - a figure states its label and, only where it would mislead, one short caveat -
+now covers headings as well.
+
 ### An order states one status (2026-11-20)
 
 An order carries separate state columns by design - fulfilment, prepaid payment, COD - and printing one

@@ -214,7 +214,6 @@ export function CategoryForm({
           <section className={styles.formCard} aria-labelledby="cf-image">
             <div className={styles.formCardHead}>
               <h2 id="cf-image">{t('admin.categories.sectionImage')}</h2>
-              <p>{t('admin.categories.sectionImageBody')}</p>
             </div>
             <CatalogImageField
               id="categoryImage"
@@ -227,7 +226,6 @@ export function CategoryForm({
           <section className={styles.formCard} aria-labelledby="cf-names">
             <div className={styles.formCardHead}>
               <h2 id="cf-names">{t('admin.categories.sectionNames')}</h2>
-              <p>{t('admin.categories.sectionNamesBody')}</p>
             </div>
 
             <div className={styles.field}>
@@ -302,7 +300,6 @@ export function CategoryForm({
           <section className={styles.formCard} aria-labelledby="cf-placement">
             <div className={styles.formCardHead}>
               <h2 id="cf-placement">{t('admin.categories.sectionPlacement')}</h2>
-              <p>{t('admin.categories.sectionPlacementBody')}</p>
             </div>
 
             <div className={styles.field}>
@@ -372,7 +369,6 @@ export function CategoryForm({
           <section className={styles.formCard} aria-labelledby="cf-preview">
             <div className={styles.formCardHead}>
               <h2 id="cf-preview">{t('admin.categories.previewTitle')}</h2>
-              <p>{t('admin.categories.previewBody')}</p>
             </div>
 
             <div className={styles.categoryPreview}>
@@ -391,7 +387,6 @@ export function CategoryForm({
           <section className={styles.formCard} aria-labelledby="cf-usage">
             <div className={styles.formCardHead}>
               <h2 id="cf-usage">{t('admin.categories.sectionUsage')}</h2>
-              <p>{t('admin.categories.sectionUsageBody')}</p>
             </div>
 
             {usage === undefined ? (

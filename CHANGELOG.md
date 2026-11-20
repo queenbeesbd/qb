@@ -14,6 +14,44 @@ An entry may describe a deployment only once it has actually happened and been o
 
 ## [Unreleased]
 
+### Changed - 2026-11-20: the notes under every heading are gone
+
+Owner direction: the panel had grown a sentence of explanation under nearly every section heading, and
+it read as unprofessional and machine-written. **Twenty-nine heading-notes are removed** across the
+catalog, categories, brands, owners, integrations, SteadFast, Telegram, the offer popup, support links,
+contact/policies, the homepage hero and the order detail. **UI only:** no schema change, no migration, no
+permission, no behaviour.
+
+**A heading states what the section is; the controls state what to do.** "The logo inside the brand
+circle. A brand with no logo shows its first letter in the same circle" under a heading called *Logo* said
+nothing the label above the field did not. The rule this settles is the repo's existing one - a figure or
+a screen carries its label, and one short caveat only where the value would otherwise mislead - now
+applied to headings as well.
+
+**The two notes that carried a real rule were not lost; they moved.** What survives sits beside the value
+it qualifies rather than under a heading:
+
+| Fact | Where it lives now |
+| --- | --- |
+| the courier's delivery status is SteadFast's own and changes nothing on the order | the line under the status readings: "Status read from SteadFast {time}." |
+| accepting an inspection does not put goods back in stock | `admin.order.returnsStockNote`, under the return records |
+
+**A live count is not a note and stays.** The homepage hero's "3 of 5 banners" and the Telegram roster's
+count are computed from rows, not explanations, so both remain.
+
+`admin.integrations.listBody` was doing two jobs - a heading note *and* the count beside each integration
+row's status pill. Deleting it as a note broke the live use; it is restored and commented, which is the
+reason this pass read every key's value before removing the markup rather than searching for `<p>`.
+
+| Check | Result |
+| --- | --- |
+| `npm run typecheck` | pass |
+| `npm run lint` | 0 errors, 25 pre-existing warnings |
+| `npm run check:i18n` | pass, 1,935 keys / 1,399 referenced |
+| `npm test` | **331/331** |
+| `npm run verify:admin` | **263/263** |
+| Chromium, 1440px | zero heading groups carrying a note on brands, categories, owners, integrations, support, contact and hero; the hero's remaining line is its live banner count |
+
 ### Changed - 2026-11-20: an order row states one status, not two
 
 Owner direction: the orders list drew **two** statuses on every row - the coloured lifecycle pill

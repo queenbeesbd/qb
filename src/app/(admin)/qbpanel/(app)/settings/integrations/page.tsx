@@ -45,7 +45,6 @@ export default async function IntegrationsPage() {
       <section className={styles.section} aria-labelledby="integration-list">
         <div className={styles.sectionHead}>
           <h2 id="integration-list">{translate('admin.integrations.listTitle')}</h2>
-          <p>{translate('admin.integrations.listBody')}</p>
         </div>
 
         <ul className={styles.recordList} data-admin-list="">

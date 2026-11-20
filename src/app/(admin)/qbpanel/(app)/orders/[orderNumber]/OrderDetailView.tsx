@@ -561,7 +561,6 @@ export function AdminOrderDetailView({
           <div className={styles.sectionHead}>
             <div>
               <h2 id="order-steadfast">{t('admin.order.steadfast.title')}</h2>
-              <p>{t('admin.order.steadfast.body')}</p>
             </div>
             {order.consignment !== null && (
               <form action="/api/qbpanel/orders/consignment" method="post">
@@ -927,7 +926,6 @@ export function AdminOrderDetailView({
               <div className={styles.sectionHead}>
                 <div>
                   <h2>{t('admin.order.returnsTitle')}</h2>
-                  <p>{t('admin.order.returnsBody')}</p>
                 </div>
               </div>
               <ul className={styles.recordList}>

@@ -77,7 +77,6 @@ export function OfferPopupSettingsView({
             <section className={styles.formCard} aria-labelledby="offer-popup-image">
               <div className={styles.formCardHead}>
                 <h2 id="offer-popup-image">{t('admin.offerPopup.sectionImage')}</h2>
-                <p>{t('admin.offerPopup.sectionImageBody')}</p>
               </div>
 
               <PopupImageField
@@ -106,7 +105,6 @@ export function OfferPopupSettingsView({
             <section className={styles.formCard} aria-labelledby="offer-popup-display">
               <div className={styles.formCardHead}>
                 <h2 id="offer-popup-display">{t('admin.offerPopup.sectionDisplay')}</h2>
-                <p>{t('admin.offerPopup.sectionDisplayBody')}</p>
               </div>
 
               <input type="hidden" name="isActive" value="false" />
@@ -133,7 +131,6 @@ export function OfferPopupSettingsView({
             <section className={styles.formCard} aria-labelledby="offer-popup-behaviour">
               <div className={styles.formCardHead}>
                 <h2 id="offer-popup-behaviour">{t('admin.offerPopup.behaviourTitle')}</h2>
-                <p>{t('admin.offerPopup.behaviourBody')}</p>
               </div>
               <p className={styles.note}>{t('admin.offerPopup.styleNote')}</p>
             </section>

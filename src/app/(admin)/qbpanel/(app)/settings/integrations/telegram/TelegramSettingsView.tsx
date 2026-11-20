@@ -106,7 +106,6 @@ export function TelegramSettingsView({
       <section className={styles.section} aria-labelledby="telegram-bot">
         <div className={styles.sectionHead}>
           <h2 id="telegram-bot">{t('admin.integrations.botTitle')}</h2>
-          <p>{t('admin.integrations.botBody')}</p>
         </div>
         {/* A form's own card: `formCard` carries the vertical rhythm that `panel` does not, so the
             status row and the note under it cannot meet edge to edge. */}
@@ -133,7 +132,6 @@ export function TelegramSettingsView({
       <section className={styles.section} aria-labelledby="telegram-add">
         <div className={styles.sectionHead}>
           <h2 id="telegram-add">{t('admin.integrations.addTitle')}</h2>
-          <p>{t('admin.integrations.addBody')}</p>
         </div>
         <form className={styles.formCard} action="/api/qbpanel/integrations/telegram" method="post">
           <input type="hidden" name="csrf" value={csrfToken} />
@@ -266,7 +264,6 @@ export function TelegramSettingsView({
         <section className={styles.section} aria-labelledby="telegram-edit">
           <div className={styles.sectionHead}>
             <h2 id="telegram-edit">{t('admin.integrations.editTitle')}</h2>
-            <p>{t('admin.integrations.editBody')}</p>
           </div>
           {recipients.map((recipient) => (
             <form

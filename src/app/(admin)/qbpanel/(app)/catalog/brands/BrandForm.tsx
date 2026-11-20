@@ -149,7 +149,6 @@ export function BrandForm({
             <section className={styles.formCard} aria-labelledby="bf-logo">
               <div className={styles.formCardHead}>
                 <h2 id="bf-logo">{t('admin.brands.sectionLogo')}</h2>
-                <p>{t('admin.brands.sectionLogoBody')}</p>
               </div>
               <CatalogImageField
                 id="brandLogo"
@@ -162,7 +161,6 @@ export function BrandForm({
             <section className={styles.formCard} aria-labelledby="bf-names">
               <div className={styles.formCardHead}>
                 <h2 id="bf-names">{t('admin.brands.sectionNames')}</h2>
-                <p>{t('admin.brands.sectionNamesBody')}</p>
               </div>
 
               <div className={styles.field}>
@@ -219,7 +217,6 @@ export function BrandForm({
             <section className={styles.formCard} aria-labelledby="bf-preview">
               <div className={styles.formCardHead}>
                 <h2 id="bf-preview">{t('admin.brands.previewTitle')}</h2>
-                <p>{t('admin.brands.previewBody')}</p>
               </div>
               <div className={styles.brandPreview}>
                 <span className={styles.brandPreviewCircle}>
@@ -244,7 +241,6 @@ export function BrandForm({
               <section className={styles.formCard} aria-labelledby="bf-usage">
                 <div className={styles.formCardHead}>
                   <h2 id="bf-usage">{t('admin.brands.sectionUsage')}</h2>
-                  <p>{t('admin.brands.sectionUsageBody')}</p>
                 </div>
                 <p className={styles.note}>
                   {t('admin.brands.productCountValue', { count: productCount ?? 0 })}

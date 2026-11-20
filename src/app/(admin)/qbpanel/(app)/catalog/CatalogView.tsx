@@ -268,7 +268,6 @@ export function CatalogView({
           <div className={`${styles.panel} ${styles.brandCta}`}>
             <div className={styles.formCardHead}>
               <h2 className={styles.panelTitle}>{t('admin.catalog.brandTitle')}</h2>
-              <p>{t('admin.catalog.brandBody')}</p>
             </div>
             <Link className={`${styles.button} ${styles.buttonSecondary}`} href="/qbpanel/catalog/brands/new">
               <AdminIcon name="plus" width={15} height={15} />

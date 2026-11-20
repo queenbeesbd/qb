@@ -199,7 +199,6 @@ export function OwnersView({
         <section className={styles.section} aria-labelledby="create-owner-heading">
           <div className={styles.sectionHead}>
             <h2 id="create-owner-heading">{t('admin.owners.createTitle')}</h2>
-            <p>{t('admin.owners.createBody')}</p>
           </div>
           <form className={`${styles.panel} ${styles.form} ${styles.formNarrow}`} action="/api/qbpanel/owners" method="post">
             <input type="hidden" name="csrf" value={csrfToken} />
@@ -239,7 +238,6 @@ export function OwnersView({
         <section className={styles.section} aria-labelledby="moderator-access-heading">
           <div className={styles.sectionHead}>
             <h2 id="moderator-access-heading">{t('admin.owners.accessTitle')}</h2>
-            <p>{t('admin.owners.accessBody')}</p>
           </div>
           <form className={`${styles.panel} ${styles.form}`} action="/api/qbpanel/owners" method="post">
             <input type="hidden" name="csrf" value={csrfToken} />

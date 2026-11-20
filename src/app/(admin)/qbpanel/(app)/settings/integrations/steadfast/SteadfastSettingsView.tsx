@@ -83,7 +83,6 @@ export function SteadfastSettingsView({
         <div className={styles.sectionHead}>
           <div>
             <h2 id="steadfast-state">{t('admin.steadfast.stateTitle')}</h2>
-            <p>{t('admin.steadfast.stateBody')}</p>
           </div>
         </div>
 
@@ -115,7 +114,6 @@ export function SteadfastSettingsView({
         <div className={styles.sectionHead}>
           <div>
             <h2 id="steadfast-account">{t('admin.steadfast.accountTitle')}</h2>
-            <p>{t('admin.steadfast.accountBody')}</p>
           </div>
         </div>
 
@@ -178,7 +176,6 @@ export function SteadfastSettingsView({
         <div className={styles.sectionHead}>
           <div>
             <h2 id="steadfast-test">{t('admin.steadfast.testTitle')}</h2>
-            <p>{t('admin.steadfast.testBody')}</p>
           </div>
         </div>
 

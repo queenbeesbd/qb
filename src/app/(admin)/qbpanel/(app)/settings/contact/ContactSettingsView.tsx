@@ -57,7 +57,6 @@ export function ContactSettingsView({
         <section className={styles.formCard} aria-labelledby="contact-facts">
           <div className={styles.formCardHead}>
             <h2 id="contact-facts">{t('admin.contact.factsTitle')}</h2>
-            <p>{t('admin.contact.factsBody')}</p>
           </div>
 
           <div className={styles.field}>
@@ -107,7 +106,6 @@ export function ContactSettingsView({
         <section className={styles.formCard} aria-labelledby="contact-policies">
           <div className={styles.formCardHead}>
             <h2 id="contact-policies">{t('admin.contact.policiesTitle')}</h2>
-            <p>{t('admin.contact.policiesBody')}</p>
           </div>
 
           {(

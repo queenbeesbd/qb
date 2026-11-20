@@ -57,7 +57,6 @@ export function SupportSettingsView({
         <section className={styles.formCard} aria-labelledby="support-messenger">
           <div className={styles.formCardHead}>
             <h2 id="support-messenger">{t('admin.support.messengerTitle')}</h2>
-            <p>{t('admin.support.messengerBody')}</p>
           </div>
           <div className={styles.field}>
             <label htmlFor="messengerUrl">{t('admin.support.messengerField')}</label>
@@ -78,7 +77,6 @@ export function SupportSettingsView({
         <section className={styles.formCard} aria-labelledby="support-whatsapp">
           <div className={styles.formCardHead}>
             <h2 id="support-whatsapp">{t('admin.support.whatsappTitle')}</h2>
-            <p>{t('admin.support.whatsappBody')}</p>
           </div>
           <div className={styles.field}>
             <label htmlFor="whatsappUrl">{t('admin.support.whatsappField')}</label>

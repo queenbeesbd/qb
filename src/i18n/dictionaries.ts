@@ -433,12 +433,8 @@ export const dictionary = {
   'admin.support.body':
     'The Messenger and WhatsApp buttons shown at the right edge of the storefront. Leave a field blank to hide that button.',
   'admin.support.messengerTitle': 'Messenger',
-  'admin.support.messengerBody':
-    'An m.me link, so the button opens a chat with the shop rather than a page to read. It opens in a new tab.',
   'admin.support.messengerField': 'Messenger link',
   'admin.support.whatsappTitle': 'WhatsApp',
-  'admin.support.whatsappBody':
-    'A wa.me link, or any https address that opens a conversation with the shop.',
   'admin.support.whatsappField': 'WhatsApp link',
   'admin.support.urlHelp':
     'A full address starting with https://. Anything else is refused rather than saved, and a blank field removes the button.',
@@ -451,8 +447,6 @@ export const dictionary = {
   'admin.contact.body':
     'What the shop publishes about itself: how to reach it, and the policy text it is willing to stand behind. A blank field is published nowhere.',
   'admin.contact.factsTitle': 'How to reach the shop',
-  'admin.contact.factsBody':
-    'These appear on the storefront’s contact page. Nothing is filled in for you: a blank field is simply not published.',
   'admin.contact.phone': 'Phone number',
   'admin.contact.phoneHelp':
     'Digits with an optional country code. It becomes a tap-to-call link, so a number that cannot be dialled is refused.',
@@ -463,8 +457,6 @@ export const dictionary = {
   'admin.contact.addressHelp':
     'Published only if you fill it in. Line breaks are kept as written.',
   'admin.contact.policiesTitle': 'Policy text',
-  'admin.contact.policiesBody':
-    'Each field becomes its own page and is published word for word. Leave a field blank and the page states that nothing is published yet, and the footer does not link it.',
   'admin.contact.delivery': 'Delivery information',
   'admin.contact.returns': 'Returns and cancellations',
   'admin.contact.privacy': 'Privacy',
@@ -596,8 +588,6 @@ export const dictionary = {
     'A 16:9 banner is cropped and resized on the server, then added to the end of the carousel.',
   'admin.hero.uploadSubmit': 'Upload banner',
   'admin.hero.addTitle': 'Add an image',
-  'admin.hero.addBody':
-    'A banner is 16:9 and shows behind the homepage’s first screen. Upload one from your computer.',
   'admin.hero.maximum': 'The carousel already holds its maximum of {max} images. Remove one to add another.',
   'admin.hero.altLabel': 'Description',
   'admin.hero.altPlaceholder': 'What the image shows',
@@ -619,8 +609,6 @@ export const dictionary = {
   'admin.offerPopup.body':
     'The image a visitor meets when the storefront opens. It appears once per browsing session and can be turned off without deleting the image.',
   'admin.offerPopup.sectionImage': 'Popup image',
-  'admin.offerPopup.sectionImageBody':
-    'Upload the artwork you want to show. A square image is cropped to 1:1; a wide image is cropped to 16:9. The shape is chosen from the file you upload.',
   'admin.offerPopup.dropTitle': 'Drag the offer image here, or choose it from your computer',
   'admin.offerPopup.dropHelp':
     'JPG, PNG or WebP, up to 4 MB. A square or 16:9 image works best; anything else is cropped to the nearer frame.',
@@ -632,7 +620,6 @@ export const dictionary = {
   'admin.offerPopup.altHelp':
     'Optional. Read aloud by screen readers and shown if the image cannot load. State what the offer shows; it is not a slogan. Leave it blank and the popup uses a plain "Offer" label.',
   'admin.offerPopup.sectionDisplay': 'Display',
-  'admin.offerPopup.sectionDisplayBody': 'Whether the offer opens on the storefront.',
   'admin.offerPopup.activeLabel': 'Show this offer when the storefront opens',
   'admin.offerPopup.activeHelp':
     'The popup appears once per browsing session. Turning it off keeps the saved image for later.',
@@ -641,8 +628,6 @@ export const dictionary = {
   'admin.offerPopup.statusOn': 'Shown once per browsing session.',
   'admin.offerPopup.statusOff': 'Not shown on the storefront.',
   'admin.offerPopup.behaviourTitle': 'How it behaves',
-  'admin.offerPopup.behaviourBody':
-    'The popup opens on the first storefront page of a session and closes for that session once dismissed. A new image or a new save makes the new offer appear again.',
   'admin.offerPopup.styleNote':
     'The image is the whole offer: there is no invented headline, button or discount claim. Its description is for screen readers and a failed load.',
   'admin.offerPopup.save': 'Save offer popup',
@@ -964,8 +949,6 @@ export const dictionary = {
   'admin.categories.orderValue': 'Order {count}',
   'admin.integrations.title': 'Integrations',
   'admin.integrations.listTitle': 'Available integrations',
-  'admin.integrations.listBody':
-    'An integration is off until it is configured. Nothing is sent anywhere by default.',
   'admin.integrations.hubNote':
     'Recipients are managed per integration. Telegram ids are stored in this store\u2019s database; the bot\u2019s own credential is a deployment secret and is never stored or shown here.',
   'admin.integrations.open': 'Open',
@@ -987,8 +970,6 @@ export const dictionary = {
   'admin.integrations.backToHub': 'All integrations',
 
   'admin.integrations.botTitle': 'The bot',
-  'admin.integrations.botBody':
-    'The bot credential is set for the deployment, not here: it is a secret, and a secret on a screen is a secret in a screenshot.',
   'admin.integrations.botConfigured': 'Bot connected',
   'admin.integrations.botMissing': 'Bot not configured',
   'admin.integrations.botNote':
@@ -996,8 +977,6 @@ export const dictionary = {
   'admin.integrations.sendTest': 'Send test message',
 
   'admin.integrations.addTitle': 'Add a Telegram account',
-  'admin.integrations.addBody':
-    'Each owner or staff member registers their own id. Every active account receives every order notification.',
   'admin.integrations.field.label': 'Name',
   'admin.integrations.field.labelPlaceholder': 'Who is this',
   'admin.integrations.field.chatId': 'Telegram id',
@@ -1007,6 +986,9 @@ export const dictionary = {
   'admin.integrations.add': 'Add account',
 
   'admin.integrations.rosterTitle': 'Registered accounts',
+  // The integrations list reuses this count line beside each row's status pill, so it is not a
+  // heading note and survives the removal of those (2026-11-20).
+  'admin.integrations.listBody': '{count} active accounts receive every order.',
   'admin.integrations.rosterBody': '{count} active accounts receive every order.',
   'admin.integrations.rosterBodyOne': 'One active account receives every order.',
   'admin.integrations.active': 'Active',
@@ -1023,7 +1005,6 @@ export const dictionary = {
   'admin.integrations.rosterHint':
     'A paused account keeps its id: resume it instead of typing it again. Removing deletes the account from this list - the id above is all you need to register it again.',
   'admin.integrations.editTitle': 'Edit an account',
-  'admin.integrations.editBody': 'Correct a name or replace a wrong id. A paused account still edits.',
   'admin.integrations.save': 'Save',
 
   'admin.integrations.notice.added': 'Account added. Send a test message to confirm it works.',
@@ -1048,7 +1029,6 @@ export const dictionary = {
   'admin.steadfast.body':
     'The courier account this shop books its COD parcels with. Approving a COD order in the confirmation queue sends it here automatically once booking is on.',
   'admin.steadfast.stateTitle': 'Saved account',
-  'admin.steadfast.stateBody': 'What is stored, and whether a confirmed order would be sent right now.',
   'admin.steadfast.keysSaved': 'Keys saved',
   'admin.steadfast.keysMissing': 'Keys not saved',
   'admin.steadfast.bookingOn': 'Booking on',
@@ -1058,8 +1038,6 @@ export const dictionary = {
   'admin.steadfast.stateNote':
     'The keys are stored server-side and are never sent back to this screen. A key on a screen is a key in a screenshot.',
   'admin.steadfast.accountTitle': 'Account keys',
-  'admin.steadfast.accountBody':
-    'Both values are issued by SteadFast. An empty field keeps the saved value, so one key can be replaced without retyping the other.',
   'admin.steadfast.apiKeyLabel': 'API key',
   'admin.steadfast.secretKeyLabel': 'Secret key',
   'admin.steadfast.keyHelp': 'The Api-Key SteadFast shows in its merchant portal.',
@@ -1069,8 +1047,6 @@ export const dictionary = {
     'Off by default. When on, approving an order in the confirmation queue books the parcel; a failure leaves the order approved and is retried from the order screen.',
   'admin.steadfast.save': 'Save account',
   'admin.steadfast.testTitle': 'Check the account',
-  'admin.steadfast.testBody':
-    'Asks SteadFast for the account balance with the saved keys. It tests what is stored, not what is typed above.',
   'admin.steadfast.test': 'Test connection',
   'admin.steadfast.clear': 'Remove account',
   'admin.steadfast.clearTitle': 'Remove the SteadFast account?',
@@ -1169,8 +1145,6 @@ export const dictionary = {
   'admin.order.cancelReason': 'Reason for cancelling (at least 10 characters)',
   'admin.order.cancelReasonPlaceholder': 'e.g. The customer asked to cancel when we called',
   'admin.order.returnsTitle': 'Returned goods',
-  'admin.order.returnsBody':
-    'A failed delivery creates one return record per line. It is settled only after the parcel is physically received and inspected.',
   'admin.order.returnQuantity': 'Quantity {count}',
   'admin.order.returnReceivedAt': 'Received: {time}',
   'admin.order.returnInspectedAt': 'Inspected: {time}',
@@ -1209,8 +1183,6 @@ export const dictionary = {
     'Delivery recorded as failed. Record the parcel receipt and the inspection once the goods are back.',
   'admin.order.notice.returned': 'Recorded as returned. Inspect each line now.',
   'admin.order.steadfast.title': 'SteadFast consignment',
-  'admin.order.steadfast.body':
-    'What the courier accepted for this parcel. The delivery status below is SteadFast\u2019s own; it does not change this order.',
   'admin.order.steadfast.refresh': 'Refresh status',
   'admin.order.steadfast.notSent':
     'This order has not been sent to SteadFast yet. Sending it books the parcel and records the consignment.',
@@ -1375,16 +1347,12 @@ export const dictionary = {
   'admin.owners.roleHint':
     'A moderator runs orders, the catalog and reviews. Money facts, settings, customers, the overview and this screen stay with the owner, and the database refuses those permissions on a non-owner role.',
   'admin.owners.accessTitle': 'Moderator access',
-  'admin.owners.accessBody':
-    'Which screens every moderator account may open. One set for the role, not one per person, so two moderators on the same shift cannot see different screens.',
   'admin.owners.accessOwnerOnly': 'Owner only',
   'admin.owners.accessHint':
     'A ticked row is granted the moment this is saved, and it applies to every moderator. Unticked screens disappear from their sidebar and refuse the route as well.',
   'admin.owners.accessSave': 'Save moderator access',
   'admin.owners.notice.accessSaved': 'Moderator access saved. Every moderator sees the change on their next request.',
   'admin.owners.createTitle': 'New account',
-  'admin.owners.createBody':
-    'Choose the role: an owner has full access, a moderator gets the screens ticked below. Creating an account does not make it usable — the person sets their own password with a single-use token.',
   'admin.owners.displayName': 'Name',
   'admin.owners.email': 'Email',
   'admin.owners.createSubmit': 'Create owner account',
@@ -1577,7 +1545,6 @@ export const dictionary = {
   'admin.catalog.archiveConfirm':
     'Archiving removes the product from the storefront and makes it unorderable. Continue?',
   'admin.catalog.brandTitle': 'New brand',
-  'admin.catalog.brandBody': 'Every product needs a brand. A new brand can be added here.',
   'admin.catalog.brandSubmit': 'Create brand',
   'admin.catalog.imagesTitle': 'Images',
   'admin.catalog.imagesBody':
@@ -1632,14 +1599,8 @@ export const dictionary = {
   'admin.categories.field.sortOrderHelp':
     'Lower numbers come first. Equal numbers fall back to the English name.',
   'admin.categories.sectionNames': 'Name and description',
-  'admin.categories.sectionNamesBody':
-    'The English name is what the storefront lists; the Bangla name is the same category for Bangla readers.',
   'admin.categories.sectionPlacement': 'Address and placement',
-  'admin.categories.sectionPlacementBody':
-    'The address is the category page; the order decides where the category sits.',
   'admin.categories.sectionImage': 'Category photo',
-  'admin.categories.sectionImageBody':
-    'The picture on the category index and the homepage category rail. Upload one from your computer, or choose one already on the server; without one, the tile shows the category icon.',
   'admin.categories.field.tagline': 'One-line label',
   'admin.categories.field.taglineHelp':
     'Optional. Up to 120 characters, shown under the name on the category index.',
@@ -1658,22 +1619,16 @@ export const dictionary = {
   'admin.brands.createTitle': 'New brand',
   'admin.brands.editorBody': 'The name customers recognise, its storefront address and the mark the shop shows.',
   'admin.brands.sectionLogo': 'Brand mark',
-  'admin.brands.sectionLogoBody':
-    'The logo inside the brand circle. A brand with no logo shows its first letter in the same circle.',
   'admin.brands.sectionNames': 'Name and address',
-  'admin.brands.sectionNamesBody':
-    'The English name is what the storefront lists; the Bangla name is the same brand for Bangla readers.',
   'admin.brands.field.nameEn': 'Name (English)',
   'admin.brands.field.nameBn': 'Name (Bangla)',
   'admin.brands.field.slug': 'Slug',
   'admin.brands.field.slugHelp': 'Leave blank to derive it from the English name.',
   'admin.brands.previewTitle': 'Storefront mark',
-  'admin.brands.previewBody': 'How the brand appears in its circle on the brand index.',
   'admin.brands.previewNoName': 'No name yet',
   'admin.brands.previewCaveat':
     'The preview uses the saved logo; a newly chosen photo appears after you save.',
   'admin.brands.sectionUsage': 'Products',
-  'admin.brands.sectionUsageBody': 'Products currently filed under this brand.',
   'admin.brands.create': 'Create brand',
   'admin.brands.save': 'Save brand',
   'admin.brands.formReady': 'Both names are filled in. Nothing changes until you save.',
@@ -1704,10 +1659,7 @@ export const dictionary = {
   'admin.categories.notice.imageInvalid':
     'That file is not a supported image, is too large, or no photo was chosen.',
   'admin.categories.sectionUsage': 'What this category holds',
-  'admin.categories.sectionUsageBody': 'Counted from live rows on every read, never stored.',
   'admin.categories.previewTitle': 'Storefront address',
-  'admin.categories.previewBody':
-    'Built from what you have typed, so it cannot promise an address the save would refuse.',
   'admin.categories.previewNoName': 'No name yet',
   'admin.categories.previewCaveat':
     'The page lists the products assigned to this category; while the category is hidden, the storefront navigation leaves it out.',
