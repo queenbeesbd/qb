@@ -219,7 +219,6 @@ export function OverviewView({
     <>
       <PageHeader
         title={firstName === '' ? t('admin.overview.title') : t('admin.overview.greeting', { name: firstName })}
-        description={t('admin.overview.subtitle')}
         actions={
           <>
             <Link
@@ -242,16 +241,57 @@ export function OverviewView({
       />
 
       {/*
-        The waiting queue is not repeated here (owner direction, 2026-11-20). "Waiting on you" drew the
-        same pending order the "Waiting on a call" figure beside it already counts, and it put a second
-        decision surface on a page that is not the worklist - the owner decides on `/qbpanel/orders`,
-        where the card, its audit note and its approve/reject pair live. The figure is the honest
-        statement, and it is now the way in: it links to the queue when something waits, and states the
-        clear sentence when nothing does.
+        Work first (owner direction, 2026-11-21; intent critique).
+
+        The phone answers two questions before anything else: is anything waiting on me, and did
+        anything come in. The five figures used to share one grid, so the one that is *work* sat
+        beside four that are *context* and was found by reading. The queue is now its own band with its
+        own weight, and the four context figures follow it.
+
+        The queue draws no cards here (owner direction, 2026-11-20): the decision - card, note,
+        approve/reject - lives on `/qbpanel/orders`. This band states the count, the oldest wait and the
+        way in, and states the clear sentence when nothing waits.
       */}
+      {analytics !== null && (
+        <section
+          className={pendingCount > 0 ? `${styles.waitingBand} ${styles.waitingBandHot}` : styles.waitingBand}
+          aria-labelledby="overview-waiting"
+        >
+          <div className={styles.waitingBody}>
+            <h2 id="overview-waiting" className={styles.waitingLabel}>
+              {t('admin.overview.kpiWaiting')}
+            </h2>
+            {pendingCount === 0 ? (
+              <p className={styles.waitingClear}>
+                <AdminIcon name="check" width={16} height={16} />
+                {t('admin.overview.kpiWaitingClear')}
+              </p>
+            ) : (
+              <p className={styles.waitingFigure}>
+                <span className={styles.waitingCount}>{countFormat.format(pendingCount)}</span>
+                <span className={styles.waitingAge}>{oldestAgePhrase}</span>
+              </p>
+            )}
+          </div>
+          {pendingCount > 0 && canReadOrders && (
+            <Link
+              className={styles.waitingLink}
+              href={ORDERS_PATH}
+              aria-label={
+                pendingCount === 1
+                  ? t('admin.overview.kpiWaitingLinkOne')
+                  : t('admin.overview.kpiWaitingLink', { count: pendingCount })
+              }
+            >
+              {t('admin.overview.waitingOpen')}
+              <AdminIcon name="arrowRight" width={16} height={16} />
+            </Link>
+          )}
+        </section>
+      )}
 
       {analytics !== null && (
-        <div className={styles.kpiGrid}>
+        <div className={`${styles.kpiGrid} ${styles.kpiGridFour}`}>
           <MetricCard
             tone="green"
             icon="analytics"
@@ -288,96 +328,6 @@ export function OverviewView({
               note={t('admin.overview.kpiTotalCustomersNote', { count: analytics.summary.customersServed })}
             />
           )}
-          <MetricCard
-            tone={pendingCount > 0 ? 'warning' : 'amber'}
-            icon="clock"
-            label={t('admin.overview.kpiWaiting')}
-            value={countFormat.format(pendingCount)}
-            note={pendingCount === 0 ? t('admin.overview.kpiWaitingClear') : oldestAgePhrase}
-            /*
-              Only when a call is actually waiting. With nothing in the queue the figure states the clear
-              sentence and has nowhere to lead, so it stays a plain tile instead of opening an empty list.
-            */
-            href={canReadOrders && pendingCount > 0 ? ORDERS_PATH : undefined}
-            linkLabel={
-              pendingCount === 1
-                ? t('admin.overview.kpiWaitingLinkOne')
-                : t('admin.overview.kpiWaitingLink', { count: pendingCount })
-            }
-          />
-        </div>
-      )}
-
-      {analytics !== null && (
-        <div className={styles.chartGrid}>
-          <section className={styles.panel} aria-labelledby="overview-revenue">
-            <div className={styles.panelHead}>
-              <h2 id="overview-revenue" className={styles.panelTitle}>
-                {t('admin.overview.chartTitle')}
-              </h2>
-              {canReadOrders && (
-                <Link className={styles.sectionLink} href="/qbpanel/analytics">
-                  {t('admin.overview.chartLink')}
-                </Link>
-              )}
-            </div>
-            <dl className={styles.chartStats}>
-              <div>
-                <dt>{t('admin.overview.chartAverage')}</dt>
-                <dd>{price(averageDailyMinor)}</dd>
-              </div>
-              <div>
-                <dt>{t('admin.overview.chartPeak')}</dt>
-                <dd>
-                  {peakIsReal && peakPoint !== null
-                    ? `${dayLabel(peakPoint.date)} · ${price(peakPoint.revenueMinor)}`
-                    : t('admin.overview.chartNoPeak')}
-                </dd>
-              </div>
-              <div>
-                <dt>{t('admin.overview.chartItems')}</dt>
-                <dd>{analytics.summary.itemsSold}</dd>
-              </div>
-            </dl>
-            <AreaChart
-              points={seriesPoints}
-              label={t('admin.analytics.revenueChartLabel')}
-              caption={t('admin.analytics.revenueChartCaption')}
-              summary={
-                analytics.summary.completedOrders === 0
-                  ? t('admin.analytics.revenueEmpty')
-                  : t('admin.analytics.revenueSummary', {
-                      amount: price(analytics.summary.revenueMinor),
-                      count: analytics.summary.completedOrders,
-                    })
-              }
-              formatValue={(value) => price(value)}
-              formatAxis={compactMoney}
-              formatDay={dayLabel}
-            />
-          </section>
-
-          <section className={styles.panel} aria-labelledby="overview-status">
-            <div className={styles.panelHead}>
-              <h2 id="overview-status" className={styles.panelTitle}>
-                {t('admin.analytics.statusTitle')}
-              </h2>
-            </div>
-            {orderTotal === 0 ? (
-              <p className={styles.hint}>{t('admin.analytics.statusEmpty')}</p>
-            ) : (
-              <DonutChart
-                label={t('admin.analytics.statusTitle')}
-                centerLabel={t('admin.analytics.statusCenter')}
-                total={orderTotal}
-                slices={(analytics.statuses ?? []).map((slice) => ({
-                  label: t(statusLabel(slice.status)),
-                  value: slice.count,
-                  tone: STATUS_TONES[slice.status] ?? 'slate',
-                }))}
-              />
-            )}
-          </section>
         </div>
       )}
 
@@ -417,13 +367,18 @@ export function OverviewView({
                         >
                           {row.orderNumber}
                         </Link>
+                        {/*
+                          The time rides with the reference, not on a third line of its own. A phone row
+                          stacked three bands - who, then total/status, then time - and five of them made
+                          a 600px panel for five orders. Two lines state the same five facts.
+                        */}
+                        <span className={styles.recentWhen}>{timeFormat.format(new Date(row.placedAt))}</span>
                       </div>
                       <div className={styles.recentMeta}>
                         <span className={styles.recentTotal}>{price(row.totalMinor)}</span>
                         <StatusPill tone={PILL_TONES[row.status] ?? 'info'}>
                           {t(statusLabel(row.status))}
                         </StatusPill>
-                        <span className={styles.recentWhen}>{timeFormat.format(new Date(row.placedAt))}</span>
                       </div>
                     </li>
                   );
@@ -431,6 +386,118 @@ export function OverviewView({
               </ul>
             )}
           </section>
+        </div>
+
+        <div className={styles.stack}>
+          {/*
+            One money panel, not two (owner direction, 2026-11-21). "Revenue recorded" and "Recorded
+            revenue" were the same fact in a chart and a breakdown, 1,780px apart on a phone: a reader
+            past the first had to remember it to read the second. The chart, its three headline
+            figures and the four amounts are one panel now, which is also why the second one is gone
+            rather than moved.
+          */}
+          {canReadOrders && revenue !== null && analytics !== null && (
+            <section className={styles.panel} aria-labelledby="revenue-heading">
+              <div className={styles.panelHead}>
+                <h2 id="revenue-heading" className={styles.panelTitle}>
+                  {t('admin.overview.chartTitle')}
+                </h2>
+                <Link className={styles.sectionLink} href="/qbpanel/analytics">
+                  {t('admin.overview.chartLink')}
+                </Link>
+              </div>
+              <div className={styles.revenueLead}>
+                <span className={styles.revenueLabel}>{t('admin.overview.revenueCustomerPayment')}</span>
+                <span className={styles.revenueAmount}>{price(revenue.customerPaymentMinor)}</span>
+              </div>
+              <dl className={styles.revenueBreakdown}>
+                <div>
+                  <dt>{t('admin.overview.revenueStandardFee')}</dt>
+                  <dd>{price(revenue.standardDeliveryFeeMinor)}</dd>
+                </div>
+                <div>
+                  <dt>{t('admin.overview.revenueAdditionalCosts', { count: revenue.activeCostCount })}</dt>
+                  <dd>{price(revenue.additionalCostsMinor)}</dd>
+                </div>
+                <div>
+                  <dt>{t('admin.overview.revenueNetEstimate')}</dt>
+                  <dd>
+                    {revenue.estimatedNetProceedsMinor === null
+                      ? t('admin.overview.revenueUnavailable')
+                      : price(revenue.estimatedNetProceedsMinor)}
+                  </dd>
+                </div>
+              </dl>
+              <dl className={`${styles.chartStats} ${styles.chartStatsInset}`}>
+                <div>
+                  <dt>{t('admin.overview.chartAverage')}</dt>
+                  <dd>{price(averageDailyMinor)}</dd>
+                </div>
+                <div>
+                  <dt>{t('admin.overview.chartPeak')}</dt>
+                  <dd>
+                    {peakIsReal && peakPoint !== null
+                      ? `${dayLabel(peakPoint.date)} · ${price(peakPoint.revenueMinor)}`
+                      : t('admin.overview.chartNoPeak')}
+                  </dd>
+                </div>
+                <div>
+                  <dt>{t('admin.overview.chartItems')}</dt>
+                  <dd>{analytics.summary.itemsSold}</dd>
+                </div>
+              </dl>
+              <AreaChart
+                points={seriesPoints}
+                label={t('admin.analytics.revenueChartLabel')}
+                caption={t('admin.analytics.revenueChartCaption')}
+                summary={
+                  analytics.summary.completedOrders === 0
+                    ? t('admin.analytics.revenueEmpty')
+                    : t('admin.analytics.revenueSummary', {
+                        amount: price(analytics.summary.revenueMinor),
+                        count: analytics.summary.completedOrders,
+                      })
+                }
+                formatValue={(value) => price(value)}
+                formatAxis={compactMoney}
+                formatDay={dayLabel}
+              />
+              {/*
+                The one caveat the money panel keeps: a figure would otherwise overstate itself. The
+                accounting rules, the derivation and the audit trail's completeness are not printed -
+                they belong in `docs/`, not under a number the owner reads every day.
+              */}
+              {revenue.unsubstantiatedOrderCount > 0 && (
+                <p className={styles.note}>
+                  {t('admin.overview.revenueUnsubstantiated', { count: revenue.unsubstantiatedOrderCount })}
+                </p>
+              )}
+            </section>
+          )}
+
+          {analytics !== null && (
+            <section className={styles.panel} aria-labelledby="overview-status">
+              <div className={styles.panelHead}>
+                <h2 id="overview-status" className={styles.panelTitle}>
+                  {t('admin.analytics.statusTitle')}
+                </h2>
+              </div>
+              {orderTotal === 0 ? (
+                <p className={styles.hint}>{t('admin.analytics.statusEmpty')}</p>
+              ) : (
+                <DonutChart
+                  label={t('admin.analytics.statusTitle')}
+                  centerLabel={t('admin.analytics.statusCenter')}
+                  total={orderTotal}
+                  slices={(analytics.statuses ?? []).map((slice) => ({
+                    label: t(statusLabel(slice.status)),
+                    value: slice.count,
+                    tone: STATUS_TONES[slice.status] ?? 'slate',
+                  }))}
+                />
+              )}
+            </section>
+          )}
 
           {canReadPromo && promo !== null && (
             <section className={styles.panel} aria-labelledby="overview-promo">
@@ -456,108 +523,51 @@ export function OverviewView({
                   <dd>{price(promo.givenMinor)}</dd>
                 </div>
               </dl>
-              {promo.active === 0 && <p className={styles.note}>{t('admin.overview.promoNone')}</p>}
-            </section>
-          )}
-        </div>
-
-        <div className={styles.stack}>
-          {canReadOrders && revenue !== null && (
-            <section className={styles.panel} aria-labelledby="revenue-heading">
-              <div className={styles.panelHead}>
-                <h2 id="revenue-heading" className={styles.panelTitle}>
-                  {t('admin.overview.revenueTitle')}
-                </h2>
-                <Link className={styles.sectionLink} href={ORDERS_PATH}>
-                  {t('admin.overview.revenueLink')}
-                </Link>
-              </div>
-              <div className={styles.revenueLead}>
-                <span className={styles.revenueLabel}>{t('admin.overview.revenueCustomerPayment')}</span>
-                <span className={styles.revenueAmount}>{price(revenue.customerPaymentMinor)}</span>
-                <span className={styles.revenueMeta}>
-                  {t('admin.overview.revenueFromOrders', { count: revenue.orderCount })}
-                </span>
-              </div>
-              <dl className={styles.revenueBreakdown}>
-                <div>
-                  <dt>{t('admin.overview.revenueStandardFee')}</dt>
-                  <dd>{price(revenue.standardDeliveryFeeMinor)}</dd>
-                </div>
-                <div>
-                  <dt>{t('admin.overview.revenueAdditionalCosts', { count: revenue.activeCostCount })}</dt>
-                  <dd>{price(revenue.additionalCostsMinor)}</dd>
-                </div>
-                <div>
-                  <dt>{t('admin.overview.revenueNetEstimate')}</dt>
-                  <dd>
-                    {revenue.estimatedNetProceedsMinor === null
-                      ? t('admin.overview.revenueUnavailable')
-                      : price(revenue.estimatedNetProceedsMinor)}
-                  </dd>
-                </div>
-              </dl>
-              {revenue.unsubstantiatedOrderCount > 0 && (
-                <p className={styles.note}>
-                  {t('admin.overview.revenueUnsubstantiated', { count: revenue.unsubstantiatedOrderCount })}
-                </p>
-              )}
-            </section>
-          )}
-
-          {(canReadCustomers || canReadAudit) && (
-            <section className={styles.panel} aria-labelledby="attention-heading">
-              <div className={styles.panelHead}>
-                <h2 id="attention-heading" className={styles.panelTitle}>
-                  {t('admin.overview.attentionTitle')}
-                </h2>
-                {attentionCount > 0 && (
-                  <StatusPill tone="warning">
-                    {t('admin.overview.attentionCount', { count: attentionCount })}
-                  </StatusPill>
-                )}
-              </div>
-
-              {attentionCount === 0 ? (
-                <p className={styles.attentionClear}>
-                  <AdminIcon name="check" className={styles.attentionClearIcon} />
-                  <span>{t('admin.overview.attentionEmpty')}</span>
-                </p>
-              ) : (
-                <ul className={styles.attentionList}>
-                  {denials !== null && denials > 0 && (
-                    <li className={styles.attentionRow}>
-                      <span className={styles.attentionName}>
-                        {t('admin.overview.refusals', { count: denials })}
-                      </span>
-                      <span className={styles.attentionReason}>{t('admin.overview.refusalsBody')}</span>
-                      {canReadAudit && (
-                        <Link className={styles.overviewLink} href="/qbpanel/audit">
-                          {t('admin.overview.viewAudit')} <span aria-hidden="true">→</span>
-                        </Link>
-                      )}
-                    </li>
-                  )}
-                  {flagged.map((flag) => (
-                    <li className={styles.attentionRow} key={flag.customerId}>
-                      <span className={styles.attentionName}>
-                        {flag.displayName ?? flag.email}{' '}
-                        <StatusPill tone="warning">{t('admin.customers.flagged')}</StatusPill>
-                      </span>
-                      <span className={styles.attentionReason}>{flag.reason}</span>
-                      <Link className={styles.overviewLink} href={`/qbpanel/customers/${flag.customerId}`}>
-                        {t('admin.overview.reviewCustomer')} <span aria-hidden="true">→</span>
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              )}
             </section>
           )}
         </div>
       </div>
 
-      <div className={styles.tripleGrid}>
+      {(canReadCustomers || canReadAudit) && attentionCount > 0 && (
+        <section className={styles.panel} aria-labelledby="attention-heading">
+          <div className={styles.panelHead}>
+            <h2 id="attention-heading" className={styles.panelTitle}>
+              {t('admin.overview.attentionTitle')}
+            </h2>
+            <StatusPill tone="warning">
+              {t('admin.overview.attentionCount', { count: attentionCount })}
+            </StatusPill>
+          </div>
+          <ul className={styles.attentionList}>
+            {denials !== null && denials > 0 && (
+              <li className={styles.attentionRow}>
+                <span className={styles.attentionName}>
+                  {t('admin.overview.refusals', { count: denials })}
+                </span>
+                {canReadAudit && (
+                  <Link className={styles.overviewLink} href="/qbpanel/audit">
+                    {t('admin.overview.viewAudit')} <span aria-hidden="true">→</span>
+                  </Link>
+                )}
+              </li>
+            )}
+            {flagged.map((flag) => (
+              <li className={styles.attentionRow} key={flag.customerId}>
+                <span className={styles.attentionName}>
+                  {flag.displayName ?? flag.email}{' '}
+                  <StatusPill tone="warning">{t('admin.customers.flagged')}</StatusPill>
+                </span>
+                <span className={styles.attentionReason}>{flag.reason}</span>
+                <Link className={styles.overviewLink} href={`/qbpanel/customers/${flag.customerId}`}>
+                  {t('admin.overview.reviewCustomer')} <span aria-hidden="true">→</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      <div className={styles.duoGrid}>
         {canReadCatalog && outOfStock !== null && (
           <section className={styles.panel} aria-labelledby="overview-out-of-stock">
             <div className={styles.panelHead}>
@@ -585,7 +595,6 @@ export function OverviewView({
                 ))}
               </ol>
             )}
-            <p className={styles.note}>{t('admin.overview.outOfStockBody')}</p>
           </section>
         )}
 
@@ -616,68 +625,8 @@ export function OverviewView({
                 ))}
               </ol>
             )}
-            <p className={styles.note}>{t('admin.overview.topSellingBody')}</p>
           </section>
         )}
-
-        <section className={styles.panel} aria-labelledby="overview-quick-actions">
-          <div className={styles.panelHead}>
-            <h2 id="overview-quick-actions" className={styles.panelTitle}>
-              {t('admin.overview.quickActionsTitle')}
-            </h2>
-          </div>
-          <div className={styles.quickGrid}>
-            {canReadCatalog && (
-              <Link className={styles.quickAction} href="/qbpanel/catalog/new">
-                <span className={styles.quickIcon} data-tone="violet" aria-hidden="true">
-                  <AdminIcon name="plus" width={18} height={18} />
-                </span>
-                {t('admin.overview.quickAddProduct')}
-              </Link>
-            )}
-            {canReadOrders && (
-              <Link className={styles.quickAction} href={ORDERS_PATH}>
-                <span className={styles.quickIcon} data-tone="blue" aria-hidden="true">
-                  <AdminIcon name="orders" width={18} height={18} />
-                </span>
-                {t('admin.nav.orders')}
-              </Link>
-            )}
-            {canReadCatalog && (
-              <Link className={styles.quickAction} href="/qbpanel/categories">
-                <span className={styles.quickIcon} data-tone="amber" aria-hidden="true">
-                  <AdminIcon name="categories" width={18} height={18} />
-                </span>
-                {t('admin.overview.quickCategories')}
-              </Link>
-            )}
-            {canReadPromo && (
-              <Link className={styles.quickAction} href="/qbpanel/promo-codes">
-                <span className={styles.quickIcon} data-tone="rose" aria-hidden="true">
-                  <AdminIcon name="tag" width={18} height={18} />
-                </span>
-                {t('admin.overview.quickPromo')}
-              </Link>
-            )}
-            {canReadPromo && (
-              <Link className={styles.quickAction} href="/qbpanel/settings/delivery">
-                <span className={styles.quickIcon} data-tone="teal" aria-hidden="true">
-                  <AdminIcon name="settings" width={18} height={18} />
-                </span>
-                {t('admin.overview.quickDelivery')}
-              </Link>
-            )}
-            {canReadOrders && (
-              <Link className={styles.quickAction} href="/qbpanel/analytics">
-                <span className={styles.quickIcon} data-tone="green" aria-hidden="true">
-                  <AdminIcon name="analytics" width={18} height={18} />
-                </span>
-                {t('admin.overview.quickAnalytics')}
-              </Link>
-            )}
-          </div>
-          <p className={styles.note}>{t('admin.overview.quickActionsBody')}</p>
-        </section>
       </div>
     </>
   );

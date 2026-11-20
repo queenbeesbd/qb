@@ -4261,6 +4261,127 @@ html[dir='rtl'] .switchOn .switchKnob::after {
   align-items: start;
 }
 
+/*
+ * The waiting band (owner direction, 2026-11-21; intent critique).
+ *
+ * The one figure on the dashboard that is *work* used to be a tile beside four that are *context*,
+ * so it had to be found by reading. It is its own band now: the count is the biggest number on the
+ * page, the oldest wait sits beside it, and the whole right end is the way into the queue.
+ *
+ * It is a neutral surface while nothing waits - a green tick and the clear sentence, because a
+ * dashboard that shouts on a quiet morning is not telling the truth. It turns to the warning pair
+ * only when a call is actually waiting.
+ */
+.waitingBand {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3) var(--space-4);
+  padding: var(--space-4) var(--space-5);
+  background: var(--admin-surface);
+  border: 1px solid var(--admin-line);
+  border-radius: var(--admin-radius-card);
+  box-shadow: var(--admin-shadow-card);
+}
+
+.waitingBandHot {
+  background: var(--color-warning-soft);
+  border-color: color-mix(in srgb, var(--color-warning) 26%, transparent);
+}
+
+.waitingBody {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.waitingLabel {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--admin-muted);
+}
+
+.waitingBandHot .waitingLabel {
+  color: color-mix(in srgb, var(--color-warning) 70%, var(--admin-ink));
+}
+
+.waitingFigure {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  margin: 0;
+}
+
+.waitingCount {
+  font-family: var(--font-display);
+  font-size: clamp(1.75rem, 1.2vw + 1.2rem, 2.25rem);
+  font-weight: 600;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-warning);
+}
+
+.waitingAge {
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--admin-muted);
+}
+
+.waitingClear {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-size: var(--text-base);
+  font-weight: 500;
+  color: var(--color-success);
+}
+
+/*
+ * The way in. A filled field rather than a link, because on a phone this is the one action the
+ * first screen offers and it must be findable with a thumb without aiming.
+ */
+.waitingLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: var(--admin-control);
+  padding: 0 var(--space-4);
+  border-radius: var(--admin-radius-control);
+  background: var(--color-action);
+  color: var(--color-surface);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.waitingLink:hover {
+  background: var(--color-action-hover);
+}
+
+.waitingLink:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+@media (max-width: 480px) {
+  .waitingBand {
+    padding: var(--space-4);
+  }
+
+  /* A thumb-width action: the band wraps rather than shrinking the control below 40px. */
+  .waitingLink {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
 .stack {
   display: grid;
   gap: var(--space-4);
@@ -4625,6 +4746,19 @@ a.rankName:hover {
   display: grid;
   gap: 2px;
   padding-bottom: var(--space-1);
+}
+
+/*
+ * The chart's three headline figures, placed inside the merged money panel.
+ *
+ * `chartStats` carries a bottom rule because it normally opens a panel. Here it follows the four
+ * amounts, which already end on a rule, so the inset variant drops its own and takes the space that
+ * separates one band from the next instead.
+ */
+.chartStatsInset {
+  padding: var(--space-3) 0;
+  border-bottom: 0;
+  border-top: 1px solid var(--admin-line);
 }
 
 .revenueLabel {

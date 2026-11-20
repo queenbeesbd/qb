@@ -502,10 +502,27 @@ how a page grows a second, conflicting set of filter conventions.
 - **Menu drawer:** every remaining destination grouped, the signed-in account, sign out and the
   storefront link. It is a modal surface: focus moves to close, Tab is trapped, Escape closes, body
   scroll locks, and focus returns to the Menu pill.
-- **Overview:** a greeting instead of an eyebrow; the COD queue as a full-width **lavender hero card**
-  with a blush count badge and the oldest wait in one sentence; then five white KPI cards, the revenue
-  and status charts, and the closing panels. On a phone the order is queue, figures, money, catalog.
-  The dashboard stops at three queue cards; the full queue is one tap away.
+- **Overview (mobile-first, 2026-11-21):** the page opens on the **waiting band** - the one figure that
+  is *work* rather than *context*. It states the count and the oldest wait, turns the warning pair only
+  while a call actually waits, and its whole right end is a 40px filled link into `/qbpanel/orders`;
+  with nothing waiting it draws a green tick and "Nothing is waiting" instead of an empty destination.
+  Below it: **four context figures** in a 2×2 grid, then recent orders, then **one money panel** (the
+  revenue chart, the three headline figures and the four amounts together), the status ring, promo
+  codes, and the closing Out of stock / Top selling pair. The header carries the two real actions -
+  View storefront and Add product.
+  - **No prose.** The dashboard states figures and labels; it does not explain itself. The five
+    explanatory sentences ("What is happening in your shop today…", "Availability is a state, not a
+    count…", "Ranked by units on completed, paid orders…", "The jobs you do most often…", "No code is
+    live. Create one…") and the accounting essay were removed on owner direction. The only caveat kept
+    is the one where a figure would otherwise overstate itself ("Excludes N orders without a recorded
+    delivery split.").
+  - **No quick-actions panel.** All six shortcuts duplicated the header, the bottom bar or a panel
+    directly above them; a shortcut to a shortcut costs a screen of scroll on a phone.
+  - **The phone first fold** (390×844) is the waiting band, the four figures and the start of recent
+    orders. The page is ~2,890px, down from ~3,731px, without losing a single figure.
+  - **A recent order row is two lines on a phone:** identity with its reference and time on the left,
+    the total and status on the right. The initial disc is dropped below 720px, where it cost 34px of
+    a 300px column and a guest's mark was a "?".
 - **Order cards:** reference and age on the top line, name with a 40px `tel:` chip, address, recorded
   lines and totals, then a full-width decision footer with the note and Accept/Reject on one line. The
   card is a white 18px surface with one soft shadow; age is carried by its own pill.
