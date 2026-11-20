@@ -487,10 +487,15 @@ how a page grows a second, conflicting set of filter conventions.
   `--admin-shadow-pop`, inset 8px from each side and lifted `env(safe-area-inset-bottom) + 12px` off
   the bottom edge, capped at `34rem` and centred on a tablet. It was the owner's reference: the
   reference app's floating bottom navigation, in this shop's palette.
-  - **Inside it:** the permission-ranked destinations - Overview, All orders, Products, Customers - then
-    a filled **Menu** pill. The row is `display: flex`, not a four-column grid, so a moderator whose
-    permissions prune the set sees two tabs that still fill the row rather than a hole and a stretched
+  - **Inside it:** the permission-ranked destinations - **Overview, All orders, Products, Categories,
+    Customers** (owner direction, 2026-11-21; Categories was added between Products and Customers) - then
+    a filled **Menu** pill. The row is `display: flex`, not a fixed-column grid, so a moderator whose
+    permissions prune the set sees fewer tabs that still fill the row rather than a hole and a stretched
     Menu.
+  - **Five tabs at 320px are the tightest row the panel draws.** Measured: with a 2px gap and 3px padding
+    each tab was 47px - under the 48px comfortable minimum - so the bar spends 8px (2px gap, 2px padding,
+    1px tab padding) and each tab clears 50px at 320px and 64px at 390px. The Menu pill drops to a 48px
+    glyph box at that width, keeping its accessible name.
   - **The current destination is a pale plate:** a `--admin-lavender-soft` field with icon and label in
     `--color-action` (7.8:1). The old 2px top rule and the action-coloured label are gone - a tab
     underline reads as a desktop idiom rather than as "you are here".

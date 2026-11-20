@@ -14,6 +14,28 @@ An entry may describe a deployment only once it has actually happened and been o
 
 ## [Unreleased]
 
+### Changed - 2026-11-21: Categories joins the phone navigation bar
+
+Owner direction: the bar is now **Overview, All orders, Products, Categories, Customers**, then Menu.
+Departments are curated as often as products are - the homepage rails and the catalog filter read them -
+so the one tap the Menu drawer was costing on every visit became a destination.
+
+- **`mobileRank` accepts 1-5** and Categories takes 4, shifting Customers to 5; the shell's slice rose to
+  five. The rank still applies to the permission-filtered list, so a session without `catalog.write` sees
+  four tabs and one without `customer.read` sees four - the flex row fills the width rather than leaving a
+  hole.
+- **The 320px row was re-measured.** Five tabs plus the Menu pill is the tightest row the panel draws: at a
+  2px gap and 3px padding each tab was **47px**, under the 48px comfortable touch minimum. The bar now
+  spends 8px (2px gap, 2px padding, 1px tab padding), each tab clears **50px at 320 and 64px at 390**, and
+  the Menu pill drops to a 48x52 glyph box at that width while keeping its accessible name.
+- `verify:admin`'s bar assertion now expects **five** ranked destinations plus the Menu control.
+
+**Verified:** `typecheck`, `check:i18n` (1,986 keys), `build`, and Chromium on the production build at
+320/390/414/768 - the five destinations in the owner's order, zero clipped labels, zero horizontal
+overflow, every tab at or above 50px wide. The Categories tab navigates and takes `aria-current`; the Menu
+drawer still lists all 21 destinations in six groups. `verify:admin` was not re-run.
+
+
 ### Changed - 2026-11-21: the customer list is a phone-first moderation screen
 
 Owner direction: the page needed design work. Two independent assessments ran first - a design-director

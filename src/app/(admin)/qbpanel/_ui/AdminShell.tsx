@@ -42,8 +42,9 @@ const GROUP_KEYS: Record<AdminNavGroup, TranslationKey> = {
  * The authenticated application shell.
  *
  * **Desktop** keeps a persistent, grouped rail and a hairline top bar. **Below 1024px** the rail is
- * replaced by two phone surfaces that answer different questions: a fixed bottom bar carries up to four
- * ranked destinations (Overview, Orders, Products, Customers) plus a separate **Menu** control, and the
+ * replaced by two phone surfaces that answer different questions: a fixed bottom bar carries up to five
+ * ranked destinations (Overview, Orders, Products, Categories, Customers) plus a separate **Menu**
+ * control, and the
  * Menu opens a side drawer holding the same grouped navigation the rail renders, the signed-in account,
  * sign out and the storefront link. One information architecture, three placements: only the container
  * changes with the viewport, never the groups, the order or the labels.
@@ -206,7 +207,12 @@ export function AdminShell({
   const primaryTabs = [...items]
     .filter((item) => item.mobileRank !== undefined)
     .sort((a, b) => (a.mobileRank ?? 0) - (b.mobileRank ?? 0))
-    .slice(0, 4);
+    /*
+     * Five ranked destinations (owner direction, 2026-11-21) - Overview, All orders, Products,
+     * Categories, Customers - then the Menu pill. The slice is a ceiling for the ranked list, not a
+     * promise: a session without `catalog.write` sees four, and one without `customer.read` sees four.
+     */
+    .slice(0, 5);
   const primaryHrefs = new Set(primaryTabs.map((item) => item.href));
   // The current page lives in the drawer when the bar ranks no destination for it, so Menu carries the
   // current-route mark rather than leaving the bar looking like it is on another tab.

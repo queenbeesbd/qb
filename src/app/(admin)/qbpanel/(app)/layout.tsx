@@ -78,7 +78,7 @@ export default async function AdminShellLayout({ children }: { children: React.R
     items.push({ href: TRAFFIC_PATH, labelKey: 'admin.nav.traffic', group: 'overview', icon: 'overview' });
     /*
      * Orders is the second destination on the phone bar (owner direction, 2026-11-19): the bar carries
-     * the four places the panel is opened for - Overview, Orders, Products, Customers. The COD decision
+     * the places the panel is opened for - Overview, Orders, Products, Categories, Customers. The COD decision
      * queue is folded into the order screen rather than kept as a rail entry of its own, so no
      * destination here points at `/qbpanel/orders-cod`.
      */
@@ -98,7 +98,19 @@ export default async function AdminShellLayout({ children }: { children: React.R
       icon: 'package',
       mobileRank: 3,
     });
-    items.push({ href: CATEGORIES_PATH, labelKey: 'admin.nav.categories', group: 'commerce', icon: 'categories' });
+    /*
+     * Categories is the fourth destination on the phone bar (owner direction, 2026-11-21): the bar now
+     * carries Overview, All orders, Products, Categories, Customers. Departments are curated as often as
+     * products are - the homepage's rails and the catalog's filter all read them - so the owner asked for
+     * the one tap the drawer was costing on every visit.
+     */
+    items.push({
+      href: CATEGORIES_PATH,
+      labelKey: 'admin.nav.categories',
+      group: 'commerce',
+      icon: 'categories',
+      mobileRank: 4,
+    });
     // Brands are a destination because each one now carries the logo the storefront draws.
     items.push({ href: BRANDS_PATH, labelKey: 'admin.nav.brands', group: 'commerce', icon: 'image' });
   }
@@ -134,7 +146,7 @@ export default async function AdminShellLayout({ children }: { children: React.R
       labelKey: 'admin.nav.customers',
       group: 'customers',
       icon: 'customers',
-      mobileRank: 4,
+      mobileRank: 5,
     });
   }
   if (hasPermission(principal, PERMISSIONS.settingsWrite)) {

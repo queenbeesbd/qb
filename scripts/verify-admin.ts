@@ -2322,8 +2322,8 @@ async function main(): Promise<void> {
               return {
                 railHidden: rail !== null && getComputedStyle(rail).display === 'none',
                 barVisible: bar !== null && getComputedStyle(bar).display !== 'none',
-                // Four ranked destinations plus the Menu control: the menu opens a surface, so it is a
-                // button rather than a fifth link.
+                // Five ranked destinations (Overview, All orders, Products, Categories, Customers) plus
+                // the Menu control: the menu opens a surface, so it is a button rather than a sixth link.
                 links: bar?.querySelectorAll('a[href]').length ?? 0,
                 menuButton: bar?.querySelector('[data-admin-menu-trigger]') !== null,
                 active: current?.textContent?.trim() ?? null,
@@ -2331,10 +2331,10 @@ async function main(): Promise<void> {
               };
             })()`);
             record(
-              'at 390px the rail is gone and four ranked destinations plus a Menu control navigate',
+              'at 390px the rail is gone and five ranked destinations plus a Menu control navigate',
               mobileNav.railHidden === true &&
                 mobileNav.barVisible === true &&
-                mobileNav.links === 4 &&
+                mobileNav.links === 5 &&
                 mobileNav.menuButton === true &&
                 mobileNav.active === 'Overview' &&
                 mobileNav.overflow <= 1,
