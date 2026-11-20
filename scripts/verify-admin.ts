@@ -2485,6 +2485,48 @@ async function main(): Promise<void> {
             );
 
             /*
+             * The progress track states four stages on a desktop without drawing over itself.
+             *
+             * The previous build put the marker and its label in two grid columns and drew the rail
+             * from the marker's right edge to the cell's end at `top: 13px` - the same height the label
+             * sat on - so the 2px line ran through the word. This pins the geometry rather than the
+             * appearance: the rail must sit above the label's box, and each stage's marker must be
+             * above its own label rather than beside it.
+             */
+            const trackGeometry = await browser.evaluate<{
+              stages: number;
+              railOverLabel: number;
+              markerBesideLabel: number;
+            }>(`(() => {
+              const track = document.querySelector('[data-order-progress] ol');
+              if (!track) return { stages: 0, railOverLabel: 0, markerBesideLabel: 0 };
+              const steps = [...track.children];
+              let railOverLabel = 0;
+              let markerBesideLabel = 0;
+              for (const step of steps) {
+                const label = step.querySelector('[class*="progressLabel"]');
+                const mark = step.querySelector('[class*="progressMark"]');
+                if (!label || !mark) continue;
+                const lr = label.getBoundingClientRect();
+                const mr = mark.getBoundingClientRect();
+                // A marker that shares a horizontal band with its label is beside it, not above it.
+                if (mr.bottom > lr.top + 1) markerBesideLabel += 1;
+                const after = getComputedStyle(step, '::after');
+                if (after.content === 'none') continue;
+                const railTop = step.getBoundingClientRect().top + parseFloat(after.top || '0');
+                if (railTop > lr.top && railTop < lr.bottom) railOverLabel += 1;
+              }
+              return { stages: steps.length, railOverLabel, markerBesideLabel };
+            })()`);
+            record(
+              'the progress track draws its rail between markers, never through a label',
+              trackGeometry.stages === 4 &&
+                trackGeometry.railOverLabel === 0 &&
+                trackGeometry.markerBesideLabel === 0,
+              JSON.stringify(trackGeometry),
+            );
+
+            /*
              * Copy removal is a statement about what the owner sees, so it is checked against the
              * painted text rather than against the response body.
              *

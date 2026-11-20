@@ -1233,8 +1233,6 @@ export const dictionary = {
   'admin.order.costVoidReason': 'Reason for voiding',
   'admin.order.costVoidConfirm': 'Void it',
   'admin.order.costsEntryTitle': 'Additional courier costs (optional)',
-  'admin.order.costsEntryBody':
-    'If the courier charged anything beyond its standard delivery fee, record it here. Leave the fields empty when there was no extra charge.',
   'admin.order.costsEntryAmount': 'Amount in taka',
   'admin.order.costsEntryDescription': 'What the cost was for',
   'admin.order.notice.costRecorded': 'The additional cost was recorded.',

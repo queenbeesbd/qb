@@ -764,6 +764,46 @@ the tile renders the recorded key and its bytes decode (`naturalWidth > 0`), the
 labelled modal at `-1050.webp` with the page locked and focus on ×, Escape closes it and returns focus to
 the tile, and the worklist tile measures 34 or 40.
 
+### The progress track (rebuilt 2026-11-20)
+
+Four stages - Placed, Confirmed, Shipped, Delivered - on the reference's anatomy: **a circle per stage on
+one baseline, the connector only between two circles, the label beneath the circle**.
+
+| Part | Contract |
+| --- | --- |
+| Track | `grid-auto-flow: column`, four equal tracks, `align-items: start` |
+| Step | two rows: the marker, then label + date on one line |
+| Rail | `::after` spanning `50% ± (14px + gap)`, at the circles' centre line (`top: 13px`) |
+| Closed order | reached stages keep their marks and lose the active colour |
+
+Three rules:
+
+1. **The rail never enters a label's box.** It connects two circles, so its two ends are the circles'
+   edges - not the marker's right edge to the cell's end, which is what put a 2px rule under "Placed".
+   `verify:admin` measures this: if the rail's top falls inside a label's bottom, the check fails.
+2. **The marker is above its label, never beside it.** A marker sharing a horizontal band with its own
+   label is the old two-column layout and is checked for the same reason.
+3. **The date rides the label's line.** A third row under the label cost 17px per stage on a track whose
+   whole job is four short words.
+
+A phone turns the same anatomy downward: the marker keeps the left edge, the rail runs between markers
+on their centre line, and the label and date sit beside it - four centred labels would each wrap in a
+358px column.
+
+### The decision band (compacted 2026-11-20)
+
+The band that carries the next legal step is **one compact card, not a section**: a head of title,
+one sentence and the total on a single line, then the controls. It cost 241px on a pending order
+because the head was three stacked lines and the note field lived in an open `<details>` whose summary
+it never needed. What stays is the sentence that changes what the owner presses; what left is the
+paragraph explaining the accounting rule under a control they had already decided to use.
+
+- **One track per form.** `repeat(auto-fit, minmax(15rem, 1fr))` produced a `0px` fourth column at
+  1440px, so the approve form stretched to 719px while the reject form sat alone at 351px. The grid is
+  now explicit: `1.4fr` for the decision, `1fr` for its partner.
+- **The optional cost pairs share a line on a desk.** Four fields across is fine at 1440px and collapses
+  each description to 46px at 390px, so below 720px the pairs stack again.
+
 ### A heading carries no note (2026-11-20)
 
 A section heading states **what the section is**. It does not also explain it. The panel had grown a

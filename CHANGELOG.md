@@ -14,6 +14,51 @@ An entry may describe a deployment only once it has actually happened and been o
 
 ## [Unreleased]
 
+### Changed - 2026-11-20: a compact decision band, and a track that does not draw through its labels
+
+Owner report on `/qbpanel/orders/[orderNumber]`: the "Needs your decision" band took too much space,
+and the progress track was **broken on the desktop** - one stage after another, each taking a full row's
+worth of width. The reference is Zatiq's tracker: circle per stage, connector only between circles,
+label beneath. **UI only:** no schema change, no migration, no permission, no behaviour.
+
+**The track drew its rail through its own labels.** The marker and the label were the first two grid
+columns of a 263px cell, and the rail was painted at `top: 13px` from `calc(28px + gap)` to the cell's
+end - the same line the label sat on, so a 2px lavender rule ran under the word "Placed". The marker now
+owns the first row, the label and its date share the second, and the rail spans exactly the gap between
+two markers (`50% ± (14px + gap)`), measured against the circles' own centre line.
+
+| Measure | Before | After |
+| --- | --- | --- |
+| decision band, pending order | 241px | **185px** |
+| `actionGrid` columns at 1440px | `351px 351px 351px 0px` | `624px 446px` |
+| approve form vs reject form | 719px, then 351px alone | one track each |
+| cost fieldset (desktop) | 115px, two stacked rows | **67px**, one row of four |
+| cost fieldset (phone) | 115px | 111px, two rows, fields 96/220px |
+| order detail page, pending | 1645px | **1601px** |
+
+**The band's head is one row, and its fields are visible.** The title, the one sentence and the total
+now share a line; the note field left an open `<details>` for a plain label above an input, which was
+always shown anyway and cost a summary row to say so. The payment form lost the paragraph explaining the
+accounting rule and the one explaining the optional cost - both sat under controls the owner had already
+chosen to use - keeping only the sentence that changes what they press.
+
+**Two optional costs share one line on a desk and two rows on a phone.** Four fields across collapsed
+each description to 46px at 390px, so the compact form is a desk affordance and the phone keeps its
+pairs stacked.
+
+`verify:admin` gained a geometry check rather than a screenshot: it reads the rendered boxes and fails if
+the rail's top falls inside a label's box, or if a marker shares a horizontal band with its own label.
+
+| Check | Result |
+| --- | --- |
+| `npm run typecheck` | pass |
+| `npm run lint` | 0 errors, 25 pre-existing warnings |
+| `npm run check:i18n` | pass, 1,934 keys / 1,398 referenced |
+| `npm test` | **331/331** |
+| `npm run build` | pass |
+| `npm run verify:admin` | **264/264** |
+| Chromium, 1440px and 390px | no rail/label overlap at either width; on a phone the rail sits at x=55 with markers ending at 69 and labels starting at 81; 0 horizontal overflow |
+
 ### Changed - 2026-11-20: the notes under every heading are gone
 
 Owner direction: the panel had grown a sentence of explanation under nearly every section heading, and

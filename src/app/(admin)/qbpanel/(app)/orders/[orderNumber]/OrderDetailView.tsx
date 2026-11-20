@@ -1213,15 +1213,18 @@ function OrderActionBand({
 
   return (
     <section className={styles.actionBand} aria-labelledby="order-action-title">
+      {/*
+        The head is one line (owner direction, 2026-11-20): the title, the total it applies to, and the
+        single sentence of instruction. It used to be a three-line paragraph plus a figure, which cost
+        45px of a band whose whole job is a note field and two buttons.
+      */}
       <div className={styles.actionBandHead}>
-        <div>
-          <h2 className={styles.actionBandTitle} id="order-action-title">
-            {waiting ? t('admin.order.decisionTitle') : t('admin.order.operationsTitle')}
-          </h2>
-          <p className={styles.actionBandBody}>
-            {waiting ? t('admin.order.decisionBody') : t('admin.order.operationsBody')}
-          </p>
-        </div>
+        <h2 className={styles.actionBandTitle} id="order-action-title">
+          {waiting ? t('admin.order.decisionTitle') : t('admin.order.operationsTitle')}
+        </h2>
+        <p className={styles.actionBandBody}>
+          {waiting ? t('admin.order.decisionBody') : t('admin.order.operationsBody')}
+        </p>
         <div className={styles.actionBandTotal}>
           <span className={styles.factLabel}>{t('admin.cod.total')}</span>
           <span className={styles.recordPrice}>{price(order.totalMinor)}</span>
@@ -1234,27 +1237,29 @@ function OrderActionBand({
             <form
               action="/api/qbpanel/orders-cod"
               method="post"
-              className={styles.approveForm + ' ' + styles.actionFormPrimary}
+              className={styles.approveForm}
               onSubmit={fillDefaultReason}
             >
               <input type="hidden" name="csrf" value={csrfToken} />
               <input type="hidden" name="orderId" value={order.orderId} />
               <input type="hidden" name="decision" value="approve" />
-              {/* Open by default: the note is required, and a collapsed required field is a trap. */}
-              <details className={styles.noteDetails} open>
-                <summary>{t('admin.cod.noteSummary')}</summary>
-                <label className="sr-only" htmlFor="order-approve-reason">
-                  {t('admin.cod.approveReason')}
-                </label>
-                <input
-                  id="order-approve-reason"
-                  name="reason"
-                  className={styles.input}
-                  minLength={10}
-                  maxLength={500}
-                  placeholder={t('admin.cod.approveReasonDefault')}
-                />
-              </details>
+              {/*
+                The note is one field in the row, not a summary stacked above one. The band is where the
+                owner is about to press Accept, so the field they will type in is visible, labelled, and
+                on the same line as the button it belongs to - a `<details open>` cost 25px of summary
+                above an input that was always shown anyway.
+              */}
+              <label className={styles.actionNoteLabel} htmlFor="order-approve-reason">
+                {t('admin.cod.approveReason')}
+              </label>
+              <input
+                id="order-approve-reason"
+                name="reason"
+                className={styles.input}
+                minLength={10}
+                maxLength={500}
+                placeholder={t('admin.cod.approveReasonDefault')}
+              />
               <SubmitButton
                 label={t('admin.cod.approve')}
                 pendingLabel={t('admin.common.working')}
@@ -1341,24 +1346,35 @@ function OrderActionBand({
                 <input type="hidden" name="csrf" value={csrfToken} />
                 <input type="hidden" name="action" value="paid" />
                 <input type="hidden" name="orderId" value={order.orderId} />
+                {/*
+                  One line of instruction, then the fields. The paragraph that explained the accounting
+                  rule and the paragraph that explained the optional cost were both under controls the
+                  owner had already decided to use; the rule now lives in the label and the docs, and
+                  the band keeps the one sentence that changes what they press.
+                */}
                 <p className={styles.note}>{t('admin.order.paidBody')}</p>
-                <details className={styles.noteDetails}>
-                  <summary>{t('admin.order.noteSummary')}</summary>
-                  <label className="sr-only" htmlFor="collect-note">
-                    {t('admin.order.paidNote')}
-                  </label>
-                  <input id="collect-note" name="note" className={styles.input} maxLength={300} />
-                </details>
+                <label className={styles.actionNoteLabel} htmlFor="collect-note">
+                  {t('admin.order.paidNote')}
+                </label>
+                <input id="collect-note" name="note" className={styles.input} maxLength={300} />
 
                 {/*
                   Additional costs are recorded with the receipt, in the same submission and the same
                   transaction. Two blank rows are offered rather than one required row: no cost is a
-                  perfectly normal answer, and the owner is never made to invent one to complete.
+                  perfectly normal answer, and the owner is never made to invent one to complete. The
+                  fieldset is one line of legend plus two one-line rows, so it cannot cost more height
+                  than the fields it holds.
                 */}
                 {canRecordCosts && (
                   <fieldset className={styles.costEntry}>
                     <legend className={styles.costLegend}>{t('admin.order.costsEntryTitle')}</legend>
-                    <p className={styles.note}>{t('admin.order.costsEntryBody')}</p>
+                    {/*
+                      Both costs on one line: amount, description, amount, description. They are
+                      independent facts, so two rows of four fields was four rows of scale-height
+                      controls stacked for no reason - the second pair sat under a visible gap that read
+                      as a separate step. Two rows remain the shape of the data (see the server: the
+                      pairs are positional), and each row is still its own amount/description pair.
+                    */}
                     {[0, 1].map((index) => (
                       <div key={index} className={styles.costRow}>
                         <label className="sr-only" htmlFor={`cost-amount-${index}`}>
