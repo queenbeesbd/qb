@@ -149,6 +149,51 @@ QUEENBEES_PANEL_URL=https://www.queenbeesbd.com npm run app:apk
 
 A release build needs the owner's own keystore, which is gitignored.
 
+## Disk usage
+
+The 30 GB disk is not mostly the shop. On 2026-11-21 it stood at 17 GB (64%) and the breakdown was:
+
+| What | Size |
+| --- | --- |
+| Docker **build cache** (BuildKit layers from every push) | 7.7 GB |
+| Application images, 9 tagged builds at ~1.5 GB each | 7.5 GB (3.6 GB reclaimable) |
+| Ubuntu base, `/usr`, `/boot`, apt cache | ~3.3 GB |
+| Coolify stack images (coolify, helper, Traefik, Redis, Sentinel, PostgreSQL 15 and 17) | ~2.8 GB |
+| Data volumes (catalog 247 MB, two PostgreSQL data dirs, hero, payment-proof) | 398 MB |
+| **Database backups** | **736 KB** |
+
+Backups are the smallest item on the disk. The growth is Docker: every push adds a tagged application
+image and a fresh set of build layers, and nothing removes either on its own.
+
+### Automatic cleanup
+
+Coolify runs a Docker cleanup **daily at 00:00 UTC** for this server. The stored settings are
+`docker_cleanup_frequency = 0 0 * * *`, `docker_cleanup_threshold = 80` and
+`force_docker_cleanup = 1`, so the job runs every night regardless of the threshold. It:
+
+- deletes application images beyond the three newest (the running one plus two rollback images);
+- runs `docker builder prune -af`, dropping the whole build cache;
+- removes dangling and unused non-application images, stopped Coolify containers, old helper images;
+- leaves named volumes and networks alone (`delete_unused_volumes` and `delete_unused_networks` are off).
+
+The cost of the full build-cache prune is that the first build after midnight recompiles from scratch -
+`npm ci` plus `next build` takes several minutes on 2 vCPU. If deploys become too slow, turn
+`force_docker_cleanup` off (Settings -> Server -> Docker cleanup, or
+`PATCH /api/v1/servers/<uuid>/docker-cleanup`): the job then runs only when the disk passes 80%.
+
+### Running it now
+
+```sh
+docker exec coolify php artisan tinker --execute="App\Actions\Server\CleanupDocker::run(App\Models\Server::first(), false, false, false, true);"
+```
+
+The fourth argument is `onlyAboveThreshold`; the fifth lets it prune the build cache while a deployment
+exists. After the run on 2026-11-21 the disk went from 64% to 33% (8.8 GB used, 19 GB free).
+
+Read the current state with `docker system df -v` and `df -h /`. The floor on this host is about 8.5 GB,
+so production is expected to sit between that and roughly 11 GB between cleanups. The disk does **not**
+grow with customers or orders at any meaningful rate; it grows with pushes.
+
 ## Known gaps
 
 - No off-site backup destination yet.
