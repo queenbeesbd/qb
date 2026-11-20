@@ -551,6 +551,8 @@ export const dictionary = {
   'admin.storefront.limitReached': 'All {limit} are chosen. Remove one to swap it.',
   'admin.storefront.nothingLeft': 'Everything this row can show is already chosen.',
   'admin.storefront.noMatch': 'No name matches “{query}”.',
+  'admin.storefront.startBrowsing': 'Add something',
+  'admin.storefront.stopBrowsing': 'Done adding',
   'admin.storefront.showMore': 'Show {count} more',
   'admin.storefront.showFewer': 'Show fewer',
   'admin.storefront.add': 'Add {name}',

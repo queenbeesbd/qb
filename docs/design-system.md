@@ -764,6 +764,33 @@ the tile renders the recorded key and its bytes decode (`naturalWidth > 0`), the
 labelled modal at `-1050.webp` with the page locked and focus on ×, Escape closes it and returns focus to
 the tile, and the worklist tile measures 34 or 40.
 
+### Storefront customisation (rebuilt 2026-11-20)
+
+`/qbpanel/storefront` edits three curatable homepage rows. The screen is opened to **check or reorder what
+is already chosen**, far more often than to browse the shop, and the first build drew a chosen list plus
+ten candidate rows in each of three sections at once - 5.8 phone screens.
+
+| Part | Contract |
+| --- | --- |
+| Section | a `<details>`; the summary is a 40px-scale row with the title, its count, and a turning chevron |
+| Summary line | "1 of 15 chosen", or the automatic note when nothing is picked |
+| Arrival state | closed, unless that section already has picks |
+| Body | the chosen list, then an "Add something" disclosure |
+| Candidates | the filter and the shop's list, painted only after that disclosure opens |
+| Save | one sticky bar for all three, as before |
+
+Four rules:
+
+1. **A configured section opens on its answer.** A shop with picks shows them without a click; an
+   unconfigured one stays closed behind the sentence that explains what the homepage will do instead.
+2. **The candidate list is opt-in, always.** Nothing the shop could offer is painted until the owner asks
+   for it - that is what took the page from 5.8 screens to one, and it does not cost them a decision
+   because the chosen list is what they came to read.
+3. **The summary states both numbers.** "1 of 15 chosen" carries the cap, so the owner never has to open
+   a section to learn whether there is room.
+4. **The chevron turns rather than swapping glyphs** - one `arrowDown` rotated on `[open]`, 160ms
+   `cubic-bezier(0.23, 1, 0.32, 1)`, and no transition under `prefers-reduced-motion`.
+
 ### The progress track (rebuilt 2026-11-20)
 
 Four stages - Placed, Confirmed, Shipped, Delivered - on the reference's anatomy: **a circle per stage on

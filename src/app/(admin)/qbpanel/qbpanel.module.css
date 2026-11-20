@@ -5791,6 +5791,103 @@ a.rankName:hover {
  * grid's first column, where the product list puts a photograph, so a chosen row reads as one line
  * of the same list the rest of the panel uses.
  */
+/*
+ * Storefront -> Customisation: one disclosure per row (owner direction, 2026-11-20).
+ *
+ * The page drew three sections of a chosen list plus ten candidate rows each, so it measured 5.8 phone
+ * screens and 3,093px on a desk to reach Save. Each row is now a `<details>` whose summary states the
+ * count that matters and whose body is the chosen list, with the shop's own list behind a second
+ * disclosure inside it.
+ *
+ * The summary is a plain 40px-scale row: a heading-sized title, a count in muted type, and a chevron
+ * that rotates. The panel opens under it as one card, matching the rest of the admin.
+ */
+.storefrontSection {
+  min-width: 0;
+}
+
+.storefrontSection > details {
+  background: var(--admin-surface);
+  border: 1px solid var(--admin-line);
+  border-radius: var(--admin-radius-card);
+  box-shadow: var(--admin-shadow-card);
+  overflow: hidden;
+}
+
+.storefrontSummary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  min-height: var(--admin-control);
+  padding: var(--space-3) var(--space-4);
+  cursor: pointer;
+  list-style: none;
+}
+
+.storefrontSummary::-webkit-details-marker {
+  display: none;
+}
+
+.storefrontSummary:focus-visible {
+  outline: 2px solid var(--admin-lavender-deep);
+  outline-offset: -2px;
+}
+
+.storefrontSummaryText {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+}
+
+.storefrontSummaryTitle {
+  font-family: var(--font-display);
+  font-size: var(--text-md);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--admin-ink);
+}
+
+.storefrontSummaryMeta {
+  font-size: var(--text-xs);
+  color: var(--admin-muted);
+  line-height: var(--leading-snug);
+  overflow-wrap: anywhere;
+}
+
+/* The chevron is a state, so it turns rather than being replaced by a second glyph. */
+.storefrontSummaryChevron {
+  display: grid;
+  place-items: center;
+  flex: none;
+  color: var(--admin-muted);
+  transition: transform 160ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+details[open] > .storefrontSummary .storefrontSummaryChevron {
+  transform: rotate(180deg);
+}
+
+.storefrontBody {
+  display: grid;
+  gap: var(--space-3);
+  padding: 0 var(--space-4) var(--space-4);
+  border-top: 1px solid var(--admin-line);
+  padding-top: var(--space-4);
+  min-width: 0;
+}
+
+/* The one control that reveals the shop's list, aligned to the start of the body. */
+.storefrontBrowse {
+  justify-self: start;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .storefrontSummaryChevron {
+    transition: none;
+  }
+}
+
 .recordOrder {
   display: grid;
   place-items: center;

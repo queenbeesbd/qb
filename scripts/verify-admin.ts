@@ -2568,6 +2568,46 @@ async function main(): Promise<void> {
               JSON.stringify(visibleCopy),
             );
 
+            /*
+             * Storefront -> Customisation opens as three disclosures, not three long sections.
+             *
+             * The page drew a chosen list plus ten candidate rows in each of three rows, so a phone
+             * measured 5.8 screens to reach Save. Each row is now a `<details>` whose summary states its
+             * count, and the shop's own list sits behind a second disclosure inside it. This pins both:
+             * the sections collapsed on arrival, and no candidate rows painted until asked for.
+             *
+             * It measures a phone, so it puts the desktop viewport back afterwards: it runs inline with
+             * checks that measure a 1440px page, and leaving 390px behind made the order detail read as
+             * a narrow document for every check after it.
+             */
+            await browser.viewport(390, 844);
+            await browser.navigate('/qbpanel/storefront');
+            const storefrontUi = await browser.evaluate<{
+              sections: number;
+              open: number;
+              candidateRows: number;
+              screens: number;
+              overflow: number;
+            }>(`(() => {
+              const details = [...document.querySelectorAll('main details')];
+              return {
+                sections: details.length,
+                open: details.filter((d) => d.open).length,
+                candidateRows: details.reduce((n, d) => n + d.querySelectorAll('ul li').length, 0),
+                screens: +(document.documentElement.scrollHeight / window.innerHeight).toFixed(1),
+                overflow: document.documentElement.scrollWidth - window.innerWidth,
+              };
+            })()`);
+            record(
+              'the storefront picks open as three collapsed disclosures and fit the phone, with no candidate rows painted',
+              storefrontUi.sections === 3 &&
+                storefrontUi.candidateRows === 0 &&
+                storefrontUi.screens <= 1.5 &&
+                storefrontUi.overflow <= 1,
+              JSON.stringify(storefrontUi),
+            );
+            await browser.viewport(1440, 900);
+
             // ---- The line photograph on the order screen (2026-11-19) ----
             //
             // The owner recognises a product by its picture on a confirmation call, so every line draws

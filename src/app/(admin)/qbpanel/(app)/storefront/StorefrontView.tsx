@@ -84,14 +84,20 @@ export function StorefrontView({
 
   return (
     <>
-      <PageHeader title={t('admin.storefront.title')} description={t('admin.storefront.body')} />
-
-      <p className={styles.hint}>
-        {t('admin.storefront.heroHint')}{' '}
-        <Link className={styles.recordLink} href="/qbpanel/storefront/hero">
-          {t('admin.hero.title')}
-        </Link>
-      </p>
+      {/*
+        The page header states the screen; the hero is a link on the same line as its instruction, not a
+        second paragraph under it (owner direction, 2026-11-20).
+      */}
+      <PageHeader
+        title={t('admin.storefront.title')}
+        description={t('admin.storefront.body')}
+        actions={
+          <Link className={`${styles.button} ${styles.buttonSecondary}`} href="/qbpanel/storefront/hero">
+            <AdminIcon name="image" width={16} height={16} />
+            {t('admin.hero.title')}
+          </Link>
+        }
+      />
 
       {notice !== null && (
         <Notice tone={ERROR_NOTICES.includes(notice) ? 'error' : 'success'}>
@@ -123,6 +129,7 @@ export function StorefrontView({
         </header>
 
         <Picker
+          defaultOpen={chosen.categories.length > 0}
           section="categories"
           title={t('admin.storefront.categoriesTitle')}
           body={t('admin.storefront.categoriesBody')}
@@ -136,6 +143,7 @@ export function StorefrontView({
         />
 
         <Picker
+          defaultOpen={chosen.brands.length > 0}
           section="brands"
           title={t('admin.storefront.brandsTitle')}
           body={t('admin.storefront.brandsBody')}
@@ -149,6 +157,7 @@ export function StorefrontView({
         />
 
         <Picker
+          defaultOpen={chosen.offers.length > 0}
           section="offers"
           title={t('admin.storefront.offersTitle')}
           body={t('admin.storefront.offersBody')}
@@ -182,7 +191,10 @@ function Picker({
   candidates,
   value,
   onChange,
+  defaultOpen = false,
 }: {
+  /** Whether this section starts expanded: a row with picks opens on what is chosen. */
+  defaultOpen?: boolean;
   section: Section;
   title: string;
   body: string;
@@ -200,6 +212,13 @@ function Picker({
   const { t, price } = useTranslation();
   const [term, setTerm] = useState('');
   const [expanded, setExpanded] = useState(false);
+  const [open, setOpen] = useState(defaultOpen);
+  /**
+   * The candidate list is a second, long list. It is drawn only once the owner has asked for it: with
+   * three sections each showing up to ten candidates the page was 5.8 phone screens, and the owner
+   * opens this screen to see what is chosen far more often than to browse everything on offer.
+   */
+  const [browsing, setBrowsing] = useState(false);
 
   const byId = new Map(candidates.map((candidate) => [candidate.id, candidate]));
   const chosenRows = value.flatMap((id) => {
@@ -254,127 +273,170 @@ function Picker({
       : t('admin.storefront.productsCount', { count });
   };
 
+  /*
+   * A collapsible section, not a stack of three long ones (owner direction, 2026-11-20).
+   *
+   * The page drew three sections of a chosen list plus ten candidate rows each, so the phone showed
+   * 5.8 screens and the desk 3,093px to reach Save. Each section is now a disclosure whose summary
+   * states the only fact the owner scans for - how many are chosen out of the cap - and a row with
+   * picks opens on them, so a configured shop still shows its answer without a click.
+   *
+   * The candidate list is a second disclosure inside it. Browsing the shop is the occasional task; the
+   * page is opened to check or reorder what is already chosen.
+   */
   return (
-    <section className={styles.section} aria-labelledby={`sf-${section}`}>
-      <div className={styles.sectionHead}>
-        <h2 id={`sf-${section}`}>{title}</h2>
-        <p className={styles.hint}>
-          {t('admin.storefront.chosenOf', { count: value.length, limit })}
-        </p>
-      </div>
-      <p className={styles.hint}>{body}</p>
+    <section className={styles.storefrontSection} aria-labelledby={`sf-${section}`}>
+      <details open={open} onToggle={(event) => setOpen(event.currentTarget.open)}>
+        <summary className={styles.storefrontSummary}>
+          <span className={styles.storefrontSummaryText}>
+            <span className={styles.storefrontSummaryTitle} id={`sf-${section}`}>
+              {title}
+            </span>
+            <span className={styles.storefrontSummaryMeta}>
+              {value.length === 0
+                ? emptyNote
+                : t('admin.storefront.chosenOf', { count: value.length, limit })}
+            </span>
+          </span>
+          <span className={styles.storefrontSummaryChevron} aria-hidden="true">
+            <AdminIcon name="arrowDown" width={16} height={16} />
+          </span>
+        </summary>
 
-      {chosenRows.length === 0 ? (
-        <p className={styles.hint}>{emptyNote}</p>
-      ) : (
-        <ol className={styles.recordList} data-admin-list="">
-          {chosenRows.map((candidate, index) => (
-            <li className={styles.record} key={candidate.id}>
-              <span className={styles.recordOrder} aria-hidden="true">
-                {index + 1}
-              </span>
-              <div className={styles.recordMain}>
-                <span className={styles.recordTitle}>{candidate.name}</span>
-                <span className={styles.recordMeta}>
-                  <span>{meta(candidate)}</span>
-                </span>
-              </div>
-              <div className={styles.recordSide}>
-                <div className={styles.recordActions}>
-                  <button
-                    type="button"
-                    className={`${styles.button} ${styles.buttonSecondary} ${styles.buttonSmall}`}
-                    onClick={() => move(index, -1)}
-                    disabled={index === 0}
-                    aria-label={t('admin.storefront.moveUp', { name: candidate.name })}
-                  >
-                    <AdminIcon name="arrowUp" width={13} height={13} />
-                  </button>
-                  <button
-                    type="button"
-                    className={`${styles.button} ${styles.buttonSecondary} ${styles.buttonSmall}`}
-                    onClick={() => move(index, 1)}
-                    disabled={index === chosenRows.length - 1}
-                    aria-label={t('admin.storefront.moveDown', { name: candidate.name })}
-                  >
-                    <AdminIcon name="arrowDown" width={13} height={13} />
-                  </button>
-                  <button
-                    type="button"
-                    className={`${styles.button} ${styles.buttonSecondary} ${styles.buttonSmall}`}
-                    onClick={() => onChange((current) => current.filter((id) => id !== candidate.id))}
-                  >
-                    {t('admin.storefront.remove')}
-                  </button>
-                </div>
-              </div>
-            </li>
-          ))}
-        </ol>
-      )}
+        <div className={styles.storefrontBody}>
+          {/* The row's own explanation lives inside the disclosure, not under the summary line. */}
+          <p className={styles.hint}>{body}</p>
+          {chosenRows.length === 0 ? (
+            <p className={styles.hint}>{emptyNote}</p>
+          ) : (
+            <ol className={styles.recordList} data-admin-list="">
+              {chosenRows.map((candidate, index) => (
+                <li className={styles.record} key={candidate.id}>
+                  <span className={styles.recordOrder} aria-hidden="true">
+                    {index + 1}
+                  </span>
+                  <div className={styles.recordMain}>
+                    <span className={styles.recordTitle}>{candidate.name}</span>
+                    <span className={styles.recordMeta}>
+                      <span>{meta(candidate)}</span>
+                    </span>
+                  </div>
+                  <div className={styles.recordSide}>
+                    <div className={styles.recordActions}>
+                      <button
+                        type="button"
+                        className={`${styles.button} ${styles.buttonSecondary} ${styles.buttonSmall}`}
+                        onClick={() => move(index, -1)}
+                        disabled={index === 0}
+                        aria-label={t('admin.storefront.moveUp', { name: candidate.name })}
+                      >
+                        <AdminIcon name="arrowUp" width={13} height={13} />
+                      </button>
+                      <button
+                        type="button"
+                        className={`${styles.button} ${styles.buttonSecondary} ${styles.buttonSmall}`}
+                        onClick={() => move(index, 1)}
+                        disabled={index === chosenRows.length - 1}
+                        aria-label={t('admin.storefront.moveDown', { name: candidate.name })}
+                      >
+                        <AdminIcon name="arrowDown" width={13} height={13} />
+                      </button>
+                      <button
+                        type="button"
+                        className={`${styles.button} ${styles.buttonSecondary} ${styles.buttonSmall}`}
+                        onClick={() => onChange((current) => current.filter((id) => id !== candidate.id))}
+                      >
+                        {t('admin.storefront.remove')}
+                      </button>
+                    </div>
+                  </div>
+                </li>
+              ))}
+            </ol>
+          )}
 
-      <div className={styles.pickerHead}>
-        <label className="sr-only" htmlFor={`sf-${section}-search`}>
-          {t('admin.storefront.searchLabel', { section: title })}
-        </label>
-        <input
-          className={styles.input}
-          id={`sf-${section}-search`}
-          type="search"
-          value={term}
-          onChange={(event) => setTerm(event.target.value)}
-          placeholder={t('admin.storefront.searchPlaceholder')}
-          maxLength={60}
-          autoComplete="off"
-        />
-        {full && <p className={styles.hint}>{t('admin.storefront.limitReached', { limit })}</p>}
-      </div>
+          {/*
+            Adding is the second disclosure: the filter and the shop's list appear only on request, so
+            a section the owner is only checking costs its chosen rows and nothing more.
+          */}
+          <button
+            type="button"
+            className={`${styles.button} ${styles.buttonSecondary} ${styles.buttonSmall} ${styles.storefrontBrowse}`}
+            aria-expanded={browsing}
+            onClick={() => setBrowsing((value) => !value)}
+          >
+            <AdminIcon name="plus" width={13} height={13} />
+            {browsing ? t('admin.storefront.stopBrowsing') : t('admin.storefront.startBrowsing')}
+          </button>
 
-      {available.length === 0 ? (
-        <p className={styles.hint}>
-          {needle === ''
-            ? t('admin.storefront.nothingLeft')
-            : t('admin.storefront.noMatch', { query: term.trim() })}
-        </p>
-      ) : (
-        <ul className={`${styles.recordList} ${styles.pickerList}`} data-admin-list="">
-          {visible.map((candidate) => (
-            <li className={styles.record} key={candidate.id}>
-              <div className={styles.recordMain}>
-                <span className={styles.recordTitle}>{candidate.name}</span>
-                <span className={styles.recordMeta}>
-                  <span>{meta(candidate)}</span>
-                </span>
+          {browsing && (
+            <>
+              <div className={styles.pickerHead}>
+                <label className="sr-only" htmlFor={`sf-${section}-search`}>
+                  {t('admin.storefront.searchLabel', { section: title })}
+                </label>
+                <input
+                  className={styles.input}
+                  id={`sf-${section}-search`}
+                  type="search"
+                  value={term}
+                  onChange={(event) => setTerm(event.target.value)}
+                  placeholder={t('admin.storefront.searchPlaceholder')}
+                  maxLength={60}
+                  autoComplete="off"
+                />
+                {full && <p className={styles.hint}>{t('admin.storefront.limitReached', { limit })}</p>}
               </div>
-              <div className={styles.recordSide}>
+
+              {available.length === 0 ? (
+                <p className={styles.hint}>
+                  {needle === ''
+                    ? t('admin.storefront.nothingLeft')
+                    : t('admin.storefront.noMatch', { query: term.trim() })}
+                </p>
+              ) : (
+                <ul className={`${styles.recordList} ${styles.pickerList}`} data-admin-list="">
+                  {visible.map((candidate) => (
+                    <li className={styles.record} key={candidate.id}>
+                      <div className={styles.recordMain}>
+                        <span className={styles.recordTitle}>{candidate.name}</span>
+                        <span className={styles.recordMeta}>
+                          <span>{meta(candidate)}</span>
+                        </span>
+                      </div>
+                      <div className={styles.recordSide}>
+                        <button
+                          type="button"
+                          className={`${styles.button} ${styles.buttonSecondary} ${styles.buttonSmall}`}
+                          onClick={() => onChange((current) => [...current, candidate.id])}
+                          disabled={full}
+                          aria-label={t('admin.storefront.add', { name: candidate.name })}
+                        >
+                          <AdminIcon name="plus" width={13} height={13} />
+                          {t('admin.storefront.addShort')}
+                        </button>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+
+              {hidden > 0 && (
                 <button
                   type="button"
                   className={`${styles.button} ${styles.buttonSecondary} ${styles.buttonSmall}`}
-                  onClick={() => onChange((current) => [...current, candidate.id])}
-                  disabled={full}
-                  aria-label={t('admin.storefront.add', { name: candidate.name })}
+                  aria-expanded={expanded}
+                  onClick={() => setExpanded((open) => !open)}
                 >
-                  <AdminIcon name="plus" width={13} height={13} />
-                  {t('admin.storefront.addShort')}
+                  {expanded
+                    ? t('admin.storefront.showFewer')
+                    : t('admin.storefront.showMore', { count: hidden })}
                 </button>
-              </div>
-            </li>
-          ))}
-        </ul>
-      )}
-
-      {hidden > 0 && (
-        <button
-          type="button"
-          className={`${styles.button} ${styles.buttonSecondary} ${styles.buttonSmall}`}
-          aria-expanded={expanded}
-          onClick={() => setExpanded((open) => !open)}
-        >
-          {expanded
-            ? t('admin.storefront.showFewer')
-            : t('admin.storefront.showMore', { count: hidden })}
-        </button>
-      )}
+              )}
+            </>
+          )}
+        </div>
+      </details>
     </section>
   );
 }

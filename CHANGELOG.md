@@ -14,6 +14,56 @@ An entry may describe a deployment only once it has actually happened and been o
 
 ## [Unreleased]
 
+### Changed - 2026-11-20: the storefront picks open as three disclosures, not one long page
+
+Owner report on `/qbpanel/storefront`: the page was far too tall on a phone. Measured before touching it:
+**4,862px - 5.8 screens** at 390px, and 3,093px on a desk. Three sections each drew a chosen list **and**
+up to ten candidate rows, all expanded at once, so reaching Save meant scrolling past every option the
+shop could offer. **UI only:** no schema, no migration, no permission, and the three lists save exactly
+as before.
+
+| Measure | Before | After |
+| --- | --- | --- |
+| phone, as opened | 4,862px / 5.8 screens | **844px / 1 screen** |
+| desktop, as opened | 3,093px | **900px** |
+| phone, one section open and browsing | — | 1,746px / 2.1 screens |
+
+**Each row is a disclosure whose summary states the count that matters.** "Shop By Category · 1 of 15
+chosen" or "Nothing chosen: the homepage shows the busiest departments first" - the two facts the owner
+opens the screen to check. A section that already has picks **opens on them**, so a configured shop still
+shows its answer without a click; an unconfigured one stays closed behind its automatic note.
+
+**Browsing the shop is a second, opt-in disclosure.** A section the owner is only checking costs its
+chosen rows and nothing more. "Add something" reveals the filter and the shop's list inside the open
+section, and "Done adding" puts it away - the candidate list is never painted until asked for, which is
+what took the page from 5.8 screens to one.
+
+**The hero editor became a header action.** It was a sentence plus a link under the page's description;
+it is now the same 40px secondary button the rest of the panel uses for a route beside a header.
+
+**The chevron turns, it does not swap.** One `arrowDown` glyph rotated 180° on `[open]`, over a 160ms
+`cubic-bezier(0.23, 1, 0.32, 1)` transition, and no transition at all under `prefers-reduced-motion`.
+
+**What was kept.** Every cap, the order controls, the filter, "show more", the limit message and the
+one-form three-lists save are unchanged; the chosen list is still `[data-admin-list]` and still posts its
+hidden inputs. Verified end to end in Chromium: opened a section, browsed, added a department, watched
+the summary move to "1 of 15 chosen", saved (`notice=saved`, section reopened on its pick), removed it and
+saved again (`notice=cleared`, back to "Nothing chosen").
+
+`verify:admin` gained a composition check: three disclosures on arrival, **zero** candidate rows painted,
+at most 1.5 screens, no horizontal overflow. It restores the desktop viewport afterwards, because the
+check before it measures a 1440px page.
+
+| Check | Result |
+| --- | --- |
+| `npm run typecheck` | pass |
+| `npm run lint` | 0 errors, 25 pre-existing warnings |
+| `npm run check:i18n` | pass, 1,936 keys / 1,399 referenced |
+| `npm test` | **331/331** |
+| `npm run build` | pass |
+| `npm run verify:admin` | **265/265** |
+| Chromium, 390px and 1440px | collapsed page fits one screen; every control 40px; 0 horizontal overflow; add, save, remove and clear all reach the server |
+
 ### Changed - 2026-11-20: a compact decision band, and a track that does not draw through its labels
 
 Owner report on `/qbpanel/orders/[orderNumber]`: the "Needs your decision" band took too much space,
