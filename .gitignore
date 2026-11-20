@@ -18,6 +18,11 @@ npm-debug.log*
 .eslintcache
 coverage/
 
+# Deployment credentials for the owner's VPS. Never tracked, never printed. The deployment session
+# sources this file in a subshell; it is not application configuration.
+.vps
+.vps*
+
 # Local development PostgreSQL cluster. Repository-external by default; this entry exists so a
 # session whose only writable path is the workspace cannot accidentally commit a data directory.
 .dev-pg/
