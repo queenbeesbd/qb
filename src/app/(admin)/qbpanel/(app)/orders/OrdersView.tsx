@@ -6,7 +6,6 @@ import type { TranslationKey } from '@/i18n/dictionaries';
 import { useTranslation } from '@/i18n/useTranslation';
 import { buildQueryHref } from '@/lib/qbpanel-query';
 import { deliveryAreaName } from '@/lib/delivery-areas';
-import { paymentLabel, statusLabel } from '@/features/account/order-labels';
 import { CodOrderCard, type CodOrderRow } from '../../_ui/CodOrderCard';
 import { AdminIcon } from '../../_ui/icons';
 import { ActiveFilters, DateRangeFilter } from '../../_ui/ListFilters';
@@ -16,7 +15,8 @@ import { ItemPhoto } from '../../_ui/ItemPhoto';
 import { Notice } from '../../_ui/Notice';
 import { PageHeader } from '../../_ui/PageHeader';
 import { Pagination } from '../../_ui/Pagination';
-import { StatusPill, type PillTone } from '../../_ui/StatusPill';
+import { StatusPill } from '../../_ui/StatusPill';
+import { orderStatus } from '../../_ui/order-status';
 import styles from '../../qbpanel.module.css';
 import { INTL_LOCALE } from '@/i18n/config';
 
@@ -97,13 +97,6 @@ export type OrdersQuery = {
   to: string;
   size: string;
 };
-
-function tone(status: string): PillTone {
-  if (status === 'cancelled' || status === 'returned') return 'danger';
-  if (status === 'pending') return 'warning';
-  if (status === 'confirmed' || status === 'shipped') return 'info';
-  return 'success';
-}
 
 /**
  * The orders screen: the full history and the COD worklist behind one set of filters.
@@ -343,10 +336,14 @@ export function AdminOrdersView({
                 <div className={styles.rowIdentity}>
                   <span className={styles.orderRef}>{row.orderNumber}</span>
                   <div className={styles.orderPills}>
-                    <StatusPill tone={tone(row.status)}>{t(statusLabel(row.status))}</StatusPill>
-                    <span className={styles.orderPayment}>
-                      {t(paymentLabel(row.paymentMethod, '', row.codState))}
-                    </span>
+                    {/*
+                      One state, not two (owner direction, 2026-11-20). The row used to draw the
+                      lifecycle pill and the COD payment line beside it, so a pending order read
+                      "Pending" and "Awaiting approval" as if those were different conditions. The pill
+                      is the whole statement now, and `orderStatus` folds in the one COD state the
+                      lifecycle cannot express - a failed delivery, where `status` is still `shipped`.
+                    */}
+                    <StatusPill tone={orderStatus(row).tone}>{t(orderStatus(row).label)}</StatusPill>
                   </div>
                 </div>
 

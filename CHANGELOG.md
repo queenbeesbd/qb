@@ -14,6 +14,40 @@ An entry may describe a deployment only once it has actually happened and been o
 
 ## [Unreleased]
 
+### Changed - 2026-11-20: an order row states one status, not two
+
+Owner direction: the orders list drew **two** statuses on every row - the coloured lifecycle pill
+("Pending") and the grey COD payment line beside it ("Awaiting approval") - and asked that the second
+kind be removed, keeping only the coloured ones. **UI only:** no schema change, no migration, no
+permission, and no change to any state transition, audit write or order field.
+
+**One helper decides it.** `_ui/order-status.ts` maps an order to exactly one label and tone, and the
+orders list, the order detail and the customer's order list all read it. The two states that only
+restated the lifecycle status are folded rather than echoed: a COD order awaiting its confirmation call
+is **Pending**, not "Pending · Awaiting approval", and an approved one is **Confirmed**, not "Confirmed ·
+Approved".
+
+**The one fact the lifecycle cannot carry is kept.** `recordDeliveryFailed` leaves `status` at
+`shipped` and sets `cod_state = cod_failed`, so a row that dropped the payment line blindly would tell
+the owner a parcel that came back is still on its way. `orderStatus` promotes that state to the pill in
+the danger tone: **Delivery failed**. Verified against a real failed delivery on all three surfaces, and
+a plain dispatched order still reads **Shipped**.
+
+**`paymentLabel` is gone.** With no screen asking it which state to print, the chooser had no caller left,
+so it is deleted from `src/features/account/order-labels.ts`; the label tables it read from stay, because
+the storefront and the prepaid history still need them. `tests/unit/order-labels.test.ts` moved its
+coverage onto the tables and onto the new helper, including the failed-delivery case that motivated the
+fold.
+
+| Check | Result |
+| --- | --- |
+| `npm run typecheck` | pass |
+| `npm run lint` | 0 errors, 25 pre-existing warnings |
+| `npm run check:i18n` | pass, 1,963 keys / 1,427 referenced |
+| `npm test` | **331/331** |
+| `npm run verify:admin` | **263/263** |
+| Chromium, 1440px and 390px | one pill per row on the list, the detail's progress head and the customer's order list; "Delivery failed" on the failed order, "Shipped" on a plain dispatched one; 0 horizontal overflow |
+
 ### Changed - 2026-11-20: a list row is the link, and the per-row Edit/Open control is gone
 
 Owner direction: on `/qbpanel`, every list that put an **Edit** or **Open** link inside a row should drop

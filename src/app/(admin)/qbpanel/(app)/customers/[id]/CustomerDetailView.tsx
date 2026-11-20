@@ -3,7 +3,7 @@
 import Link from 'next/link';
 
 import { useTranslation } from '@/i18n/useTranslation';
-import { paymentLabel, statusLabel } from '@/features/account/order-labels';
+import { orderStatus } from '../../../_ui/order-status';
 import { ConfirmSubmit } from '../../../_ui/ConfirmSubmit';
 import { PageHeader } from '../../../_ui/PageHeader';
 import { StatusPill } from '../../../_ui/StatusPill';
@@ -119,23 +119,13 @@ export function CustomerDetailView({
                         <span className={styles.mono}>{order.orderNumber}</span>
                       </Link>
                     </span>
+                    {/* One state, stated once by the pill: the COD line is no longer repeated here. */}
                     <span className={styles.recordMeta}>
                       <span>{dateTimeFormat.format(new Date(order.placedAt))}</span>
-                      <span>{t(paymentLabel(order.paymentMethod, '', order.codState))}</span>
                     </span>
                   </div>
                   <div className={styles.recordSide}>
-                    <StatusPill
-                      tone={
-                        order.status === 'cancelled'
-                          ? 'danger'
-                          : order.status === 'pending'
-                            ? 'warning'
-                            : 'success'
-                      }
-                    >
-                      {t(statusLabel(order.status))}
-                    </StatusPill>
+                    <StatusPill tone={orderStatus(order).tone}>{t(orderStatus(order).label)}</StatusPill>
                     <span className={styles.recordPrice}>{price(order.totalMinor)}</span>
                   </div>
                 </li>

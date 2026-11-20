@@ -8,7 +8,7 @@ import { useTranslation } from '@/i18n/useTranslation';
 import { deliveryAddressText } from '@/lib/delivery-address';
 import { orderDiscountMinor } from '@/lib/money';
 import { ORDER_COST_PATH, ORDER_PROOF_REVIEW_PATH, ORDER_TRANSITION_PATH } from '@/server/auth/constants';
-import { paymentLabel, statusLabel } from '@/features/account/order-labels';
+import { orderStatus } from '../../../_ui/order-status';
 import { ConfirmSubmit } from '../../../_ui/ConfirmSubmit';
 import { EmptyState } from '../../../_ui/EmptyState';
 import { AdminIcon } from '../../../_ui/icons';
@@ -264,16 +264,6 @@ function returnTone(state: string): PillTone {
   return 'info';
 }
 
-const STATUS_TONES: Record<string, PillTone> = {
-  cancelled: 'danger',
-  returned: 'danger',
-  pending: 'warning',
-  confirmed: 'info',
-  processing: 'info',
-  shipped: 'info',
-  delivered: 'success',
-  completed: 'success',
-};
 
 type StageState = 'done' | 'current' | 'future';
 
@@ -383,7 +373,11 @@ export function AdminOrderDetailView({
   const stageDate = new Intl.DateTimeFormat(INTL_LOCALE, { dateStyle: 'medium' });
 
   const waiting = order.codState === 'cod_pending_approval' && order.status === 'pending';
-  const statusTone = STATUS_TONES[order.status] ?? 'neutral';
+  /*
+    One status for the whole page, from the shared helper: the lifecycle state, with a failed delivery
+    promoted to the pill because `status` is still `shipped` when the parcel comes back.
+  */
+  const status = orderStatus(order);
   const noticeTone: NoticeTone = notice !== null && ERROR_NOTICES.includes(notice) ? 'error' : 'success';
 
   // The same eligibility rules the service guards on, so a control appears exactly when the write
@@ -496,7 +490,12 @@ export function AdminOrderDetailView({
           <div>
             <h2 id="order-progress">{t('account.track.label')}</h2>
           </div>
-          <StatusPill tone={statusTone}>{t(statusLabel(order.status))}</StatusPill>
+          {/*
+            One status, and the COD exception folded in (owner direction, 2026-11-20). A failed delivery
+            leaves `status` at `shipped`, so this pill says "Delivery failed" rather than "Shipped" -
+            and because it now says that, the separate note under the track has nothing left to add.
+          */}
+          <StatusPill tone={status.tone}>{t(status.label)}</StatusPill>
         </div>
         <ol className={styles.progressTrack} data-state={progress.terminal ? 'closed' : undefined}>
           {progress.stages.map((stage) => (
@@ -521,24 +520,12 @@ export function AdminOrderDetailView({
           ))}
         </ol>
         {/*
-          A failed delivery is not a fifth stage - the parcel was still dispatched - but it must not
-          read as an order on its way either. The stored COD state says so in its own words.
-        */}
-        {order.codState === 'cod_failed' && (
-          <p className={styles.note}>{t(paymentLabel(order.paymentMethod, order.paymentState, order.codState))}</p>
-        )}
-
-        {/*
           The facts the track cannot state, on one line rather than in a second panel of their own.
           Status is the pill in the head; confirmed, dispatched and delivered are the track's own
           dates; what is left is how it is being paid, which method, how old it is, and the two
           terminal timestamps the four stages do not carry.
         */}
         <dl className={styles.factStrip}>
-          <div>
-            <dt>{t('admin.order.paymentState')}</dt>
-            <dd>{t(paymentLabel(order.paymentMethod, order.paymentState, order.codState))}</dd>
-          </div>
           <div>
             <dt>{t('orders.method')}</dt>
             <dd>{t(order.paymentMethod === 'cod' ? 'orders.method.cod' : 'orders.method.unknown')}</dd>

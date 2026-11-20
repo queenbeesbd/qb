@@ -764,6 +764,34 @@ the tile renders the recorded key and its bytes decode (`naturalWidth > 0`), the
 labelled modal at `-1050.webp` with the page locked and focus on ×, Escape closes it and returns focus to
 the tile, and the worklist tile measures 34 or 40.
 
+### An order states one status (2026-11-20)
+
+An order carries separate state columns by design - fulfilment, prepaid payment, COD - and printing one
+of each on a row made one order read as two conditions: "Pending" beside "Awaiting approval". A row states
+**one** status, in the coloured pill.
+
+| State | The pill says | Tone |
+| --- | --- | --- |
+| `pending` | Pending | warning |
+| `confirmed` | Confirmed | info |
+| `processing` | Processing | info |
+| `shipped` | Shipped | info |
+| `delivered` | Delivered | success |
+| `completed` | Completed | success |
+| `cancelled` | Cancelled | danger |
+| `returned` | Returned | danger |
+| `shipped` + `cod_failed` | **Delivery failed** | danger |
+
+Three rules:
+
+1. **`_ui/order-status.ts` is the only decision.** The orders list, the order detail and the customer's
+   order list all call it, so the three cannot disagree about the same order.
+2. **A COD state that repeats the lifecycle status is folded, not shown.** `cod_pending_approval` is what
+   `pending` already means for a COD order; `cod_approved` is what `confirmed` means.
+3. **The one COD state the lifecycle cannot express is promoted.** A failed delivery leaves `status` at
+   `shipped`, so the pill says **Delivery failed** - dropping it would make a returned parcel read as a
+   parcel on its way. This is why the payment line was folded in rather than deleted outright.
+
 ### A list row is its own link (2026-11-20)
 
 Every admin list draws a row the owner **scans**, not a line she aims inside. A per-row **Edit** /

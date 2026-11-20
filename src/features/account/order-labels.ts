@@ -6,6 +6,11 @@ import type { TranslationKey } from '@/i18n/dictionaries';
  * The order carries separate state columns by design (fulfilment, prepaid payment, COD). Each closed set
  * is mapped to a translation key here so no view can print a raw database value to a customer, and an
  * unrecognised value degrades to a stated "unknown" rather than being shown verbatim.
+ *
+ * **These are the label tables, not the decision about which one a screen states.** `paymentLabel` used
+ * to answer that for the admin lists, and it is gone: a row that printed the lifecycle status and the
+ * payment line together showed one order as two conditions (owner direction, 2026-11-20). The admin
+ * surfaces now ask `_ui/order-status.ts`, which states one state and folds in the single COD exception.
  */
 
 export const STATUS_LABELS: Record<string, TranslationKey> = {
@@ -44,12 +49,6 @@ export const METHOD_LABELS: Record<string, TranslationKey> = {
 
 export function statusLabel(value: string): TranslationKey {
   return STATUS_LABELS[value] ?? 'orders.status.unknown';
-}
-
-/** The payment line: an MFS order shows its prepaid state, a COD order its own lifecycle state. */
-export function paymentLabel(paymentMethod: string, paymentState: string, codState: string): TranslationKey {
-  if (paymentMethod === 'cod') return COD_LABELS[codState] ?? 'orders.cod.unknown';
-  return PAYMENT_LABELS[paymentState] ?? 'orders.payment.unknown';
 }
 
 export function methodLabel(value: string): TranslationKey {
