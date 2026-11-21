@@ -65,6 +65,7 @@ export type AdminIconName =
   | 'user'
   | 'home'
   | 'mapPin'
+  | 'trash'
   | 'message'
   | 'store'
   | 'globe';
@@ -346,6 +347,12 @@ export function AdminIcon({ name, ...props }: IconProps & { name: AdminIconName 
         <svg {...base} {...props}>
           <path d="M20 10c0 5-8 11-8 11S4 15 4 10a8 8 0 0 1 16 0Z" />
           <circle cx="12" cy="10" r="2.6" />
+        </svg>
+      );
+    case 'trash':
+      return (
+        <svg {...base} {...props}>
+          <path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v5M14 11v5" />
         </svg>
       );
     case 'message':

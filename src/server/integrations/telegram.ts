@@ -1,11 +1,10 @@
 /**
  * Telegram order notifications (Phase 39).
  *
- * **Where the secret lives:** the bot token is read from `TELEGRAM_BOT_TOKEN` in the process
- * environment and nowhere else. It is never stored in the database, never returned to the browser,
- * never written to a log and never committed. A row in `store_setting` would be copied into a backup,
- * an export or a support paste; a deployment variable is not. The admin screen can therefore show
- * *whether* the bot is configured, and never the token itself.
+ * **Where the secret lives (ADR 0047):** the bot token is entered on the Telegram settings page and
+ * stored in `store_setting`; the deployment variable is only a fallback. It is never returned to the
+ * browser, written to a log, put in a redirect or committed, and the admin screen shows only whether
+ * one is stored. The same token is used for the message and for the product photographs.
  *
  * **What the owner configures:** destination chat ids, one row per person (`telegram_recipient`). Every
  * *active* row receives the same notification, so two owners, or an owner and a manager, each get their
@@ -22,9 +21,11 @@ import { sql } from 'drizzle-orm';
 import { withTransaction, type Transaction } from '@/db/client';
 import { telegramRecipient } from '@/db/schema';
 import { formatMoney } from '@/lib/money';
+import { imageVariantPath } from '@/lib/images';
 import { recordAudit } from '@/server/auth/audit';
 import { requirePermission, ValidationError, type ActorContext } from '@/server/authz/authorize';
 import { PERMISSIONS } from '@/server/authz/permissions';
+import { storeRuntimeBaseUrl, telegramRuntimeToken } from './provider-credentials';
 
 export const TELEGRAM_TOKEN_ENV = 'TELEGRAM_BOT_TOKEN';
 
@@ -271,6 +272,8 @@ export type OrderNotification = {
     readonly variantLabel: string | null;
     readonly quantity: number;
     readonly lineTotalMinor: number;
+    /** Optional for callers that only test the message text; order creation always supplies it. */
+    readonly imageKey?: string | null;
   }[];
   readonly districtCode: string | null;
   readonly recipientName: string;
@@ -368,6 +371,35 @@ export function composeOrderMessage(order: OrderNotification): string {
 }
 
 /**
+ * The product photographs that travel with a new-order notification.
+ *
+ * The image key is the one frozen on the order line at placement, never the catalog's current picture.
+ * The URL is built from the shop's own origin and the same WebP variant the storefront uses - Telegram
+ * takes a URL, not our bytes. With no absolute origin there are no photos: a localhost link sent to a
+ * phone would be a broken promise, so the text notification still goes and the gap is not disguised.
+ */
+export function orderPhotoUrls(
+  order: OrderNotification,
+  origin: string | null,
+): { readonly url: string; readonly caption: string }[] {
+  if (origin === null) return [];
+  const seen = new Set<string>();
+  const photos: { url: string; caption: string }[] = [];
+  for (const item of order.items) {
+    if (item.imageKey === null || item.imageKey === undefined) continue;
+    const url = new URL(imageVariantPath(item.imageKey, 600), origin).toString();
+    if (seen.has(url)) continue;
+    seen.add(url);
+    const name = item.nameEn.trim().slice(0, 80);
+    photos.push({
+      url,
+      caption: `${item.quantity}× ${name} — ${formatMoney(item.lineTotalMinor)}`,
+    });
+  }
+  return photos;
+}
+
+/**
  * One `sendMessage` call.
  *
  * The token is placed in the URL because that is the only place Telegram accepts it, and the URL is
@@ -389,6 +421,41 @@ export async function sendTelegramMessage(
         parse_mode: 'HTML',
         disable_web_page_preview: true,
       }),
+      signal: AbortSignal.timeout(SEND_TIMEOUT_MS),
+      cache: 'no-store',
+    });
+
+    if (response.ok) return { ok: true, detail: 'delivered' };
+
+    let description = `HTTP ${response.status}`;
+    try {
+      const body = (await response.json()) as { description?: unknown };
+      if (typeof body.description === 'string') description = body.description.slice(0, 200);
+    } catch {
+      // A non-JSON body is described by its status alone; nothing else is read from it.
+    }
+    return { ok: false, detail: description };
+  } catch (error) {
+    const name = error instanceof Error ? error.name : 'Error';
+    return { ok: false, detail: name === 'TimeoutError' ? 'Telegram did not answer in time' : 'Telegram is unreachable' };
+  }
+}
+
+/**
+ * One `sendPhoto` call. Photoshopped captions are plain text on purpose: the receipt message already
+ * escapes HTML, and a product name must never become markup in a second channel.
+ */
+export async function sendTelegramPhoto(
+  token: string,
+  chatId: string,
+  photoUrl: string,
+  caption: string,
+): Promise<TelegramSendResult> {
+  try {
+    const response = await fetch(`${TELEGRAM_API}/bot${token}/sendPhoto`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ chat_id: chatId, photo: photoUrl, caption }),
       signal: AbortSignal.timeout(SEND_TIMEOUT_MS),
       cache: 'no-store',
     });
@@ -441,10 +508,21 @@ export async function loadActiveRecipients(): Promise<TelegramRecipient[]> {
  */
 export async function notifyOrderPlaced(
   order: OrderNotification,
-  options: { readonly token?: string | null; readonly recipients?: readonly TelegramRecipient[] } = {},
+  options: {
+    readonly token?: string | null;
+    readonly recipients?: readonly TelegramRecipient[];
+    /** Declared by tests; production reads the shop's own address from settings. */
+    readonly origin?: string | null;
+  } = {},
 ): Promise<NotifyOutcome> {
-  const token = options.token === undefined ? readTelegramToken() : options.token;
-  if (token === null) return { attempted: 0, delivered: 0, failures: [] };
+  /*
+    ADR 0047: the owner's saved token wins; the environment is only a fallback and is still validated
+    with the same shape, so a malformed value turns the courtesy notification off rather than calling a
+    URL built from garbage.
+  */
+  const saved = options.token === undefined ? await telegramRuntimeToken() : null;
+  const token = options.token !== undefined ? options.token : saved === null ? readTelegramToken() : saved;
+  if (token === null || !TOKEN_PATTERN.test(token)) return { attempted: 0, delivered: 0, failures: [] };
 
   let recipients: readonly TelegramRecipient[] = options.recipients ?? [];
   if (options.recipients === undefined) {
@@ -457,13 +535,25 @@ export async function notifyOrderPlaced(
   if (recipients.length === 0) return { attempted: 0, delivered: 0, failures: [] };
 
   const message = composeOrderMessage(order);
+  const origin = options.origin === undefined ? await storeRuntimeBaseUrl() : options.origin;
+  const photos = orderPhotoUrls(order, origin);
   const results = await Promise.all(
-    recipients.map(async (recipient) => ({
-      label: recipient.label,
-      ...(await sendTelegramMessage(token, recipient.chatId, message)),
-    })),
+    recipients.map(async (recipient) => {
+      const text = await sendTelegramMessage(token, recipient.chatId, message);
+      const photoFailures: { readonly label: string; readonly detail: string }[] = [];
+      // Sequential, not parallel: Telegram shows a chat's messages in arrival order, and the owner
+      // reads the receipt first, then the pictures in the order the customer chose them.
+      for (const photo of photos) {
+        const result = await sendTelegramPhoto(token, recipient.chatId, photo.url, photo.caption);
+        if (!result.ok) photoFailures.push({ label: `${recipient.label} (photo)`, detail: result.detail });
+      }
+      return { label: recipient.label, ...text, photoFailures };
+    }),
   );
 
-  const failures = results.filter((result) => !result.ok).map(({ label, detail }) => ({ label, detail }));
-  return { attempted: results.length, delivered: results.length - failures.length, failures };
+  const failures = [
+    ...results.filter((result) => !result.ok).map(({ label, detail }) => ({ label, detail })),
+    ...results.flatMap((result) => result.photoFailures),
+  ];
+  return { attempted: results.length, delivered: results.length - failures.filter((f) => !f.label.includes(' (photo)')).length, failures };
 }

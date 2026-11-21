@@ -2086,3 +2086,65 @@ build; scripts and fixtures only. It does **not** authorize deployment, provisio
 dependency. *Acceptance:* `verify:browser` and `verify:storefront` run green against a seeded real
 catalog of 1,000+ products and an empty order table, seeding and cleaning their own fixtures, with no
 assertion weakened or deleted.
+
+---
+
+## Phase 62 - owner-managed provider credentials (2026-11-21)
+
+**The report.** The owner does not deploy keys. Resend, BulkSMSBD and the Telegram bot still took
+credentials from environment variables, so rotating one meant editing Coolify and rebuilding an image.
+SteadFast already proved the better shape: a field in the panel, masked display, audit without values.
+
+**Implemented.** ADR 0047 records the decision. Six `store_setting` keys hold the bot token, Resend
+key and sender, BulkSMS key and sender id, and the store web address. Each value is edited on the page it belongs to - the bot token under Telegram notifications, the
+Resend key and sender plus the store web address under Account email, and the BulkSMS pair under a new
+SMS verification page - all behind `settings.write`; blanks keep the stored value and
+each field has an explicit Remove checkbox. The browser receives only presence and a `••••last4` hint;
+the audit row carries the same shape, never a value. The environment remains a fallback, so an existing
+deployment keeps sending until the owner replaces a key. Runtime resolvers hand the effective values to
+the mail, SMS and Telegram senders and to the link builder; the provider modules keep their synchronous
+test seams. The integrations hub links Email and SMS to those pages and states which credentials are managed.
+
+**Rule change.** AGENTS.md now records that a supplied design image is the composition contract for the
+surface in scope: match it same to same with our tokens, skip SaaS-only components, keep our real extra
+capabilities in the same visual language, and extend a phone-only design ourselves for desktop.
+
+**Verification:** `typecheck`, `check:i18n`, `build`, unit 331/331, new provider-credentials db test
+2/2. Not run: `verify:admin`, `verify:browser`, `verify:storefront`, real devices, screen readers.
+
+### The next step
+
+**Phase 46 remains the recommendation: put the rendered-behaviour suites back on the real catalogue.**
+*Why:* the new settings screen and the changed integration hub are exactly what browser checks should
+walk. *Prerequisites:* a local database and a served build; scripts and fixtures only. It does **not**
+authorize deployment, provisioning or a new dependency. *Acceptance:* `verify:browser` and
+`verify:storefront` run green against a seeded real catalogue of 1,000+ products and an empty order
+table, seeding and cleaning their own fixtures, with no assertion weakened or deleted.
+
+---
+
+## Phase 63 - order notifications carry the product photographs (2026-11-21)
+
+**The report.** The owner reads a new-order Telegram message on a phone and recognises a product by its
+picture, not by a vendor title. The text receipt named what was bought; it did not show it.
+
+**Implemented.** `createOrder` now carries each line's frozen `image_key_snapshot` to the notification.
+`orderPhotoUrls` builds one absolute WebP URL per distinct recorded image from the shop's own address
+(the same setting account mail uses) and the standard 600px catalog variant; a line with no snapshot,
+a repeated image and an unknown origin are skipped rather than invented. After the text `sendMessage`,
+`notifyOrderPlaced` sends one `sendPhoto` per product in order, with a plain caption of quantity, name
+and line total. A photo failure is advisory: it is added to the outcome's failure list and never
+changes the order, checkout response or customer-facing answer. No new table, permission or dependency.
+
+**Verification:** unit tests for URL derivation, dedupe, missing origin and the send call sequence
+(23/23 in `telegram.test.ts`); full unit suite, build and `verify:admin` below.
+
+### The next step
+
+**Phase 46 remains the recommendation: put the rendered-behaviour suites back on the real catalogue.**
+*Why:* this phase changes a notification's real behaviour, which a browser suite cannot prove, but the
+same suites guard the settings screen that now holds its token. *Prerequisites:* a local database and a
+served build; scripts and fixtures only. It does **not** authorize deployment, provisioning or a new
+dependency. *Acceptance:* `verify:browser` and `verify:storefront` run green against a seeded real
+catalog of 1,000+ products and an empty order table, seeding and cleaning their own fixtures, with no
+assertion weakened or deleted.

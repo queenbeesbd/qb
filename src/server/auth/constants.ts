@@ -129,6 +129,10 @@ export const INTEGRATIONS_PATH = '/qbpanel/settings/integrations';
 export const OTHER_SETTINGS_PATH = '/qbpanel/settings/other';
 export const TELEGRAM_SETTINGS_PATH = '/qbpanel/settings/integrations/telegram';
 export const STEADFAST_SETTINGS_PATH = '/qbpanel/settings/integrations/steadfast';
+/** ADR 0047: each provider credential is edited on the page it belongs to. */
+export const ACCOUNT_EMAIL_SETTINGS_PATH = '/qbpanel/settings/integrations/email';
+export const SMS_VERIFICATION_SETTINGS_PATH = '/qbpanel/settings/integrations/sms';
+export const PROVIDER_CREDENTIALS_SAVE_PATH = '/api/qbpanel/integrations/provider-credentials';
 
 /** Customer management list. */
 export const CUSTOMERS_PATH = '/qbpanel/customers';

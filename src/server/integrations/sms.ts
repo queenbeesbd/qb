@@ -31,6 +31,8 @@ export type SmsOutcome =
   | { readonly ok: false; readonly reason: SmsFailure };
 
 export type SmsOptions = {
+  /** ADR 0047: effective credentials resolved from the panel (or env fallback) by the caller. */
+  readonly credentials?: { readonly apiKey: string; readonly senderId: string };
   /** A test seam: production always uses the platform `fetch`. */
   readonly fetchImpl?: typeof fetch;
   readonly baseUrl?: string;
@@ -112,8 +114,8 @@ function readVerdict(body: ProviderBody | null, status: number): SmsOutcome {
  */
 export async function sendSms(message: SmsMessage, options: SmsOptions = {}): Promise<SmsOutcome> {
   const source = options.source ?? process.env;
-  const apiKey = env(source, 'BULKSMS_API_KEY');
-  const senderId = env(source, 'BULKSMS_SENDER_ID');
+  const apiKey = options.credentials?.apiKey ?? env(source, 'BULKSMS_API_KEY');
+  const senderId = options.credentials?.senderId ?? env(source, 'BULKSMS_SENDER_ID');
   if (apiKey === null || senderId === null) return { ok: false, reason: 'not_configured' };
 
   const recipient = smsRecipient(message.to);

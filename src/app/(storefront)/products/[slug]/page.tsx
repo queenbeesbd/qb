@@ -4,7 +4,7 @@ import { ProductDetailView } from '@/features/catalog/ProductDetailView';
 import { withTransaction } from '@/db/client';
 import { getProductDescription, getStorefrontCatalog } from '@/server/catalog/storefront';
 import { getHomepageExtras, getPublishedReviews } from '@/server/catalog/storefront-extras';
-import { publicBaseUrl } from '@/server/integrations/email';
+import { storeRuntimeBaseUrl } from '@/server/integrations/provider-credentials';
 import { productOrderMessage, whatsappOrderHref } from '@/lib/whatsapp-order';
 import { currentCustomerPrincipal } from '@/server/customer-auth/guard';
 import {
@@ -84,7 +84,7 @@ export default async function ProductPage({
    */
   /* Cached under the storefront tag: the owner's own addresses, not a per-visit read. */
   const { support } = await getHomepageExtras(0);
-  const base = publicBaseUrl();
+  const base = await storeRuntimeBaseUrl();
   const orderWhatsappHref = whatsappOrderHref(
     support.whatsappUrl,
     productOrderMessage({

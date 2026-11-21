@@ -1067,7 +1067,11 @@ export function AdminOrderDetailView({
             </div>
           </div>
 
-          <ol className={styles.progressTrack} data-state={progress.terminal ? 'closed' : undefined}>
+          <ol
+            className={styles.progressTrack}
+            data-order-progress=""
+            data-state={progress.terminal ? 'closed' : undefined}
+          >
           {progress.stages.map((stage) => (
             <li
               className={styles.progressStep}

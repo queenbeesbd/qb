@@ -14,8 +14,13 @@
  * closed reason, never with the recipient, the token, the code or the body.
  */
 
-import { publicBaseUrl, sendEmail } from '@/server/integrations/email';
+import { sendEmail } from '@/server/integrations/email';
 import { sendSms } from '@/server/integrations/sms';
+import {
+  emailRuntimeCredentials,
+  smsRuntimeCredentials,
+  storeRuntimeBaseUrl,
+} from '@/server/integrations/provider-credentials';
 import {
   emailChangedEmail,
   passwordChangedEmail,
@@ -30,18 +35,30 @@ import { CUSTOMER_REGISTRATION_CODE_MS, CUSTOMER_RESET_TOKEN_MS, CUSTOMER_SMS_CO
 export type TaskScheduler = (task: () => Promise<void>) => void;
 
 async function deliver(message: Parameters<typeof sendEmail>[0]): Promise<void> {
-  const result = await sendEmail(message);
+  const credentials = await emailRuntimeCredentials();
+  const result = await sendEmail(
+    message,
+    credentials.apiKey !== null && credentials.from !== null
+      ? { credentials: { apiKey: credentials.apiKey, from: credentials.from, baseUrl: credentials.baseUrl } }
+      : {},
+  );
   if (!result.ok) console.warn(`[email] delivery failed: ${result.reason}`);
 }
 
 /** Sends one SMS and records a failure **without the number, the code or the body**. */
 async function deliverSms(to: string, body: string): Promise<void> {
-  const result = await sendSms({ to, body });
+  const credentials = await smsRuntimeCredentials();
+  const result = await sendSms(
+    { to, body },
+    credentials.apiKey !== null && credentials.senderId !== null
+      ? { credentials: { apiKey: credentials.apiKey, senderId: credentials.senderId } }
+      : {},
+  );
   if (!result.ok) console.warn(`[sms] delivery failed: ${result.reason}`);
 }
 
-function absolute(path: string): string | null {
-  const base = publicBaseUrl();
+async function absolute(path: string): Promise<string | null> {
+  const base = await storeRuntimeBaseUrl();
   return base === null ? null : `${base}${path}`;
 }
 
@@ -70,10 +87,11 @@ export function schedulePasswordRecovery(
     return;
   }
 
-  const url = absolute(`/account/reset?token=${encodeURIComponent(delivery.token)}`);
-  if (url === null) return;
-  const template = passwordRecoveryEmail({ resetUrl: url, expiresMinutes: minutes(CUSTOMER_RESET_TOKEN_MS) });
   schedule(async () => {
+    const url = await absolute(`/account/reset?token=${encodeURIComponent(delivery.token)}`);
+    // No absolute origin means no link: never mail `localhost` to a customer.
+    if (url === null) return;
+    const template = passwordRecoveryEmail({ resetUrl: url, expiresMinutes: minutes(CUSTOMER_RESET_TOKEN_MS) });
     await deliver({ ...template, to: delivery.to });
   });
 }

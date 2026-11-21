@@ -113,6 +113,8 @@ export type CreatedOrder = {
     readonly quantity: number;
     readonly unitPriceMinor: number;
     readonly lineTotalMinor: number;
+    /** The frozen placement snapshot, so a notification can show what the customer bought. */
+    readonly imageKey: string | null;
   }[];
   readonly paymentMethod: string;
   readonly status: string;
@@ -420,6 +422,7 @@ export async function createOrder(tx: Transaction, input: CreateOrderInput): Pro
       quantity: line.quantity,
       unitPriceMinor: line.priceMinor,
       lineTotalMinor: line.priceMinor * line.quantity,
+      imageKey: line.imageKey,
     })),
     paymentMethod,
     status: 'pending',

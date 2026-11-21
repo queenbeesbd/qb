@@ -19,6 +19,7 @@ import { TELEGRAM_SETTINGS_PATH } from '@/server/auth/constants';
 import { guardMutation } from '@/server/auth/guard';
 import { roleCodes } from '@/server/authz/principal';
 import { PERMISSIONS } from '@/server/authz/permissions';
+import { telegramRuntimeToken } from '@/server/integrations/provider-credentials';
 import { AuthorizationError, ValidationError } from '@/server/authz/authorize';
 import {
   addTelegramRecipient,
@@ -88,7 +89,8 @@ export async function POST(request: Request): Promise<Response> {
     }
 
     // ---- test: one message to every active destination ----
-    const token = readTelegramToken();
+    const savedToken = await telegramRuntimeToken();
+    const token = savedToken ?? readTelegramToken();
     if (token === null) return backTo('notConfigured');
 
     const recipients = await loadActiveRecipients();

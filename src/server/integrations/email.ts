@@ -31,6 +31,8 @@ export type EmailFailure = 'not_configured' | 'rejected' | 'unreachable';
 export type EmailOutcome = { readonly ok: true; readonly id: string | null } | { readonly ok: false; readonly reason: EmailFailure };
 
 export type EmailOptions = {
+  /** ADR 0047: effective credentials resolved from the panel (or env fallback) by the caller. */
+  readonly credentials?: { readonly apiKey: string; readonly from: string; readonly baseUrl?: string | null };
   /** A test seam: production always uses the platform `fetch`. */
   readonly fetchImpl?: typeof fetch;
   readonly baseUrl?: string;
@@ -85,6 +87,9 @@ export function publicBaseUrl(source: Readonly<Record<string, string | undefined
  */
 function resolveBase(options: EmailOptions, source: Readonly<Record<string, string | undefined>>): string {
   if (options.baseUrl !== undefined) return options.baseUrl;
+  if (options.credentials?.baseUrl !== undefined && options.credentials.baseUrl !== null) {
+    return options.credentials.baseUrl;
+  }
   const override = env(source, 'RESEND_API_BASE_URL');
   const development = (env(source, 'QUEENBEES_ENV') ?? env(source, 'NODE_ENV')) === 'development';
   if (development && override !== null) return override;
@@ -99,8 +104,8 @@ function resolveBase(options: EmailOptions, source: Readonly<Record<string, stri
  */
 export async function sendEmail(message: EmailMessage, options: EmailOptions = {}): Promise<EmailOutcome> {
   const source = options.source ?? process.env;
-  const apiKey = env(source, 'RESEND_API_KEY');
-  const from = env(source, 'EMAIL_FROM');
+  const apiKey = options.credentials?.apiKey ?? env(source, 'RESEND_API_KEY');
+  const from = options.credentials?.from ?? env(source, 'EMAIL_FROM');
   if (apiKey === null || from === null) return { ok: false, reason: 'not_configured' };
 
   const fetchImpl = options.fetchImpl ?? fetch;

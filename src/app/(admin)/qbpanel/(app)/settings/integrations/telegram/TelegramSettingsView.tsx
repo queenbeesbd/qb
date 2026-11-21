@@ -3,6 +3,8 @@
 import Link from 'next/link';
 
 import { useTranslation } from '@/i18n/useTranslation';
+import { PROVIDER_CREDENTIALS_SAVE_PATH } from '@/server/auth/constants';
+import { CredentialField } from '../../../../_ui/CredentialField';
 import type { TranslationKey } from '@/i18n/dictionaries';
 import { ConfirmSubmit } from '../../../../_ui/ConfirmSubmit';
 import { EmptyState } from '../../../../_ui/EmptyState';
@@ -33,7 +35,8 @@ export type TelegramNotice =
   | 'notConfigured'
   | 'noRecipients'
   | 'denied'
-  | 'invalid';
+  | 'invalid'
+  | 'saved';
 
 export const TELEGRAM_NOTICE_KEYS: Record<TelegramNotice, TranslationKey> = {
   added: 'admin.integrations.notice.added',
@@ -49,6 +52,7 @@ export const TELEGRAM_NOTICE_KEYS: Record<TelegramNotice, TranslationKey> = {
   noRecipients: 'admin.integrations.notice.noRecipients',
   denied: 'admin.integrations.notice.denied',
   invalid: 'admin.integrations.notice.invalid',
+  saved: 'admin.providers.notice.saved',
 };
 
 const ERROR_NOTICES: readonly TelegramNotice[] = [
@@ -67,19 +71,21 @@ const ERROR_NOTICES: readonly TelegramNotice[] = [
  * The screen is a roster, not a settings form: one row per destination. Pausing keeps a destination in
  * the list with its id intact; removing deletes the row, which is what a test id or a departed manager
  * needs, and the id stays on screen before the dialog opens so it can be registered again. The bot
- * itself is configured in the deployment environment, so the card at the top states whether it is
- * present and never shows it - a token on a screen is a token in a screenshot.
+ * token is entered on this same page (ADR 0047); the card states only whether one is stored and never
+ * shows it - a token on a screen is a token in a screenshot.
  *
  * The test button exists because Telegram's failure mode is silence: a chat id is only usable once that
  * person has pressed Start in a conversation with the bot, and until they have, every send fails quietly.
  */
 export function TelegramSettingsView({
   configured,
+  tokenHint,
   recipients,
   notice,
   csrfToken,
 }: {
   configured: boolean;
+  tokenHint: string | null;
   recipients: readonly TelegramRecipientRow[];
   notice: TelegramNotice | null;
   csrfToken: string;
@@ -125,6 +131,21 @@ export function TelegramSettingsView({
           </div>
           <p className={styles.note}>{t('admin.integrations.botNote')}</p>
         </div>
+        <form className={styles.formCard} action={PROVIDER_CREDENTIALS_SAVE_PATH} method="post">
+          <input type="hidden" name="csrf" value={csrfToken} />
+          <input type="hidden" name="section" value="telegram" />
+          <div className={styles.formGrid}>
+            <CredentialField
+              name="telegramBotToken"
+              label={t('admin.providers.telegram.token')}
+              status={{ set: configured, hint: tokenHint }}
+              placeholder={t('admin.providers.placeholder')}
+            />
+          </div>
+          <div className={styles.formActions}>
+            <SubmitButton label={t('admin.providers.save')} pendingLabel={t('admin.common.working')} />
+          </div>
+        </form>
       </section>
 
       {/* ---- add a destination ---- */}

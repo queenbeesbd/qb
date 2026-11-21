@@ -1,7 +1,8 @@
 import { withTransaction } from '@/db/client';
 import { requireAdminPage } from '@/server/auth/guard';
 import { PERMISSIONS } from '@/server/authz/permissions';
-import { listTelegramRecipients, telegramStatus } from '@/server/integrations/telegram';
+import { listTelegramRecipients } from '@/server/integrations/telegram';
+import { providerCredentialStatus } from '@/server/integrations/provider-credentials';
 import { TelegramSettingsView, type TelegramNotice } from './TelegramSettingsView';
 
 export const dynamic = 'force-dynamic';
@@ -18,6 +19,7 @@ const NOTICES: readonly TelegramNotice[] = [
   'noRecipients',
   'denied',
   'invalid',
+  'saved',
 ];
 
 function readNotice(value: string | string[] | undefined): TelegramNotice | null {
@@ -30,8 +32,8 @@ function readNotice(value: string | string[] | undefined): TelegramNotice | null
 /**
  * Telegram order notifications.
  *
- * The bot token is resolved from the environment, so the page reads a **boolean**, never the token:
- * nothing on this screen can leak it, and a screenshot of the screen is safe to share.
+ * ADR 0047: the bot token may come from the panel or the environment, but this page reads only a
+ * **boolean**, never the token: nothing here can leak it, and a screenshot is safe to share.
  */
 export default async function TelegramIntegrationPage({
   searchParams,
@@ -42,11 +44,12 @@ export default async function TelegramIntegrationPage({
   const params = await searchParams;
 
   const recipients = await withTransaction((tx) => listTelegramRecipients(tx));
-  const status = telegramStatus();
+  const status = await providerCredentialStatus();
 
   return (
     <TelegramSettingsView
-      configured={status.configured}
+      configured={status.telegramBotToken.set}
+      tokenHint={status.telegramBotToken.hint}
       recipients={recipients.map((recipient) => ({
         id: recipient.id,
         label: recipient.label,

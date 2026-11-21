@@ -4,6 +4,7 @@ import { describe, it } from 'node:test';
 import {
   composeOrderMessage,
   notifyOrderPlaced,
+  orderPhotoUrls,
   parseChatId,
   readTelegramToken,
   telegramStatus,
@@ -158,5 +159,59 @@ describe('sending is skipped rather than attempted', () => {
   it('does nothing when no destination is registered', async () => {
     const outcome = await notifyOrderPlaced(ORDER, { token: VALID_TOKEN, recipients: [] });
     assert.equal(outcome.attempted, 0);
+  });
+});
+
+describe('new-order photographs', () => {
+  const PHOTO_ITEMS: OrderNotification['items'] = [
+    { nameEn: 'Nutty Chocolate Mini', variantLabel: '15 Piece Box', quantity: 1, lineTotalMinor: 100000, imageKey: 'lilac-serum' },
+    { nameEn: 'Mixed Nut', variantLabel: '250gm', quantity: 1, lineTotalMinor: 100000, imageKey: 'mixed-nut' },
+  ];
+  const WITH_PHOTOS: OrderNotification = { ...ORDER, items: PHOTO_ITEMS };
+
+  it('builds one absolute WebP URL per distinct recorded photograph', () => {
+    const photos = orderPhotoUrls(WITH_PHOTOS, 'https://queenbeesbd.com');
+    assert.equal(photos.length, 2);
+    assert.match(photos[0]!.url, /^https:\/\/queenbeesbd\.com\/catalog\/lilac-serum-600\.webp/);
+    assert.match(photos[1]!.url, /mixed-nut-600\.webp/);
+    assert.match(photos[0]!.caption, /1× Nutty Chocolate Mini/);
+    assert.match(photos[0]!.caption, /Tk 1,000/);
+  });
+
+  it('skips lines with no snapshot and repeats of the same picture', () => {
+    const photos = orderPhotoUrls(
+      {
+        ...WITH_PHOTOS,
+        items: [...PHOTO_ITEMS, { ...PHOTO_ITEMS[0]!, imageKey: 'lilac-serum' }, ORDER.items[0]!],
+      },
+      'https://queenbeesbd.com',
+    );
+    assert.equal(photos.length, 2);
+  });
+
+  it('sends no link that a phone cannot open', () => {
+    assert.deepEqual(orderPhotoUrls(WITH_PHOTOS, null), []);
+  });
+
+  it('sends the receipt and then one photo per product to each destination', async () => {
+    const original = globalThis.fetch;
+    const calls: string[] = [];
+    globalThis.fetch = (async (input: RequestInfo | URL) => {
+      calls.push(String(input));
+      return new Response('{"ok":true}', { status: 200, headers: { 'content-type': 'application/json' } });
+    }) as typeof fetch;
+    try {
+      const outcome = await notifyOrderPlaced(WITH_PHOTOS, {
+        token: VALID_TOKEN,
+        recipients: [{ id: 1, label: 'Owner', chatId: '123456789', isActive: true, createdAt: new Date() }],
+        origin: 'https://queenbeesbd.com',
+      });
+      assert.equal(outcome.attempted, 1);
+      assert.deepEqual(outcome.failures, []);
+      assert.equal(calls.filter((url) => url.includes('/sendMessage')).length, 1);
+      assert.equal(calls.filter((url) => url.includes('/sendPhoto')).length, 2);
+    } finally {
+      globalThis.fetch = original;
+    }
   });
 });

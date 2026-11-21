@@ -43,7 +43,7 @@ import {
   type ThrottlePolicy,
 } from '../auth/throttle';
 import { createNumericCode, createOpaqueToken, looksLikeToken, sha256Hex } from '../auth/tokens';
-import { smsConfigured } from '../integrations/sms';
+import { smsRuntimeCredentials } from '../integrations/provider-credentials';
 import {
   CUSTOMER_EMAIL_CHANGE_THROTTLE,
   CUSTOMER_PASSWORD_CHANGE_THROTTLE,
@@ -72,7 +72,8 @@ async function issueSmsCode(
   tx: Transaction,
   input: { readonly customerId: number; readonly purpose: 'phone_verify' | 'phone_reset'; readonly requestedIpHash?: string | null },
 ): Promise<string | null> {
-  if (!smsConfigured()) return null;
+  const credentials = await smsRuntimeCredentials();
+  if (credentials.apiKey === null || credentials.senderId === null) return null;
   const code = createNumericCode(6);
   const codeHash = await hashPassword(code);
   const now = new Date();

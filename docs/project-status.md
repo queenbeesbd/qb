@@ -1226,3 +1226,26 @@ be applied to the target before that push** (`npm run check:migrations` first). 
 typecheck, targeted lint, i18n, build, db:check/validate, the new amendment db test 3/3, and an HTTP
 walk-through of the picker form, idempotent replay and trigger refusals. Real devices and screen readers
 remain unverified.
+
+---
+
+## Provider credentials in the panel (2026-11-21, local only)
+
+ADR 0047 moves Resend, BulkSMSBD and the Telegram bot token into their related panel pages: Account
+email, SMS verification and Telegram notifications. Values are
+written to `store_setting` behind `settings.write`, shown only as presence plus a four-character hint,
+and never echoed to a URL, log, response or audit value. Environment variables remain a fallback. No
+schema change and no migration: existing `store_setting` rows hold the new keys. Verified locally with
+typecheck, i18n, build, unit 331/331 and a new database test 2/2 covering save, mask, blank-keeps-value,
+explicit clear and refusal. Deployment is not included in this change.
+
+---
+
+## New-order Telegram photographs (2026-11-21, local only)
+
+`createOrder` now carries each line's frozen image snapshot to the notification. `orderPhotoUrls` builds
+one absolute 600px WebP URL per distinct image from the shop's own address; lines without a snapshot,
+repeated keys and an unknown origin are skipped. After the text receipt, `notifyOrderPlaced` sends one
+`sendPhoto` per product in order with a plain caption. Failure is advisory and never affects an order or
+checkout. No schema change or migration. Unit tests cover URL derivation, dedupe, missing origin and
+the send sequence (23/23 in `telegram.test.ts`). No live Telegram message was sent during verification.

@@ -30,8 +30,10 @@ import {
   throttleState,
 } from '../auth/throttle';
 import { createNumericCode, createOpaqueToken, looksLikeToken, sha256Hex } from '../auth/tokens';
-import { emailConfigured } from '../integrations/email';
-import { smsConfigured } from '../integrations/sms';
+import {
+  emailRuntimeCredentials,
+  smsRuntimeCredentials,
+} from '../integrations/provider-credentials';
 import {
   CUSTOMER_REGISTER_THROTTLE,
   CUSTOMER_REGISTRATION_CODE_ATTEMPTS,
@@ -77,8 +79,13 @@ export type RegistrationStartResult =
   | { readonly ok: false; readonly failure: RegistrationStartFailure };
 
 /** Why an identifier cannot be registered on this deployment right now. */
-function channelUnavailable(channel: RegistrationChannel): boolean {
-  return channel === 'email' ? !emailConfigured() : !smsConfigured();
+async function channelUnavailable(channel: RegistrationChannel): Promise<boolean> {
+  if (channel === 'email') {
+    const credentials = await emailRuntimeCredentials();
+    return credentials.apiKey === null || credentials.from === null;
+  }
+  const credentials = await smsRuntimeCredentials();
+  return credentials.apiKey === null || credentials.senderId === null;
 }
 
 /**
@@ -100,7 +107,7 @@ export async function startRegistration(
   if (parsed === null) {
     return { ok: false, failure: input.method === 'email' ? 'invalid_email' : 'invalid_phone' };
   }
-  if (channelUnavailable(parsed.channel)) return { ok: false, failure: 'channel_unavailable' };
+  if (await channelUnavailable(parsed.channel)) return { ok: false, failure: 'channel_unavailable' };
 
   const taken = await tx
     .select({ email: customer.email, phone: customer.phone })

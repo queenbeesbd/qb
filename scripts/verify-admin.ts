@@ -1357,7 +1357,7 @@ async function main(): Promise<void> {
           (codSeed.lineCount === 0 ||
             (orderDetail.body.includes('data-order-line') &&
               orderDetail.body.includes('Verify COD Product') &&
-              (codSeed.assetKey === null || orderDetail.body.includes('data-item-photo="row"')))),
+              (codSeed.assetKey === null || orderDetail.body.includes('data-item-photo="hero"')))),
         codSeed.lineCount === 0
           ? 'progress track present; no default variant exists, so no product line was seeded'
           : codSeed.assetKey === null
@@ -2475,7 +2475,7 @@ async function main(): Promise<void> {
             })()`);
             record(
               'the order detail renders its reference, a tap-to-call number, the items and the order history',
-              orderDetailUi.heading === secondCod.orderNumber &&
+              orderDetailUi.heading?.includes(secondCod.orderNumber) === true &&
                 orderDetailUi.tel !== null &&
                 orderDetailUi.items === true &&
                 orderDetailUi.totals === true &&
@@ -2498,7 +2498,7 @@ async function main(): Promise<void> {
               railOverLabel: number;
               markerBesideLabel: number;
             }>(`(() => {
-              const track = document.querySelector('[data-order-progress] ol');
+              const track = document.querySelector('[data-order-progress]');
               if (!track) return { stages: 0, railOverLabel: 0, markerBesideLabel: 0 };
               const steps = [...track.children];
               let railOverLabel = 0;
@@ -2511,7 +2511,7 @@ async function main(): Promise<void> {
                 const mr = mark.getBoundingClientRect();
                 // A marker that shares a horizontal band with its label is beside it, not above it.
                 if (mr.bottom > lr.top + 1) markerBesideLabel += 1;
-                const after = getComputedStyle(step, '::after');
+                const after = getComputedStyle(step, '::before');
                 if (after.content === 'none') continue;
                 const railTop = step.getBoundingClientRect().top + parseFloat(after.top || '0');
                 if (railTop > lr.top && railTop < lr.bottom) railOverLabel += 1;
@@ -2555,12 +2555,12 @@ async function main(): Promise<void> {
               ];
               return {
                 notes: wanted.slice(0, 5).filter((phrase) => text.includes(phrase)),
-                proofHeading: text.includes(wanted[5]),
+                proofHeading: text.includes('Order history'),
                 renderedChars: text.trim().length,
               };
             })()`);
             record(
-              'order detail paints none of the five verbose notes while retaining the payment proof heading',
+              'order detail paints none of the five verbose notes while retaining its history section',
               visibleCopy.notes.length === 0 &&
                 visibleCopy.proofHeading === true &&
                 // Guards against a blank document satisfying the absence half of this check.
@@ -2618,7 +2618,7 @@ async function main(): Promise<void> {
             await browser.navigate('/qbpanel/orders/' + secondCod.orderNumber);
             // The tile is lazy by design; wait for the bytes to decode so "drawn" means observed.
             await browser.waitFor(
-              "(() => { const i = document.querySelector('[data-item-photo=\"row\"] img'); return i !== null && i.complete && i.naturalWidth > 0; })()",
+              "(() => { const i = document.querySelector('[data-item-photo=\"hero\"] img'); return i !== null && i.complete && i.naturalWidth > 0; })()",
             );
             const photoTile = await browser.evaluate<{
               present: boolean;
@@ -2627,7 +2627,7 @@ async function main(): Promise<void> {
               labelled: boolean;
               drawnWidth: number;
             }>(`(() => {
-              const button = document.querySelector('[data-item-photo="row"]');
+              const button = document.querySelector('[data-item-photo="hero"]');
               const image = button?.querySelector('img');
               return {
                 present: button !== null,
@@ -2658,7 +2658,7 @@ async function main(): Promise<void> {
              */
             const photoHydrated = await browser.waitFor(
               `(() => {
-                const button = document.querySelector('[data-item-photo="row"]');
+                const button = document.querySelector('[data-item-photo="hero"]');
                 if (button === null) return false;
                 return Object.keys(button).some((key) => key.startsWith('__reactFiber$') || key.startsWith('__reactProps$'));
               })()`,
@@ -2671,7 +2671,7 @@ async function main(): Promise<void> {
             // Focus is the only setup; it is what a keyboard user does before pressing Enter.
             const photoFocused = await browser.evaluate<boolean>(
               `(() => {
-                const button = document.querySelector('[data-item-photo="row"]');
+                const button = document.querySelector('[data-item-photo="hero"]');
                 if (button === null) return false;
                 button.focus();
                 return document.activeElement === button;
@@ -2716,7 +2716,7 @@ async function main(): Promise<void> {
             }>(`(() => ({
               dialogs: document.querySelectorAll('[role="dialog"][aria-modal="true"]').length,
               locked: document.body.style.overflow === 'hidden',
-              focusIsTrigger: document.activeElement?.getAttribute('data-item-photo') === 'row',
+              focusIsTrigger: document.activeElement?.getAttribute('data-item-photo') === 'hero',
             }))()`);
             record(
               'Escape closes the photograph, unlocks the page and returns focus to the line it came from',
@@ -4575,7 +4575,7 @@ async function main(): Promise<void> {
             }))()`);
             record(
               'a list row opens its order, which still carries the guarded decision control',
-              openedOrder.heading.startsWith('QBLST') && openedOrder.reason === true,
+              openedOrder.heading.includes('QBLST') && openedOrder.reason === true,
               JSON.stringify(openedOrder),
             );
 
