@@ -3648,7 +3648,7 @@ async function main(): Promise<void> {
               JSON.stringify({ categoryEditorMedia, brandEditorMedia }),
             );
 
-            await browser.navigate('/qbpanel/settings/offer-popup');
+            await browser.navigate('/qbpanel/storefront/offer-popup');
             const popupEditor = await browser.evaluate<{
               heading: string;
               file: boolean;
@@ -5085,7 +5085,7 @@ async function main(): Promise<void> {
              * wording. The round trip matters more than the form: what the owner saves must reach the
              * storefront, and clearing the message must remove the bar rather than leave a blank strip.
              */
-            await browser.navigate('/qbpanel/settings/announcement');
+            await browser.navigate('/qbpanel/storefront/announcement');
             const announcementUi = await browser.evaluate<{
               title: string | null;
               hasTextarea: boolean;
@@ -5126,7 +5126,7 @@ async function main(): Promise<void> {
               return true;
             })()`);
             await browser.waitFor(
-              "location.pathname === '/qbpanel/settings/announcement' && location.search.includes('notice=saved')",
+              "location.pathname === '/qbpanel/storefront/announcement' && location.search.includes('notice=saved')",
             );
             const storefrontWithMessage = await call(base, '/');
             const savedRows = await withTransaction((tx) =>
@@ -5145,7 +5145,7 @@ async function main(): Promise<void> {
               JSON.stringify(savedRows.map((row) => row.key)),
             );
 
-            await browser.navigate('/qbpanel/settings/announcement');
+            await browser.navigate('/qbpanel/storefront/announcement');
             await browser.evaluate(`(() => {
               const form = document.querySelector('form[action="/api/qbpanel/announcement"]');
               const textarea = form?.querySelector('textarea[name="message"]');
@@ -5157,7 +5157,7 @@ async function main(): Promise<void> {
               return true;
             })()`);
             await browser.waitFor(
-              "location.pathname === '/qbpanel/settings/announcement' && location.search.includes('notice=saved')",
+              "location.pathname === '/qbpanel/storefront/announcement' && location.search.includes('notice=saved')",
             );
             const storefrontCleared = await call(base, '/');
             record(
@@ -5175,7 +5175,7 @@ async function main(): Promise<void> {
              * `el.value = x` would leave a controlled preview untouched and let this assertion pass
              * against a preview that never updates.
              */
-            await browser.navigate('/qbpanel/settings/announcement');
+            await browser.navigate('/qbpanel/storefront/announcement');
             await browser.type('textarea[name="message"]', 'Eid orders close on Friday.');
             const previewHidden = await browser.evaluate<{ text: string; count: string }>(`(() => ({
               text: document.querySelector('figure')?.textContent ?? '',

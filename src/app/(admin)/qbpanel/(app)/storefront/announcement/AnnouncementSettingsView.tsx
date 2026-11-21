@@ -22,7 +22,7 @@ const NOTICE_KEYS: Record<AnnouncementNotice, TranslationKey> = {
 const ERROR_NOTICES: readonly AnnouncementNotice[] = ['denied', 'invalid'];
 
 /**
- * Settings -> Announcement bar.
+ * Storefront -> Announcement bar.
  *
  * The owner writes the storefront's news line. Two fields and one save: the text and whether it is
  * shown. An empty message is saved as "nothing", which hides the bar - it is never rendered as a blank

@@ -8,7 +8,7 @@
  */
 
 import { withTransaction } from '@/db/client';
-import { OFFER_POPUP_SETTINGS_PATH } from '@/server/auth/constants';
+import { STOREFRONT_OFFER_POPUP_PATH } from '@/server/auth/constants';
 import { guardMutation } from '@/server/auth/guard';
 import { roleCodes } from '@/server/authz/principal';
 import { PERMISSIONS } from '@/server/authz/permissions';
@@ -20,7 +20,7 @@ import { deny, redirectTo } from '../../responses';
 export const dynamic = 'force-dynamic';
 
 function backTo(notice: string): Response {
-  return redirectTo(`${OFFER_POPUP_SETTINGS_PATH}?notice=${notice}`);
+  return redirectTo(`${STOREFRONT_OFFER_POPUP_PATH}?notice=${notice}`);
 }
 
 export async function POST(request: Request): Promise<Response> {

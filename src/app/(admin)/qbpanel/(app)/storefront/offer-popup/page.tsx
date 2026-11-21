@@ -20,7 +20,7 @@ function readNotice(value: string | string[] | undefined): OfferPopupNotice | nu
 }
 
 /**
- * Settings -> Offer popup.
+ * Storefront -> Offer popup.
  *
  * Requires `settings.write`. One image and one switch, stored in the `offer_popup` singleton; the
  * storefront layout reads the active row and renders it once per browsing session. The page never

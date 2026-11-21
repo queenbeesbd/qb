@@ -203,7 +203,8 @@ stores the file, and the row and its image are written in one transaction.
 
 ### Offer popup (2026-11-06)
 
-Settings -> Offer popup is a singleton editor (`offer_popup`, id 1): one image, one description, one
+Storefront -> Offer popup (`/qbpanel/storefront/offer-popup`, moved out of Settings on 2026-11-21) is a
+singleton editor (`offer_popup`, id 1): one image, one description, one
 switch. The image is uploaded from the browser through the same `saveUpload` pipeline; the square/16:9
 frame is chosen from the uploaded file's own ratio by `saveOfferPopupUpload`, so there is no selector
 that can disagree with the bytes. The preview shows the frame that will be stored. Turning the switch

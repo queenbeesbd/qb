@@ -16,7 +16,7 @@ function readNotice(value: string | string[] | undefined): AnnouncementNotice | 
 }
 
 /**
- * Settings -> Announcement bar.
+ * Storefront -> Announcement bar.
  *
  * Requires `settings.write`, which is owner-level in the catalogue. The page reads the current text;
  * every write goes through the guarded `/api/qbpanel/announcement` route and its service-level re-check.

@@ -1612,7 +1612,8 @@ table per setting.
 >
 > **The storefront announcement bar lives here (Phase 28).** Two typed keys - `announcement.message`
 > (`text`) and `announcement.visible` (`boolean`) - hold the owner's own news line, written from
-> Settings -> Announcement bar and audited as `settings.announcement_updated`. No new table and no
+> Storefront -> Announcement bar (`/qbpanel/storefront/announcement`) and audited as
+> `settings.announcement_updated`. No new table and no
 > migration: the key-format check, the value-type check and `updated_by_staff_id` already cover it. The
 > **locked preview notice is not a setting** and stays in application code, because it must not be
 > editable.
