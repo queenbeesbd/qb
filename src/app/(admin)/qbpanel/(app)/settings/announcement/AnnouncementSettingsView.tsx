@@ -157,6 +157,15 @@ export function AnnouncementSettingsView({
               </span>
             </div>
             <AnnouncementBar items={previewItems} />
+            {/*
+              The caption that was cut with the page's tour prose, restored for the half that matters.
+              "Rendered from the same component" was implementation narration; "when the message is
+              empty or switched off, the bar is not shown at all" is why the preview above is empty in
+              that case, and the owner would otherwise read the blank strip as a broken screen.
+            */}
+            <figcaption className={styles.announcementPreviewCaption}>
+              {t('admin.announcement.previewNote')}
+            </figcaption>
           </figure>
         </section>
       </div>

@@ -5100,7 +5100,8 @@ async function main(): Promise<void> {
                 hasTextarea: card !== null && card.querySelector('textarea[name="message"]') !== null,
                 hasVisibleToggle: card !== null && card.querySelector('input[name="visible"]') !== null,
                 empty: /no message saved/i.test(document.body.textContent || ''),
-                previewCopy: /same component/i.test(document.body.textContent || ''),
+                // The caption states what an empty preview means, not how the strip is rendered.
+                previewCopy: /shows no announcement bar/i.test(document.body.textContent || ''),
               };
             })()`);
             record(

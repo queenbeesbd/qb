@@ -14,6 +14,54 @@ An entry may describe a deployment only once it has actually happened and been o
 
 ## [Unreleased]
 
+### Changed - 2026-11-21: the admin panel stops explaining itself, page by page
+
+Owner direction: the dashboard had already had its tour prose cut; the same treatment goes everywhere.
+One subagent per page, each confined to its own directory and judged against one rule. **Copy only** -
+no layout, no behaviour, no schema, no permission.
+
+**The rule.** A sentence that only introduces the screen is a tour and is deleted. A sentence that
+stops the owner making an avoidable mistake is kept. That split decided every borderline case.
+
+**Deleted (35 sentences, 32 dictionary keys pruned):**
+
+- **Every page-level subtitle.** Audit ("Security-relevant events are appended here and can never be
+  edited or deleted..."), Owners (a 45-word paragraph explaining the whole role model), Reviews,
+  Announcement, Contact, Delivery, Support, Offer popup, Other settings, SteadFast, Telegram,
+  Storefront, Hero, Traffic, and the product and brand editors.
+- **The product editor's** claim that a new product "stays off the storefront until you publish it" -
+  **false**, since the editor publishes on save (ADR 0019).
+- **The category preview's** description of a hidden state - **false**, since the editor has no
+  visibility switch and every live category is visible (owner direction, 2026-11-19).
+- **Nine section bodies** in the product editor, the review composer's workflow paragraph, the promo
+  editor's two tours, the traffic lede and its logging-policy footer, the customer detail's duplicated
+  suspension note, and the storefront's three picker intros.
+
+**Kept, with the reason each one survives the rule:**
+
+- **Field help that prevents a wrong entry** - upload formats and limits, "no HTML is rendered",
+  character limits, the delivery-charge rule ("blank falls back to the store's charge; the lowest product
+  charge wins"), the availability gate ("a state, not a count"), the sort-order direction, and the
+  slug auto-derivation.
+- **Consequence sentences in confirmation dialogs** - suspend, restore, remove and archive all keep
+  theirs; that is where a consequence belongs.
+- **Caveats where a figure would mislead** - the promo preview's "delivery is charged after the
+  discount and is never reduced by a code" (verified against `create.ts`), the traffic figures' own
+  unit definitions, the order-list truncation notice, the delivery default's "until it is set, checkout
+  cannot place orders".
+- **Eligibility facts** - the last-owner guard, the archive refusal, the parent-picker lock, and the
+  storefront pickers' rules about what can be chosen.
+- **Empty states** and every notice, warning and validation message.
+
+**Also fixed:** a stale source comment in the orders list claimed the history was "a portrait card,
+not a table of rows" while the markup beside it has been a row since the same owner direction.
+
+**Verified:** `typecheck`, `check:i18n` (1,958 keys, 1,406 references all present), `build`, and a
+Chromium sweep of **all 26 admin pages** against the production build - no tour subtitle anywhere, no
+horizontal overflow on any page, and every remaining paragraph is a field hint, an empty state or a
+caveat. `verify:admin` was run afterwards.
+
+
 ### Changed - 2026-11-21: Categories joins the phone navigation bar
 
 Owner direction: the bar is now **Overview, All orders, Products, Categories, Customers**, then Menu.

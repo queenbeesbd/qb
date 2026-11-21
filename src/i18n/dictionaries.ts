@@ -712,7 +712,7 @@ export const dictionary = {
   'admin.announcement.previewTitle': 'What customers see',
   'admin.announcement.previewLabel': 'Preview',
   'admin.announcement.previewNote':
-    'This is the storefront strip itself, rendered from the same component. When the message is empty or switched off, the bar is not shown at all.',
+    'When the message is empty or switched off, the storefront shows no announcement bar.',
   'admin.announcement.statusLive': 'Showing on the storefront',
   'admin.announcement.statusHidden': 'Hidden from customers',
   'admin.announcement.visibleHint':
