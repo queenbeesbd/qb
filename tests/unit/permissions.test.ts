@@ -116,6 +116,8 @@ describe('permission catalogue', () => {
         PERMISSIONS.orderCostRecord,
         // ADR 0042: the owner's reading of a customer's payment screenshot.
         PERMISSIONS.paymentProofReview,
+        // ADR 0046: the owner appends one product to an order before dispatch.
+        PERMISSIONS.orderAmend,
       ].sort(),
     );
   });

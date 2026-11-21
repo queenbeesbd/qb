@@ -1213,3 +1213,16 @@ dictionary; until it does, treat this section as a description, not as an audit 
 
 **Limits.** Real iOS Safari, Android Chrome, 200% zoom and screen readers were not used. Neither the
 progress bar's narrow-screen layout nor the card refresh has been measured in a browser.
+---
+
+## Order detail reference and ADR 0046 additions (2026-11-21, local only)
+
+The order detail now follows the owner's mobile reference card-for-card in the shop's own palette, with
+a designed 1000px desktop ledger layout. ADR 0046 amends the frozen-order rule: an owner may append one
+live, in-stock product to a COD order before dispatch, from a recognition picker like the review
+composer's. Migration `0037_order_line_additions` is applied locally (38/38). No deployment,
+provisioning or DNS change was made; a push to `main` would be an image build, so **the migration must
+be applied to the target before that push** (`npm run check:migrations` first). Verified locally with
+typecheck, targeted lint, i18n, build, db:check/validate, the new amendment db test 3/3, and an HTTP
+walk-through of the picker form, idempotent replay and trigger refusals. Real devices and screen readers
+remain unverified.

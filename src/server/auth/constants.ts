@@ -152,6 +152,8 @@ export const ORDER_TRANSITION_PATH = '/api/qbpanel/orders/transition';
 export const ORDER_COST_PATH = '/api/qbpanel/orders/cost';
 /** The owner's decision about a customer's payment screenshot (ADR 0042). It moves no order state. */
 export const ORDER_PROOF_REVIEW_PATH = '/api/qbpanel/orders/payment-proof';
+/** ADR 0046: append one product line to an order before dispatch, at the customer's phone request. */
+export const ORDER_ADD_LINE_PATH = '/api/qbpanel/orders/add-line';
 
 /**
  * Where an authenticated page may send a browser after a successful sign-in. Anything else resolves

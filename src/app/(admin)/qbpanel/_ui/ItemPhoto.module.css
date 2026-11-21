@@ -57,6 +57,23 @@
   flex: none;
 }
 
+/*
+ * The order detail's product card photograph.
+ *
+ * The reference for this page draws the line's photograph across the card rather than as a 52px tile,
+ * because the owner recognises a bottle by its picture on the confirmation call. It keeps the same
+ * frozen snapshot and the same viewer; only the frame changes. No fixed pixel height: the aspect ratio
+ * reserves the box on every width, and a line with no snapshot keeps the empty frame in place.
+ */
+.hero {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1.175;
+  border: 0;
+  border-radius: 12px 12px 0 0;
+  background: var(--admin-surface-soft);
+}
+
 .thumb {
   display: block;
   width: 100%;

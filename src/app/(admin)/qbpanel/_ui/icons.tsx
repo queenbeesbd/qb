@@ -49,7 +49,25 @@ export type AdminIconName =
   | 'arrowDown'
   | 'arrowLeft'
   | 'arrowRight'
-  | 'image';
+  | 'arrowUpRight'
+  | 'chevronDown'
+  | 'image'
+  | 'printer'
+  | 'download'
+  | 'copy'
+  | 'link'
+  | 'receipt'
+  | 'truck'
+  | 'percent'
+  | 'box'
+  | 'shield'
+  | 'mail'
+  | 'user'
+  | 'home'
+  | 'mapPin'
+  | 'message'
+  | 'store'
+  | 'globe';
 
 export function AdminIcon({ name, ...props }: IconProps & { name: AdminIconName }) {
   switch (name) {
@@ -225,6 +243,129 @@ export function AdminIcon({ name, ...props }: IconProps & { name: AdminIconName 
       return (
         <svg {...base} {...props}>
           <path d="M12 5v14M6 13l6 6 6-6" />
+        </svg>
+      );
+    case 'arrowUpRight':
+      return (
+        <svg {...base} {...props}>
+          <path d="M7 17 17 7M7 7h10v10" />
+        </svg>
+      );
+    case 'chevronDown':
+      return (
+        <svg {...base} {...props}>
+          <path d="m6 9 6 6 6-6" />
+        </svg>
+      );
+    case 'printer':
+      return (
+        <svg {...base} {...props}>
+          <path d="M6 9V3h12v6M7 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-3" />
+          <path d="M7 14h10v7H7Z" />
+        </svg>
+      );
+    case 'download':
+      return (
+        <svg {...base} {...props}>
+          <path d="M12 3v12M7 10l5 5 5-5M4 20h16" />
+        </svg>
+      );
+    case 'copy':
+      return (
+        <svg {...base} {...props}>
+          <rect x="8" y="8" width="13" height="13" rx="2" />
+          <path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3" />
+        </svg>
+      );
+    case 'link':
+      return (
+        <svg {...base} {...props}>
+          <path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7" />
+          <path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7" />
+        </svg>
+      );
+    case 'receipt':
+      return (
+        <svg {...base} {...props}>
+          <path d="M5 2v20l2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1Z" />
+          <path d="M9 7h6M9 11h6M9 15h4" />
+        </svg>
+      );
+    case 'truck':
+      return (
+        <svg {...base} {...props}>
+          <path d="M2 6h11v11H2zM13 10h4l3 3v4h-7z" />
+          <circle cx="6" cy="18" r="2" />
+          <circle cx="17" cy="18" r="2" />
+        </svg>
+      );
+    case 'percent':
+      return (
+        <svg {...base} {...props}>
+          <path d="M19 5 5 19" />
+          <circle cx="7" cy="7" r="2.5" />
+          <circle cx="17" cy="17" r="2.5" />
+        </svg>
+      );
+    case 'box':
+      return (
+        <svg {...base} {...props}>
+          <path d="m4 8 8-4 8 4-8 4Z" />
+          <path d="M4 8v8l8 4 8-4V8M12 12v8" />
+        </svg>
+      );
+    case 'shield':
+      return (
+        <svg {...base} {...props}>
+          <path d="M12 3 5 6v5c0 4.4 2.9 8.2 7 10 4.1-1.8 7-5.6 7-10V6Z" />
+        </svg>
+      );
+    case 'mail':
+      return (
+        <svg {...base} {...props}>
+          <rect x="3" y="5" width="18" height="14" rx="2" />
+          <path d="m3 7 9 6 9-6" />
+        </svg>
+      );
+    case 'user':
+      return (
+        <svg {...base} {...props}>
+          <circle cx="12" cy="8" r="3.6" />
+          <path d="M4.5 21c0-4 3.4-6.4 7.5-6.4s7.5 2.4 7.5 6.4" />
+        </svg>
+      );
+    case 'home':
+      return (
+        <svg {...base} {...props}>
+          <path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1Z" />
+          <path d="M9 21v-7h6v7" />
+        </svg>
+      );
+    case 'mapPin':
+      return (
+        <svg {...base} {...props}>
+          <path d="M20 10c0 5-8 11-8 11S4 15 4 10a8 8 0 0 1 16 0Z" />
+          <circle cx="12" cy="10" r="2.6" />
+        </svg>
+      );
+    case 'message':
+      return (
+        <svg {...base} {...props}>
+          <path d="M21 12a9 9 0 1 1-4.2 7.6L4 21l1.4-4.4A9 9 0 0 1 21 12Z" />
+        </svg>
+      );
+    case 'store':
+      return (
+        <svg {...base} {...props}>
+          <path d="M4 9h16v11H4Z" />
+          <path d="M3 9 5 4h14l2 5M9 20v-6h6v6" />
+        </svg>
+      );
+    case 'globe':
+      return (
+        <svg {...base} {...props}>
+          <circle cx="12" cy="12" r="9" />
+          <path d="M3 12h18M12 3a15 15 0 0 1 0 18 15 15 0 0 1 0-18Z" />
         </svg>
       );
     case 'image':

@@ -1,24 +1,30 @@
 'use client';
 
 import Link from 'next/link';
-import type { FormEvent } from 'react';
+import { useId, useState, type FormEvent, type ReactNode } from 'react';
 
 import type { TranslationKey } from '@/i18n/dictionaries';
+import { INTL_LOCALE } from '@/i18n/config';
 import { useTranslation } from '@/i18n/useTranslation';
 import { deliveryAddressText } from '@/lib/delivery-address';
+import { deliveryAreaName } from '@/lib/delivery-areas';
 import { orderDiscountMinor } from '@/lib/money';
-import { ORDER_COST_PATH, ORDER_PROOF_REVIEW_PATH, ORDER_TRANSITION_PATH } from '@/server/auth/constants';
+import {
+  ORDER_ADD_LINE_PATH,
+  ORDER_COST_PATH,
+  ORDER_PROOF_REVIEW_PATH,
+  ORDER_TRANSITION_PATH,
+} from '@/server/auth/constants';
 import { orderStatus } from '../../../_ui/order-status';
 import { ConfirmSubmit } from '../../../_ui/ConfirmSubmit';
-import { EmptyState } from '../../../_ui/EmptyState';
 import { AdminIcon } from '../../../_ui/icons';
 import { ItemPhoto } from '../../../_ui/ItemPhoto';
+import { ReviewProductPicker, type ReviewProductOption } from '../../../_ui/ReviewProductPicker';
 import { Notice, type NoticeTone } from '../../../_ui/Notice';
-import { PageHeader } from '../../../_ui/PageHeader';
 import { StatusPill, type PillTone } from '../../../_ui/StatusPill';
 import { SubmitButton } from '../../../_ui/SubmitButton';
-import styles from '../../../qbpanel.module.css';
-import { INTL_LOCALE } from '@/i18n/config';
+import { ReceiptLink } from './CopyReceiptLink';
+import styles from './OrderDetail.module.css';
 
 export type AdminOrderNotice =
   | 'approved'
@@ -43,6 +49,8 @@ export type AdminOrderNotice =
   | 'costInvalid'
   | 'proofReviewed'
   | 'proofInvalid'
+  | 'lineAdded'
+  | 'lineInvalid'
   | 'denied'
   | 'conflict'
   | 'invalid';
@@ -91,6 +99,10 @@ export type AdminOrderDetailModel = {
     email: string | null;
     displayName: string | null;
     status: string | null;
+    /** The account's creation date, or `null` for a guest or a viewer without `customer.read`. */
+    createdAt: string | null;
+    /** Orders the account has placed, this one included. `null` on a guest order. */
+    orderCount: number | null;
   };
   contact: {
     recipientName: string;
@@ -111,11 +123,6 @@ export type AdminOrderDetailModel = {
     unitPriceMinor: number;
     quantity: number;
     lineTotalMinor: number;
-    /**
-     * The key of the photograph the order recorded when it was placed, or `null` for a line that
-     * stored none. It is the snapshot, never the product's current image: the owner is looking at
-     * what the customer bought.
-     */
     imageKey: string | null;
   }[];
   returns: readonly AdminOrderReturnModel[];
@@ -128,10 +135,6 @@ export type AdminOrderDetailModel = {
     voidedAt: string | null;
     voidReason: string | null;
   }[];
-  /**
-   * The customer's optional payment screenshot, or `null` (ADR 0042). It states that an image arrived
-   * and what the owner decided about it; it is not a payment state, and the order has none to set.
-   */
   paymentProof: {
     uploadedAt: string;
     uploadedBy: string;
@@ -141,10 +144,6 @@ export type AdminOrderDetailModel = {
     width: number;
     height: number;
   } | null;
-  /**
-   * The SteadFast consignment this order was sent to, or `null`. It is a mirror of what the courier
-   * accepted - sending a parcel never changes the order's own state.
-   */
   consignment: {
     invoice: string;
     consignmentId: number;
@@ -154,7 +153,6 @@ export type AdminOrderDetailModel = {
     createdAt: string;
     statusCheckedAt: string | null;
   } | null;
-  /** Whether the courier account is usable, so the screen never offers a send that cannot work. */
   steadfast: { configured: boolean; enabled: boolean };
   /** The four money facts, kept separate: never collapsed into one "revenue" number. */
   money: {
@@ -186,6 +184,13 @@ export type AdminOrderDetailModel = {
   }[] | null;
 };
 
+export type AdminOrderNeighbours = {
+  position: number;
+  total: number;
+  newer: string | null;
+  older: string | null;
+};
+
 const NOTICE_KEYS: Record<AdminOrderNotice, TranslationKey> = {
   approved: 'admin.cod.notice.approved',
   steadfastBooked: 'admin.order.notice.steadfastBooked',
@@ -209,6 +214,8 @@ const NOTICE_KEYS: Record<AdminOrderNotice, TranslationKey> = {
   costInvalid: 'admin.order.notice.costInvalid',
   proofReviewed: 'admin.order.notice.proofReviewed',
   proofInvalid: 'admin.order.notice.proofInvalid',
+  lineAdded: 'admin.order.notice.lineAdded',
+  lineInvalid: 'admin.order.notice.lineInvalid',
   denied: 'admin.cod.notice.denied',
   conflict: 'admin.cod.notice.conflict',
   invalid: 'admin.cod.notice.invalid',
@@ -220,12 +227,9 @@ const ERROR_NOTICES: readonly AdminOrderNotice[] = [
   'invalid',
   'costInvalid',
   'steadfastFailed',
+  'lineInvalid',
 ];
 
-/**
- * Event types this release can actually write, translated. Anything else is shown as its stored code:
- * a label the store cannot substantiate would be a claim, and the code is the honest fact.
- */
 const EVENT_KEYS: Record<string, TranslationKey> = {
   order_placed: 'admin.order.event.order_placed',
   cod_approved: 'admin.order.event.cod_approved',
@@ -238,6 +242,7 @@ const EVENT_KEYS: Record<string, TranslationKey> = {
   order_completed: 'admin.order.event.order_completed',
   order_cancelled: 'admin.order.event.order_cancelled',
   order_claimed: 'admin.order.event.order_claimed',
+  order_line_added: 'admin.order.event.order_line_added',
 };
 
 const ACTOR_KEYS: Record<string, TranslationKey> = {
@@ -246,7 +251,6 @@ const ACTOR_KEYS: Record<string, TranslationKey> = {
   system: 'admin.order.actor.system',
 };
 
-/** Return states, translated. An unknown state falls back to its stored code. */
 const RETURN_STATE_KEYS: Record<string, TranslationKey> = {
   requested: 'admin.order.return.requested',
   approved: 'admin.order.return.approved',
@@ -257,6 +261,23 @@ const RETURN_STATE_KEYS: Record<string, TranslationKey> = {
   closed: 'admin.order.return.closed',
 };
 
+const COD_KEYS: Record<string, TranslationKey> = {
+  cod_pending_approval: 'orders.cod.cod_pending_approval',
+  cod_approved: 'orders.cod.cod_approved',
+  cod_collected: 'orders.cod.cod_collected',
+  cod_failed: 'orders.cod.cod_failed',
+  cod_reconciled: 'orders.cod.cod_reconciled',
+  not_applicable: 'admin.order.paymentNotApplicable',
+};
+
+function codTone(state: string): PillTone {
+  if (state === 'cod_collected' || state === 'cod_reconciled') return 'success';
+  if (state === 'cod_failed') return 'danger';
+  if (state === 'cod_pending_approval') return 'warning';
+  if (state === 'cod_approved') return 'info';
+  return 'neutral';
+}
+
 function returnTone(state: string): PillTone {
   if (state === 'inspected_rejected') return 'danger';
   if (state === 'inspected_accepted') return 'success';
@@ -264,27 +285,119 @@ function returnTone(state: string): PillTone {
   return 'info';
 }
 
+function initialsOf(name: string): string {
+  const parts = name.trim().split(/\s+/).filter((part) => part !== '');
+  if (parts.length === 0) return '?';
+  const first = parts[0]?.[0] ?? '';
+  const second = parts.length > 1 ? parts[parts.length - 1]?.[0] ?? '' : '';
+  return (first + second).toUpperCase();
+}
+
+/** A recorded value. Read-only by construction, never a disabled form field. */
+function ReadOnlyField({
+  label,
+  value,
+  prefix,
+  suffix,
+  icon,
+}: {
+  label: string;
+  value: string;
+  prefix?: string;
+  suffix?: string;
+  icon?: 'user' | 'mail' | 'phone' | 'home' | 'mapPin';
+}) {
+  const id = useId();
+  const classes = [styles.control, prefix === undefined ? '' : styles.hasPrefix, suffix === undefined ? '' : styles.hasSuffix, icon === undefined ? '' : styles.hasLead]
+    .filter((entry) => entry !== '')
+    .join(' ');
+  return (
+    <div className={styles.field}>
+      <label className={styles.label} htmlFor={id}>
+        {label}
+      </label>
+      <div className={classes}>
+        {icon !== undefined && <AdminIcon className={styles.leadIcon} name={icon} />}
+        {prefix !== undefined && <span className={styles.prefix}>{prefix}</span>}
+        <input id={id} value={value} readOnly tabIndex={-1} aria-readonly="true" />
+        {suffix !== undefined && <span className={styles.suffix}>{suffix}</span>}
+      </div>
+    </div>
+  );
+}
+
+/** One card with a collapsing head, the reference's shape for every block on the page. */
+function Section({
+  id,
+  title,
+  aside,
+  defaultOpen = true,
+  children,
+}: {
+  id: string;
+  title: string;
+  aside?: ReactNode;
+  defaultOpen?: boolean;
+  children: ReactNode;
+}) {
+  const { t } = useTranslation();
+  const [open, setOpen] = useState(defaultOpen);
+
+  return (
+    <section className={styles.card} aria-labelledby={id}>
+      <div
+        className={styles.cardHead}
+        onClick={(event) => {
+          const target = event.target as HTMLElement;
+          if (target.closest('button, a, input, select, textarea, label')) return;
+          setOpen((value) => !value);
+        }}
+      >
+        <h2 className={styles.cardTitle} id={id}>
+          {title}
+        </h2>
+        {aside !== undefined && <div className={styles.headAside}>{aside}</div>}
+        <button
+          type="button"
+          className={styles.chevron}
+          data-open={open ? 'true' : 'false'}
+          aria-expanded={open}
+          aria-controls={`${id}-body`}
+          aria-label={t('admin.order.toggleSection', { section: title })}
+          onClick={() => setOpen((value) => !value)}
+        >
+          <AdminIcon name="chevronDown" />
+        </button>
+      </div>
+      {/*
+        Collapsed by height rather than by `hidden`, so the disclosure moves like the reference's own
+        accordions. `inert` keeps a closed section out of the tab order and the accessibility tree, so
+        the motion never hides a control from someone navigating by keyboard.
+      */}
+      <div className={styles.collapse} data-open={open ? 'true' : 'false'}>
+        <div className={styles.collapseClip}>
+          <div className={styles.sectionBody} id={`${id}-body`} inert={!open} aria-hidden={!open}>
+            {children}
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
 
 type StageState = 'done' | 'current' | 'future';
 
 type OrderStage = {
   readonly key: TranslationKey;
-  /** The stored timestamp for this stage, or `null` when the record holds none. */
   readonly at: string | null;
   readonly state: StageState;
 };
 
 /**
- * The four movement stages, read from the timestamps and the fulfilment status.
- *
- * The track claims nothing the row does not hold: a stage is reached because its own timestamp exists,
- * or because a later stored state cannot be true without it - a dispatched parcel was confirmed, a
- * delivered one was shipped. The status is only a fallback for a row whose timestamp column is empty.
- *
- * **`completed` is not a delivery.** Cash is often collected while the parcel is still with the
- * courier, which completes the order without a recorded delivery; the last stage therefore rests on
- * `delivered_at` (or the delivered status), never on `completed`. A cancelled order stops where it
- * stopped and a returned parcel is not a delivery, so neither draws a "current" step: both are closed.
+ * The four movement stages, read from the timestamps and the fulfilment status. Every reached stage
+ * rests on a stored timestamp or a stored state that could not be true without it; `completed` is not
+ * a delivery (cash is often collected while the parcel is still with the courier), and a cancelled or
+ * returned order is closed rather than "current".
  */
 function orderStages(order: AdminOrderDetailModel): {
   readonly stages: readonly OrderStage[];
@@ -299,9 +412,7 @@ function orderStages(order: AdminOrderDetailModel): {
     order.status === 'processing';
   const reached = [true, confirmed, shipped, delivered];
   const highest = delivered ? 3 : shipped ? 2 : confirmed ? 1 : 0;
-  // Cancelled and returned orders are closed: their reached stages are history, not a position.
   const terminal = order.status === 'cancelled' || order.status === 'returned';
-  // A completed order has no next movement stage either, so none of its marks is "current".
   const settled = terminal || order.status === 'completed';
 
   const definitions: readonly { key: TranslationKey; at: string | null }[] = [
@@ -328,14 +439,21 @@ function orderStages(order: AdminOrderDetailModel): {
  * transition endpoint, and is re-authorized in the service by the permission that action needs - so a
  * control is never the control.
  *
+ * **Everything that reads as a field is a record.** The price, the line total, the quantity, the zone
+ * and the totals are drawn in the reference's field shape with `readOnly` (or as plain output), because
+ * an order is immutable: the amounts were frozen at placement and are covered by the database's own
+ * trigger. Only the action forms write, and they write through the same endpoints as before.
+ *
  * Two things are deliberately absent. **No reconciliation control**: the owner has not defined what
- * matching a courier statement means, so cod_reconciled is unreachable. **No stock control**: a returned
- * parcel is inspected and its finding recorded, but making the product orderable again is a separate,
- * deliberate act on the product screen (ADR 0013).
+ * matching a courier statement means, so `cod_reconciled` is unreachable. **No stock control**: a
+ * returned parcel is inspected and its finding recorded, but making the product orderable again is a
+ * separate, deliberate act on the product screen (ADR 0013).
  */
 export function AdminOrderDetailView({
   order,
   notice,
+  neighbours,
+  receiptUrl,
   csrfToken,
   canApprove,
   canCancel,
@@ -344,44 +462,52 @@ export function AdminOrderDetailView({
   canInspect,
   canRecordCosts,
   canReviewProof,
+  canAddLine,
+  pickableProducts,
+  addLineKey,
   canReadCustomers,
   canReadAudit,
   returnTo,
 }: {
   order: AdminOrderDetailModel;
   notice: AdminOrderNotice | null;
+  neighbours: AdminOrderNeighbours;
+  /** The customer's receipt address, built from the request host on the server. */
+  receiptUrl: string;
   csrfToken: string;
   canApprove: boolean;
   canCancel: boolean;
   canFulfil: boolean;
   canCollect: boolean;
   canInspect: boolean;
-  /** `order.cost_record`: recording and voiding additional courier costs. */
   canRecordCosts: boolean;
-  /** `payment.proof_review`: deciding whether a payment screenshot agrees with the statement. */
   canReviewProof: boolean;
+  /** ADR 0046: this viewer may append a line, and the order is still before dispatch. */
+  canAddLine: boolean;
+  pickableProducts: readonly ReviewProductOption[];
+  /** A fresh UUID for this render; the service makes a repeated submission one recorded addition. */
+  addLineKey: string;
   canReadCustomers: boolean;
   canReadAudit: boolean;
-  /** Where "back" goes: the queue or the order list, with its filters preserved. */
   returnTo: { href: string; labelKey: TranslationKey };
 }) {
   const { t, price, pick } = useTranslation();
+  const [printMenu, setPrintMenu] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [addedProductId, setAddedProductId] = useState<number | null>(null);
   const dateTime = new Intl.DateTimeFormat(INTL_LOCALE, {
     dateStyle: 'medium',
     timeStyle: 'short',
   });
   const stageDate = new Intl.DateTimeFormat(INTL_LOCALE, { dateStyle: 'medium' });
+  const dayDate = new Intl.DateTimeFormat(INTL_LOCALE, { dateStyle: 'medium' });
+  const takaFormat = new Intl.NumberFormat(INTL_LOCALE, { maximumFractionDigits: 2 });
+  const taka = (minor: number): string => takaFormat.format(minor / 100);
 
   const waiting = order.codState === 'cod_pending_approval' && order.status === 'pending';
-  /*
-    One status for the whole page, from the shared helper: the lifecycle state, with a failed delivery
-    promoted to the pill because `status` is still `shipped` when the parcel comes back.
-  */
   const status = orderStatus(order);
   const noticeTone: NoticeTone = notice !== null && ERROR_NOTICES.includes(notice) ? 'error' : 'success';
 
-  // The same eligibility rules the service guards on, so a control appears exactly when the write
-  // would succeed. Presentation only: the scope that matters is the WHERE clause in the service.
   const approvedForDispatch =
     (order.paymentMethod === 'cod' && order.codState === 'cod_approved') ||
     (order.paymentMethod !== 'cod' && order.paymentState === 'verified');
@@ -391,15 +517,11 @@ export function AdminOrderDetailView({
     order.status === 'shipped' &&
     order.codState === 'cod_failed' &&
     order.returns.some((entry) => entry.state === 'requested' || entry.state === 'approved' || entry.state === 'in_transit');
-  // Payment is received once the parcel is out or has arrived: before that there is no money to
-  // confirm, and after it the order is already complete.
   const receivable =
     order.codState === 'cod_approved' && (order.status === 'shipped' || order.status === 'delivered');
   const completable =
     order.status === 'delivered' && (order.codState === 'cod_collected' || order.codState === 'cod_failed');
   const cancellable = order.status === 'pending' || order.status === 'confirmed' || order.status === 'processing';
-  // The same eligibility the booking service guards on: a confirmed COD order that has not been
-  // dispatched yet. The panel is shown for that order, or for any order that already has a parcel.
   const sendable =
     order.paymentMethod === 'cod' &&
     order.codState === 'cod_approved' &&
@@ -413,11 +535,6 @@ export function AdminOrderDetailView({
       : format.format(-order.ageHours, 'hour');
   })();
 
-  /*
-    A permission is not an action. The band renders only when the current state actually has a step
-    to take, so a settled order shows no band rather than an empty "Next step" panel promising work
-    that does not exist.
-  */
   const hasOperations =
     dispatchable ||
     awaitingDeliveryOutcome ||
@@ -428,34 +545,166 @@ export function AdminOrderDetailView({
 
   const progress = orderStages(order);
 
+  const discountMinor = orderDiscountMinor(order.itemsSubtotalMinor, order.shippingMinor, order.totalMinor);
+  const discountPercent =
+    order.itemsSubtotalMinor === 0
+      ? 0
+      : Math.round((discountMinor / order.itemsSubtotalMinor) * 1000) / 10;
+  const unitCount = order.items.reduce((total, item) => total + item.quantity, 0);
+  const collected =
+    order.codState === 'cod_collected' ||
+    order.codState === 'cod_reconciled' ||
+    (order.paymentMethod !== 'cod' && order.paymentState === 'verified');
+  const amountDueMinor = collected ? 0 : order.totalMinor;
+  const codLabel = COD_KEYS[order.codState] ?? 'orders.cod.unknown';
+  const deliveryZone =
+    order.contact.districtCode === null ? null : deliveryAreaName(order.contact.districtCode);
+  const customerPhone = order.contact.recipientPhone.replace(/\D/g, '');
+  const whatsappHref = /^01[3-9]\d{8}$/.test(customerPhone)
+    ? `https://wa.me/88${customerPhone}`
+    : null;
+
+  const recordedNotes = order.events
+    .filter((event) => event.reason !== null && event.reason.trim() !== '')
+    .slice(-3)
+    .reverse();
+
   return (
-    <>
-      <PageHeader
-        title={order.orderNumber}
-        description={t('admin.cod.placedAt', { time: dateTime.format(new Date(order.placedAt)) })}
-        actions={
-          <>
+    <div className={styles.frame}>
+      {/* ---- The order strip: identity, print actions and the pager ------- */}
+      <div className={styles.strip}>
+        <div className={styles.orderBar}>
+          <Link
+            className={styles.iconButton}
+            href={returnTo.href}
+            aria-label={t(returnTo.labelKey)}
+            title={t(returnTo.labelKey)}
+          >
+            <AdminIcon name="arrowLeft" />
+          </Link>
+          <h1 className={styles.orderBarTitle}>{t('admin.order.barTitle', { number: order.orderNumber })}</h1>
+          <div className={styles.barActions}>
+            <div className={styles.splitWrap}>
+              <div className={styles.split}>
+                <Link
+                  className={styles.splitMain}
+                  href={`/qbpanel/orders/${encodeURIComponent(order.orderNumber)}/slip`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label={t('admin.order.printSlip')}
+                  title={t('admin.order.printSlip')}
+                >
+                  <AdminIcon name="printer" />
+                </Link>
+                <button
+                  type="button"
+                  className={styles.splitToggle}
+                  aria-expanded={printMenu}
+                  aria-haspopup="menu"
+                  aria-label={t('admin.order.printMenu')}
+                  onClick={() => setPrintMenu((value) => !value)}
+                >
+                  <AdminIcon name="chevronDown" />
+                </button>
+              </div>
+              {printMenu && (
+                <>
+                  <button
+                    type="button"
+                    className={styles.menuScrim}
+                    aria-label={t('admin.order.closeMenu')}
+                    onClick={() => setPrintMenu(false)}
+                  />
+                  <div className={styles.splitMenu} role="menu">
+                    <a
+                      role="menuitem"
+                      href={`/qbpanel/orders/${encodeURIComponent(order.orderNumber)}/slip`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={() => setPrintMenu(false)}
+                    >
+                      {t('admin.order.menuSlip')}
+                    </a>
+                    <a
+                      role="menuitem"
+                      href={receiptUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={() => setPrintMenu(false)}
+                    >
+                      {t('admin.order.menuReceipt')}
+                    </a>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <nav className={styles.pager} aria-label={t('admin.order.pagerLabel')}>
+          {neighbours.newer === null ? (
+            <span className={`${styles.pagerButton} ${styles.pagerOff}`} aria-disabled="true">
+              <AdminIcon name="arrowLeft" />
+              {t('admin.order.previous')}
+            </span>
+          ) : (
             <Link
-              className={[styles.button, styles.buttonSecondary].join(' ')}
-              href={'/qbpanel/orders/' + order.orderNumber + '/slip'}
-              target="_blank"
-              rel="noopener noreferrer"
+              className={styles.pagerButton}
+              href={`/qbpanel/orders/${encodeURIComponent(neighbours.newer)}`}
             >
-              {t('admin.order.printSlip')}
+              <AdminIcon name="arrowLeft" />
+              {t('admin.order.previous')}
             </Link>
-            <Link className={[styles.button, styles.buttonSecondary].join(' ')} href={returnTo.href}>
-              {t(returnTo.labelKey)}
+          )}
+          <span className={styles.pagerCount}>
+            <b>{neighbours.position}</b> {t('admin.order.positionOf', { total: neighbours.total })}
+          </span>
+          {neighbours.older === null ? (
+            <span className={`${styles.pagerButton} ${styles.pagerNext} ${styles.pagerOff}`} aria-disabled="true">
+              {t('admin.order.next')}
+              <AdminIcon name="arrowRight" />
+            </span>
+          ) : (
+            <Link
+              className={`${styles.pagerButton} ${styles.pagerNext}`}
+              href={`/qbpanel/orders/${encodeURIComponent(neighbours.older)}`}
+            >
+              {t('admin.order.next')}
+              <AdminIcon name="arrowRight" />
             </Link>
-          </>
-        }
-      />
+          )}
+        </nav>
+      </div>
 
-      {notice !== null && <Notice tone={noticeTone}>{t(NOTICE_KEYS[notice])}</Notice>}
+      {/* ---- The order card --------------------------------------------- */}
+      <section className={styles.card} aria-labelledby="order-record">
+        <div className={styles.summaryCard}>
+          <div className={styles.orderIdentity}>
+            <h2 className={styles.orderTitleRow} id="order-record">
+              {t('admin.order.barTitle', { number: order.orderNumber })}
+              <StatusPill tone={status.tone}>{t(status.label)}</StatusPill>
+            </h2>
+            <p className={styles.orderId}>
+              <span>{t('admin.order.idLabel')}:</span>
+              <b>{order.orderId}</b>
+            </p>
+            <p className={styles.placedLine}>
+              {t('admin.cod.placedAt', { time: dateTime.format(new Date(order.placedAt)) })}
+            </p>
+          </div>
+          <div className={styles.orderReceipt}>
+            <hr className={styles.rule} />
+            <ReceiptLink href={receiptUrl} />
+          </div>
+        </div>
+      </section>
 
-      {/*
-        The next legal action comes before the record, not after it. The owner opens an order to
-        decide or advance it; every fact below is what they check before pressing one of these.
-      */}
+      {notice !== null && (
+        <div className={styles.noticeRow}>
+          <Notice tone={noticeTone}>{t(NOTICE_KEYS[notice])}</Notice>
+        </div>
+      )}
+
       {(waiting || hasOperations) && (
         <OrderActionBand
           order={order}
@@ -476,93 +725,270 @@ export function AdminOrderDetailView({
         />
       )}
 
-      {/*
-        Where the parcel is, as four marks. Every reached stage is backed by a stored timestamp or a
-        stored status that could not be true without it; a stage with no recorded date shows the
-        label alone rather than a date nobody wrote.
-      */}
-      <section
-        className={`${styles.section} ${styles.panel}`}
-        aria-labelledby="order-progress"
-        data-order-progress=""
+      {/* ---- Products --------------------------------------------------- */}
+      <Section
+        id="order-products"
+        title={t('admin.order.productsTitle')}
+        aside={
+          <span className={styles.countPill} aria-label={t('admin.order.itemsCountLabel', { count: unitCount })}>
+            {unitCount === 1 ? t('admin.order.itemCountOne') : t('admin.order.itemCountMany', { count: unitCount })}
+          </span>
+        }
       >
-        <div className={styles.sectionHead}>
-          <div>
-            <h2 id="order-progress">{t('account.track.label')}</h2>
-          </div>
-          {/*
-            One status, and the COD exception folded in (owner direction, 2026-11-20). A failed delivery
-            leaves `status` at `shipped`, so this pill says "Delivery failed" rather than "Shipped" -
-            and because it now says that, the separate note under the track has nothing left to add.
-          */}
-          <StatusPill tone={status.tone}>{t(status.label)}</StatusPill>
-        </div>
-        <ol className={styles.progressTrack} data-state={progress.terminal ? 'closed' : undefined}>
-          {progress.stages.map((stage) => (
-            <li
-              className={styles.progressStep}
-              key={stage.key}
-              data-state={stage.state}
-              aria-current={stage.state === 'current' ? 'step' : undefined}
-            >
-              <span className={styles.progressMark} aria-hidden="true">
-                {stage.state === 'done' ? (
-                  <AdminIcon name="check" width={13} height={13} />
-                ) : (
-                  <span className={styles.progressDot} />
-                )}
+        {order.items.map((item) => {
+          const itemName = pick({ bn: item.nameBn, en: item.nameEn }) ?? item.nameEn;
+          /* A pack label that only repeats the product name says nothing; it is not drawn twice. */
+          const packLabel =
+            item.variantLabel !== null && item.variantLabel.trim() !== itemName.trim() ? item.variantLabel : null;
+          return (
+          <article className={styles.product} key={item.id} data-order-line="">
+            <div className={styles.productMedia}>
+              <ItemPhoto imageKey={item.imageKey} name={itemName} size="hero" />
+              <span className={styles.ownBadge}>
+                <AdminIcon name="box" />
+                {t('admin.order.ownProduct')}
               </span>
-              <span className={styles.progressLabel}>{t(stage.key)}</span>
-              <span className={styles.progressWhen}>
-                {stage.at === null ? '' : stageDate.format(new Date(stage.at))}
-              </span>
-            </li>
-          ))}
-        </ol>
-        {/*
-          The facts the track cannot state, on one line rather than in a second panel of their own.
-          Status is the pill in the head; confirmed, dispatched and delivered are the track's own
-          dates; what is left is how it is being paid, which method, how old it is, and the two
-          terminal timestamps the four stages do not carry.
-        */}
-        <dl className={styles.factStrip}>
-          <div>
-            <dt>{t('orders.method')}</dt>
-            <dd>{t(order.paymentMethod === 'cod' ? 'orders.method.cod' : 'orders.method.unknown')}</dd>
-          </div>
-          <div>
-            <dt>{t('admin.order.age')}</dt>
-            <dd>{ageText}</dd>
-          </div>
-          {order.completedAt !== null && (
-            <div>
-              <dt>{t('admin.order.completedAt')}</dt>
-              <dd>{dateTime.format(new Date(order.completedAt))}</dd>
             </div>
-          )}
-          {order.cancelledAt !== null && (
-            <div>
-              <dt>{t('admin.order.cancelledAt')}</dt>
-              <dd>{dateTime.format(new Date(order.cancelledAt))}</dd>
+            <div className={styles.productBody}>
+              <h3 className={styles.productName}>{itemName}</h3>
+              {packLabel !== null && <p className={styles.productVariant}>{packLabel}</p>}
+              <div className={styles.grid2}>
+                <ReadOnlyField label={t('admin.order.unitPrice')} prefix="Tk" value={taka(item.unitPriceMinor)} />
+                <ReadOnlyField label={t('admin.order.lineTotal')} prefix="Tk" value={taka(item.lineTotalMinor)} />
+              </div>
+              <ReadOnlyField label={t('admin.order.sku')} value={item.sku} />
+              <div className={styles.stepper}>
+                <button
+                  type="button"
+                  className={styles.stepperButton}
+                  disabled
+                  aria-label={t('admin.order.decreaseQuantity')}
+                >
+                  −
+                </button>
+                <output className={styles.stepperValue} aria-label={t('admin.order.quantity')}>
+                  {item.quantity}
+                </output>
+                <button
+                  type="button"
+                  className={styles.stepperButton}
+                  disabled
+                  aria-label={t('admin.order.increaseQuantity')}
+                >
+                  +
+                </button>
+              </div>
             </div>
-          )}
-        </dl>
-        {order.cancelledReason !== null && (
-          <p className={styles.note}>{t('admin.order.cancelledReason', { reason: order.cancelledReason })}</p>
+          </article>
+          );
+        })}
+        {canAddLine && (
+          <div className={styles.addLineBox}>
+            <h3 className={styles.addLineTitle}>{t('admin.order.addLineTitle')}</h3>
+            <p className={styles.helper}>{t('admin.order.addLineBody')}</p>
+            <form action={ORDER_ADD_LINE_PATH} method="post" className={styles.addLineForm}>
+              <input type="hidden" name="csrf" value={csrfToken} />
+              <input type="hidden" name="orderId" value={order.orderId} />
+              <input type="hidden" name="idempotencyKey" value={addLineKey} />
+              <div className={styles.field}>
+                <label className={styles.label} id="order-product-label" htmlFor="order-product">
+                  {t('admin.order.addLineProduct')}
+                </label>
+                <ReviewProductPicker
+                  products={pickableProducts}
+                  value={addedProductId}
+                  open={pickerOpen}
+                  onOpenChange={setPickerOpen}
+                  onChange={setAddedProductId}
+                  label={t('admin.order.addLinePickerLabel')}
+                  placeholder={t('admin.order.addLinePickerPlaceholder')}
+                  searchLabel={t('admin.order.addLineSearch')}
+                  emptyLabel={t('admin.order.addLinePickerEmpty')}
+                  closeLabel={t('admin.order.addLinePickerClose')}
+                  idPrefix="order-product"
+                  hint={t('admin.order.addLineHint')}
+                />
+              </div>
+              <div className={styles.grid2}>
+                <label className={styles.field}>
+                  <span className={styles.label}>{t('admin.order.addLineQuantity')}</span>
+                  <input
+                    className={styles.input}
+                    type="number"
+                    name="quantity"
+                    min={1}
+                    max={20}
+                    step={1}
+                    defaultValue={1}
+                    required
+                  />
+                </label>
+                <label className={styles.field}>
+                  <span className={styles.label}>{t('admin.order.addLineReason')}</span>
+                  <input
+                    className={styles.input}
+                    type="text"
+                    name="reason"
+                    maxLength={500}
+                    placeholder={t('admin.order.addLineReasonPlaceholder')}
+                  />
+                </label>
+              </div>
+              <SubmitButton
+                label={t('admin.order.addLineSubmit')}
+                pendingLabel={t('admin.common.working')}
+                disabled={addedProductId === null}
+              />
+            </form>
+          </div>
         )}
-      </section>
+        <p className={styles.helper}>{t('admin.order.quantityFixed')}</p>
+      </Section>
 
-      {/*
-        The courier record. A parcel is not a state of the order: this panel states what SteadFast
-        accepted and when its status was last read, and nothing here advances the order by itself.
-      */}
-      {(order.consignment !== null || sendable) && (
-        <section className={styles.section} aria-labelledby="order-steadfast">
-          <div className={styles.sectionHead}>
-            <div>
-              <h2 id="order-steadfast">{t('admin.order.steadfast.title')}</h2>
+      {/* ---- Order summary ---------------------------------------------- */}
+      <Section id="order-summary" title={t('admin.order.summaryTitle')}>
+        <div className={styles.summaryGrid}>
+        <div className={styles.band}>
+          <div className={styles.bandHead}>
+            <span className={`${styles.tile} ${styles.tileDiscount}`}>
+              <AdminIcon name="percent" />
+            </span>
+            {t('orders.discount')}
+          </div>
+          <div className={styles.grid2}>
+            <ReadOnlyField label={t('admin.order.percentage')} suffix="%" value={takaFormat.format(discountPercent)} />
+            <ReadOnlyField label={t('admin.order.amount')} prefix="Tk" value={taka(discountMinor)} />
+          </div>
+        </div>
+
+        <div className={styles.band}>
+          <div className={styles.bandHead}>
+            <span className={`${styles.tile} ${styles.tileItems}`}>
+              <AdminIcon name="receipt" />
+            </span>
+            {t('admin.order.itemsBand')}
+          </div>
+          <div className={styles.grid2}>
+            <ReadOnlyField label={t('admin.order.units')} value={String(unitCount)} />
+            <ReadOnlyField label={t('cart.subtotal')} prefix="Tk" value={taka(order.itemsSubtotalMinor)} />
+          </div>
+        </div>
+
+        <div className={styles.band}>
+          <div className={styles.bandHead}>
+            <span className={`${styles.tile} ${styles.tileDelivery}`}>
+              <AdminIcon name="truck" />
+            </span>
+            {t('admin.order.deliveryBand')}
+          </div>
+          <ReadOnlyField label={t('admin.order.zone')} value={deliveryZone ?? t('admin.order.notRecorded')} />
+          <ReadOnlyField
+            label={t('admin.order.charge')}
+            prefix="Tk"
+            value={order.contact.districtCode === null ? t('admin.order.notRecorded') : taka(order.shippingMinor)}
+          />
+        </div>
+
+        <div className={styles.band}>
+          <div className={styles.bandHead}>
+            <span className={`${styles.tile} ${styles.tilePayment}`}>
+              <AdminIcon name="check" />
+            </span>
+            {t('admin.order.paymentBand')}
+          </div>
+          <div className={styles.field}>
+            <span className={styles.label}>{t('admin.customers.status')}</span>
+            <div className={styles.stateRow}>
+              <strong>{t(order.paymentMethod === 'cod' ? 'orders.method.cod' : 'orders.method.unknown')}</strong>
+              <StatusPill tone={codTone(order.codState)}>{t(codLabel)}</StatusPill>
             </div>
-            {order.consignment !== null && (
+          </div>
+          <ReadOnlyField
+            label={t('admin.order.amountCollected')}
+            prefix="Tk"
+            value={collected ? taka(order.totalMinor) : taka(0)}
+          />
+        </div>
+        </div>
+
+        <div className={styles.totals}>
+          <div className={`${styles.totalBlock} ${styles.totalDue}`}>
+            <p className={styles.totalLabel}>{t('admin.order.amountDue')}</p>
+            <p className={styles.totalValue}>{price(amountDueMinor)}</p>
+          </div>
+          <div className={`${styles.totalBlock} ${styles.totalGrand}`}>
+            <p className={styles.totalLabel}>{t('admin.order.grandTotal')}</p>
+            <p className={styles.totalValue}>{price(order.totalMinor)}</p>
+          </div>
+        </div>
+        {order.contact.districtCode === null && (
+          <p className={styles.subNote}>{t('admin.order.legacyDeliveryNote')}</p>
+        )}
+      </Section>
+
+      {/* ---- Delivery information and the notes that were recorded ----- */}
+      <div className={styles.pairGrid}>
+      <Section
+        id="order-delivery"
+        title={t('admin.order.deliveryInfoTitle')}
+        aside={
+          order.consignment !== null ? (
+            <StatusPill tone="info">{order.consignment.status}</StatusPill>
+          ) : undefined
+        }
+      >
+        {order.consignment === null ? (
+          courierReady ? (
+            <>
+              <p className={styles.helper}>{t('admin.order.steadfast.notSent')}</p>
+              {sendable && canApprove && (
+                <form action="/api/qbpanel/orders/consignment" method="post" className={styles.courierActions}>
+                  <input type="hidden" name="csrf" value={csrfToken} />
+                  <input type="hidden" name="operation" value="send" />
+                  <input type="hidden" name="orderNumber" value={order.orderNumber} />
+                  <SubmitButton label={t('admin.order.steadfast.send')} pendingLabel={t('admin.common.working')} />
+                </form>
+              )}
+            </>
+          ) : (
+            <div className={styles.courierBox}>
+              <span className={styles.courierIcon}>
+                <AdminIcon name="truck" />
+              </span>
+              <h3>{t('admin.order.steadfast.offTitle')}</h3>
+              <p>{t('admin.order.steadfast.offBody')}</p>
+              <div className={styles.courierActions}>
+                <Link className={styles.button} href="/qbpanel/settings/integrations/steadfast">
+                  {t('admin.order.steadfast.openSettings')}
+                </Link>
+              </div>
+            </div>
+          )
+        ) : (
+          <>
+            <div className={styles.consignmentFacts}>
+              <div>
+                <span className={styles.factLabel}>{t('admin.order.steadfast.invoice')}</span>
+                <p className={`${styles.factValue} ${styles.mono}`}>{order.consignment.invoice}</p>
+              </div>
+              <div>
+                <span className={styles.factLabel}>{t('admin.order.steadfast.consignmentId')}</span>
+                <p className={`${styles.factValue} ${styles.mono}`}>{order.consignment.consignmentId}</p>
+              </div>
+              <div>
+                <span className={styles.factLabel}>{t('admin.order.steadfast.trackingCode')}</span>
+                <p className={`${styles.factValue} ${styles.mono}`}>{order.consignment.trackingCode}</p>
+              </div>
+              <div>
+                <span className={styles.factLabel}>{t('admin.order.steadfast.codAmount')}</span>
+                <p className={styles.factValue}>{price(order.consignment.codAmountMinor)}</p>
+              </div>
+              <div>
+                <span className={styles.factLabel}>{t('admin.order.steadfast.bookedAt')}</span>
+                <p className={styles.factValue}>{dateTime.format(new Date(order.consignment.createdAt))}</p>
+              </div>
+            </div>
+            <div className={styles.courierActions}>
               <form action="/api/qbpanel/orders/consignment" method="post">
                 <input type="hidden" name="csrf" value={csrfToken} />
                 <input type="hidden" name="operation" value="refresh" />
@@ -573,595 +999,562 @@ export function AdminOrderDetailView({
                   variant="secondary"
                 />
               </form>
-            )}
+            </div>
+            <p className={styles.helper}>
+              {order.consignment.statusCheckedAt === null
+                ? t('admin.order.steadfast.neverChecked')
+                : t('admin.order.steadfast.checkedAt', {
+                    time: dateTime.format(new Date(order.consignment.statusCheckedAt)),
+                  })}
+            </p>
+          </>
+        )}
+      </Section>
+
+      {/* ---- Order note: what was actually recorded --------------------- */}
+      <Section id="order-note" title={t('admin.order.noteTitle')}>
+        {order.contact.deliveryNote !== null && (
+          <div className={styles.noteQuote}>
+            <p className={styles.noteQuoteLabel}>
+              <span>{t('admin.order.noteCustomerLabel')}</span>
+              <span>{t('admin.order.noteFromCheckout')}</span>
+            </p>
+            <p className={styles.noteQuoteText}>{order.contact.deliveryNote}</p>
+          </div>
+        )}
+        {recordedNotes.map((event) => (
+          <div className={styles.noteQuote} key={event.id}>
+            <p className={styles.noteQuoteLabel}>
+              <span>
+                {EVENT_KEYS[event.eventType] === undefined ? event.eventType : t(EVENT_KEYS[event.eventType] as TranslationKey)}
+              </span>
+              <span>{dateTime.format(new Date(event.occurredAt))}</span>
+            </p>
+            <p className={styles.noteQuoteText}>{event.reason}</p>
+          </div>
+        ))}
+        {order.contact.deliveryNote === null && recordedNotes.length === 0 && (
+          <p className={styles.emptyBody}>{t('admin.order.noteEmpty')}</p>
+        )}
+        {order.cancelledReason !== null && (
+          <div className={styles.noteQuote}>
+            <p className={styles.noteQuoteLabel}>
+              <span>{t('admin.order.event.order_cancelled')}</span>
+              {order.cancelledAt !== null && (
+                <span>{dateTime.format(new Date(order.cancelledAt))}</span>
+              )}
+            </p>
+            <p className={styles.noteQuoteText}>{order.cancelledReason}</p>
+          </div>
+        )}
+        <p className={styles.helper}>{t('admin.order.noteHelper')}</p>
+      </Section>
+      </div>
+
+      {/* ---- Order information ------------------------------------------ */}
+      <Section id="order-info" title={t('admin.order.infoTitle')}>
+        <div className={styles.infoGrid}>
+          <div className={styles.infoFields}>
+            <ReadOnlyField
+              label={t('admin.order.methodLabel')}
+              value={t(order.paymentMethod === 'cod' ? 'orders.method.cod' : 'orders.method.unknown')}
+            />
+            <div className={styles.field}>
+              <span className={styles.label}>{t('admin.order.statusLabel')}</span>
+              <div className={styles.control}>
+                <output>{t(status.label)}</output>
+              </div>
+            </div>
           </div>
 
-          {order.consignment === null ? (
+          <ol className={styles.progressTrack} data-state={progress.terminal ? 'closed' : undefined}>
+          {progress.stages.map((stage) => (
+            <li
+              className={styles.progressStep}
+              key={stage.key}
+              data-state={stage.state}
+              aria-current={stage.state === 'current' ? 'step' : undefined}
+            >
+              <span className={styles.progressMark} aria-hidden="true">
+                {stage.state === 'done' ? <AdminIcon name="check" width={13} height={13} /> : <span className={styles.progressDot} />}
+              </span>
+              <span className={styles.progressLabel}>{t(stage.key)}</span>
+                <span className={styles.progressWhen}>{stage.at === null ? '' : stageDate.format(new Date(stage.at))}</span>
+              </li>
+            ))}
+          </ol>
+        </div>
+
+        <dl className={styles.factGrid}>
+          <div>
+            <dt className={styles.factLabel}>{t('admin.order.age')}</dt>
+            <dd className={styles.factValue}>{ageText}</dd>
+          </div>
+          {order.confirmedAt !== null && (
+            <div>
+              <dt className={styles.factLabel}>{t('admin.order.confirmedAt')}</dt>
+              <dd className={styles.factValue}>{dateTime.format(new Date(order.confirmedAt))}</dd>
+            </div>
+          )}
+          {order.completedAt !== null && (
+            <div>
+              <dt className={styles.factLabel}>{t('admin.order.completedAt')}</dt>
+              <dd className={styles.factValue}>{dateTime.format(new Date(order.completedAt))}</dd>
+            </div>
+          )}
+          {order.cancelledAt !== null && (
+            <div>
+              <dt className={styles.factLabel}>{t('admin.order.cancelledAt')}</dt>
+              <dd className={styles.factValue}>{dateTime.format(new Date(order.cancelledAt))}</dd>
+            </div>
+          )}
+        </dl>
+      </Section>
+
+      {/* ---- Customer --------------------------------------------------- */}
+      <Section
+        id="order-customer"
+        title={t('admin.order.customerTitle')}
+        aside={
+          order.customer.id !== null && canReadCustomers ? (
+            <Link className={styles.profileChip} href={`/qbpanel/customers/${order.customer.id}`}>
+              {t('admin.order.viewCustomer')}
+              <AdminIcon name="arrowUpRight" />
+            </Link>
+          ) : undefined
+        }
+      >
+        <div className={styles.customerTop}>
+          <span className={styles.avatar} aria-hidden="true">
+            {initialsOf(order.contact.recipientName)}
+          </span>
+          <div className={styles.customerMain}>
+            <div className={styles.customerHead}>
+              <div>
+                <p className={styles.customerName}>{order.contact.recipientName}</p>
+                <p className={styles.customerPhone}>{order.contact.recipientPhone}</p>
+              </div>
+            </div>
+            <div className={styles.chipRow}>
+              <a className={styles.chip} href={`tel:${order.contact.recipientPhone}`}>
+                <AdminIcon name="phone" />
+                {t('admin.order.call')}
+              </a>
+              {whatsappHref !== null && (
+                <a
+                  className={`${styles.chip} ${styles.chipWa}`}
+                  href={whatsappHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <AdminIcon name="message" />
+                  {t('admin.order.whatsapp')}
+                </a>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <p className={styles.overline}>{t('admin.order.contactDetails')}</p>
+        <div className={styles.contactFields}>
+          <ReadOnlyField label={t('admin.order.customerNameField')} value={order.contact.recipientName} icon="user" />
+          {order.customer.id !== null &&
+            (canReadCustomers ? (
+              <ReadOnlyField
+                label={t('admin.order.customerEmailField')}
+                value={order.customer.email ?? t('admin.order.noEmail')}
+                icon="mail"
+              />
+            ) : (
+              <p className={styles.helper}>{t('admin.order.customerPermission')}</p>
+            ))}
+          <ReadOnlyField label={t('admin.order.customerPhoneField')} value={order.contact.recipientPhone} icon="phone" />
+          <ReadOnlyField
+            label={t('admin.order.customerAddressField')}
+            value={deliveryAddressText(order.contact)}
+            icon="home"
+          />
+        </div>
+
+        <div className={styles.validity}>
+          <div className={styles.validityHead}>
+            <span className={`${styles.tile} ${styles.tileDelivery}`}>
+              <AdminIcon name="shield" />
+            </span>
+            <strong>{t('admin.order.validityTitle')}</strong>
+          </div>
+          {order.customer.id === null ? (
+            <p className={styles.emptyBody}>{t('admin.order.validityGuest')}</p>
+          ) : (
             <>
-              <p className={styles.note}>
-                {courierReady
-                  ? t('admin.order.steadfast.notSent')
-                  : t('admin.order.steadfast.notConfigured')}
-              </p>
-              <div className={styles.settingActions}>
-                {courierReady && canApprove && (
-                  <form action="/api/qbpanel/orders/consignment" method="post">
-                    <input type="hidden" name="csrf" value={csrfToken} />
-                    <input type="hidden" name="operation" value="send" />
-                    <input type="hidden" name="orderNumber" value={order.orderNumber} />
-                    <SubmitButton
-                      label={t('admin.order.steadfast.send')}
-                      pendingLabel={t('admin.common.working')}
-                    />
-                  </form>
+              <div className={styles.validityGrid}>
+                <div>
+                  <span className={styles.factLabel}>{t('admin.order.validityOrders')}</span>
+                  <p className={styles.factValue}>{order.customer.orderCount ?? 1}</p>
+                </div>
+                {order.customer.createdAt !== null && (
+                  <div>
+                    <span className={styles.factLabel}>{t('admin.customers.joined')}</span>
+                    <p className={styles.factValue}>{dayDate.format(new Date(order.customer.createdAt))}</p>
+                  </div>
                 )}
-                {!courierReady && (
-                  <Link className={styles.recordLink} href="/qbpanel/settings/integrations/steadfast">
-                    {t('admin.order.steadfast.openSettings')}
+                <div>
+                  <span className={styles.factLabel}>{t('admin.customers.status')}</span>
+                  <p className={styles.factValue}>
+                    <StatusPill tone={order.customer.status === 'active' ? 'success' : 'danger'}>
+                      {order.customer.status === 'active'
+                        ? t('admin.customers.active')
+                        : t('admin.customers.suspended')}
+                    </StatusPill>
+                  </p>
+                </div>
+              </div>
+              <div className={styles.validityRule} />
+              <div className={styles.validityFoot}>
+                <p>{t('admin.order.validityBody')}</p>
+                {canReadCustomers && (
+                  <Link className={`${styles.button} ${styles.buttonSecondary} ${styles.buttonSmall}`} href={`/qbpanel/customers/${order.customer.id}`}>
+                    {t('admin.order.validityManage')}
+                    <AdminIcon name="arrowUpRight" />
                   </Link>
                 )}
               </div>
             </>
-          ) : (
-            <>
-              <dl className={styles.moneyGrid}>
-                <div className={styles.moneyItem}>
-                  <dt className={styles.factLabel}>{t('admin.order.steadfast.invoice')}</dt>
-                  <dd className={styles.mono}>{order.consignment.invoice}</dd>
-                </div>
-                <div className={styles.moneyItem}>
-                  <dt className={styles.factLabel}>{t('admin.order.steadfast.consignmentId')}</dt>
-                  <dd className={styles.mono}>{order.consignment.consignmentId}</dd>
-                </div>
-                <div className={styles.moneyItem}>
-                  <dt className={styles.factLabel}>{t('admin.order.steadfast.trackingCode')}</dt>
-                  <dd className={styles.mono}>{order.consignment.trackingCode}</dd>
-                </div>
-                <div className={styles.moneyItem}>
-                  <dt className={styles.factLabel}>{t('admin.order.steadfast.status')}</dt>
-                  <dd className={styles.mono}>{order.consignment.status}</dd>
-                </div>
-                <div className={styles.moneyItem}>
-                  <dt className={styles.factLabel}>{t('admin.order.steadfast.codAmount')}</dt>
-                  <dd className={styles.recordPrice}>{price(order.consignment.codAmountMinor)}</dd>
-                </div>
-                <div className={styles.moneyItem}>
-                  <dt className={styles.factLabel}>{t('admin.order.steadfast.bookedAt')}</dt>
-                  <dd>{dateTime.format(new Date(order.consignment.createdAt))}</dd>
-                </div>
-              </dl>
-              <p className={styles.note}>
-                {order.consignment.statusCheckedAt === null
-                  ? t('admin.order.steadfast.neverChecked')
-                  : t('admin.order.steadfast.checkedAt', {
-                      time: dateTime.format(new Date(order.consignment.statusCheckedAt)),
-                    })}
-              </p>
-            </>
           )}
-        </section>
-      )}
+        </div>
+      </Section>
 
-      {/*
-        The money facts, kept separate on purpose. The customer's payment is gross; the standard
-        delivery fee inside it is what the courier keeps; additional costs are the shop's own; and the
-        net figure is an estimate, labelled as one, or "unavailable" when the order cannot substantiate
-        the split.
-      */}
-      <div className={styles.detailGrid}>
-        <div className={styles.section}>
-          <div className={styles.sectionHead}>
-            <div>
-              <h2>{t('admin.order.moneyTitle')}</h2>
-            </div>
+      {/* ---- The shop's own money, kept apart from the customer's invoice -- */}
+      <Section id="order-proceeds" title={t('admin.order.moneyTitle')} defaultOpen={false}>
+        <dl className={styles.moneyGrid}>
+          <div className={styles.moneyItem}>
+            <dt className={styles.moneyLabel}>{t('admin.order.moneyCustomerPayment')}</dt>
+            <dd className={styles.moneyValue}>{price(order.money.customerPaymentMinor)}</dd>
           </div>
-          <dl className={styles.moneyGrid}>
-            <div className={styles.moneyItem}>
-              <dt className={styles.factLabel}>{t('admin.order.moneyCustomerPayment')}</dt>
-              <dd className={styles.recordPrice}>{price(order.money.customerPaymentMinor)}</dd>
-            </div>
-            <div className={styles.moneyItem}>
-              <dt className={styles.factLabel}>{t('admin.order.moneyStandardFee')}</dt>
-              <dd className={styles.recordPrice}>{price(order.money.standardDeliveryFeeMinor)}</dd>
-            </div>
-            <div className={styles.moneyItem}>
-              <dt className={styles.factLabel}>{t('admin.order.moneyAdditionalCosts')}</dt>
-              <dd className={styles.recordPrice}>{price(order.money.additionalCostsMinor)}</dd>
-            </div>
-            <div className={styles.moneyItem}>
-              <dt className={styles.factLabel}>{t('admin.order.moneyNetEstimate')}</dt>
-              <dd className={styles.recordPrice}>
-                {order.money.estimatedNetProceedsMinor === null
-                  ? t('admin.order.moneyUnavailable')
-                  : price(order.money.estimatedNetProceedsMinor)}
-              </dd>
-            </div>
-          </dl>
-          {order.money.estimatedNetProceedsMinor === null && (
-            <p className={styles.note}>{t('admin.order.moneyUnsubstantiated')}</p>
-          )}
+          <div className={styles.moneyItem}>
+            <dt className={styles.moneyLabel}>{t('admin.order.moneyStandardFee')}</dt>
+            <dd className={styles.moneyValue}>{price(order.money.standardDeliveryFeeMinor)}</dd>
+          </div>
+          <div className={styles.moneyItem}>
+            <dt className={styles.moneyLabel}>{t('admin.order.moneyAdditionalCosts')}</dt>
+            <dd className={styles.moneyValue}>{price(order.money.additionalCostsMinor)}</dd>
+          </div>
+          <div className={styles.moneyItem}>
+            <dt className={styles.moneyLabel}>{t('admin.order.moneyNetEstimate')}</dt>
+            <dd className={styles.moneyValue}>
+              {order.money.estimatedNetProceedsMinor === null
+                ? t('admin.order.moneyUnavailable')
+                : price(order.money.estimatedNetProceedsMinor)}
+            </dd>
+          </div>
+        </dl>
+        {order.money.estimatedNetProceedsMinor === null && (
+          <p className={styles.helper}>{t('admin.order.moneyUnsubstantiated')}</p>
+        )}
+      </Section>
 
-          {/*
-            The payment screenshot belongs to this card, not to a section of its own (owner direction,
-            2026-11-20). It is a fact about the money, and "none was attached" used to occupy a whole
-            panel to state an absence. With no image the card states one quiet line and stops.
-          */}
-          <div className={styles.moneyProof}>
-            <div className={styles.sectionHead}>
-              <div>
-                <h3 className={styles.subTitle}>{t('admin.order.proofTitle')}</h3>
-              </div>
-              {order.paymentProof !== null && (
-                <StatusPill
-                  tone={
-                    order.paymentProof.reviewState === 'checked'
-                      ? 'success'
-                      : order.paymentProof.reviewState === 'rejected'
-                        ? 'danger'
-                        : 'warning'
-                  }
-                >
+      {/* ---- Payment screenshot ----------------------------------------- */}
+      {order.paymentProof !== null && (
+        <Section
+          id="order-proof"
+          title={t('admin.order.proofTitle')}
+          aside={
+            <StatusPill
+              tone={
+                order.paymentProof.reviewState === 'checked'
+                  ? 'success'
+                  : order.paymentProof.reviewState === 'rejected'
+                    ? 'danger'
+                    : 'warning'
+              }
+            >
+              {order.paymentProof.reviewState === 'checked'
+                ? t('admin.order.proofStateChecked')
+                : order.paymentProof.reviewState === 'rejected'
+                  ? t('admin.order.proofStateRejected')
+                  : t('admin.order.proofStatePending')}
+            </StatusPill>
+          }
+        >
+          <div className={styles.proofGrid}>
+            <a
+              className={styles.proofLink}
+              href={`/api/qbpanel/orders/${encodeURIComponent(order.orderNumber)}/proof`}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <img
+                className={styles.proofImage}
+                src={`/api/qbpanel/orders/${encodeURIComponent(order.orderNumber)}/proof`}
+                alt={t('admin.order.proofAlt')}
+                width={order.paymentProof.width}
+                height={order.paymentProof.height}
+              />
+            </a>
+            <div>
+              <p className={styles.helper}>
+                {t('admin.order.proofUploadedAt', {
+                  time: dateTime.format(new Date(order.paymentProof.uploadedAt)),
+                })}
+              </p>
+              <p className={styles.helper}>{t('admin.order.proofOpenFull')}</p>
+              {order.paymentProof.reviewedAt !== null && (
+                <p className={styles.helper}>
                   {order.paymentProof.reviewState === 'checked'
-                    ? t('admin.order.proofStateChecked')
-                    : order.paymentProof.reviewState === 'rejected'
-                      ? t('admin.order.proofStateRejected')
-                      : t('admin.order.proofStatePending')}
-                </StatusPill>
+                    ? t('admin.order.proofCheckedAt', {
+                        time: dateTime.format(new Date(order.paymentProof.reviewedAt)),
+                      })
+                    : t('admin.order.proofRejectedAt', {
+                        time: dateTime.format(new Date(order.paymentProof.reviewedAt)),
+                      })}
+                </p>
+              )}
+              {order.paymentProof.reviewNote !== null && (
+                <p className={styles.noteQuoteText}>{order.paymentProof.reviewNote}</p>
               )}
             </div>
+          </div>
 
-            {order.paymentProof === null ? (
-              <p className={styles.note}>{t('admin.order.proofEmpty')}</p>
-            ) : (
-              <>
-                <a
-                  className={styles.proofLink}
-                  href={`/api/qbpanel/orders/${encodeURIComponent(order.orderNumber)}/proof`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    className={styles.proofImage}
-                    src={`/api/qbpanel/orders/${encodeURIComponent(order.orderNumber)}/proof`}
-                    alt={t('admin.order.proofAlt')}
-                    width={order.paymentProof.width}
-                    height={order.paymentProof.height}
+          {canReviewProof && (
+            <form action={ORDER_PROOF_REVIEW_PATH} method="post" className={styles.proofForm}>
+              <input type="hidden" name="csrf" value={csrfToken} />
+              <input type="hidden" name="orderNumber" value={order.orderNumber} />
+              <fieldset className={styles.proofChoices}>
+                <legend className={styles.label}>{t('admin.order.proofDecision')}</legend>
+                <label className={styles.proofChoice}>
+                  <input
+                    type="radio"
+                    name="decision"
+                    value="checked"
+                    defaultChecked={order.paymentProof.reviewState !== 'rejected'}
                   />
-                </a>
-                <p className={styles.note}>
-                  {t('admin.order.proofUploadedAt', {
-                    time: dateTime.format(new Date(order.paymentProof.uploadedAt)),
-                  })}
-                  {' - '}
-                  {t('admin.order.proofOpenFull')}
-                </p>
-                {order.paymentProof.reviewedAt !== null && (
-                  <p className={styles.note}>
-                    {order.paymentProof.reviewState === 'checked'
-                      ? t('admin.order.proofCheckedAt', {
-                          time: dateTime.format(new Date(order.paymentProof.reviewedAt)),
-                        })
-                      : t('admin.order.proofRejectedAt', {
-                          time: dateTime.format(new Date(order.paymentProof.reviewedAt)),
-                        })}
-                  </p>
-                )}
-                {order.paymentProof.reviewNote !== null && (
-                  <p className={styles.note}>{order.paymentProof.reviewNote}</p>
-                )}
-
-                {canReviewProof && (
-                  <form action={ORDER_PROOF_REVIEW_PATH} method="post" className={styles.proofForm}>
-                    <input type="hidden" name="csrf" value={csrfToken} />
-                    <input type="hidden" name="orderNumber" value={order.orderNumber} />
-                    <fieldset className={styles.proofChoices}>
-                      <legend className={styles.factLabel}>{t('admin.order.proofDecision')}</legend>
-                      <label className={styles.proofChoice}>
-                        <input
-                          type="radio"
-                          name="decision"
-                          value="checked"
-                          defaultChecked={order.paymentProof.reviewState !== 'rejected'}
-                        />
-                        <span>{t('admin.order.proofChecked')}</span>
-                      </label>
-                      <label className={styles.proofChoice}>
-                        <input
-                          type="radio"
-                          name="decision"
-                          value="rejected"
-                          defaultChecked={order.paymentProof.reviewState === 'rejected'}
-                        />
-                        <span>{t('admin.order.proofRejected')}</span>
-                      </label>
-                    </fieldset>
-                    <label className={styles.factLabel} htmlFor="proof-note">
-                      {t('admin.order.proofNote')}
-                    </label>
-                    <input
-                      id="proof-note"
-                      name="note"
-                      className={styles.input}
-                      maxLength={500}
-                      defaultValue={order.paymentProof.reviewNote ?? ''}
-                    />
-                    <p className={styles.note}>{t('admin.order.proofHint')}</p>
-                    <div className={styles.proofActions}>
-                      <SubmitButton
-                        label={t('admin.order.proofSave')}
-                        pendingLabel={t('admin.common.working')}
-                      />
-                    </div>
-                  </form>
-                )}
-              </>
-            )}
-          </div>
-        </div>
-
-        <div className={styles.section}>
-          <div className={styles.sectionHead}>
-            <div>
-              <h2>{t('admin.order.costsTitle')}</h2>
-            </div>
-          </div>
-          {order.costs.length === 0 ? (
-            <p className={styles.note}>{t('admin.order.costsEmpty')}</p>
-          ) : (
-            <ul className={styles.recordList}>
-              {order.costs.map((cost) => (
-                <li className={styles.record} key={cost.id}>
-                  <div className={styles.recordMain}>
-                    <span className={styles.recordTitle}>{cost.description}</span>
-                    <span className={styles.recordMeta}>
-                      <span>{dateTime.format(new Date(cost.recordedAt))}</span>
-                      {cost.voidedAt !== null && (
-                        <span>
-                          {t('admin.order.costVoided', { reason: cost.voidReason ?? '' })}
-                        </span>
-                      )}
-                    </span>
-                  </div>
-                  <div className={styles.recordSide}>
-                    <span
-                      className={
-                        cost.voidedAt === null ? styles.recordPrice : `${styles.recordPrice} ${styles.recordVoided}`
-                      }
-                    >
-                      {price(cost.amountMinor)}
-                    </span>
-                    {cost.voidedAt === null && canRecordCosts && (
-                      <form action={ORDER_COST_PATH} method="post" className={styles.costVoidForm}>
-                        <input type="hidden" name="csrf" value={csrfToken} />
-                        <input type="hidden" name="operation" value="void" />
-                        <input type="hidden" name="orderId" value={order.orderId} />
-                        <input type="hidden" name="costId" value={cost.id} />
-                        <details className={styles.noteDetails}>
-                          <summary>{t('admin.order.costVoid')}</summary>
-                          <label className="sr-only" htmlFor={`void-reason-${cost.id}`}>
-                            {t('admin.order.costVoidReason')}
-                          </label>
-                          <input
-                            id={`void-reason-${cost.id}`}
-                            name="reason"
-                            className={styles.input}
-                            maxLength={200}
-                          />
-                          <SubmitButton
-                            label={t('admin.order.costVoidConfirm')}
-                            pendingLabel={t('admin.common.working')}
-                            variant="secondary"
-                          />
-                        </details>
-                      </form>
-                    )}
-                  </div>
-                </li>
-              ))}
-            </ul>
+                  <span>{t('admin.order.proofChecked')}</span>
+                </label>
+                <label className={styles.proofChoice}>
+                  <input
+                    type="radio"
+                    name="decision"
+                    value="rejected"
+                    defaultChecked={order.paymentProof.reviewState === 'rejected'}
+                  />
+                  <span>{t('admin.order.proofRejected')}</span>
+                </label>
+              </fieldset>
+              <label className={styles.label} htmlFor="proof-note">
+                {t('admin.order.proofNote')}
+              </label>
+              <input
+                id="proof-note"
+                name="note"
+                className={styles.input}
+                maxLength={500}
+                defaultValue={order.paymentProof.reviewNote ?? ''}
+              />
+              <p className={styles.helper}>{t('admin.order.proofHint')}</p>
+              <div className={styles.proofActions}>
+                <SubmitButton label={t('admin.order.proofSave')} pendingLabel={t('admin.common.working')} />
+              </div>
+            </form>
           )}
-        </div>
-      </div>
+        </Section>
+      )}
 
-      <div className={styles.detailGrid}>
-        <div className={styles.section}>
-          <div className={styles.sectionHead}>
-            <div>
-              <h2>{t('admin.order.itemsTitle')}</h2>
-            </div>
-          </div>
-          <ul className={styles.lineList}>
-            {order.items.map((item) => (
-              <li className={styles.lineCard} key={item.id} data-order-line="">
-                {/*
-                  The recorded photograph, first in the row (owner direction, 2026-11-19). It stays the
-                  immutable placement snapshot; a line that stored none keeps the same reserved frame so
-                  every name in the list still starts in the same column.
-                */}
-                <ItemPhoto imageKey={item.imageKey} name={pick({ bn: item.nameBn, en: item.nameEn }) ?? item.nameEn} />
-                <div className={styles.lineBody}>
-                  <span className={styles.lineName}>{pick({ bn: item.nameBn, en: item.nameEn }) ?? item.nameEn}</span>
-                  {item.variantLabel !== null && <span className={styles.lineVariant}>{item.variantLabel}</span>}
-                  <span className={styles.lineMeta}>
-                    <span className={styles.mono}>{item.sku}</span>
-                    <span>
-                      {price(item.unitPriceMinor)} × {item.quantity}
-                    </span>
+      {/* ---- Additional courier costs ------------------------------------ */}
+      {order.costs.length > 0 && (
+        <Section id="order-costs" title={t('admin.order.costsTitle')}>
+          <ul className={styles.recordList}>
+            {order.costs.map((cost) => (
+              <li className={styles.record} key={cost.id}>
+                <div className={styles.recordMain}>
+                  <span className={styles.recordTitle}>{cost.description}</span>
+                  <span className={styles.recordMeta}>
+                    <span>{dateTime.format(new Date(cost.recordedAt))}</span>
+                    {cost.voidedAt !== null && <span>{t('admin.order.costVoided', { reason: cost.voidReason ?? '' })}</span>}
                   </span>
                 </div>
-                <div className={styles.lineTotal}>
-                  <span className={styles.lineTotalValue}>{price(item.lineTotalMinor)}</span>
+                <div className={styles.recordSide}>
+                  <span className={cost.voidedAt === null ? styles.recordPrice : `${styles.recordPrice} ${styles.recordVoided}`}>
+                    {price(cost.amountMinor)}
+                  </span>
+                  {cost.voidedAt === null && canRecordCosts && (
+                    <form action={ORDER_COST_PATH} method="post" className={styles.costVoidForm}>
+                      <input type="hidden" name="csrf" value={csrfToken} />
+                      <input type="hidden" name="operation" value="void" />
+                      <input type="hidden" name="orderId" value={order.orderId} />
+                      <input type="hidden" name="costId" value={cost.id} />
+                      <details className={styles.noteDetails}>
+                        <summary>{t('admin.order.costVoid')}</summary>
+                        <label className="sr-only" htmlFor={`void-reason-${cost.id}`}>
+                          {t('admin.order.costVoidReason')}
+                        </label>
+                        <input id={`void-reason-${cost.id}`} name="reason" className={styles.input} maxLength={200} />
+                        <SubmitButton
+                          label={t('admin.order.costVoidConfirm')}
+                          pendingLabel={t('admin.common.working')}
+                          variant="secondary"
+                        />
+                      </details>
+                    </form>
+                  )}
                 </div>
               </li>
             ))}
           </ul>
+        </Section>
+      )}
 
-          <dl className={styles.orderTotals}>
-            <div>
-              <dt>{t('cart.subtotal')}</dt>
-              <dd>{price(order.itemsSubtotalMinor)}</dd>
-            </div>
-            {orderDiscountMinor(order.itemsSubtotalMinor, order.shippingMinor, order.totalMinor) > 0 && (
-              <div>
-                <dt>{t('orders.discount')}</dt>
-                <dd>
-                  −{price(orderDiscountMinor(order.itemsSubtotalMinor, order.shippingMinor, order.totalMinor))}
-                </dd>
-              </div>
-            )}
-            <div>
-              <dt>{t('cart.delivery')}</dt>
-              <dd>{order.contact.districtCode === null ? t('orders.deliveryPending') : price(order.shippingMinor)}</dd>
-            </div>
-            <div className={styles.orderTotalRow}>
-              <dt>{t('admin.cod.total')}</dt>
-              <dd className={styles.orderTotal}>{price(order.totalMinor)}</dd>
-            </div>
-          </dl>
-          {order.contact.districtCode === null && <p className={styles.note}>{t('admin.order.legacyDeliveryNote')}</p>}
+      {/* ---- Returned goods --------------------------------------------- */}
+      {order.returns.length > 0 && (
+        <Section id="order-returns" title={t('admin.order.returnsTitle')}>
+          <ul className={styles.recordList}>
+            {order.returns.map((entry) => (
+              <li className={styles.record} key={entry.id}>
+                <div className={styles.recordMain}>
+                  <span className={styles.recordTitle}>
+                    {pick({ bn: entry.nameBn, en: entry.nameEn }) ?? entry.nameEn}
+                  </span>
+                  <span className={styles.recordMeta}>
+                    <span className={styles.mono}>{entry.sku}</span>
+                    <span>{t('admin.order.returnQuantity', { count: entry.quantity })}</span>
+                    <StatusPill tone={returnTone(entry.state)}>
+                      {RETURN_STATE_KEYS[entry.state] === undefined
+                        ? entry.state
+                        : t(RETURN_STATE_KEYS[entry.state] as TranslationKey)}
+                    </StatusPill>
+                  </span>
+                  {entry.receivedAt !== null && (
+                    <span className={styles.recordMeta}>
+                      {t('admin.order.returnReceivedAt', { time: dateTime.format(new Date(entry.receivedAt)) })}
+                    </span>
+                  )}
+                  {entry.inspectedAt !== null && (
+                    <span className={styles.recordMeta}>
+                      {t('admin.order.returnInspectedAt', { time: dateTime.format(new Date(entry.inspectedAt)) })}
+                    </span>
+                  )}
+                  {entry.inspectionNote !== null && (
+                    <span className={styles.recordMeta}>{t('admin.order.returnNote', { note: entry.inspectionNote })}</span>
+                  )}
 
-          {order.returns.length > 0 && (
-            <>
-              <div className={styles.sectionHead}>
-                <div>
-                  <h2>{t('admin.order.returnsTitle')}</h2>
-                </div>
-              </div>
-              <ul className={styles.recordList}>
-                {order.returns.map((entry) => (
-                  <li className={styles.record} key={entry.id}>
-                    <div className={styles.recordMain}>
-                      <span className={styles.recordTitle}>
-                        {pick({ bn: entry.nameBn, en: entry.nameEn }) ?? entry.nameEn}
-                      </span>
-                      <span className={styles.recordMeta}>
-                        <span className={styles.mono}>{entry.sku}</span>
-                        <span>
-                          {t('admin.order.returnQuantity', { count: entry.quantity })}
-                        </span>
-                        <StatusPill tone={returnTone(entry.state)}>
-                          {RETURN_STATE_KEYS[entry.state] === undefined
-                            ? entry.state
-                            : t(RETURN_STATE_KEYS[entry.state] as TranslationKey)}
-                        </StatusPill>
-                      </span>
-                      {entry.receivedAt !== null && (
-                        <span className={styles.recordMeta}>
-                          {t('admin.order.returnReceivedAt', { time: dateTime.format(new Date(entry.receivedAt)) })}
-                        </span>
-                      )}
-                      {entry.inspectedAt !== null && (
-                        <span className={styles.recordMeta}>
-                          {t('admin.order.returnInspectedAt', { time: dateTime.format(new Date(entry.inspectedAt)) })}
-                        </span>
-                      )}
-                      {entry.inspectionNote !== null && (
-                        <span className={styles.recordMeta}>{t('admin.order.returnNote', { note: entry.inspectionNote })}</span>
-                      )}
-
-                      {entry.state === 'received' && (
-                        <div className={styles.orderActions}>
-                          <form action={ORDER_TRANSITION_PATH} method="post" className={styles.approveForm}>
-                            <input type="hidden" name="csrf" value={csrfToken} />
-                            <input type="hidden" name="action" value="inspect_accepted" />
-                            <input type="hidden" name="returnId" value={entry.id} />
-                            <details className={styles.noteDetails}>
-                              <summary>{t('admin.order.inspectAcceptedSummary')}</summary>
-                              <label className="sr-only" htmlFor={'accept-note-' + entry.id}>
-                                {t('admin.order.inspectAcceptedNote')}
-                              </label>
-                              <textarea
-                                id={'accept-note-' + entry.id}
-                                name="note"
-                                className={styles.textarea}
-                                rows={2}
-                                maxLength={300}
-                              />
-                            </details>
-                            <SubmitButton
-                              label={t('admin.order.inspectAccepted')}
-                              pendingLabel={t('admin.common.working')}
-                              variant="secondary"
-                              small
-                              disabled={!canInspect}
-                            />
-                          </form>
-                          {canInspect ? (
-                            <ConfirmSubmit
-                              action={ORDER_TRANSITION_PATH}
-                              csrfToken={csrfToken}
-                              fields={{ returnId: entry.id, action: 'inspect_rejected' }}
-                              triggerLabel={t('admin.order.inspectRejected')}
-                              title={t('admin.order.inspectRejectedTitle')}
-                              body={t('admin.order.inspectRejectedBody')}
-                              confirmLabel={t('admin.order.inspectRejectedConfirm')}
-                              cancelLabel={t('admin.common.cancel')}
-                              pendingLabel={t('admin.common.working')}
-                              reason={{
-                                label: t('admin.order.inspectRejectedNote'),
-                                placeholder: t('admin.order.inspectRejectedPlaceholder'),
-                                minLength: 3,
-                                maxLength: 300,
-                                required: true,
-                              }}
-                            />
-                          ) : null}
-                        </div>
-                      )}
+                  {entry.state === 'received' && (
+                    <div className={styles.approveForm}>
+                      <form action={ORDER_TRANSITION_PATH} method="post" className={styles.approveForm}>
+                        <input type="hidden" name="csrf" value={csrfToken} />
+                        <input type="hidden" name="action" value="inspect_accepted" />
+                        <input type="hidden" name="returnId" value={entry.id} />
+                        <details className={styles.noteDetails}>
+                          <summary>{t('admin.order.inspectAcceptedSummary')}</summary>
+                          <label className="sr-only" htmlFor={'accept-note-' + entry.id}>
+                            {t('admin.order.inspectAcceptedNote')}
+                          </label>
+                          <textarea id={'accept-note-' + entry.id} name="note" className={styles.input} rows={2} maxLength={300} />
+                        </details>
+                        <SubmitButton
+                          label={t('admin.order.inspectAccepted')}
+                          pendingLabel={t('admin.common.working')}
+                          variant="secondary"
+                          small
+                          disabled={!canInspect}
+                        />
+                      </form>
+                      {canInspect ? (
+                        <ConfirmSubmit
+                          action={ORDER_TRANSITION_PATH}
+                          csrfToken={csrfToken}
+                          fields={{ returnId: entry.id, action: 'inspect_rejected' }}
+                          triggerLabel={t('admin.order.inspectRejected')}
+                          title={t('admin.order.inspectRejectedTitle')}
+                          body={t('admin.order.inspectRejectedBody')}
+                          confirmLabel={t('admin.order.inspectRejectedConfirm')}
+                          cancelLabel={t('admin.common.cancel')}
+                          pendingLabel={t('admin.common.working')}
+                          reason={{
+                            label: t('admin.order.inspectRejectedNote'),
+                            placeholder: t('admin.order.inspectRejectedPlaceholder'),
+                            minLength: 3,
+                            maxLength: 300,
+                            required: true,
+                          }}
+                        />
+                      ) : null}
                     </div>
+                  )}
+                </div>
+              </li>
+            ))}
+          </ul>
+          <p className={styles.helper}>{t('admin.order.returnsStockNote')}</p>
+        </Section>
+      )}
+
+      {/* ---- History ---------------------------------------------------- */}
+      <Section id="order-history" title={t('admin.order.historyTitle')}>
+        {order.events.length === 0 ? (
+          <div className={styles.emptyState}>
+            <h3 className={styles.emptyTitle}>{t('admin.order.noHistoryTitle')}</h3>
+            <p className={styles.emptyBody}>{t('admin.order.noHistoryBody')}</p>
+          </div>
+        ) : (
+          <ul className={styles.dividerList}>
+            {order.events.map((event) => (
+              <li className={styles.dividerItem} key={event.id}>
+                <span className={styles.recordTitle}>
+                  {EVENT_KEYS[event.eventType] === undefined ? (
+                    <span className={styles.mono}>{event.eventType}</span>
+                  ) : (
+                    t(EVENT_KEYS[event.eventType] as TranslationKey)
+                  )}{' '}
+                  <span className={styles.tag}>{t(ACTOR_KEYS[event.actorType] ?? 'admin.order.actor.unknown')}</span>
+                </span>
+                <span className={styles.recordMeta}>
+                  {dateTime.format(new Date(event.occurredAt))}
+                  {event.toValue === null ? '' : ' - ' + event.toValue}
+                </span>
+                {event.reason !== null && <span className={styles.recordMeta}>{event.reason}</span>}
+              </li>
+            ))}
+          </ul>
+        )}
+
+        {!canReadAudit || order.audit === null ? (
+          <p className={styles.helper}>{t('admin.order.auditPermission')}</p>
+        ) : (
+          <details className={styles.trailDetails}>
+            <summary>
+              <h3>{t('admin.order.auditTitle')}</h3>
+              <span className={styles.trailCount}>{order.audit.length}</span>
+            </summary>
+            {order.audit.length === 0 ? (
+              <div className={styles.emptyState}>
+                <h3 className={styles.emptyTitle}>{t('admin.order.noAuditTitle')}</h3>
+                <p className={styles.emptyBody}>{t('admin.order.noAuditBody')}</p>
+              </div>
+            ) : (
+              <ul className={styles.dividerList}>
+                {order.audit.map((entry) => (
+                  <li className={styles.dividerItem} key={entry.id}>
+                    <span className={styles.recordTitle}>
+                      <span className={styles.tag}>{entry.action}</span>{' '}
+                      {entry.actorType === 'system'
+                        ? t('admin.audit.system')
+                        : t('admin.order.actor.staff') + ' #' + (entry.actorStaffId ?? '-')}
+                    </span>
+                    <span className={styles.recordMeta}>
+                      {dateTime.format(new Date(entry.occurredAt))}
+                      {entry.actorRoleCodes.length > 0 ? ' - ' + entry.actorRoleCodes.join(', ') : ''}
+                    </span>
+                    {entry.reason !== null && <span className={styles.recordMeta}>{entry.reason}</span>}
                   </li>
                 ))}
               </ul>
-              <p className={styles.note}>{t('admin.order.returnsStockNote')}</p>
-            </>
-          )}
-        </div>
-
-
-        <aside className={styles.section}>
-          {/*
-            Where the parcel goes - the owner reads it while on the phone, so it sits beside the
-            customer rather than under the line list.
-          */}
-          <div className={styles.panel}>
-            <h2 className={styles.panelTitle}>{t('admin.order.deliveryTitle')}</h2>
-            <p className={styles.orderName}>{order.contact.recipientName}</p>
-            <a className={styles.orderPhone} href={'tel:' + order.contact.recipientPhone}>
-              {order.contact.recipientPhone}
-            </a>
-            <p className={styles.orderAddress}>{deliveryAddressText(order.contact)}</p>
-            {order.contact.deliveryNote !== null && (
-              <p className={styles.note}>{t('admin.order.deliveryNote', { note: order.contact.deliveryNote })}</p>
             )}
-          </div>
-
-          <div className={styles.panel}>
-            <h2 className={styles.panelTitle}>{t('admin.order.customerTitle')}</h2>
-            {order.customer.id === null ? (
-              <p className={styles.factValue}>{t('admin.order.guestCustomer')}</p>
-            ) : (
-              <>
-                <p className={styles.factValue}>
-                  {order.customer.displayName ?? t('admin.order.customerUnnamed')}
-                </p>
-                {canReadCustomers && order.customer.email !== null ? (
-                  <p className={styles.note}>{order.customer.email}</p>
-                ) : (
-                  <p className={styles.note}>{t('admin.order.customerPermission')}</p>
-                )}
-                <div className={styles.factGrid}>
-                  <div className={styles.fact}>
-                    <span className={styles.factLabel}>{t('admin.customers.status')}</span>
-                    <span>
-                      <StatusPill tone={order.customer.status === 'active' ? 'success' : 'danger'}>
-                        {order.customer.status === 'active'
-                          ? t('admin.customers.active')
-                          : t('admin.customers.suspended')}
-                      </StatusPill>
-                    </span>
-                  </div>
-                </div>
-                {canReadCustomers && (
-                  <Link
-                    className={styles.button + ' ' + styles.buttonSecondary + ' ' + styles.buttonSmall}
-                    href={'/qbpanel/customers/' + order.customer.id}
-                  >
-                    {t('admin.order.viewCustomer')}
-                  </Link>
-                )}
-              </>
-            )}
-          </div>
-        </aside>
-
-        {/*
-          What happened to it: its own card rather than another band under the line list (owner
-          direction, 2026-11-20). The audit trail folds shut - it is the same events with actor ids
-          attached, and the owner opens it to check one thing, not to read it on arrival.
-        */}
-        <div className={`${styles.section} ${styles.detailWide}`}>
-          <div className={styles.sectionHead}>
-            <div>
-              <h2>{t('admin.order.historyTitle')}</h2>
-            </div>
-          </div>
-          {order.events.length === 0 ? (
-            <EmptyState title={t('admin.order.noHistoryTitle')} body={t('admin.order.noHistoryBody')} icon="clock" />
-          ) : (
-            <ul className={styles.dividerList}>
-              {order.events.map((event) => (
-                <li className={styles.dividerItem} key={event.id}>
-                  <span className={styles.recordTitle}>
-                    {EVENT_KEYS[event.eventType] === undefined ? (
-                      <span className={styles.mono}>{event.eventType}</span>
-                    ) : (
-                      t(EVENT_KEYS[event.eventType] as TranslationKey)
-                    )}{' '}
-                    <span className={styles.tag}>{t(ACTOR_KEYS[event.actorType] ?? 'admin.order.actor.unknown')}</span>
-                  </span>
-                  <span className={styles.recordMeta}>
-                    {dateTime.format(new Date(event.occurredAt))}
-                    {event.toValue === null ? '' : ' - ' + event.toValue}
-                  </span>
-                  {event.reason !== null && <span className={styles.recordMeta}>{event.reason}</span>}
-                </li>
-              ))}
-            </ul>
-          )}
-
-          {!canReadAudit || order.audit === null ? (
-            <p className={styles.note}>{t('admin.order.auditPermission')}</p>
-          ) : (
-            <details className={styles.trailDetails}>
-              <summary>
-                <h2>{t('admin.order.auditTitle')}</h2>
-                <span className={styles.trailCount}>{order.audit.length}</span>
-              </summary>
-              {order.audit.length === 0 ? (
-                <EmptyState title={t('admin.order.noAuditTitle')} body={t('admin.order.noAuditBody')} icon="audit" />
-              ) : (
-                <ul className={styles.dividerList}>
-                  {order.audit.map((entry) => (
-                    <li className={styles.dividerItem} key={entry.id}>
-                      <span className={styles.recordTitle}>
-                        <span className={styles.tag}>{entry.action}</span>{' '}
-                        {entry.actorType === 'system'
-                          ? t('admin.audit.system')
-                          : t('admin.order.actor.staff') + ' #' + (entry.actorStaffId ?? '-')}
-                      </span>
-                      <span className={styles.recordMeta}>
-                        {dateTime.format(new Date(entry.occurredAt))}
-                        {entry.actorRoleCodes.length > 0 ? ' - ' + entry.actorRoleCodes.join(', ') : ''}
-                      </span>
-                      {entry.reason !== null && <span className={styles.recordMeta}>{entry.reason}</span>}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </details>
-          )}
-        </div>
-      </div>
-    </>
+          </details>
+        )}
+      </Section>
+    </div>
   );
 }
 
-/**
- * The order's next legal action, mounted directly under the page header.
- *
- * The owner opens an order to act on it: decide it, dispatch it, record the cash. The record below is
- * what they check before acting, so it reads second. Two rules keep this honest:
- *
- * - **Only a legal step is offered.** Every form is the same guarded route the rest of the admin uses,
- *   and the service re-checks the order's state and the actor's permission. This band is presentation.
- * - **No empty panel.** The parent renders it only when `waiting || hasOperations`, and
- *   `hasOperations` is derived from the transitions that actually render, not from permissions - a
- *   settled order has nothing to do and says so by showing no band at all.
- *
- * Return inspection keeps its controls beside the returned line in the record: inspecting one line
- * belongs to that line, not to the order as a whole.
- */
 type OrderActionBandProps = {
   order: AdminOrderDetailModel;
   csrfToken: string;
@@ -1180,6 +1573,14 @@ type OrderActionBandProps = {
   canRecordCosts: boolean;
 };
 
+/**
+ * The order's next legal action, directly under the order card.
+ *
+ * Only a legal step is offered. Every form is the same guarded route the rest of the admin uses, and
+ * the service re-checks the order's state and the actor's permission. The band is drawn only when
+ * `waiting || hasOperations`, so a settled order shows nothing rather than an empty panel promising
+ * work that does not exist.
+ */
 function OrderActionBand({
   order,
   csrfToken,
@@ -1213,22 +1614,17 @@ function OrderActionBand({
 
   return (
     <section className={styles.actionBand} aria-labelledby="order-action-title">
-      {/*
-        The head is one line (owner direction, 2026-11-20): the title, the total it applies to, and the
-        single sentence of instruction. It used to be a three-line paragraph plus a figure, which cost
-        45px of a band whose whole job is a note field and two buttons.
-      */}
       <div className={styles.actionBandHead}>
         <h2 className={styles.actionBandTitle} id="order-action-title">
           {waiting ? t('admin.order.decisionTitle') : t('admin.order.operationsTitle')}
         </h2>
-        <p className={styles.actionBandBody}>
-          {waiting ? t('admin.order.decisionBody') : t('admin.order.operationsBody')}
-        </p>
         <div className={styles.actionBandTotal}>
           <span className={styles.factLabel}>{t('admin.cod.total')}</span>
           <span className={styles.recordPrice}>{price(order.totalMinor)}</span>
         </div>
+        <p className={styles.actionBandBody}>
+          {waiting ? t('admin.order.decisionBody') : t('admin.order.operationsBody')}
+        </p>
       </div>
 
       <div className={styles.actionGrid}>
@@ -1243,12 +1639,6 @@ function OrderActionBand({
               <input type="hidden" name="csrf" value={csrfToken} />
               <input type="hidden" name="orderId" value={order.orderId} />
               <input type="hidden" name="decision" value="approve" />
-              {/*
-                The note is one field in the row, not a summary stacked above one. The band is where the
-                owner is about to press Accept, so the field they will type in is visible, labelled, and
-                on the same line as the button it belongs to - a `<details open>` cost 25px of summary
-                above an input that was always shown anyway.
-              */}
               <label className={styles.actionNoteLabel} htmlFor="order-approve-reason">
                 {t('admin.cod.approveReason')}
               </label>
@@ -1280,13 +1670,12 @@ function OrderActionBand({
                 confirmLabel={t('admin.cod.rejectConfirm')}
                 cancelLabel={t('admin.common.cancel')}
                 pendingLabel={t('admin.common.working')}
-                className={styles.approveForm + ' ' + styles.actionConfirmEnd}
+                className={styles.actionConfirmEnd}
                 reason={{
                   label: t('admin.cod.rejectReason'),
                   placeholder: t('admin.cod.rejectReasonPlaceholder'),
                   minLength: 10,
                   maxLength: 500,
-                  /** Optional (owner direction, 2026-11-19); see `CodOrderCard`. */
                   required: false,
                 }}
               />
@@ -1338,43 +1727,19 @@ function OrderActionBand({
             )}
 
             {receivable && (
-              <form
-                action={ORDER_TRANSITION_PATH}
-                method="post"
-                className={styles.approveForm + ' ' + styles.actionFormWide}
-              >
+              <form action={ORDER_TRANSITION_PATH} method="post" className={styles.approveForm}>
                 <input type="hidden" name="csrf" value={csrfToken} />
                 <input type="hidden" name="action" value="paid" />
                 <input type="hidden" name="orderId" value={order.orderId} />
-                {/*
-                  One line of instruction, then the fields. The paragraph that explained the accounting
-                  rule and the paragraph that explained the optional cost were both under controls the
-                  owner had already decided to use; the rule now lives in the label and the docs, and
-                  the band keeps the one sentence that changes what they press.
-                */}
-                <p className={styles.note}>{t('admin.order.paidBody')}</p>
+                <p className={styles.helper}>{t('admin.order.paidBody')}</p>
                 <label className={styles.actionNoteLabel} htmlFor="collect-note">
                   {t('admin.order.paidNote')}
                 </label>
                 <input id="collect-note" name="note" className={styles.input} maxLength={300} />
 
-                {/*
-                  Additional costs are recorded with the receipt, in the same submission and the same
-                  transaction. Two blank rows are offered rather than one required row: no cost is a
-                  perfectly normal answer, and the owner is never made to invent one to complete. The
-                  fieldset is one line of legend plus two one-line rows, so it cannot cost more height
-                  than the fields it holds.
-                */}
                 {canRecordCosts && (
                   <fieldset className={styles.costEntry}>
                     <legend className={styles.costLegend}>{t('admin.order.costsEntryTitle')}</legend>
-                    {/*
-                      Both costs on one line: amount, description, amount, description. They are
-                      independent facts, so two rows of four fields was four rows of scale-height
-                      controls stacked for no reason - the second pair sat under a visible gap that read
-                      as a separate step. Two rows remain the shape of the data (see the server: the
-                      pairs are positional), and each row is still its own amount/description pair.
-                    */}
                     {[0, 1].map((index) => (
                       <div key={index} className={styles.costRow}>
                         <label className="sr-only" htmlFor={`cost-amount-${index}`}>
@@ -1458,7 +1823,7 @@ function OrderActionBand({
                 confirmLabel={t('admin.order.failedConfirm')}
                 cancelLabel={t('admin.common.cancel')}
                 pendingLabel={t('admin.common.working')}
-                className={styles.approveForm + ' ' + styles.actionConfirmEnd}
+                className={styles.actionConfirmEnd}
                 reason={{
                   label: t('admin.order.failedReason'),
                   placeholder: t('admin.order.failedReasonPlaceholder'),
@@ -1480,12 +1845,7 @@ function OrderActionBand({
                 confirmLabel={t('admin.order.cancelConfirm')}
                 cancelLabel={t('admin.common.cancel')}
                 pendingLabel={t('admin.common.working')}
-                /*
-                 * The destructive partner ends on the same line as the primary action beside it.
-                 * Without this it sat at the top of the grid row, level with the note field, while
-                 * "Mark dispatched" sat below the field - the buttons read as two unrelated rows.
-                 */
-                className={styles.approveForm + ' ' + styles.actionConfirmEnd}
+                className={styles.actionConfirmEnd}
                 reason={{
                   label: t('admin.order.cancelReason'),
                   placeholder: t('admin.order.cancelReasonPlaceholder'),
@@ -1501,4 +1861,3 @@ function OrderActionBand({
     </section>
   );
 }
-

@@ -87,6 +87,10 @@ export type AdminOrderDetail = {
   readonly customerEmail: string | null;
   readonly customerDisplayName: string | null;
   readonly customerStatus: string | null;
+  /** When the account was created, or `null` for a guest. Read only when the viewer may read customers. */
+  readonly customerCreatedAt: Date | null;
+  /** Orders the account has placed, this one included. `null` on a guest order. */
+  readonly customerOrderCount: number | null;
   readonly contact: {
     readonly recipientName: string;
     readonly recipientPhone: string;
@@ -171,6 +175,7 @@ export async function adminOrderDetail(
       customerEmail: customer.email,
       customerDisplayName: customer.displayName,
       customerStatus: customer.status,
+      customerCreatedAt: customer.createdAt,
       recipientName: orderContact.recipientName,
       recipientPhone: orderContact.recipientPhone,
       addressLine: orderContact.addressLine,
@@ -235,6 +240,22 @@ export async function adminOrderDetail(
     .orderBy(customerReturn.id);
 
   const costs = await listAdditionalCosts(tx, row.orderId);
+
+  /**
+   * How many orders this account has placed, this one included.
+   *
+   * A count of the order rows the viewer may already read behind `order.read`; it invents nothing about
+   * the customer's behaviour. A guest has no account, so the figure is `null` rather than `0`.
+   */
+  const customerOrderCount =
+    row.customerId === null
+      ? null
+      : (
+          await tx
+            .select({ count: sql<number>`count(*)::int` })
+            .from(order)
+            .where(sql`${order.customerId} = ${row.customerId}`)
+        )[0]?.count ?? 0;
 
   const proofRows = await tx
     .select({
@@ -304,6 +325,8 @@ export async function adminOrderDetail(
     customerEmail: row.customerEmail,
     customerDisplayName: row.customerDisplayName,
     customerStatus: row.customerStatus,
+    customerCreatedAt: row.customerCreatedAt,
+    customerOrderCount,
     contact: {
       recipientName: row.recipientName,
       recipientPhone: row.recipientPhone,
@@ -320,6 +343,59 @@ export async function adminOrderDetail(
     paymentProof: paymentProofRow,
     money,
     events,
+  };
+}
+
+/**
+ * Where one order sits in the full history, and its two neighbours.
+ *
+ * The history list is newest first (`placed_at` desc, `id` desc), so "previous" is the order placed
+ * after this one and "next" the one before it - the same order a reader gets by walking the list. The
+ * position is derived from the rows themselves, exactly as the list derives its own total, so a pager
+ * can never disagree with the count above it.
+ */
+export type AdminOrderNeighbours = {
+  /** 1-based position in the newest-first list. */
+  readonly position: number;
+  readonly total: number;
+  /** The order placed after this one, or `null` at the newest end. */
+  readonly newer: string | null;
+  /** The order placed before this one, or `null` at the oldest end. */
+  readonly older: string | null;
+};
+
+export async function adminOrderNeighbours(
+  tx: Transaction,
+  orderId: number,
+): Promise<AdminOrderNeighbours> {
+  /*
+    One window pass over the whole history, rather than comparisons on the anchor's timestamp: a JS
+    `Date` carries milliseconds while the column carries microseconds, so "greater than the anchor"
+    matched the anchor itself and the pager reported the wrong position. Ranking the rows avoids
+    comparing anything that was rounded on the way in.
+  */
+  const rows = (await tx.execute(sql`
+    with ranked as (
+      select
+        o.id,
+        row_number() over w as position,
+        lag(o.order_number) over w as newer,
+        lead(o.order_number) over w as older
+      from "order" o
+      window w as (order by o.placed_at desc, o.id desc)
+    )
+    select r.position, r.newer, r.older, (select count(*)::int from "order") as total
+    from ranked r
+    where r.id = ${orderId}
+    limit 1
+  `)) as unknown as { rows: { position: number; newer: string | null; older: string | null; total: number }[] };
+
+  const row = rows.rows[0];
+  return {
+    position: Number(row?.position ?? 1),
+    total: Number(row?.total ?? 1),
+    newer: row?.newer ?? null,
+    older: row?.older ?? null,
   };
 }
 

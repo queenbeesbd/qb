@@ -983,10 +983,10 @@ Both are guarded by `WHERE state = 'held'` and are therefore idempotent (13.10.6
 | `status` | text | NOT NULL | Fulfilment: `pending` \| `confirmed` \| `processing` \| `shipped` \| `delivered` \| `completed` \| `cancelled` \| `returned`. Default `pending` |
 | `payment_state` | text | NOT NULL | Money: `awaiting_payment` \| `awaiting_verification` \| `verified` \| `rejected` \| `falsely_claimed` \| `expired` \| `not_applicable` (COD only) |
 | `cod_state` | text | NOT NULL | `not_applicable` \| `cod_pending_approval` \| `cod_approved` \| `cod_collected` \| `cod_failed` \| `cod_reconciled`. **The four approved D9 COD state names are used verbatim.** `cod_reconciled` is the one addition, required by D9's rule that cash reconciliation is a separate state from collection (11.6); it renames nothing |
-| `items_subtotal_minor` | integer | NOT NULL | Sum of frozen line totals. `CHECK (>= 0)` |
+| `items_subtotal_minor` | integer | NOT NULL | Sum of line totals. `CHECK (>= 0)`. Frozen except for the one guarded pre-dispatch append in ADR 0046 |
 | `discount_minor` | integer | NOT NULL | Default `0`. Integer poisha taken off by a promotion code (Phase 38, ADR 0021). `CHECK (discount_minor >= 0 and discount_minor <= items_subtotal_minor)`; **immutable after insert** - the immutability trigger covers it. Orders placed before Phase 38 carry `0` |
 | `shipping_minor` | integer | NOT NULL | Default `0`. `CHECK (>= 0)`. **The historical delivery-charge snapshot** required by **ADR 0014 decision 10**: once written it is never recomputed, so a later settings change cannot alter an old order. Since Phase 19 it is resolved server-side from the active area override or the required default; pre-Phase-19 orders retain `0` |
-| `total_minor` | integer | NOT NULL | `CHECK (total_minor = items_subtotal_minor - discount_minor + shipping_minor)` - the authoritative charged amount |
+| `total_minor` | integer | NOT NULL | `CHECK (total_minor = items_subtotal_minor - discount_minor + shipping_minor)` - the authoritative charged amount. **Frozen except by ADR 0046**: the guard trigger allows a positive, equal-money change to this column and `items_subtotal_minor` only while the transaction-scoped `qb.order_amendment` flag is on |
 | `placed_at` | timestamptz | NOT NULL | `now()`. **The expiry clock would start here if expiry were scheduled** |
 | `expires_at` | timestamptz | NULL | `placed_at + 24 hours`; NULL once a claim exists or the order is resolved. **Unused at launch (ADR 0014): the expiry timer is deferred and no scheduler is added.** Phase 15 still sets it; nothing reads it, and **no writer may target an order that has a submitted claim** |
 | `confirmed_at` / `shipped_at` / `delivered_at` / `completed_at` | timestamptz | NULL | Fulfilment timestamps |
@@ -1028,7 +1028,8 @@ queue); `(status, placed_at DESC)`; partial `(expires_at) WHERE expires_at IS NO
 server layer on every request - never by trusting the URL - plus the guest receipt, which matches
 `customer_id is null` by order number alone (ADR 0024). Staff read with `order.read`. Write:
 state transitions only, each through its own guarded statement with a named permission
-(section 12 of `docs/security.md`). `total_minor` and `payment_method` are immutable after insert.
+(section 12 of `docs/security.md`). `total_minor` and `payment_method` are immutable after insert,
+except for ADR 0046's one flagged pre-dispatch line append, which is owner-only and audited.
 
 **`customer_id` is immutable after insert, with one exception (ADR 0032).** A guest order
 (`customer_id is null`) may be linked to exactly one account, once, by `claimGuestOrder`
@@ -1078,7 +1079,9 @@ customer's address is a second place to leak it. Deferred deliberately.
 ### 7.3 `order_item` (immutable snapshot)
 
 **Why it exists.** Prices change and products are renamed. An order must be able to explain what was
-bought, at what price, forever.
+bought, at what price, forever. A line is therefore still frozen against UPDATE and DELETE. ADR 0046
+adds one narrow INSERT path: before dispatch, the owner may append a new line on a customer's phone
+request. The old lines never change, and the new line records its own snapshot and actor.
 
 | Column | Type | Null | Notes |
 | --- | --- | --- | --- |

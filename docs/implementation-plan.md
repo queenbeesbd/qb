@@ -2047,3 +2047,42 @@ check could see it. *Prerequisites:* a local database and a served build; script
 does **not** authorize deployment, provisioning or a new dependency. *Acceptance:* `verify:browser` and
 `verify:storefront` run green against a seeded real catalog of 1,000+ products and an empty order table,
 seeding and cleaning their own fixtures, with no assertion weakened or deleted.
+
+---
+
+## Phase 61 - add a product to an order before dispatch (2026-11-21)
+
+**The report.** The owner supplied a mobile reference order screen and asked for pixel-level parity.
+In the reference, Products carries **Add More Product**. The business reason is ordinary: a customer
+places an order and then calls to say "I need this one too". The old rules sealed every order at
+placement, so the owner could only start a second order and explain two parcels. The owner explicitly
+authorized the change to the standing rules where the feature required it.
+
+**Implemented.** The order detail is recomposed as the reference's card stack (order strip, pager,
+order card, next step, Products, Order Summary, Delivery Information, Order note, Order Information,
+Customer, history), in the shop's lavender/ink palette; on desktop the same record uses a 1000px
+ledger layout with horizontal product lines, a 2×2 invoice and paired cards. Every field-looking
+control is a read-only record, never a fake form. **ADR 0046** records the new decision: before
+dispatch an owner may append one product to an order. `0037_order_line_additions` adds the
+`order_line_added` event type, the owner-only `order.amend` permission and grants, and narrows the
+`order` immutability trigger to a transaction-scoped flag with equal positive deltas on the subtotal
+and total. The service locks the row, prices the live in-stock variant on the server, freezes the new
+line's snapshot, and writes the line, totals, event and audit row in one transaction. The form uses the
+same recognition picker as the review composer, with its own ids and hidden `productId`, and carries
+an idempotency UUID so a double submit records one addition.
+
+**Verification:** `typecheck`, `lint` (0 errors on changed files), `check:i18n`, `build`,
+`db:check`, `db:validate`, `db:migrate` (38/38 applied locally), `tests/db/order-amend.test.ts`
+3/3, and an HTTP walk-through on a served build: the addition moved 140000/148000 to 205000/213000,
+the replay wrote no second line, the generic-amount UPDATE was refused by the trigger even with the
+flag set, and a completed order answered `conflict`.
+
+### The next step
+
+**Phase 46 remains the recommendation: put the rendered-behaviour suites back on the real catalogue.**
+*Why:* this phase changed both the register of an admin page and the money rules behind it, which is
+exactly what a browser suite should prove end to end. *Prerequisites:* a local database and a served
+build; scripts and fixtures only. It does **not** authorize deployment, provisioning or a new
+dependency. *Acceptance:* `verify:browser` and `verify:storefront` run green against a seeded real
+catalog of 1,000+ products and an empty order table, seeding and cleaning their own fixtures, with no
+assertion weakened or deleted.

@@ -1,0 +1,2023 @@
+/*
+ * One order, at the counter.
+ *
+ * The composition follows the reference the owner supplied (2026-11-21): a narrow, phone-shaped stack
+ * of white cards on the panel's lavender canvas, an order strip with the number and its print actions,
+ * a pager, then Products, Order Summary, Delivery, Notes, Order Information and the Customer - each a
+ * card with a collapsing head. The reference's own violet is replaced by the shop's palette: the filled
+ * field is the owner's lavender with ink on it, money figures use the display face, and the semantic
+ * pairs carry status. No third accent colour is introduced.
+ *
+ * This page is a read of immutable rows. Every control that looks like a field is `readOnly`, and the
+ * only things that write are the explicit action forms, which post to the same guarded endpoints as
+ * before. A record that looked editable would be a lie about the order.
+ *
+ * Card geometry is tighter than the rest of the panel on purpose: this is a single record read on a
+ * phone between customers, so 16px cards with 12px inner bands keep the whole invoice in one scroll.
+ */
+
+.frame {
+  width: 100%;
+  max-width: 420px;
+  /* A grid item defaults to its min-content width, which let the strip's title push the page wide. */
+  min-width: 0;
+  margin-inline: auto;
+  display: grid;
+  gap: 10px;
+}
+
+/* ---- Order strip and pager ---------------------------------------------- */
+
+.frame > * {
+  min-width: 0;
+}
+
+.strip {
+  background: var(--admin-surface);
+  border: 1px solid var(--admin-line);
+  border-radius: var(--admin-radius-card);
+  box-shadow: var(--admin-shadow-card);
+  overflow: hidden;
+}
+
+.orderBar {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 9px 10px;
+}
+
+.iconButton {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: var(--admin-control);
+  height: var(--admin-control);
+  padding: 0;
+  border: 1px solid var(--admin-line);
+  border-radius: var(--admin-radius-control);
+  background: var(--admin-surface);
+  color: var(--admin-muted);
+  cursor: pointer;
+  transition: background 150ms var(--ease-out-ui), color 150ms var(--ease-out-ui);
+}
+
+.iconButton:hover {
+  background: var(--admin-lavender-soft);
+  color: var(--admin-ink);
+}
+
+.iconButton:focus-visible {
+  outline: 2px solid var(--admin-lavender-deep);
+  outline-offset: 2px;
+}
+
+.orderBarTitle {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  color: var(--admin-ink);
+  font-family: var(--font-display);
+  font-size: var(--text-md);
+  font-weight: 700;
+  letter-spacing: -0.012em;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.barActions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* The print split control: the primary action on the left, its menu on the right. */
+.splitWrap {
+  position: relative;
+}
+
+.split {
+  position: relative;
+  display: flex;
+  overflow: hidden;
+  border: 1px solid var(--admin-lavender-deep);
+  border-radius: var(--admin-radius-control);
+  background: var(--color-button);
+}
+
+.splitMain,
+.splitToggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: var(--admin-control);
+  border: 0;
+  background: var(--color-button);
+  color: var(--color-button-ink);
+  cursor: pointer;
+}
+
+.splitMain {
+  width: 34px;
+  padding: 0;
+  text-decoration: none;
+}
+
+.splitToggle {
+  width: 28px;
+  padding: 0;
+  border-left: 1px solid color-mix(in srgb, var(--admin-lavender-deep) 35%, transparent);
+}
+
+.splitMain:hover,
+.splitToggle:hover {
+  background: var(--color-button-hover);
+}
+
+.splitMain:focus-visible,
+.splitToggle:focus-visible {
+  outline: 2px solid var(--admin-ink);
+  outline-offset: -3px;
+}
+
+.splitMain svg {
+  width: 17px;
+  height: 17px;
+}
+
+.splitToggle svg {
+  width: 14px;
+  height: 14px;
+}
+
+.splitMenu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 60;
+  min-width: 214px;
+  padding: 6px;
+  border: 1px solid var(--admin-line);
+  border-radius: var(--admin-radius-control);
+  background: var(--admin-surface);
+  box-shadow: var(--admin-shadow-pop);
+}
+
+.splitMenu a {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: var(--admin-control-sm);
+  padding: 8px 10px;
+  border-radius: var(--admin-radius-sm);
+  color: var(--admin-ink);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.splitMenu a:hover {
+  background: var(--admin-surface-soft);
+}
+
+/* A full-page invisible tap target behind the menu: one click closes what one click opened. */
+.menuScrim {
+  position: fixed;
+  inset: 0;
+  z-index: 55;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: default;
+}
+
+.pager {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px;
+  border-top: 1px solid var(--admin-line);
+}
+
+.pagerButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  height: var(--admin-control-sm);
+  padding: 0 11px 0 7px;
+  border: 1px solid var(--admin-line);
+  border-radius: var(--admin-radius-sm);
+  background: var(--admin-surface);
+  color: var(--admin-ink);
+  font-size: 11.5px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.pagerButton svg {
+  width: 15px;
+  height: 15px;
+  color: var(--admin-muted);
+}
+
+.pagerButton:hover {
+  background: var(--admin-surface-soft);
+  border-color: var(--admin-line-strong);
+}
+
+.pagerButton:focus-visible {
+  outline: 2px solid var(--admin-lavender-deep);
+  outline-offset: 2px;
+}
+
+/* The next arrow sits after its label; the previous one before it, as the reference draws them. */
+.pagerNext {
+  flex-direction: row-reverse;
+  padding: 0 7px 0 11px;
+}
+
+.pagerOff {
+  opacity: 0.42;
+  pointer-events: none;
+}
+
+.pagerCount {
+  color: var(--admin-muted);
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.pagerCount b {
+  color: var(--admin-ink);
+  font-weight: 600;
+}
+
+/* ---- Cards and collapsing sections ------------------------------------- */
+
+.card {
+  background: var(--admin-surface);
+  border: 1px solid var(--admin-line);
+  border-radius: var(--admin-radius-card);
+  box-shadow: var(--admin-shadow-card);
+}
+
+.summaryCard {
+  padding: 16px;
+}
+
+.cardHead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 13px 16px;
+}
+
+.cardTitle,
+.headTitle {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  color: var(--admin-ink);
+  font-size: 14.5px;
+  font-weight: 700;
+  letter-spacing: -0.014em;
+}
+
+.headAside {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.countPill {
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 8px;
+  border: 1px solid var(--admin-line);
+  border-radius: 999px;
+  background: var(--admin-surface-soft);
+  color: var(--admin-muted);
+  font-size: 10.5px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.chevron {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: var(--admin-control-sm);
+  height: var(--admin-control-sm);
+  margin-right: -4px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--admin-radius-sm);
+  background: transparent;
+  color: var(--admin-muted);
+  cursor: pointer;
+  /* Open points up, closed points down - the reference's own disclosure direction. */
+  transform: rotate(180deg);
+  transition: background 150ms var(--ease-out-ui), transform 220ms var(--ease-out-ui);
+}
+
+.chevron svg {
+  width: 17px;
+  height: 17px;
+  stroke-width: 1.9;
+}
+
+.chevron:hover {
+  background: var(--admin-lavender-soft);
+  color: var(--admin-ink);
+}
+
+.chevron:focus-visible {
+  outline: 2px solid var(--admin-lavender-deep);
+  outline-offset: 2px;
+}
+
+.chevron[data-open='false'] {
+  transform: rotate(0deg);
+}
+
+.sectionBody {
+  padding: 0 16px 16px;
+}
+
+.sectionBody[hidden] {
+  display: none;
+}
+
+/*
+ * The disclosure's motion, borrowed from the reference: the row animates from 1fr to 0fr, and a
+ * clipped inner box keeps the padding from leaving a strip behind when it is shut. `inert` (set in the
+ * view) is what keeps a closed section out of the tab order, so the motion never strands a control.
+ */
+.collapse {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition: grid-template-rows 200ms var(--ease-out-ui);
+}
+
+.collapse[data-open='false'] {
+  grid-template-rows: 0fr;
+}
+
+.collapseClip {
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* ---- The order card ----------------------------------------------------- */
+
+.orderTitleRow {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 9px;
+  margin: 0;
+  color: var(--admin-ink);
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.026em;
+  line-height: 1.2;
+}
+
+.orderId {
+  display: flex;
+  gap: 4px;
+  margin: 5px 0 0;
+  color: var(--admin-subtle);
+  font-size: 10.5px;
+}
+
+.orderId b {
+  color: var(--admin-muted);
+  font-weight: 500;
+}
+
+.placedLine {
+  margin: 2px 0 0;
+  color: var(--admin-subtle);
+  font-size: 10.5px;
+}
+
+.rule {
+  height: 1px;
+  margin: 12px 0;
+  border: 0;
+  background: var(--admin-line);
+}
+
+.receiptBox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 6px 6px 6px 9px;
+  border: 1px solid var(--admin-line);
+  border-radius: var(--admin-radius-control);
+  background: var(--admin-surface-soft);
+}
+
+.receiptBox > svg {
+  flex: none;
+  width: 15px;
+  height: 15px;
+  color: var(--admin-lavender-deep);
+}
+
+.receiptLink {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--admin-lavender-deep);
+  font-size: 11.5px;
+  font-weight: 500;
+  text-decoration: none;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.receiptLink:hover {
+  text-decoration: underline;
+}
+
+.copyButton {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: var(--admin-control-sm);
+  height: var(--admin-control-sm);
+  padding: 0;
+  border: 0;
+  border-radius: var(--admin-radius-sm);
+  background: transparent;
+  color: var(--admin-subtle);
+  cursor: pointer;
+}
+
+.copyButton svg {
+  width: 15px;
+  height: 15px;
+}
+
+.copyButton:hover {
+  background: var(--admin-lavender-soft);
+  color: var(--admin-ink);
+}
+
+.copyButton:focus-visible {
+  outline: 2px solid var(--admin-lavender-deep);
+  outline-offset: 2px;
+}
+
+.copied {
+  flex: none;
+  color: var(--color-success);
+  font-size: 10.5px;
+  font-weight: 600;
+}
+
+/* ---- Products ----------------------------------------------------------- */
+
+.product {
+  overflow: hidden;
+  border: 1px solid var(--admin-line);
+  border-radius: var(--admin-radius-control);
+  background: var(--admin-surface);
+}
+
+.product + .product {
+  margin-top: 10px;
+}
+
+.productMedia {
+  position: relative;
+  background: var(--admin-surface-soft);
+}
+
+.ownBadge {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 23px;
+  padding: 0 8px 0 6px;
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.86);
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
+  box-shadow: 0 1px 3px rgba(32, 26, 41, 0.14);
+  color: var(--admin-muted);
+  font-size: 9.5px;
+  font-weight: 600;
+}
+
+.ownBadge svg {
+  width: 12px;
+  height: 12px;
+}
+
+.productBody {
+  padding: 12px;
+}
+
+.productName {
+  margin: 0 0 10px;
+  color: var(--admin-ink);
+  font-size: 13.5px;
+  font-weight: 600;
+  letter-spacing: -0.012em;
+  line-height: 1.35;
+}
+
+.productVariant {
+  margin: -6px 0 10px;
+  color: var(--admin-subtle);
+  font-size: 11px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+
+.field + .field,
+.grid2 + .field {
+  margin-top: 9px;
+}
+
+.label {
+  color: var(--admin-subtle);
+  font-size: 10.5px;
+  font-weight: 500;
+}
+
+.control {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.control input,
+.control select,
+.control output {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  height: var(--admin-control);
+  padding: 0 10px;
+  border: 1px solid var(--admin-line-strong);
+  border-radius: var(--admin-radius-sm);
+  background: var(--admin-surface);
+  color: var(--admin-ink);
+  font-size: var(--text-sm);
+  font-weight: 500;
+}
+
+/* A recorded value is never editable: a filled but quiet field, not a form waiting for a keypress. */
+.control input[readOnly] {
+  background: var(--admin-surface-soft);
+  color: var(--admin-muted);
+  cursor: default;
+}
+
+.control output {
+  min-height: var(--admin-control);
+  line-height: 1.35;
+  white-space: normal;
+}
+
+.control .prefix,
+.control .suffix {
+  position: absolute;
+  z-index: 1;
+  color: var(--admin-subtle);
+  font-size: 11px;
+  font-weight: 500;
+  pointer-events: none;
+}
+
+.control .prefix {
+  left: 10px;
+}
+
+.control .suffix {
+  right: 10px;
+  font-size: 12px;
+}
+
+.hasPrefix input,
+.hasPrefix output {
+  padding-left: 34px;
+}
+
+.hasSuffix input,
+.hasSuffix output {
+  padding-right: 24px;
+}
+
+.hasLead input,
+.hasLead select,
+.hasLead output {
+  padding-left: 33px;
+}
+
+.leadIcon {
+  position: absolute;
+  left: 10px;
+  z-index: 1;
+  width: 16px;
+  height: 16px;
+  color: var(--admin-muted);
+  pointer-events: none;
+}
+
+.grid2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.grid2 .field + .field {
+  margin-top: 0;
+}
+
+/* The quantity is a record, not a control: the stepper shows the bought number and cannot move it. */
+.stepper {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 118px;
+  height: var(--admin-control-sm);
+  margin: 12px auto 0;
+  padding: 0 2px;
+  border: 1px solid var(--admin-line-strong);
+  border-radius: var(--admin-radius-sm);
+  background: var(--admin-surface);
+}
+
+.stepperButton {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--admin-subtle);
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.stepperValue {
+  width: 34px;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--admin-ink);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+/*
+ * ADR 0046: adding a product is a distinct band inside Products, not a button that quietly edits an
+ * old line. The picker is the same recognition control the review composer uses, with its own ids.
+ */
+.addLineBox {
+  margin-top: 14px;
+  padding: 14px;
+  border: 1px solid var(--admin-line-strong);
+  border-radius: var(--admin-radius-control);
+  background: var(--admin-surface-soft);
+}
+
+.addLineTitle {
+  margin: 0;
+  color: var(--admin-ink);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.addLineForm {
+  display: grid;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.addLineForm .field {
+  min-width: 0;
+}
+
+.addLineForm .input {
+  background: var(--admin-surface);
+}
+
+/* ---- Order summary ------------------------------------------------------ */
+
+.band {
+  padding: 11px 12px;
+  border: 1px solid var(--admin-line);
+  border-radius: var(--admin-radius-control);
+  background: var(--admin-surface);
+}
+
+.band + .band {
+  margin-top: 9px;
+}
+
+.bandHead {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 9px;
+  color: var(--admin-ink);
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.tile {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 7px;
+}
+
+.tile svg {
+  width: 14px;
+  height: 14px;
+  stroke-width: 1.9;
+}
+
+.tileDiscount {
+  background: var(--color-warning-soft);
+  color: var(--color-warning);
+}
+
+.tileItems {
+  background: var(--admin-surface-sunken);
+  color: var(--admin-muted);
+}
+
+.tileDelivery {
+  background: var(--admin-lavender-soft);
+  color: var(--admin-lavender-deep);
+}
+
+.tilePayment {
+  background: var(--color-success-soft);
+  color: var(--color-success);
+}
+
+.stateRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: var(--admin-control);
+  padding: 0 10px;
+  border: 1px solid var(--admin-line-strong);
+  border-radius: var(--admin-radius-sm);
+  background: var(--admin-surface-soft);
+}
+
+.stateRow strong {
+  color: var(--admin-ink);
+  font-size: var(--text-sm);
+  font-weight: 500;
+}
+
+.totals {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  margin-top: 13px;
+  padding-top: 13px;
+  border-top: 1px solid var(--admin-line);
+}
+
+.totalBlock {
+  padding: 11px 13px;
+  border: 1px solid;
+  border-radius: var(--admin-radius-control);
+}
+
+.totalLabel {
+  margin: 0 0 1px;
+  font-size: 10.5px;
+  font-weight: 600;
+}
+
+.totalValue {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 23px;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.028em;
+  font-variant-numeric: tabular-nums;
+}
+
+.totalDue {
+  border-color: color-mix(in srgb, var(--color-danger) 30%, var(--admin-line));
+  background: var(--color-danger-soft);
+}
+
+.totalDue .totalLabel,
+.totalDue .totalValue {
+  color: var(--color-danger);
+}
+
+.totalGrand {
+  border-color: var(--admin-line-strong);
+  background: var(--admin-lavender-soft);
+}
+
+.totalGrand .totalLabel {
+  color: var(--admin-muted);
+}
+
+.totalGrand .totalValue {
+  color: var(--color-action);
+  font-size: 27px;
+}
+
+.subNote {
+  margin: 8px 0 0;
+  color: var(--admin-subtle);
+  font-size: 10.5px;
+  line-height: 1.5;
+}
+
+/* ---- Delivery / notes / information ------------------------------------- */
+
+.consignmentFacts {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 9px;
+}
+
+.mono {
+  font-family: var(--font-mono, ui-monospace, 'SFMono-Regular', Menlo, monospace);
+  font-size: 12px;
+  word-break: break-all;
+}
+
+.courierBox {
+  padding: 18px 16px 17px;
+  border: 1px dashed var(--admin-line-strong);
+  border-radius: var(--admin-radius-control);
+  background: var(--admin-lavender-soft);
+  text-align: center;
+}
+
+.courierIcon {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  margin: 0 auto 10px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--admin-lavender) 40%, white);
+  color: var(--color-action);
+}
+
+.courierIcon svg {
+  width: 18px;
+  height: 18px;
+}
+
+.courierBox h3 {
+  margin: 0 0 4px;
+  color: var(--admin-ink);
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.courierBox p {
+  max-width: 270px;
+  margin: 0 auto;
+  color: var(--admin-muted);
+  font-size: 11px;
+  line-height: 1.55;
+}
+
+.courierActions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.noteQuote {
+  padding: 10px 12px;
+  border: 1px solid var(--admin-line);
+  border-radius: var(--admin-radius-sm);
+  background: var(--admin-surface-soft);
+}
+
+.noteQuote + .noteQuote {
+  margin-top: 8px;
+}
+
+.noteQuoteLabel {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 6px;
+  margin: 0 0 4px;
+  color: var(--admin-subtle);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.noteQuoteText {
+  margin: 0;
+  color: var(--admin-ink);
+  font-size: var(--text-sm);
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+.helper {
+  margin: 8px 0 0;
+  color: var(--admin-subtle);
+  font-size: 10.5px;
+  line-height: 1.5;
+}
+
+/* The four movement stages, as marks joined by a line. */
+.progressTrack {
+  display: grid;
+  margin-top: 16px;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.progressStep {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: 5px;
+  padding: 0 2px;
+  text-align: center;
+}
+
+.progressStep::before {
+  content: '';
+  position: absolute;
+  top: 10px;
+  right: 50%;
+  left: -50%;
+  height: 2px;
+  background: var(--admin-line);
+}
+
+.progressStep:first-child::before {
+  content: none;
+}
+
+.progressStep[data-state='done']::before,
+.progressStep[data-state='current']::before {
+  background: var(--admin-lavender-deep);
+}
+
+.progressMark {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border: 2px solid var(--admin-line-strong);
+  border-radius: 50%;
+  background: var(--admin-surface);
+  color: var(--admin-subtle);
+}
+
+.progressStep[data-state='done'] .progressMark {
+  border-color: var(--admin-lavender-deep);
+  background: var(--admin-lavender-deep);
+  color: #fff;
+}
+
+.progressStep[data-state='current'] .progressMark {
+  border-color: var(--admin-lavender-deep);
+}
+
+.progressDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.progressLabel {
+  color: var(--admin-ink);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.progressStep[data-state='future'] .progressLabel {
+  color: var(--admin-subtle);
+  font-weight: 500;
+}
+
+.progressWhen {
+  min-height: 14px;
+  color: var(--admin-subtle);
+  font-size: 10px;
+  line-height: 1.3;
+}
+
+.factGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 9px 14px;
+  margin: 14px 0 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--admin-line);
+}
+
+.factGrid > div {
+  min-width: 0;
+}
+
+.factLabel {
+  display: block;
+  color: var(--admin-subtle);
+  font-size: 10px;
+  font-weight: 500;
+}
+
+.factValue {
+  margin: 2px 0 0;
+  color: var(--admin-ink);
+  font-size: var(--text-sm);
+  font-weight: 500;
+}
+
+/* ---- Customer ----------------------------------------------------------- */
+
+.customerTop {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.avatar {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--admin-lavender-soft);
+  color: var(--admin-lavender-deep);
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.customerMain {
+  flex: 1;
+  min-width: 0;
+}
+
+.customerHead {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.customerName {
+  margin: 0;
+  color: var(--admin-ink);
+  font-size: 13.5px;
+  font-weight: 700;
+  letter-spacing: -0.012em;
+  line-height: 1.35;
+}
+
+.customerPhone {
+  margin: 1px 0 0;
+  color: var(--admin-subtle);
+  font-size: 11px;
+}
+
+.profileChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  flex: none;
+  height: var(--admin-control-sm);
+  margin-left: auto;
+  padding: 0 9px;
+  border: 1px solid var(--admin-line-strong);
+  border-radius: 999px;
+  background: var(--admin-lavender-soft);
+  color: var(--color-action);
+  font-size: 10px;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.profileChip svg {
+  width: 11px;
+  height: 11px;
+}
+
+.profileChip:hover {
+  background: color-mix(in srgb, var(--admin-lavender) 50%, white);
+}
+
+.chipRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-top: 9px;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: var(--admin-control-sm);
+  padding: 0 10px;
+  border: 1px solid var(--admin-line);
+  border-radius: 999px;
+  background: var(--admin-surface);
+  color: var(--admin-ink);
+  font-size: 10.5px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.chip svg {
+  width: 13px;
+  height: 13px;
+}
+
+.chip:hover {
+  background: var(--admin-surface-soft);
+}
+
+.chipWa {
+  border-color: color-mix(in srgb, var(--whatsapp-green) 35%, white);
+  background: color-mix(in srgb, var(--whatsapp-green) 12%, white);
+  color: var(--color-ink);
+}
+
+.chipWa:hover {
+  background: color-mix(in srgb, var(--whatsapp-green) 20%, white);
+}
+
+.overline {
+  margin: 14px 0 10px;
+  color: var(--admin-subtle);
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.contactFields {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.contactFields .field + .field {
+  margin-top: 0;
+}
+
+.validity {
+  margin-top: 14px;
+  padding: 13px;
+  border: 1px solid var(--admin-line);
+  border-radius: var(--admin-radius-control);
+  background: var(--admin-surface-soft);
+}
+
+.validityHead {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-bottom: 11px;
+}
+
+.validityHead .tile {
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+}
+
+.validityHead .tile svg {
+  width: 16px;
+  height: 16px;
+}
+
+.validityHead strong {
+  color: var(--admin-ink);
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: -0.012em;
+}
+
+.validityGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin: 0 0 12px;
+}
+
+.validityRule {
+  height: 1px;
+  margin: 12px 0;
+  background: var(--admin-line);
+}
+
+.validityFoot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.validityFoot p {
+  flex: 1;
+  min-width: 180px;
+  margin: 0;
+  color: var(--admin-subtle);
+  font-size: 10.5px;
+  line-height: 1.45;
+}
+
+/* ---- Buttons ------------------------------------------------------------ */
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: var(--admin-control);
+  padding: 0 16px;
+  border: 1px solid transparent;
+  border-radius: var(--admin-radius-sm);
+  background: var(--color-button);
+  color: var(--color-button-ink);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.button svg {
+  width: 15px;
+  height: 15px;
+}
+
+.button:hover {
+  background: var(--color-button-hover);
+}
+
+/*
+ * Press feedback: 120ms and a 3% scale, the same answer the panel's buttons give everywhere else. The
+ * transform applies to touch as well, where a hover state never fires.
+ */
+.iconButton,
+.pagerButton,
+.splitMain,
+.splitToggle,
+.chip,
+.button,
+.chevron {
+  transition:
+    transform 120ms var(--ease-out-ui),
+    background 150ms var(--ease-out-ui),
+    border-color 150ms var(--ease-out-ui),
+    color 150ms var(--ease-out-ui);
+}
+
+.iconButton:active,
+.pagerButton:active,
+.splitMain:active,
+.splitToggle:active,
+.chip:active,
+.button:active,
+.chevron:active {
+  transform: scale(0.97);
+}
+
+.button:focus-visible {
+  outline: 2px solid var(--admin-lavender-deep);
+  outline-offset: 2px;
+}
+
+.buttonSecondary {
+  border-color: var(--admin-line-strong);
+  background: var(--admin-surface);
+  color: var(--admin-ink);
+}
+
+.buttonSecondary:hover {
+  background: var(--admin-surface-soft);
+}
+
+.buttonSmall {
+  min-height: var(--admin-control-sm);
+  padding: 0 10px;
+  font-size: 11px;
+}
+
+.buttonWide {
+  width: 100%;
+}
+
+.link {
+  color: var(--admin-lavender-deep);
+  font-size: 11.5px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.link:hover {
+  text-decoration: underline;
+}
+
+/* ---- Action band -------------------------------------------------------- */
+
+.actionBand {
+  padding: 16px;
+  border: 1px solid var(--admin-line);
+  border-radius: var(--admin-radius-card);
+  background: var(--admin-surface);
+  box-shadow: var(--admin-shadow-card);
+}
+
+.actionBandHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 4px 10px;
+  margin-bottom: 12px;
+}
+
+.actionBandTitle {
+  flex: 1;
+  min-width: 140px;
+  margin: 0;
+  color: var(--admin-ink);
+  font-family: var(--font-display);
+  font-size: var(--text-md);
+  font-weight: 700;
+  letter-spacing: -0.014em;
+}
+
+.actionBandBody {
+  flex-basis: 100%;
+  margin: 0;
+  color: var(--admin-muted);
+  font-size: 11.5px;
+  line-height: 1.5;
+}
+
+.actionBandTotal {
+  display: grid;
+  justify-items: end;
+  margin-left: auto;
+}
+
+.actionGrid {
+  display: grid;
+  gap: 10px;
+}
+
+.approveForm {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.actionNoteLabel {
+  color: var(--admin-subtle);
+  font-size: 10.5px;
+  font-weight: 500;
+}
+
+.input {
+  width: 100%;
+  min-height: var(--admin-control);
+  padding: 0 10px;
+  border: 1px solid var(--admin-line-strong);
+  border-radius: var(--admin-radius-sm);
+  background: var(--admin-surface);
+  color: var(--admin-ink);
+  font-size: var(--text-control);
+}
+
+.input:focus {
+  outline: none;
+  border-color: var(--admin-lavender-deep);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--admin-lavender-deep) 18%, transparent);
+}
+
+.noteDetails {
+  border: 1px solid var(--admin-line);
+  border-radius: var(--admin-radius-sm);
+  background: var(--admin-surface-soft);
+}
+
+.noteDetails summary {
+  display: flex;
+  align-items: center;
+  min-height: var(--admin-control-sm);
+  padding: 0 10px;
+  color: var(--admin-muted);
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.noteDetails > *:not(summary) {
+  margin: 0 10px 10px;
+  width: calc(100% - 20px);
+}
+
+.costEntry {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 10px;
+  border: 1px solid var(--admin-line);
+  border-radius: var(--admin-radius-sm);
+}
+
+.costLegend {
+  padding: 0 4px;
+  color: var(--admin-subtle);
+  font-size: 10.5px;
+  font-weight: 600;
+}
+
+.costRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
+  gap: 8px;
+}
+
+.actionConfirmEnd {
+  justify-self: stretch;
+}
+
+.actionConfirmEnd > button {
+  width: 100%;
+}
+
+/* ---- Records, history, empty states ------------------------------------- */
+
+.recordList {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.record {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 0;
+  border-top: 1px solid var(--admin-line);
+}
+
+.record:first-child {
+  padding-top: 2px;
+  border-top: 0;
+}
+
+.recordMain {
+  display: grid;
+  gap: 3px;
+  flex: 1;
+  min-width: 0;
+}
+
+.recordTitle {
+  color: var(--admin-ink);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.recordMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  color: var(--admin-subtle);
+  font-size: 10.5px;
+  line-height: 1.45;
+}
+
+.recordSide {
+  display: grid;
+  justify-items: end;
+  gap: 6px;
+  flex: none;
+}
+
+.recordPrice {
+  color: var(--admin-ink);
+  font-family: var(--font-display);
+  font-size: var(--text-sm);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.recordVoided {
+  color: var(--admin-subtle);
+  text-decoration: line-through;
+}
+
+.recordThumb {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: var(--admin-control-sm);
+  height: var(--admin-control-sm);
+  border-radius: var(--admin-radius-sm);
+  background: var(--admin-lavender-soft);
+  color: var(--admin-lavender-deep);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.tag {
+  display: inline-flex;
+  align-items: center;
+  height: 18px;
+  padding: 0 6px;
+  border-radius: 5px;
+  background: var(--admin-lavender-soft);
+  color: var(--color-action);
+  font-size: 9.5px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.dividerList {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.dividerItem {
+  display: grid;
+  gap: 3px;
+  padding: 9px 0;
+  border-top: 1px solid var(--admin-line);
+}
+
+.dividerItem:first-child {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.emptyState {
+  padding: 18px 4px 6px;
+  text-align: center;
+}
+
+.emptyTitle {
+  margin: 0 0 3px;
+  color: var(--admin-ink);
+  font-size: 12.5px;
+  font-weight: 700;
+}
+
+.emptyBody {
+  margin: 0;
+  color: var(--admin-muted);
+  font-size: 11px;
+}
+
+.trailDetails {
+  margin-top: 12px;
+  border-top: 1px solid var(--admin-line);
+}
+
+.trailDetails summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: var(--admin-control);
+  cursor: pointer;
+}
+
+.trailDetails summary h3 {
+  flex: 1;
+  margin: 0;
+  color: var(--admin-ink);
+  font-size: 12.5px;
+  font-weight: 700;
+}
+
+.trailCount {
+  min-width: 20px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--admin-lavender-soft);
+  color: var(--color-action);
+  font-size: 10px;
+  font-weight: 600;
+  text-align: center;
+}
+
+/* ---- The site-open notice the page inherits ----------------------------- */
+
+.noticeRow {
+  margin: 0;
+}
+
+/* ---- Proof and money ---------------------------------------------------- */
+
+.proofGrid {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+}
+
+.proofLink {
+  display: block;
+  border: 1px solid var(--admin-line);
+  border-radius: var(--admin-radius-sm);
+  overflow: hidden;
+  background: var(--admin-surface-soft);
+}
+
+.proofImage {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.proofForm {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.proofChoices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.proofChoices legend {
+  width: 100%;
+  margin-bottom: 4px;
+}
+
+.proofChoice {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--admin-ink);
+  font-size: var(--text-sm);
+}
+
+.proofActions {
+  display: flex;
+}
+
+.costVoidForm {
+  display: grid;
+  justify-items: end;
+  gap: 4px;
+}
+
+.moneyGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin: 0;
+}
+
+.moneyItem {
+  min-width: 0;
+}
+
+.moneyLabel {
+  margin: 0 0 2px;
+  color: var(--admin-subtle);
+  font-size: 10px;
+  line-height: 1.35;
+}
+
+.moneyValue {
+  margin: 0;
+  color: var(--admin-ink);
+  font-family: var(--font-display);
+  font-size: var(--text-md);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- Tablet: one column, wider internals -------------------------------- */
+
+@media (min-width: 640px) {
+  .frame {
+    max-width: 720px;
+    gap: 12px;
+  }
+
+  .summaryCard {
+    padding: 20px;
+  }
+
+  .summaryGrid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 9px;
+  }
+
+  .summaryGrid .band + .band {
+    margin-top: 0;
+  }
+
+  .totals {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+
+  .contactFields {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+
+  .contactFields .field + .field {
+    margin-top: 0;
+  }
+
+  .contactFields > :last-child {
+    grid-column: 1 / -1;
+  }
+
+  .validityGrid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .moneyGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .infoGrid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 10px 20px;
+  }
+
+  .infoFields .field + .field {
+    margin-top: 9px;
+  }
+
+  .infoGrid .progressTrack {
+    margin-top: 0;
+    align-self: center;
+  }
+
+  .proofGrid {
+    grid-template-columns: 120px minmax(0, 1fr);
+  }
+}
+
+@media (min-width: 780px) {
+  .product {
+    display: grid;
+    grid-template-columns: 280px minmax(0, 1fr);
+  }
+
+  /*
+   * The photograph becomes the line's own plate on wider screens: the fields sit beside the picture
+   * instead of under it, so two lines still fit one screen. The image fills the plate and crops, which
+   * is the same contract the row tile already keeps.
+   */
+  .productMedia {
+    position: relative;
+    min-height: 230px;
+  }
+
+  .productMedia > [data-item-photo='hero'] {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    aspect-ratio: auto;
+    border-radius: 12px 0 0 12px;
+  }
+
+  .productBody {
+    padding: 14px 16px;
+  }
+
+  .stepper {
+    margin: 12px 0 0;
+  }
+}
+
+/* ---- Desktop: the record as a ledger, not a phone column ---------------- */
+
+@media (min-width: 900px) {
+  .frame {
+    max-width: 1000px;
+    gap: 14px;
+  }
+
+  /*
+   * Identity and receipt share the top card: what the order is on the left, the address a customer
+   * would open on the right. The rule between them disappears because the column gap is the divider.
+   */
+  .summaryCard {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(300px, 380px);
+    align-items: center;
+    gap: 26px;
+    padding: 20px 22px;
+  }
+
+  .orderIdentity,
+  .orderReceipt {
+    min-width: 0;
+  }
+
+  .orderReceipt .rule {
+    display: none;
+  }
+
+  .orderTitleRow {
+    font-size: 26px;
+  }
+
+  /* The next step is one band: the decision on the left, the controls on the right. */
+  .actionBand {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(320px, 440px);
+    align-items: start;
+    gap: 26px;
+    padding: 20px 22px;
+  }
+
+  .actionBandHead {
+    margin-bottom: 0;
+    align-content: start;
+  }
+
+  .actionBandBody {
+    flex-basis: auto;
+    max-width: 40ch;
+  }
+
+  /* Delivery and its notes sit together; the order information reads next, full width. */
+  .pairGrid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    align-items: start;
+    gap: 14px;
+  }
+
+  .cardHead {
+    padding: 14px 18px;
+  }
+
+  .sectionBody {
+    padding: 0 18px 18px;
+  }
+
+  .summaryGrid {
+    gap: 10px;
+  }
+
+  .product {
+    grid-template-columns: 300px minmax(0, 1fr);
+  }
+
+  .productMedia {
+    min-height: 250px;
+  }
+
+  .moneyGrid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+
+  .consignmentFacts {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .factGrid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+/* ---- At the narrowest phone -------------------------------------------- */
+
+@media (max-width: 380px) {
+  .orderBarTitle {
+    font-size: var(--text-sm);
+  }
+
+  .summaryCard {
+    padding: 13px;
+  }
+
+  .cardHead {
+    padding: 12px 13px;
+    gap: 6px;
+  }
+
+  .sectionBody {
+    padding: 0 13px 13px;
+  }
+
+  .orderTitleRow {
+    font-size: 20px;
+  }
+
+  .totalGrand .totalValue {
+    font-size: 25px;
+  }
+
+  .grid2,
+  .moneyGrid,
+  .consignmentFacts,
+  .factGrid,
+  .validityGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .costRow {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chevron,
+  .iconButton,
+  .pagerButton,
+  .splitMain,
+  .splitToggle,
+  .chip,
+  .button,
+  .collapse {
+    transition: none;
+  }
+
+  .iconButton:active,
+  .pagerButton:active,
+  .splitMain:active,
+  .splitToggle:active,
+  .chip:active,
+  .button:active,
+  .chevron:active {
+    transform: none;
+  }
+}

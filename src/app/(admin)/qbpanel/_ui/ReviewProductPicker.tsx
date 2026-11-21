@@ -51,6 +51,9 @@ export function ReviewProductPicker({
   searchLabel,
   emptyLabel,
   closeLabel,
+  idPrefix = 'review-product',
+  inputName = 'productId',
+  hint,
 }: {
   products: readonly ReviewProductOption[];
   value: number | null;
@@ -62,8 +65,13 @@ export function ReviewProductPicker({
   searchLabel: string;
   emptyLabel: string;
   closeLabel: string;
+  /** The review composer's ids are the default; another form can namespace the same component. */
+  idPrefix?: string;
+  inputName?: string;
+  hint?: string;
 }) {
   const { t } = useTranslation();
+  const defaultHint = t('admin.reviews.write.productHint');
   const [query, setQuery] = useState('');
   const [active, setActive] = useState(0);
 
@@ -158,7 +166,7 @@ export function ReviewProductPicker({
     }
   }
 
-  const activeId = matches[active] === undefined ? undefined : `review-product-${matches[active].id}`;
+  const activeId = matches[active] === undefined ? undefined : `${idPrefix}-${matches[active].id}`;
 
   return (
     <>
@@ -167,7 +175,7 @@ export function ReviewProductPicker({
         `required`: a hidden input is barred from constraint validation, so the attribute would be
         inert. The composer checks the choice and names the field in its own summary.
       */}
-      <input type="hidden" name="productId" value={value === null ? '' : String(value)} />
+      <input type="hidden" name={inputName} value={value === null ? '' : String(value)} />
 
       <button
         ref={triggerRef}
@@ -177,8 +185,8 @@ export function ReviewProductPicker({
         onClick={() => onOpenChange(true)}
         aria-haspopup="dialog"
         aria-expanded={open}
-        aria-labelledby="review-product-label"
-        id="review-product"
+        aria-labelledby={`${idPrefix}-label`}
+        id={idPrefix}
       >
         {selected === null ? (
           <span className={styles.pickerTriggerText}>{placeholder}</span>
@@ -227,7 +235,7 @@ export function ReviewProductPicker({
                 onKeyDown={onSearchKeyDown}
                 placeholder={searchLabel}
                 aria-label={searchLabel}
-                aria-controls="review-product-list"
+                aria-controls={`${idPrefix}-list`}
                 aria-activedescendant={activeId}
                 autoComplete="off"
               />
@@ -239,9 +247,9 @@ export function ReviewProductPicker({
             {matches.length === 0 ? (
               <p className={styles.pickerEmpty}>{emptyLabel}</p>
             ) : (
-              <ul className={styles.pickerList} id="review-product-list" role="listbox" aria-label={label}>
+              <ul className={styles.pickerList} id={`${idPrefix}-list`} role="listbox" aria-label={label}>
                 {matches.map((product, index) => (
-                  <li key={product.id} id={`review-product-${product.id}`} role="option" aria-selected={index === active}>
+                  <li key={product.id} id={`${idPrefix}-${product.id}`} role="option" aria-selected={index === active}>
                     <button
                       type="button"
                       className={styles.pickerRow}
@@ -275,7 +283,7 @@ export function ReviewProductPicker({
               </ul>
             )}
 
-            <p className={styles.pickerHint}>{t('admin.reviews.write.productHint')}</p>
+            <p className={styles.pickerHint}>{hint ?? defaultHint}</p>
           </div>
         </div>
       )}

@@ -57,6 +57,7 @@ export type AuditAction =
   | 'order.cost_recorded'
   | 'order.cost_voided'
   | 'order.payment_proof_reviewed'
+  | 'order.line_added'
   | 'cod.delivery_failed'
   | 'order.dispatched'
   | 'order.delivered'

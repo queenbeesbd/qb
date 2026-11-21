@@ -34,7 +34,7 @@ export function ItemPhoto({
   imageKey: string | null;
   name: string;
   /** `row` is the order detail's list tile; `compact` is the same tile on a dense worklist card. */
-  size?: 'row' | 'compact';
+  size?: 'row' | 'compact' | 'hero';
 }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
@@ -44,7 +44,8 @@ export function ItemPhoto({
   const close = useCallback(() => setOpen(false), []);
 
   const compact = size === 'compact';
-  const frame = `${styles.frame} ${compact ? styles.compact : styles.row}`;
+  const hero = size === 'hero';
+  const frame = `${styles.frame} ${compact ? styles.compact : hero ? styles.hero : styles.row}`;
 
   /*
    * A line with no stored snapshot - or whose file has gone - keeps the frame and drops the control.
@@ -65,7 +66,7 @@ export function ItemPhoto({
       <button
         ref={triggerRef}
         type="button"
-        data-item-photo={compact ? 'compact' : 'row'}
+        data-item-photo={compact ? 'compact' : hero ? 'hero' : 'row'}
         className={`${frame} ${styles.trigger}`}
         onClick={() => setOpen(true)}
         aria-label={label}
@@ -73,7 +74,7 @@ export function ItemPhoto({
       >
         <img
           className={styles.thumb}
-          src={imageVariantPath(imageKey, 320)}
+          src={imageVariantPath(imageKey, hero ? 600 : 320)}
           alt=""
           loading="lazy"
           decoding="async"

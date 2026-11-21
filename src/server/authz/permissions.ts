@@ -19,6 +19,8 @@ export const PERMISSIONS = {
   codConfirmCollection: 'cod.confirm_collection',
   financeReconcile: 'finance.reconcile',
   orderCostRecord: 'order.cost_record',
+  /** Adding a line changes what the customer will be asked to pay (ADR 0046). Owner-only. */
+  orderAmend: 'order.amend',
   orderRead: 'order.read',
   orderDispatch: 'order.dispatch',
   orderCancel: 'order.cancel',
@@ -83,6 +85,11 @@ export const PERMISSION_CATALOGUE: readonly PermissionDefinition[] = [
   { code: PERMISSIONS.refundConfirm, description: 'Advance a refund to completed or failed', isPrivileged: true },
   { code: PERMISSIONS.staffManage, description: 'Create, disable or re-role a staff user', isPrivileged: true },
   { code: PERMISSIONS.settingsWrite, description: 'Write store settings', isPrivileged: true },
+  {
+    code: PERMISSIONS.orderAmend,
+    description: 'Add a product to an order before dispatch',
+    isPrivileged: true,
+  },
 
   { code: PERMISSIONS.orderRead, description: 'Read any order', isPrivileged: false },
   {
@@ -160,6 +167,7 @@ export const PERMISSION_LABELS: Record<string, string> = {
   [PERMISSIONS.codConfirmCollection]: 'Confirm COD collection',
   [PERMISSIONS.financeReconcile]: 'Reconcile COD cash',
   [PERMISSIONS.orderCostRecord]: 'Record additional order costs',
+  [PERMISSIONS.orderAmend]: 'Add products to an order',
   [PERMISSIONS.orderRead]: 'Read orders',
   [PERMISSIONS.orderDispatch]: 'Dispatch and delivery outcomes',
   [PERMISSIONS.orderCancel]: 'Handle cancellations',
@@ -235,4 +243,6 @@ export const PERMISSIONS_IMPLEMENTED: readonly PermissionCode[] = [
   PERMISSIONS.reviewModerate,
   // ADR 0042: the owner's reading of a customer's payment screenshot, on the order detail screen.
   PERMISSIONS.paymentProofReview,
+  // ADR 0046: appending a line to an order before dispatch is an owner-only money change.
+  PERMISSIONS.orderAmend,
 ];

@@ -1,13 +1,20 @@
+import { randomUUID } from 'node:crypto';
+
 import type { Metadata } from 'next';
+import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
+import { eq, sql } from 'drizzle-orm';
 
 import { withTransaction } from '@/db/client';
+import { brand, product } from '@/db/schema';
+import { orderReceiptPath } from '@/lib/order-paths';
 import { requireAdminPage } from '@/server/auth/guard';
 import { hasPermission } from '@/server/authz/principal';
 import { PERMISSIONS } from '@/server/authz/permissions';
 import { loadSteadfastSettings, publicStatus } from '@/server/integrations/steadfast';
 import { loadConsignment } from '@/server/integrations/steadfast-booking';
-import { adminOrderAudit, adminOrderDetail } from '@/server/orders/qbpanel-order';
+import { adminOrderAudit, adminOrderDetail, adminOrderNeighbours } from '@/server/orders/qbpanel-order';
+import type { ReviewProductOption } from '../../../_ui/ReviewProductPicker';
 import { AdminOrderDetailView, type AdminOrderNotice } from './OrderDetailView';
 
 export const dynamic = 'force-dynamic';
@@ -37,6 +44,8 @@ const NOTICES: readonly AdminOrderNotice[] = [
   'costInvalid',
   'proofReviewed',
   'proofInvalid',
+  'lineAdded',
+  'lineInvalid',
   'denied',
   'conflict',
   'invalid',
@@ -85,12 +94,49 @@ export default async function AdminOrderDetailPage({
     // offer "Send to SteadFast" only when the order is bookable and the account can actually be used.
     const consignment = await loadConsignment(tx, detail.orderId);
     const steadfast = publicStatus(await loadSteadfastSettings(tx));
-    return { detail, audit, consignment, steadfast };
+    const neighbours = await adminOrderNeighbours(tx, detail.orderId);
+    return { detail, audit, consignment, steadfast, neighbours };
   });
   if (data === null) notFound();
 
   const detail = data.detail;
   const canReadCustomers = hasPermission(principal, PERMISSIONS.customerRead);
+  const canAddLine =
+    hasPermission(principal, PERMISSIONS.orderAmend) &&
+    detail.paymentMethod === 'cod' &&
+    ['pending', 'confirmed', 'processing'].includes(detail.status) &&
+    (detail.codState === 'cod_pending_approval' || detail.codState === 'cod_approved');
+
+  /*
+    ADR 0046: the picker carries the photograph as well as the name and brand, because the owner is
+    recognising a product from a phone call. It is the same primary-or-first projection the reviews
+    composer uses, and only live, published products are offered.
+  */
+  const pickableProducts: readonly ReviewProductOption[] = canAddLine
+    ? await withTransaction((tx) =>
+        tx
+          .select({
+            id: product.id,
+            nameEn: product.nameEn,
+            slug: product.slug,
+            brandNameEn: brand.nameEn,
+            primaryImageKey: sql<string | null>`(
+              select "base_key" from "product_image"
+              where "product_image"."product_id" = "product"."id"
+                and "product_image"."deleted_at" is null
+              order by "product_image"."is_primary" desc, "product_image"."sort_order" asc, "product_image"."id" asc
+              limit 1
+            )`,
+          })
+          .from(product)
+          .innerJoin(brand, eq(brand.id, product.brandId))
+          .where(
+            sql`${product.deletedAt} is null and ${product.isPublished} and ${product.availability} = 'in_stock'`,
+          )
+          .orderBy(product.nameEn)
+          .limit(500),
+      )
+    : [];
   /*
    * The return link always goes to the one Orders screen (owner-approved merge, 2026-11-19). `from`
    * is still read so a link written before the merge, or by a hand-edited URL, lands on the history
@@ -98,6 +144,17 @@ export default async function AdminOrderDetailPage({
    * there is only one label: back to orders.
    */
   const returnTo = { href: '/qbpanel/orders', labelKey: 'admin.order.back' as const };
+
+  /*
+    The receipt address the order card shows and copies. Built from the request's own host so the
+    owner reads the address a customer would open, never a hardcoded domain; behind the proxy the
+    forwarded host/protocol are what Traefik saw.
+  */
+  const headerList = await headers();
+  const host = headerList.get('x-forwarded-host') ?? headerList.get('host') ?? '';
+  const proto = headerList.get('x-forwarded-proto') ?? 'https';
+  const receiptPath = orderReceiptPath(detail.orderNumber);
+  const receiptUrl = host === '' ? receiptPath : `${proto}://${host}${receiptPath}`;
 
   return (
     <AdminOrderDetailView
@@ -129,6 +186,12 @@ export default async function AdminOrderDetailPage({
           email: canReadCustomers ? detail.customerEmail : null,
           displayName: detail.customerDisplayName,
           status: detail.customerStatus,
+          /* The account's own dates are customer profile facts: withheld like the email. */
+          createdAt:
+            canReadCustomers && detail.customerCreatedAt !== null
+              ? detail.customerCreatedAt.toISOString()
+              : null,
+          orderCount: detail.customerOrderCount,
         },
         contact: detail.contact,
         items: detail.items.map((item) => ({
@@ -226,6 +289,13 @@ export default async function AdminOrderDetailPage({
               })),
       }}
       notice={readNotice(query.notice)}
+      neighbours={{
+        position: data.neighbours.position,
+        total: data.neighbours.total,
+        newer: data.neighbours.newer,
+        older: data.neighbours.older,
+      }}
+      receiptUrl={receiptUrl}
       csrfToken={principal.csrfToken}
       canApprove={hasPermission(principal, PERMISSIONS.codApprove)}
       canCancel={hasPermission(principal, PERMISSIONS.orderCancel)}
@@ -234,6 +304,9 @@ export default async function AdminOrderDetailPage({
       canInspect={hasPermission(principal, PERMISSIONS.returnInspect)}
       canRecordCosts={hasPermission(principal, PERMISSIONS.orderCostRecord)}
       canReviewProof={hasPermission(principal, PERMISSIONS.paymentProofReview)}
+      canAddLine={canAddLine}
+      pickableProducts={pickableProducts}
+      addLineKey={randomUUID()}
       canReadCustomers={canReadCustomers}
       canReadAudit={hasPermission(principal, PERMISSIONS.auditRead)}
       returnTo={returnTo}

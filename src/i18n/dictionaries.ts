@@ -1199,6 +1199,9 @@ export const dictionary = {
   'admin.order.notice.proofReviewed': 'The payment screenshot decision was saved.',
   'admin.order.notice.proofInvalid':
     'That decision could not be saved. A rejection needs a reason of at least three characters.',
+  'admin.order.notice.lineAdded': 'The product was added and the order total was updated.',
+  'admin.order.notice.lineInvalid':
+    'The product could not be added. Choose a live, in-stock product and try again.',
   'admin.order.costVoided': 'Voided: {reason}',
   'admin.order.costVoid': 'Void this cost',
   'admin.order.costVoidReason': 'Reason for voiding',
@@ -1238,6 +1241,7 @@ export const dictionary = {
   'admin.order.decisionBody': 'Call the customer first, then accept or cancel the order.',
   'admin.order.event.order_placed': 'Order placed',
   'admin.order.event.order_claimed': 'Guest order linked to a customer account',
+  'admin.order.event.order_line_added': 'Product added to order',
   'admin.order.event.cod_approved': 'COD approved',
   'admin.order.event.order_cancelled': 'Order cancelled',
   'admin.order.event.order_shipped': 'Dispatched',
@@ -1323,6 +1327,23 @@ export const dictionary = {
   'admin.order.steadfast.offTitle': 'SteadFast booking is off',
   'admin.order.steadfast.offBody':
     'Save the account keys in Integrations and this order can be booked from this page.',
+
+  // ADR 0046: the customer calls to add one more product before the parcel leaves.
+  'admin.order.addLineTitle': 'Add a product to this order',
+  'admin.order.addLineBody':
+    'The customer called and needs one more item. The new line uses today’s recorded price; delivery and discount stay as they were.',
+  'admin.order.addLineProduct': 'Product',
+  'admin.order.addLineQuantity': 'Quantity',
+  'admin.order.addLineReason': 'Why was it added? (optional)',
+  'admin.order.addLineReasonPlaceholder': 'Added at the customer’s request by phone.',
+  'admin.order.addLineSubmit': 'Add to order',
+  'admin.order.addLineSearch': 'Search by name or brand',
+  'admin.order.addLinePickerLabel': 'Choose a product to add',
+  'admin.order.addLinePickerPlaceholder': 'Choose a product',
+  'admin.order.addLinePickerEmpty': 'No product matches that search',
+  'admin.order.addLinePickerClose': 'Close',
+  'admin.order.addLineHint':
+    'Only live, in-stock products can be added. The line and the new total are recorded on the order.',
 
   // The dispatch slip: the paper that travels with a COD parcel. Presentation only - it reads one
   // order and writes nothing, so these labels describe stored facts and never a promise.

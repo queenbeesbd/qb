@@ -255,6 +255,11 @@ export const ORDER_EVENT_TYPE = [
    * why it exists at all: the claim is a real, recorded transition and not a silent backfill.
    */
   'order_claimed',
+  /*
+   * ADR 0046: the owner appended a product to an order on the customer's phone call before dispatch.
+   * The line and the charged total move together in one guarded transaction; the original lines do not.
+   */
+  'order_line_added',
 ] as const;
 
 export const ORDER_EVENT_ACTOR = ['customer', 'guest', 'staff', 'system'] as const;
