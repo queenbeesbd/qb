@@ -3248,6 +3248,25 @@ html[dir='rtl'] .switchOn .switchKnob::after {
   scroll-margin-top: 6rem;
 }
 
+/*
+ * A consequence that must travel with the control that commits it.
+ *
+ * It rides in the sticky bar, so a warning about an irreversible save is on screen at the moment the
+ * owner presses Save - not in a card above it that a phone has already scrolled past. Warning tone
+ * rather than danger: nothing is lost yet, and the owner can still choose a different file.
+ */
+.formHeaderNote {
+  flex: 1 1 100%;
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--admin-radius-sm);
+  background: var(--color-warning-soft);
+  color: var(--color-warning);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  line-height: var(--leading-snug);
+}
+
 .formHeaderText {
   display: grid;
   gap: 2px;
@@ -3859,6 +3878,193 @@ html[dir='rtl'] .switchOn .switchKnob::after {
   font-size: var(--text-sm);
   font-weight: 500;
   color: var(--admin-ink);
+}
+
+/* ---- Homepage hero list (rebuilt for the phone, 2026-11-21) ----------------
+ *
+ * Measured before the change at 390px: ten banners were ten 448px blocks - the thumbnail stretched to
+ * the row's full width, then a description block and a third control block under it - so the list ran
+ * to ~4,500px and the reorder commit rendered after all of it.
+ *
+ * A banner in this list is recognised by its picture, the same way an order line is, so the thumbnail
+ * is the leading element at a fixed size and the row stays one line high. The description is folded
+ * into the row's own disclosure: its summary states the saved words, so nothing is hidden that the
+ * owner needs to see before deciding.
+ */
+.heroList {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  background: var(--admin-surface);
+  border: 1px solid var(--admin-line);
+  border-radius: var(--admin-radius-card);
+  box-shadow: var(--admin-shadow-card);
+  overflow: hidden;
+}
+
+.heroRow {
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-top: 1px solid var(--admin-line);
+  min-width: 0;
+}
+
+.heroRow:first-child {
+  border-top: 0;
+}
+
+.heroRowIndex {
+  font-variant-numeric: tabular-nums;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--admin-subtle);
+  min-width: 1ch;
+  text-align: end;
+}
+
+.heroRowThumb {
+  display: block;
+  flex: none;
+  width: 88px;
+  aspect-ratio: 16 / 9;
+  border-radius: var(--admin-radius-sm);
+  overflow: hidden;
+  background: var(--admin-surface-soft);
+  border: 1px solid var(--admin-line);
+}
+
+.heroRowThumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.heroRowAlt {
+  min-width: 0;
+}
+
+.heroRowAlt > summary {
+  display: grid;
+  gap: 1px;
+  min-height: var(--admin-control-sm);
+  padding: 2px 0;
+  cursor: pointer;
+  list-style: none;
+  min-width: 0;
+}
+
+.heroRowAlt > summary::-webkit-details-marker {
+  display: none;
+}
+
+.heroRowAlt > summary:focus-visible {
+  outline: 2px solid var(--admin-lavender-deep);
+  outline-offset: 2px;
+  border-radius: var(--admin-radius-sm);
+}
+
+.heroRowAltLabel {
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--admin-subtle);
+}
+
+.heroRowAltValue {
+  font-size: var(--text-sm);
+  color: var(--admin-ink);
+  overflow-wrap: anywhere;
+}
+
+.heroRowAltValue[data-empty='true'] {
+  color: var(--admin-muted);
+  font-style: italic;
+}
+
+.heroRowAltForm {
+  display: grid;
+  gap: var(--space-2);
+  padding-top: var(--space-3);
+  min-width: 0;
+}
+
+.heroRowActions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex: none;
+}
+
+/*
+ * A 32px-wide arrow was a 32x40 target for a thumb. The icon controls keep the control height and gain
+ * a square-ish footprint so the pair is reliably hittable one-handed, without adding a third height.
+ */
+.heroRowActions .button {
+  padding: 0 var(--space-3);
+}
+
+/*
+ * The reorder commit, and why it is sticky.
+ *
+ * A banner moved near the top of a ten-item list used to have its Save control four and a half screens
+ * below the arrow that made the change, which reads as "the move saved itself". This bar is the list's
+ * leading block and sticks under the top bar, so it appears the moment the order is unsaved and stays
+ * in view wherever the owner is. It exists only while `dirty`, so a settled carousel has no bar.
+ */
+.heroOrderBar {
+  position: sticky;
+  top: var(--admin-topbar-height);
+  z-index: 8;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--admin-lavender);
+  border-radius: var(--admin-radius-control);
+  background: var(--admin-lavender-soft);
+}
+
+.heroOrderActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+@media (max-width: 720px) {
+  /*
+   * Below 720px the row keeps the picture and the description in one column pair and puts the three
+   * actions on their own line underneath, because a 390px row cannot hold a thumbnail, a description
+   * and three 40px controls without squeezing the words the owner is reading.
+   */
+  .heroRow {
+    grid-template-columns: auto auto minmax(0, 1fr);
+    row-gap: var(--space-3);
+  }
+  .heroRowActions {
+    grid-column: 1 / -1;
+    justify-content: flex-start;
+  }
+  .heroRowAltForm .button {
+    width: 100%;
+  }
+  .heroOrderBar {
+    top: 0;
+  }
+  .heroOrderActions {
+    width: 100%;
+  }
+  .heroOrderActions .button {
+    flex: 1 1 auto;
+  }
 }
 
 .attachDetails {
@@ -5269,19 +5475,36 @@ a.rankName:hover {
   color: var(--admin-subtle);
 }
 
-.popupImageField {
+/* ---- Storefront -> Offer popup (rebuilt for the phone, 2026-11-21) -------- */
+
+.offerForm {
+  display: grid;
+  gap: var(--space-5);
+  min-width: 0;
+}
+
+/*
+ * The preview and the picker.
+ *
+ * The owner recognises the offer by its picture - it is the only thing the popup shows - so the frame
+ * comes first and holds the aspect ratio the server will store, which makes the "square or wide"
+ * question answer itself. From 720px the picker sits beside it; on a phone the picture is first and
+ * the picker follows at full width.
+ */
+.offerMedia {
   display: grid;
   gap: var(--space-4);
   align-items: start;
+  min-width: 0;
 }
 
 @media (min-width: 720px) {
-  .popupImageField {
+  .offerMedia {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   }
 }
 
-.popupImagePreview {
+.offerPreview {
   display: grid;
   place-items: center;
   width: 100%;
@@ -5293,22 +5516,22 @@ a.rankName:hover {
   background: var(--admin-surface-soft);
 }
 
-.popupImagePreview[data-aspect='wide'] {
+.offerPreview[data-aspect='wide'] {
   aspect-ratio: 16 / 9;
 }
 
-.popupImagePreview img {
+.offerPreview img {
   width: 100%;
   height: 100%;
   object-fit: cover;
   display: block;
 }
 
-.popupImagePreview[data-empty='true'] {
+.offerPreview[data-empty='true'] {
   border-style: dashed;
 }
 
-.popupImageControl {
+.offerMediaControl {
   display: grid;
   gap: var(--space-3);
   min-width: 0;

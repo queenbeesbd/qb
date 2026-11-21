@@ -469,10 +469,11 @@ how a page grows a second, conflicting set of filter conventions.
 
 ### Shell and page anatomy
 
-- **Rail (desktop):** white, brand, then permission-filtered groups - Overview, Commerce (COD orders,
-  products, categories, brands, promo codes), Customers, Settings (delivery charges, announcement,
-  support links, homepage hero, offer popup, integrations, other settings), System (owner accounts,
-  audit trail) - then a storefront link. The active item is a **lavender pill with ink text**;
+- **Rail (desktop):** white, brand, then permission-filtered groups - Overview, Commerce (orders,
+  products, categories, brands, promo codes, reviews), **Storefront** (customisation, homepage hero,
+  announcement bar, offer popup), Customers, Settings (delivery charges, support links, contact and
+  policies, integrations, other settings), System (owner accounts, audit trail) - then a storefront
+  link. The active item is a **lavender pill with ink text**;
   `aria-current` carries the same fact. No border strip is used as a marker.
 - **Top bar:** a breadcrumb (Admin / current page) and the account menu (name, email, role, sign out).
   Below 1024px the breadcrumb gives way to the current section name and the brand mark. There is no
@@ -607,8 +608,20 @@ wrapped reads as clipped.
 parts rather than a bespoke layout:
 
 - **The rail gained a division**: Overview / Commerce / **Storefront** / Customers / Settings / System.
-  Storefront holds **Customisation** and **Homepage hero** (the hero editor moved here; its old
-  `/qbpanel/settings/hero` path answers 404 rather than aliasing).
+  Storefront holds **Customisation**, **Homepage hero**, **Announcement bar** and **Offer popup** (the
+  hero editor moved here on 2026-11-12, the other two on 2026-11-21, because all four decide what the
+  shop's front looks like and none is a policy or a charge). Their old `/qbpanel/settings/...` paths
+  answer 404 rather than aliasing. Each entry is ordered as a visitor meets it: the banner carousel, the
+  upcoming sale, the news line above the header, then the image the site opens with.
+- **A banner in the hero editor is one dense row**, not a block: drawn position, an 88x50 photograph, the
+  description folded into a row disclosure whose summary states the saved words, and move up / move down /
+  remove. At 390px the row is ~130px instead of the 448px it was, and the 40px arrows replaced a 32px
+  pair. **The reorder commit is the list's leading block and is `position: sticky`**, so a move's Save is
+  on screen from the first tap rather than several thousand pixels below it, and a `beforeunload` guard
+  stops a stray navigation from discarding an unsaved order. See the 2026-11-21 changelog entry.
+- **The offer popup states its one boolean once.** The picture, then the switch whose own label is the
+  state, then the description. The frame is derived from the file's ratio and stated beside the preview;
+  while a replacement is staged the sticky bar says a save cannot be undone from that screen.
 - **One form, one action bar.** The three pickers (departments, brands, offers) are one `<form>`, saved by
   the sticky `formHeader` bar whose live summary states the counts ("2 of 15 departments, 1 of 15 brands,
   1 of 10 offers chosen"). There is no second Save at the bottom.

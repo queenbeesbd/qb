@@ -569,13 +569,15 @@ export const dictionary = {
   'admin.hero.remove': 'Remove',
   'admin.hero.removeTitle': 'Remove this hero image?',
   'admin.hero.removeBody':
-    'It disappears from the homepage carousel immediately. At least {min} image must stay, and the remaining images close the gap in their order.',
+    'It disappears from the homepage carousel immediately, and the banners after it move up one. At least {min} image must stay.',
   'admin.hero.minimum': 'At least {min} image must stay in the carousel, so the last one cannot be removed.',
   'admin.hero.orderPending': 'The new order is not saved yet.',
+  'admin.hero.orderUnsavedWarning':
+    'The carousel order is not saved yet. Leave this page and the new order is lost.',
   'admin.hero.saveOrder': 'Save order',
   'admin.hero.uploadTitle': 'Upload a banner from your computer',
   'admin.hero.uploadBody':
-    'A 16:9 banner is cropped and resized on the server, then added to the end of the carousel.',
+    'The banner is cropped to 16:9 and added to the end of the carousel.',
   'admin.hero.uploadSubmit': 'Upload banner',
   'admin.hero.addTitle': 'Add an image',
   'admin.hero.maximum': 'The carousel already holds its maximum of {max} images. Remove one to add another.',
@@ -594,36 +596,33 @@ export const dictionary = {
     'That change was refused. Check the image file and its description length, and remember the carousel must keep at least one image and holds at most ten.',
   'admin.hero.notice.conflict':
     'The carousel changed while this page was open, or that image is already in it. Reload and try again.',
+  // The header's one action: jumping to the upload block, which is the only thing this page adds to.
+  'admin.hero.addShortcut': 'Add image',
 
   'admin.offerPopup.title': 'Offer popup',
   'admin.offerPopup.sectionImage': 'Popup image',
-  'admin.offerPopup.dropTitle': 'Drag the offer image here, or choose it from your computer',
-  'admin.offerPopup.dropHelp':
-    'JPG, PNG or WebP, up to 4 MB. A square or 16:9 image works best; anything else is cropped to the nearer frame.',
-  'admin.offerPopup.choose': 'Upload image',
+  'admin.offerPopup.imageLede':
+    'The picture is the whole offer. The frame follows the image: a square file opens as a square and a wide one as a 16:9 banner.',
   'admin.offerPopup.noImage': 'No offer image yet',
-  'admin.offerPopup.frameSquare': 'This image will be shown as a square (1:1).',
-  'admin.offerPopup.frameWide': 'This image will be shown as a wide banner (16:9).',
-  'admin.offerPopup.altLabel': 'Description',
-  'admin.offerPopup.altHelp':
-    'Optional. Read aloud by screen readers and shown if the image cannot load. State what the offer shows; it is not a slogan. Leave it blank and the popup uses a plain "Offer" label.',
+  'admin.offerPopup.frameSquare': 'Saved as a square (1:1).',
+  'admin.offerPopup.frameWide': 'Saved as a wide banner (16:9).',
   'admin.offerPopup.sectionDisplay': 'Display',
-  'admin.offerPopup.activeLabel': 'Show this offer when the storefront opens',
-  'admin.offerPopup.activeHelp':
-    'The popup appears once per browsing session. Turning it off keeps the saved image for later.',
-  'admin.offerPopup.outcomeOn': 'The popup is shown once when a visitor opens the storefront.',
-  'admin.offerPopup.outcomeOff': 'The popup is saved but not shown.',
-  'admin.offerPopup.statusOn': 'Shown once per browsing session.',
-  'admin.offerPopup.statusOff': 'Not shown on the storefront.',
-  'admin.offerPopup.behaviourTitle': 'How it behaves',
-  'admin.offerPopup.styleNote':
-    'The image is the whole offer: there is no invented headline, button or discount claim. Its description is for screen readers and a failed load.',
+  'admin.offerPopup.switchOn': 'Shown when a visitor first opens the shop',
+  'admin.offerPopup.switchOff': 'Not shown on the storefront',
+  'admin.offerPopup.visibleHint':
+    'Once per browsing session. Turning it off keeps the saved image for later.',
+  'admin.offerPopup.altLabel': 'Description',
+  'admin.offerPopup.altPlaceholder': 'What the offer picture shows',
+  'admin.offerPopup.altHelp':
+    'Optional. Read aloud by screen readers and shown if the image cannot load. State what the picture shows; it is not a slogan. Leave it blank and the popup uses a plain "Offer" label.',
+  'admin.offerPopup.replacingWarning':
+    'Saving replaces the offer picture. This screen cannot put the old one back.',
   'admin.offerPopup.save': 'Save offer popup',
   'admin.offerPopup.notice.saved': 'The offer popup is saved.',
   'admin.offerPopup.notice.imageInvalid':
     'That file is not a supported image or is too large. Nothing was saved.',
   'admin.offerPopup.notice.invalid':
-    'The popup needs a description and a saved image. Nothing was changed.',
+    'That could not be saved: the description is longer than 200 characters, or there is no saved image yet. Nothing was changed.',
   'admin.offerPopup.notice.conflict': 'That change conflicts with the saved popup. Reload and try again.',
   'admin.offerPopup.notice.denied': 'Your account does not have permission to change the store settings.',
   'popup.label': 'Offer',

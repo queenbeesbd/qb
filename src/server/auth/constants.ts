@@ -102,7 +102,6 @@ export const ANALYTICS_PATH = '/qbpanel/analytics';
  * own activity, and administration is owner-only.
  */
 export const TRAFFIC_PATH = '/qbpanel/traffic';
-export const ANNOUNCEMENT_SETTINGS_PATH = '/qbpanel/settings/announcement';
 export const SUPPORT_SETTINGS_PATH = '/qbpanel/settings/support';
 /** The shop's own phone, hours and address, and the policy text it publishes (Phase 51). */
 export const CONTACT_SETTINGS_PATH = '/qbpanel/settings/contact';
@@ -117,7 +116,17 @@ export const CONTACT_SETTINGS_PATH = '/qbpanel/settings/contact';
  */
 export const STOREFRONT_PATH = '/qbpanel/storefront';
 export const STOREFRONT_HERO_PATH = '/qbpanel/storefront/hero';
-export const OFFER_POPUP_SETTINGS_PATH = '/qbpanel/settings/offer-popup';
+/**
+ * The two things a visitor meets before the front page: the news line above the header, and the image
+ * that opens the site once per browsing session.
+ *
+ * They belong to the same division as the hero and the homepage picks (owner direction, 2026-11-21):
+ * all four decide what the shop's front looks like, so an owner changing the front page opens one rail
+ * group. They are **not** settings - nothing about them is a policy or a charge. **The old
+ * `/qbpanel/settings/...` paths are retired, not aliased** - the same rule the hero path follows.
+ */
+export const STOREFRONT_ANNOUNCEMENT_PATH = '/qbpanel/storefront/announcement';
+export const STOREFRONT_OFFER_POPUP_PATH = '/qbpanel/storefront/offer-popup';
 /**
  * Integrations (Phase 39): outbound notification destinations.
  *

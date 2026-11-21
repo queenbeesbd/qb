@@ -28,11 +28,19 @@ export function AdminImageInput({
   name = 'file',
   accept = 'image/jpeg,image/png,image/webp',
   required = false,
+  onPrepared,
 }: {
   id: string;
   name?: string;
   accept?: string;
   required?: boolean;
+  /**
+   * The file that will actually be posted, once preparation has settled (and `null` when the owner
+   * clears the picker). A caller that needs to preview the bytes uses this rather than keeping a
+   * second copy of the decode-and-encode logic - the offer popup reads the chosen file's ratio to say
+   * which frame it will be stored in.
+   */
+  onPrepared?: (file: File | null) => void;
 }) {
   const { t } = useTranslation();
   const [preparing, setPreparing] = useState(false);
@@ -46,7 +54,10 @@ export function AdminImageInput({
     setChosen({ name: originalName, bytes: file.size });
 
     // Small enough to post as-is, and no decode cost for the common case.
-    if (file.size <= 2 * 1024 * 1024) return;
+    if (file.size <= 2 * 1024 * 1024) {
+      onPrepared?.(file);
+      return;
+    }
 
     setPreparing(true);
     try {
@@ -57,6 +68,7 @@ export function AdminImageInput({
         input.files = transfer.files;
         setChosen({ name: originalName, bytes: prepared.size });
       }
+      onPrepared?.(prepared);
     } finally {
       setPreparing(false);
     }
@@ -75,7 +87,14 @@ export function AdminImageInput({
         name={name}
         accept={accept}
         required={required}
-        onChange={(event) => void prepare(event)}
+        onChange={(event) => {
+          if (event.currentTarget.files?.[0] === undefined) {
+            setChosen(null);
+            onPrepared?.(null);
+            return;
+          }
+          void prepare(event);
+        }}
         aria-busy={preparing}
       />
       <label className={styles.fileButton} htmlFor={id}>

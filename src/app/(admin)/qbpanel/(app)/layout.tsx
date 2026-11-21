@@ -8,14 +8,14 @@ import {
   CATALOG_PATH,
   CATEGORIES_PATH,
   CUSTOMERS_PATH,
-  ANNOUNCEMENT_SETTINGS_PATH,
   CONTACT_SETTINGS_PATH,
   DELIVERY_SETTINGS_PATH,
+  STOREFRONT_ANNOUNCEMENT_PATH,
   STOREFRONT_HERO_PATH,
+  STOREFRONT_OFFER_POPUP_PATH,
   STOREFRONT_PATH,
   INTEGRATIONS_PATH,
   LOGIN_PATH,
-  OFFER_POPUP_SETTINGS_PATH,
   OTHER_SETTINGS_PATH,
   ORDERS_PATH,
   OWNERS_PATH,
@@ -126,6 +126,11 @@ export default async function AdminShellLayout({ children }: { children: React.R
      * Storefront is its own division rather than another Settings row (owner direction, 2026-11-12):
      * what the homepage shows is merchandising, the same work as the catalog, and the hero carousel
      * moved here so every decision that shapes the shop's front page sits in one place.
+     *
+     * The announcement bar and the offer popup followed it on 2026-11-21 (owner direction): both are
+     * the shop's front, one above the header and one over it, and neither is a policy or a charge. The
+     * order is the order a visitor meets them in - the banner carousel, the upcoming sale, the news
+     * line, then the popup the shop opens with.
      */
     items.push({
       href: STOREFRONT_PATH,
@@ -138,6 +143,18 @@ export default async function AdminShellLayout({ children }: { children: React.R
       labelKey: 'admin.nav.hero',
       group: 'storefront',
       icon: 'image',
+    });
+    items.push({
+      href: STOREFRONT_ANNOUNCEMENT_PATH,
+      labelKey: 'admin.nav.announcement',
+      group: 'storefront',
+      icon: 'list',
+    });
+    items.push({
+      href: STOREFRONT_OFFER_POPUP_PATH,
+      labelKey: 'admin.nav.offerPopup',
+      group: 'storefront',
+      icon: 'bell',
     });
   }
   if (hasPermission(principal, PERMISSIONS.customerRead)) {
@@ -156,12 +173,6 @@ export default async function AdminShellLayout({ children }: { children: React.R
       group: 'settings',
       icon: 'settings',
     });
-    items.push({
-      href: ANNOUNCEMENT_SETTINGS_PATH,
-      labelKey: 'admin.nav.announcement',
-      group: 'settings',
-      icon: 'list',
-    });
     // The two floating support buttons' addresses: the shop's own Messenger and WhatsApp.
     items.push({
       href: SUPPORT_SETTINGS_PATH,
@@ -175,13 +186,6 @@ export default async function AdminShellLayout({ children }: { children: React.R
       labelKey: 'admin.nav.contact',
       group: 'settings',
       icon: 'list',
-    });
-    // The image a visitor meets when the storefront opens: one image and one switch.
-    items.push({
-      href: OFFER_POPUP_SETTINGS_PATH,
-      labelKey: 'admin.nav.offerPopup',
-      group: 'settings',
-      icon: 'bell',
     });
     // Integrations is a hub, so the sidebar gains one entry however many providers exist later.
     items.push({

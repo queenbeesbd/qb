@@ -35,9 +35,9 @@ function readNotice(value: string | string[] | undefined): OtherSettingsNotice |
  *
  * A home for checkout policy that is not a value the storefront renders elsewhere: who may place an
  * order, and the **Checkout instructions** the payment card publishes. It is deliberately separate
- * from Delivery charges and the Announcement bar, which are both about what a customer sees on the
- * storefront, and it is where a future checkout policy belongs rather than being scattered across the
- * panel.
+ * from the pages that decide what the shop *looks* like - Delivery charges, and the Storefront
+ * division's announcement bar and offer popup - and it is where a future checkout policy belongs
+ * rather than being scattered across the panel.
  */
 export default async function OtherSettingsPage({
   searchParams,

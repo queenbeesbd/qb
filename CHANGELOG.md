@@ -14,6 +14,66 @@ An entry may describe a deployment only once it has actually happened and been o
 
 ## [Unreleased]
 
+### Changed - 2026-11-21: the hero and offer-popup editors are rebuilt for a phone, and both move to Storefront
+
+Owner direction: redesign both screens completely, **phone first**, and move the offer popup and the
+announcement bar out of Settings into the Storefront division. Presentation and navigation only - no
+schema, no permission, no state-machine, no business-policy change.
+
+**Measured before and after, at 390x844 (deviceScaleFactor 1.25), three banners seeded:**
+
+| | Before | After |
+| --- | --- | --- |
+| Hero banner row | 448px tall, thumbnail stretched to 332x187 | 127-142px tall, 88x50 thumbnail |
+| Hero document | 2,051px | 1,137px |
+| Reorder commit | after the whole `<ol>` - ~4,500px below the arrow that moved a banner, with ten rows | sticky at `top: 0`, in view from the first move |
+| Move buttons | 32x40 | 40x40 |
+| Offer popup document | 1,622px for one image + one switch | 1,257px, with the decision second rather than third |
+| Control heights on both pages | 40 / 52 | 40 only |
+
+**Hero editor.** Each banner is one dense row: its drawn position (hidden from the reader, since the
+list already says "3 of 10"), the photograph, the description **folded into the row** with its saved
+words as the summary, and the three controls. The reorder draft is now the list's leading block and is
+`position: sticky` under the top bar, so a move's Save can never be off screen. `beforeunload` guards an
+unsaved order: every other control on the page is a full navigation, so a stray tap used to discard an
+arrangement silently. The minimum-image explanation moved from a trailing sentence to the line under the
+list it qualifies. The raw `imageKey` line, the "Position 1" prose and three competing save verbs are
+gone.
+
+**Offer popup.** One card order that follows the decision: the picture, then whether it is shown, then
+its description. The page used to state one boolean **four times** across three cards; it now states it
+once, as the switch's own label ("Shown when a visitor first opens the shop" / "Not shown on the
+storefront"). The frame is derived from the file's own ratio and stated once beside the preview. While a
+replacement is staged, the sticky bar carries the fact that a save cannot be undone from this screen -
+the previous picture is not reattachable here.
+
+**`PopupImageField` deleted.** It duplicated ~62 of its 154 lines with `CatalogImageField` (detector
+scan, Assessment B). The shared `AdminImageInput` gained an `onPrepared` callback so the popup previews
+the bytes it will actually post and reads their ratio, and posts under the `image` field its route reads.
+`CatalogImageField` is untouched: it also carries an inventory picker and a remove checkbox that the
+popup does not have.
+
+**Navigation (owner direction).** `/qbpanel/storefront/hero`, `/qbpanel/storefront/announcement` and
+`/qbpanel/storefront/offer-popup` now sit together in the **Storefront** group, ordered as a visitor
+meets them. The old `/qbpanel/settings/announcement` and `/qbpanel/settings/offer-popup` are **retired and
+answer 404**, exactly as the hero's old path does - not aliased. `STOREFRONT_ANNOUNCEMENT_PATH` and
+`STOREFRONT_OFFER_POPUP_PATH` replace the two `*_SETTINGS_PATH` constants; both API routes redirect to
+the new paths; `verify:admin` follows.
+
+**Copy defects fixed (found in the critique).** `admin.offerPopup.notice.invalid` told the owner the
+popup "needs a description" when the description was optional and the real cause was length.
+`admin.hero.uploadBody` and `removeBody` narrated the server's crop and the position-renumbering loop
+instead of the owner's task.
+
+**Verified on a dev server at 390px and 1280px:** both pages' controls resolve to 40px only; no
+horizontal overflow; the accessibility tree names every move/remove control; a real reorder saved
+(`notice=reordered`, rows re-sequenced, `settings.hero_images_reordered` audited); a banner description
+opened in place and saved; the popup switch saved off, then the uploaded replacement saved as `wide`
+with both `/hero` variants written and rendered by the storefront modal; the retired paths 404; the
+rail and the phone drawer group all four Storefront entries. **Not run:** `verify:admin` and
+`verify:browser` (the working tree carries another agent's in-flight orders redesign, which fails the
+build), and real iOS/Android hardware.
+
 ### Changed - 2026-11-21: the admin panel stops explaining itself, page by page
 
 Owner direction: the dashboard had already had its tour prose cut; the same treatment goes everywhere.
