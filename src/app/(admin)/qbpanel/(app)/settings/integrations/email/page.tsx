@@ -1,6 +1,6 @@
 import { requireAdminPage } from '@/server/auth/guard';
 import { PERMISSIONS } from '@/server/authz/permissions';
-import { providerCredentialStatus } from '@/server/integrations/provider-credentials';
+import { providerCredentialStatus, providerPublicConfiguration } from '@/server/integrations/provider-credentials';
 import { AccountEmailView, type ProviderNotice } from './AccountEmailView';
 
 export const dynamic = 'force-dynamic';
@@ -21,10 +21,13 @@ export default async function AccountEmailSettingsPage({
 }) {
   const principal = await requireAdminPage(PERMISSIONS.settingsWrite);
   const status = await providerCredentialStatus();
+  const saved = await providerPublicConfiguration();
 
   return (
     <AccountEmailView
       status={status}
+      senderValue={saved.resendFrom}
+      baseUrlValue={saved.baseUrl}
       notice={readNotice((await searchParams).notice)}
       csrfToken={principal.csrfToken}
     />

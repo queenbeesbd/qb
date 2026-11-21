@@ -64,8 +64,15 @@ const ENV_KEYS: Record<ProviderField, string> = {
 };
 
 function asText(value: unknown): string | null {
-  if (typeof value !== 'string') return null;
-  const trimmed = value.trim();
+  /*
+    A jsonb string containing only digits comes back through the pg driver as a JS number in this
+    stack: pg parses the JSON to `"8809..."` and the jsonb column parses it again to 8809... . Sender
+    ids and phone-shaped values are exactly that shape, so accept numbers as text rather than reporting
+    a saved credential as absent.
+  */
+  const text = typeof value === 'number' || typeof value === 'boolean' ? String(value) : value;
+  if (typeof text !== 'string') return null;
+  const trimmed = text.trim();
   return trimmed === '' ? null : trimmed;
 }
 
@@ -230,4 +237,18 @@ export async function storeRuntimeBaseUrl(): Promise<string | null> {
   if (env !== undefined && env !== '') return env.replace(/\/+$/, '');
   const environment = process.env.QUEENBEES_ENV ?? process.env.NODE_ENV;
   return environment === 'production' ? null : 'http://localhost:3000';
+}
+
+
+/**
+ * Non-secret configuration that may be rendered back into its field. API keys and tokens are never in
+ * this set: a secret stays write-only even though an owner might prefer to see it.
+ */
+export async function providerPublicConfiguration(): Promise<{
+  readonly smsSenderId: string | null;
+  readonly resendFrom: string | null;
+  readonly baseUrl: string | null;
+}> {
+  const values = await loadProviderCredentials();
+  return { smsSenderId: values.smsSenderId, resendFrom: values.resendFrom, baseUrl: values.baseUrl };
 }

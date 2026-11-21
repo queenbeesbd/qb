@@ -1,6 +1,6 @@
 import { requireAdminPage } from '@/server/auth/guard';
 import { PERMISSIONS } from '@/server/authz/permissions';
-import { providerCredentialStatus } from '@/server/integrations/provider-credentials';
+import { providerCredentialStatus, providerPublicConfiguration } from '@/server/integrations/provider-credentials';
 import { SmsVerificationView, type ProviderNotice } from './SmsVerificationView';
 
 export const dynamic = 'force-dynamic';
@@ -21,10 +21,12 @@ export default async function SmsVerificationSettingsPage({
 }) {
   const principal = await requireAdminPage(PERMISSIONS.settingsWrite);
   const status = await providerCredentialStatus();
+  const saved = await providerPublicConfiguration();
 
   return (
     <SmsVerificationView
       status={status}
+      senderIdValue={saved.smsSenderId}
       notice={readNotice((await searchParams).notice)}
       csrfToken={principal.csrfToken}
     />

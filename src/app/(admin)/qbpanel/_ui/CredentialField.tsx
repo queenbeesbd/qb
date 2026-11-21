@@ -22,12 +22,15 @@ export function CredentialField({
   status,
   placeholder,
   type = 'password',
+  savedValue,
 }: {
   name: keyof ProviderCredentialStatus;
   label: string;
   status: ProviderCredentialStatus[typeof name];
   placeholder: string;
   type?: string;
+  /** Set only for non-secret values. Secrets are never sent back to a page as text. */
+  savedValue?: string | null;
 }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
@@ -94,6 +97,7 @@ export function CredentialField({
         type={type}
         autoComplete="off"
         placeholder={placeholder}
+        defaultValue={savedValue ?? ''}
       />
       {/*
         Always submitted, but empty unless the confirm dialog was used. The route ignores values that

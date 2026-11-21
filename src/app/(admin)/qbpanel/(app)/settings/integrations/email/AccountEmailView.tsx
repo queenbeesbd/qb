@@ -26,10 +26,14 @@ const NOTICE_KEYS: Record<ProviderNotice, TranslationKey> = {
  */
 export function AccountEmailView({
   status,
+  senderValue,
+  baseUrlValue,
   notice,
   csrfToken,
 }: {
   status: ProviderCredentialStatus;
+  senderValue: string | null;
+  baseUrlValue: string | null;
   notice: ProviderNotice | null;
   csrfToken: string;
 }) {
@@ -68,6 +72,7 @@ export function AccountEmailView({
               name="resendFrom"
               label={t('admin.providers.email.from')}
               status={status.resendFrom}
+              savedValue={senderValue}
               placeholder={t('admin.providers.placeholder')}
               type="text"
             />
@@ -75,6 +80,7 @@ export function AccountEmailView({
               name="baseUrl"
               label={t('admin.providers.site.baseUrl')}
               status={status.baseUrl}
+              savedValue={baseUrlValue}
               placeholder={t('admin.providers.placeholder')}
               type="text"
             />

@@ -26,10 +26,12 @@ const NOTICE_KEYS: Record<ProviderNotice, TranslationKey> = {
  */
 export function SmsVerificationView({
   status,
+  senderIdValue,
   notice,
   csrfToken,
 }: {
   status: ProviderCredentialStatus;
+  senderIdValue: string | null;
   notice: ProviderNotice | null;
   csrfToken: string;
 }) {
@@ -68,6 +70,7 @@ export function SmsVerificationView({
               name="smsSenderId"
               label={t('admin.providers.sms.senderId')}
               status={status.smsSenderId}
+              savedValue={senderIdValue}
               placeholder={t('admin.providers.placeholder')}
               type="text"
             />
