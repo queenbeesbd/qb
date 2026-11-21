@@ -91,7 +91,7 @@ export function HeroSettingsView({
 
   return (
     <>
-      <PageHeader title={t('admin.hero.title')} description={t('admin.hero.body')} />
+      <PageHeader title={t('admin.hero.title')} />
 
       {notice !== null && (
         <Notice tone={ERROR_NOTICES.includes(notice) ? 'error' : 'success'}>{t(NOTICE_KEYS[notice])}</Notice>

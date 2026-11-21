@@ -112,10 +112,7 @@ export function DeliverySettingsView({
 
   return (
     <>
-      <PageHeader
-        title={t('admin.delivery.title')}
-        description={t('admin.delivery.body')}
-      />
+      <PageHeader title={t('admin.delivery.title')} />
 
       {notice !== null && (
         <Notice tone={ERROR_NOTICES.includes(notice) ? 'error' : 'success'}>{t(NOTICE_KEYS[notice])}</Notice>

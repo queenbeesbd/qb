@@ -43,7 +43,7 @@ export function ContactSettingsView({
 
   return (
     <>
-      <PageHeader title={t('admin.contact.title')} description={t('admin.contact.body')} />
+      <PageHeader title={t('admin.contact.title')} />
 
       {notice !== null && (
         <Notice tone={ERROR_NOTICES.includes(notice) ? 'error' : 'success'}>

@@ -54,10 +54,7 @@ export default async function OtherSettingsPage({
 
   return (
     <>
-      <PageHeader
-        title={translate('admin.settings.other.title')}
-        description={translate('admin.settings.other.body')}
-      />
+      <PageHeader title={translate('admin.settings.other.title')} />
 
       {notice !== null && (
         <Notice tone={ERROR_NOTICES.includes(notice) ? 'error' : 'success'}>

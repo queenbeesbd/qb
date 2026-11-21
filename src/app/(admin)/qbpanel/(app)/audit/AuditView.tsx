@@ -56,7 +56,7 @@ export function AuditView({
 
   return (
     <>
-      <PageHeader title={t('admin.audit.title')} description={t('admin.audit.body')} />
+      <PageHeader title={t('admin.audit.title')} />
 
       {rows.length === 0 ? (
         <EmptyState title={t('admin.audit.emptyTitle')} body={t('admin.audit.emptyBody')} icon="audit" />

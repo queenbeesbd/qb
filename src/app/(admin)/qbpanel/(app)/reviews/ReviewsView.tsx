@@ -90,10 +90,7 @@ export function ReviewsView({
 
   return (
     <>
-      <PageHeader
-        title={t('admin.reviews.title')}
-        description={t('admin.reviews.subtitle')}
-      />
+      <PageHeader title={t('admin.reviews.title')} />
 
       {notice !== null && (
         <Notice tone={ERROR_NOTICES.includes(notice) ? 'error' : 'success'}>

@@ -90,7 +90,6 @@ export function StorefrontView({
       */}
       <PageHeader
         title={t('admin.storefront.title')}
-        description={t('admin.storefront.body')}
         actions={
           <Link className={`${styles.button} ${styles.buttonSecondary}`} href="/qbpanel/storefront/hero">
             <AdminIcon name="image" width={16} height={16} />

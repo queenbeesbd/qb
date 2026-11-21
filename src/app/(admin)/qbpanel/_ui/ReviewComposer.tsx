@@ -60,8 +60,6 @@ export function ReviewComposer({
       </summary>
 
       <div className={styles.reviewComposerPanel}>
-        <p className={styles.reviewComposerIntro}>{t('admin.reviews.write.body')}</p>
-
         <form
           ref={formRef}
           className={styles.reviewComposerForm}

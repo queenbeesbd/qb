@@ -64,10 +64,7 @@ export default async function NewProductPage({
 
   return (
     <>
-      <PageHeader
-        title={translate('admin.catalog.createTitle')}
-        description={translate('admin.catalog.createBody')}
-      />
+      <PageHeader title={translate('admin.catalog.createTitle')} />
 
       {notice !== null && (
         <Notice tone={NOTICE_ERRORS.includes(notice) ? 'error' : 'success'}>

@@ -92,7 +92,6 @@ export function TelegramSettingsView({
     <>
       <PageHeader
         title={t('admin.integrations.telegramTitle')}
-        description={t('admin.integrations.telegramBody')}
         actions={
           <Link className={`${styles.button} ${styles.buttonSecondary}`} href="/qbpanel/settings/integrations">
             {t('admin.integrations.backToHub')}

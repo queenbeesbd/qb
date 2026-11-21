@@ -45,7 +45,7 @@ export function OfferPopupSettingsView({
 
   return (
     <>
-      <PageHeader title={t('admin.offerPopup.title')} description={t('admin.offerPopup.body')} />
+      <PageHeader title={t('admin.offerPopup.title')} />
 
       {notice !== null && (
         <Notice tone={ERROR_NOTICES.includes(notice) ? 'error' : 'success'}>

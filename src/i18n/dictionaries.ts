@@ -430,8 +430,6 @@ export const dictionary = {
   'admin.nav.customers': 'Customers',
   'admin.nav.delivery': 'Delivery charges',
   'admin.support.title': 'Support links',
-  'admin.support.body':
-    'The Messenger and WhatsApp buttons shown at the right edge of the storefront. Leave a field blank to hide that button.',
   'admin.support.messengerTitle': 'Messenger',
   'admin.support.messengerField': 'Messenger link',
   'admin.support.whatsappTitle': 'WhatsApp',
@@ -444,8 +442,6 @@ export const dictionary = {
   'admin.support.notice.invalid':
     'That address is not a complete https link, so nothing was saved. Both fields were left as they were.',
   'admin.contact.title': 'Contact and policies',
-  'admin.contact.body':
-    'What the shop publishes about itself: how to reach it, and the policy text it is willing to stand behind. A blank field is published nowhere.',
   'admin.contact.factsTitle': 'How to reach the shop',
   'admin.contact.phone': 'Phone number',
   'admin.contact.phoneHelp':
@@ -493,8 +489,6 @@ export const dictionary = {
   'admin.nav.otherSettings': 'Other settings',
 
   'admin.settings.other.title': 'Other settings',
-  'admin.settings.other.body':
-    'Checkout policy, and the advance-payment number the checkout publishes. These are the storefront’s own settings rather than the shop’s contact details.',
   'admin.settings.other.checkoutTitle': 'Checkout',
   'admin.settings.other.checkoutBody':
     'One switch, and it changes who can buy. A mobile number is required either way.',
@@ -520,26 +514,22 @@ export const dictionary = {
   'admin.nav.storefront': 'Back to the storefront',
 
   'admin.storefront.title': 'Storefront',
-  'admin.storefront.body':
-    'What the homepage shows when a shopper arrives: which departments and brands the two rails draw, and which products sit in On Offer.',
-  'admin.storefront.heroHint': 'The homepage hero carousel has its own screen:',
   'admin.storefront.summary':
     '{categories} of 15 departments, {brands} of 15 brands, {offers} of 10 offers chosen.',
   'admin.storefront.summaryAutomatic':
     'Nothing chosen: the shop picks the busiest departments, the busiest brands and the largest real savings.',
   'admin.storefront.categoriesTitle': 'Shop By Category',
   'admin.storefront.categoriesBody':
-    'The round department rail. Only live, visible top-level departments are offered; the order is the order they appear.',
+    'Only live, visible top-level departments are offered; the order is the order they appear.',
   'admin.storefront.categoriesAutomatic':
     'Nothing chosen: the homepage shows the busiest departments first.',
   'admin.storefront.brandsTitle': 'Shop By Brand',
-  'admin.storefront.brandsBody':
-    'The round brand rail, in the same circles. Only live brands are offered.',
+  'admin.storefront.brandsBody': 'Only live brands are offered.',
   'admin.storefront.brandsAutomatic':
     'Nothing chosen: the homepage shows the brands with the most products.',
   'admin.storefront.offersTitle': 'On Offer',
   'admin.storefront.offersBody':
-    'The offer row. Only published products with a genuine saving are offered, because that is what the row claims; a product that loses its saving later drops out of the row by itself. A product already shown in Recently Added or Most Selling is not repeated.',
+    'Only published products with a genuine saving are offered, because that is what the row claims; a product that loses its saving later drops out of the row by itself. A product already shown in Recently Added or Most Selling is not repeated.',
   'admin.storefront.offersAutomatic':
     'Nothing chosen: the homepage shows the shop’s largest real savings.',
   'admin.storefront.chosenOf': '{count} of {limit} chosen',
@@ -570,8 +560,6 @@ export const dictionary = {
   'admin.storefront.notice.conflict':
     'The selection changed while this page was open. Reload it and choose again.',
   'admin.hero.title': 'Homepage hero',
-  'admin.hero.body':
-    'The images the homepage carousel shows, in this order. At least one image is required and the carousel holds at most ten.',
   'admin.hero.editorTitle': 'Carousel images',
   'admin.hero.count': '{count} of {max} images',
   'admin.hero.empty': 'The carousel has no images yet. Add one below before the homepage can show it.',
@@ -608,8 +596,6 @@ export const dictionary = {
     'The carousel changed while this page was open, or that image is already in it. Reload and try again.',
 
   'admin.offerPopup.title': 'Offer popup',
-  'admin.offerPopup.body':
-    'The image a visitor meets when the storefront opens. It appears once per browsing session and can be turned off without deleting the image.',
   'admin.offerPopup.sectionImage': 'Popup image',
   'admin.offerPopup.dropTitle': 'Drag the offer image here, or choose it from your computer',
   'admin.offerPopup.dropHelp':
@@ -722,7 +708,6 @@ export const dictionary = {
   'admin.nav.openMenu': 'Open menu',
   'admin.nav.closeMenu': 'Close menu',
   'admin.announcement.title': 'Announcement bar',
-  'admin.announcement.body': 'The one news line shown above the storefront header.',
   'admin.announcement.editorTitle': 'Your message',
   'admin.announcement.previewTitle': 'What customers see',
   'admin.announcement.previewLabel': 'Preview',
@@ -743,8 +728,6 @@ export const dictionary = {
   'admin.announcement.notice.denied': 'Your account is not allowed to change the announcement.',
   'admin.announcement.notice.invalid': 'That message could not be saved. Keep it to 300 characters.',
   'admin.delivery.title': 'Delivery charges',
-  'admin.delivery.body':
-    'Customers choose one of three areas: Dhaka, Chattogram or Other districts. Dhaka and Chattogram may have their own charge; every other district uses the default.',
   'admin.delivery.defaultTitle': 'Other districts (default charge)',
   'admin.delivery.defaultBody':
     'Used for every district outside Dhaka and Chattogram, and for either area without its own charge. Until it is set, checkout cannot place orders.',
@@ -903,8 +886,6 @@ export const dictionary = {
   'admin.catalog.sectionNames': 'Names and description',
   'admin.catalog.sectionClassification': 'Classification',
   'admin.catalog.sectionPricing': 'Pricing',
-  'admin.catalog.sectionPricingBody':
-    'Type the amount in taka. The comparison price is optional and only shown when it is genuinely higher.',
   'admin.catalog.sectionStatus': 'Publication and stock',
   'admin.catalog.field.priceHelp': 'Enter Bangladeshi taka, for example 750.10.',
   'admin.catalog.newProduct': 'New product',
@@ -946,8 +927,6 @@ export const dictionary = {
   'admin.integrations.telegramSummary':
     'Sends a message to each registered Telegram account when an order is placed.',
   'admin.integrations.telegramTitle': 'Telegram notifications',
-  'admin.integrations.telegramBody':
-    'Every registered Telegram account receives a short message when an order is placed: the reference, the amount, the items, the area and who to call.',
   'admin.integrations.backToHub': 'All integrations',
 
   'admin.integrations.botTitle': 'The bot',
@@ -1007,8 +986,6 @@ export const dictionary = {
   'admin.integrations.notice.invalid':
     'Check the fields: a name and a numeric Telegram id are required, and the id must not already be registered.',
   'admin.steadfast.title': 'SteadFast Courier',
-  'admin.steadfast.body':
-    'The courier account this shop books its COD parcels with. Approving a COD order in the confirmation queue sends it here automatically once booking is on.',
   'admin.steadfast.stateTitle': 'Saved account',
   'admin.steadfast.keysSaved': 'Keys saved',
   'admin.steadfast.keysMissing': 'Keys not saved',
@@ -1101,7 +1078,7 @@ export const dictionary = {
   'admin.order.back': 'Back to orders',
   'admin.order.status': 'Status',
   'admin.order.paymentState': 'Payment state',
-  'admin.order.confirmedAt': 'Confirmed',
+  'admin.order.confirmedAt': 'Confirmed at',
   'admin.order.cancelledAt': 'Cancelled',
   'admin.order.cancelledReason': 'Cancellation reason: {reason}',
   'admin.order.age': 'Age',
@@ -1276,6 +1253,77 @@ export const dictionary = {
   'admin.order.actor.unknown': 'Unknown',
   'admin.order.printSlip': 'Print slip',
 
+  // The order page's reference composition (owner direction, 2026-11-21): an order strip, a pager and
+  // a stack of collapsible cards. Every label below describes a stored fact; none of the field shapes
+  // promise an edit.
+  'admin.order.barTitle': 'Order #{number}',
+  'admin.order.idLabel': 'ID',
+  'admin.order.pagerLabel': 'Order navigation',
+  'admin.order.previous': 'Previous',
+  'admin.order.next': 'Next',
+  'admin.order.positionOf': 'of {total}',
+  'admin.order.printMenu': 'More print options',
+  'admin.order.menuSlip': 'Print dispatch slip',
+  'admin.order.menuReceipt': 'Customer receipt',
+  'admin.order.receiptCopy': 'Copy the receipt address',
+  'admin.order.receiptCopied': 'Copied',
+  'admin.order.toggleSection': 'Toggle {section}',
+  'admin.order.productsTitle': 'Products',
+  'admin.order.itemsCountLabel': 'Items ordered: {count}',
+  'admin.order.itemCountOne': '1 item',
+  'admin.order.itemCountMany': '{count} items',
+  'admin.order.closeMenu': 'Close the print menu',
+  'admin.order.ownProduct': 'Own',
+  'admin.order.unitPrice': 'Unit price',
+  'admin.order.lineTotal': 'Total',
+  'admin.order.sku': 'SKU',
+  'admin.order.quantity': 'Quantity',
+  'admin.order.decreaseQuantity': 'Decrease quantity',
+  'admin.order.increaseQuantity': 'Increase quantity',
+  'admin.order.quantityFixed':
+    'The quantity is what the order recorded. An order is frozen once it is placed.',
+  'admin.order.summaryTitle': 'Order summary',
+  'admin.order.percentage': 'Percentage',
+  'admin.order.amount': 'Amount',
+  'admin.order.itemsBand': 'Items',
+  'admin.order.units': 'Units',
+  'admin.order.deliveryBand': 'Delivery',
+  'admin.order.zone': 'Zone',
+  'admin.order.charge': 'Charge',
+  'admin.order.notRecorded': 'Not recorded',
+  'admin.order.paymentBand': 'Payment',
+  'admin.order.amountCollected': 'Paid amount',
+  'admin.order.amountDue': 'Amount due',
+  'admin.order.grandTotal': 'Grand total',
+  'admin.order.paymentNotApplicable': 'Not applicable',
+  'admin.order.deliveryInfoTitle': 'Delivery information',
+  'admin.order.noteTitle': 'Order note',
+  'admin.order.noteCustomerLabel': 'Customer note',
+  'admin.order.noteFromCheckout': 'From checkout',
+  'admin.order.noteEmpty': 'No note was recorded on this order.',
+  'admin.order.noteHelper':
+    'Only you and your team read this page. A customer sees only the note they wrote at checkout.',
+  'admin.order.infoTitle': 'Order information',
+  'admin.order.methodLabel': 'Payment method',
+  'admin.order.statusLabel': 'Order status',
+  'admin.order.call': 'Call',
+  'admin.order.whatsapp': 'WhatsApp',
+  'admin.order.contactDetails': 'Contact details',
+  'admin.order.customerNameField': 'Customer name',
+  'admin.order.customerEmailField': 'Customer email',
+  'admin.order.customerPhoneField': 'Customer phone',
+  'admin.order.customerAddressField': 'Customer address',
+  'admin.order.noEmail': 'No email on this account',
+  'admin.order.validityTitle': 'Customer validity',
+  'admin.order.validityOrders': 'Orders placed',
+  'admin.order.validityGuest': 'Guest order: there is no account to check.',
+  'admin.order.validityBody':
+    'A ban is the owner’s decision on a confirmed fake order and always carries a reason. It revokes the customer’s sessions and never cancels this order.',
+  'admin.order.validityManage': 'Manage customer',
+  'admin.order.steadfast.offTitle': 'SteadFast booking is off',
+  'admin.order.steadfast.offBody':
+    'Save the account keys in Integrations and this order can be booked from this page.',
+
   // The dispatch slip: the paper that travels with a COD parcel. Presentation only - it reads one
   // order and writes nothing, so these labels describe stored facts and never a promise.
   'admin.slip.shopName': "QueenBee's",
@@ -1298,7 +1346,6 @@ export const dictionary = {
   'admin.slip.printButton': 'Print this slip',
   'admin.slip.contactGap':
     'No shop phone number or address is stored, so this slip prints no shop contact block.',
-  'admin.customers.ordersBody': 'Orders recorded for this customer.',
   'admin.customers.ordersPermission': 'Viewing orders requires the order.read permission.',
   'admin.customers.noOrdersTitle': 'No orders',
   'admin.customers.noOrdersBody': 'This customer has not placed an order yet.',
@@ -1321,8 +1368,6 @@ export const dictionary = {
     'The storefront now renders the database catalog. Next phase: customer accounts and checkout.',
 
   'admin.owners.title': 'Staff accounts',
-  'admin.owners.body':
-    'QueenBee’s is a single store: an owner has full access, and a moderator runs the shop floor. You choose which screens moderators get, and money facts, settings and this screen always stay with the owner.',
   'admin.owners.empty': 'There are no owner accounts yet.',
   'admin.owners.status': 'Status',
   'admin.owners.statusActive': 'Active',
@@ -1370,23 +1415,15 @@ export const dictionary = {
   'admin.owners.notice.invalid': 'Enter a name and a valid email address.',
 
   // ---- Product editor (Phase 35) ----
-  'admin.catalog.createBody':
-    'Add a product to the catalog. It stays off the storefront until you publish it, and it cannot be ordered until it is in stock.',
   'admin.catalog.createBlocked':
     'A product needs a category and a brand. This store has {categories} categor(ies) and {brands} brand(s), so the form is unavailable until both exist.',
   'admin.catalog.formReady': 'All required fields are filled. Nothing is published until you tick Publish.',
   'admin.catalog.formMissing': 'Still required: {fields}.',
   'admin.catalog.formBlocked': 'The browser refused this submission. Check these fields: {fields}.',
   'admin.catalog.sectionGeneral': 'General information',
-  'admin.catalog.sectionGeneralBody': 'What the customer reads on the product page.',
   'admin.catalog.sectionMedia': 'Media',
-  'admin.catalog.sectionMediaBody':
-    'Drag photographs here, or add them from your computer. The first one is the card image; the rest appear in the gallery in this order.',
   'admin.catalog.sectionInventory': 'Inventory',
-  'admin.catalog.sectionInventoryBody': 'How the product is identified, and whether it can be ordered.',
   'admin.catalog.sectionDelivery': 'Delivery charge',
-  'admin.catalog.sectionDeliveryBody':
-    'Optional. This product can carry its own delivery charge instead of the store’s.',
   'admin.catalog.field.deliveryChattogram': 'Chattogram',
   'admin.catalog.field.deliveryDhaka': 'Dhaka',
   'admin.catalog.field.deliveryOthers': 'Other districts',
@@ -1394,7 +1431,6 @@ export const dictionary = {
     'Leave a field blank to use the store’s delivery charge for that area. If an order contains several products with their own charge, the lowest one is charged.',
   'admin.catalog.deliveryLink': 'Open delivery charges',
   'admin.catalog.sectionOrganisation': 'Organisation',
-  'admin.catalog.sectionOrganisationBody': 'Where the product sits, and how it is identified.',
   'admin.catalog.field.nameEnPlaceholder': 'For example: Hydrating Aloe Vera Mask',
   'admin.catalog.field.descriptionHelp': 'Plain text. Line breaks are preserved; no HTML is rendered.',
   'admin.catalog.field.packSizePlaceholder': 'For example: 200 ml',
@@ -1409,7 +1445,6 @@ export const dictionary = {
   'admin.catalog.counter': '{used}/{max}',
   'admin.catalog.currencyMark': 'BDT',
   'admin.catalog.previewTitle': 'Storefront preview',
-  'admin.catalog.previewBody': 'Exactly what the card shows, from what you have typed so far.',
   'admin.catalog.previewNoImage': 'No image yet',
   'admin.catalog.previewNoName': 'No name yet',
   'admin.catalog.previewNoPrice': 'No price yet',
@@ -1481,7 +1516,6 @@ export const dictionary = {
    */
   'admin.nav.reviews': 'Reviews',
   'admin.reviews.title': 'Reviews',
-  'admin.reviews.subtitle': 'Customer reviews wait here until you publish them. A review is only visible to its author until then.',
   'admin.reviews.filterLabel': 'Filter reviews by state',
   'admin.reviews.tab.pending': 'Awaiting approval',
   'admin.reviews.tab.approved': 'Published',
@@ -1508,8 +1542,6 @@ export const dictionary = {
    */
   'admin.reviews.write.title': 'Add a review',
   'admin.reviews.write.summary': 'From a message on Facebook or WhatsApp.',
-  'admin.reviews.write.body':
-    'Publish words a customer left on Facebook or WhatsApp. It goes on the product page immediately, and it is not labelled Verified buyer.',
   'admin.reviews.write.product': 'Product',
   'admin.reviews.write.productPlaceholder': 'Choose a product',
   'admin.reviews.write.productSearch': 'Search by name or brand',
@@ -1609,7 +1641,6 @@ export const dictionary = {
   'admin.imageField.invalid': 'That file is not an image the shop can use. Choose a JPG, PNG or WebP.',
   'admin.brands.title': 'Brands',
   'admin.brands.createTitle': 'New brand',
-  'admin.brands.editorBody': 'The name customers recognise, its storefront address and the mark the shop shows.',
   'admin.brands.sectionLogo': 'Brand mark',
   'admin.brands.sectionNames': 'Name and address',
   'admin.brands.field.nameEn': 'Name (English)',
@@ -1653,8 +1684,6 @@ export const dictionary = {
   'admin.categories.sectionUsage': 'What this category holds',
   'admin.categories.previewTitle': 'Storefront address',
   'admin.categories.previewNoName': 'No name yet',
-  'admin.categories.previewCaveat':
-    'The page lists the products assigned to this category; while the category is hidden, the storefront navigation leaves it out.',
   'admin.categories.usageProducts': 'Products',
   'admin.categories.usageSubcategories': 'Subcategories',
   'admin.categories.usageCreate': 'These counts appear once the category is saved.',
@@ -1703,7 +1732,6 @@ export const dictionary = {
   'admin.cod.notice.conflict': 'That order has already been decided.',
   'admin.cod.notice.invalid': 'Check the fields — a reason is required.',
   'admin.customers.title': 'Customers',
-  'admin.customers.body': 'A suspension follows only a confirmed fake order, and always carries a reason.',
   'admin.customers.empty': 'There are no customer accounts yet.',
   'admin.customers.customer': 'Customer',
   'admin.customers.status': 'Status',
@@ -1715,7 +1743,6 @@ export const dictionary = {
   'admin.customers.actions': 'Actions',
   'admin.customers.suspend': 'Suspend',
   'admin.customers.reasonPlaceholder': 'Reason (10+ characters)',
-  'admin.customers.suspendedNote': 'This account is suspended; sessions revoked and new orders refused.',
   'account.newPassword': 'New password',
   'admin.customers.notice.suspended': 'Account suspended; every live session was revoked.',
   'admin.customers.notice.restored':
@@ -1724,8 +1751,6 @@ export const dictionary = {
   'admin.customers.notice.conflict': 'That account is already suspended, or not active.',
   'admin.customers.notice.invalid': 'Select a customer and give a reason (10+ characters).',
   'admin.audit.title': 'Audit trail',
-  'admin.audit.body':
-    'Security-relevant events are appended here and can never be edited or deleted. Passwords, session tokens and payment details are never written.',
   'admin.audit.empty': 'There are no audit records yet.',
   'admin.audit.when': 'When',
   'admin.audit.actor': 'Actor',
@@ -2072,8 +2097,6 @@ export const dictionary = {
   'admin.analytics.promoNone': 'No code was used in this period.',
   'admin.analytics.promoSummaryLine': '{count} uses · {amount} given',
   'admin.traffic.title': 'Traffic',
-  'admin.traffic.lede':
-    'The shop’s own readers, measured first-party. A visit is a browsing session, not a person, and a visitor is never asked where they are.',
   'admin.traffic.periodLabel': 'Traffic period',
   'admin.traffic.figuresLabel': 'Traffic figures',
   'admin.traffic.live': 'Live now',
@@ -2125,13 +2148,10 @@ export const dictionary = {
   'admin.traffic.pagesTitle': 'Pages read',
   'admin.traffic.pagesNote': 'The six most-read paths, without their query strings.',
   'admin.traffic.pagesEmpty': 'No pages recorded in this period.',
-  'admin.traffic.footer':
-    'Visits are the shop’s own log: no third-party analytics, no cross-site identifier, no stored address. Rows are deleted 90 days after their last request.',
   'admin.promo.title': 'Promo codes',
   'admin.promo.new': 'New promo code',
   'admin.promo.newTitle': 'New promo code',
   'admin.promo.editTitle': 'Edit promo code',
-  'admin.promo.editBody': 'Changing a rule never rewrites an order that already used it.',
   'admin.promo.backToList': 'Back to codes',
   'admin.promo.edit': 'Edit',
   'admin.promo.pause': 'Pause',
@@ -2197,7 +2217,6 @@ export const dictionary = {
   'admin.promo.problemFields':
     'A field is missing or outside its allowed range. Check the highlighted fields.',
   'admin.promo.previewTitle': 'What the customer sees',
-  'admin.promo.previewBody': 'Three cart totals, priced with the same rule checkout uses.',
   'admin.promo.previewCart': 'Cart {amount}',
   'admin.promo.previewNoChange': 'No discount',
   'admin.promo.previewNote': 'Delivery is charged after the discount and is never reduced by a code.',

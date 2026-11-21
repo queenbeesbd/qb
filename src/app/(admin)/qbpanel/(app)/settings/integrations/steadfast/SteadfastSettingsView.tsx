@@ -65,7 +65,6 @@ export function SteadfastSettingsView({
     <>
       <PageHeader
         title={t('admin.steadfast.title')}
-        description={t('admin.steadfast.body')}
         actions={
           <Link className={styles.recordLink} href="/qbpanel/settings/integrations">
             {t('admin.integrations.backToHub')}
@@ -106,8 +105,6 @@ export function SteadfastSettingsView({
             </span>
           )}
         </p>
-
-        <p className={styles.note}>{t('admin.steadfast.stateNote')}</p>
       </section>
 
       <section className={styles.section} aria-labelledby="steadfast-account">

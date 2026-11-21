@@ -66,10 +66,7 @@ export function AnnouncementSettingsView({
 
   return (
     <>
-      <PageHeader
-        title={t('admin.announcement.title')}
-        description={t('admin.announcement.body')}
-      />
+      <PageHeader title={t('admin.announcement.title')} />
 
       {notice !== null && (
         <Notice tone={ERROR_NOTICES.includes(notice) ? 'error' : 'success'}>{t(NOTICE_KEYS[notice])}</Notice>
@@ -160,9 +157,6 @@ export function AnnouncementSettingsView({
               </span>
             </div>
             <AnnouncementBar items={previewItems} />
-            <figcaption className={styles.announcementPreviewCaption}>
-              {t('admin.announcement.previewNote')}
-            </figcaption>
           </figure>
         </section>
       </div>

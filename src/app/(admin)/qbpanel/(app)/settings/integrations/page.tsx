@@ -38,9 +38,7 @@ export default async function IntegrationsPage() {
 
   return (
     <>
-      <PageHeader
-        title={translate('admin.integrations.title')}
-      />
+      <PageHeader title={translate('admin.integrations.title')} />
 
       <section className={styles.section} aria-labelledby="integration-list">
         <div className={styles.sectionHead}>
@@ -122,8 +120,6 @@ export default async function IntegrationsPage() {
             </div>
           </li>
         </ul>
-
-        <p className={styles.note}>{translate('admin.integrations.hubNote')}</p>
       </section>
     </>
   );

@@ -92,7 +92,6 @@ export function CustomerDetailView({
         <div className={styles.section}>
           <div className={styles.sectionHead}>
             <h2>{t('admin.customers.ordersTitle')}</h2>
-            {canReadOrders && <p>{t('admin.customers.ordersBody')}</p>}
           </div>
           {!canReadOrders ? (
             <div className={styles.notice}>
@@ -231,8 +230,6 @@ export function CustomerDetailView({
               />
             </div>
           )}
-
-          {!active && <p className={styles.note}>{t('admin.customers.suspendedNote')}</p>}
         </aside>
       </div>
     </>

@@ -38,7 +38,6 @@ export default async function NewBrandPage({
     <>
       <PageHeader
         title={translate('admin.brands.createTitle')}
-        description={translate('admin.brands.editorBody')}
         actions={
           <Link className={`${styles.button} ${styles.buttonSecondary} ${styles.buttonSmall}`} href="/qbpanel/catalog/brands">
             {translate('admin.brandLogo.back')}

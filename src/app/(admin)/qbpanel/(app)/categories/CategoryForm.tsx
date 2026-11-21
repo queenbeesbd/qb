@@ -381,7 +381,6 @@ export function CategoryForm({
                 {effectiveSlug === '' ? '/categories/…' : `/categories/${effectiveSlug}`}
               </p>
             </div>
-            <p className={styles.hint}>{t('admin.categories.previewCaveat')}</p>
           </section>
 
           <section className={styles.formCard} aria-labelledby="cf-usage">

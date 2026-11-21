@@ -145,7 +145,6 @@ export function TrafficView({ period, visits }: { period: 7 | 30 | 90; visits: T
     <>
       <PageHeader
         title={t('admin.traffic.title')}
-        description={t('admin.traffic.lede')}
         actions={
           <nav className={shell.filterTabs} aria-label={t('admin.traffic.periodLabel')}>
             {periods.map((value) => (
@@ -331,8 +330,6 @@ export function TrafficView({ period, visits }: { period: 7 | 30 | 90; visits: T
           )}
         </section>
       </div>
-
-      <p className={shell.note}>{t('admin.traffic.footer')}</p>
     </>
   );
 }

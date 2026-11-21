@@ -54,8 +54,7 @@ const ERROR_NOTICES: readonly OwnerNotice[] = ['denied', 'conflict', 'exists', '
  * Every control is a plain form post to a route handler that re-checks the permission, the CSRF token
  * and the same-origin header server-side, so the interface is a convenience and never the control.
  *
- * There is deliberately no role picker: a new account is an owner, and that is the only kind of account
- * this screen can create. Disabling another owner is confirmed with its consequence written out.
+ * Disabling another owner is confirmed with its consequence written out.
  */
 export function OwnersView({
   owners,
@@ -93,7 +92,7 @@ export function OwnersView({
 
   return (
     <>
-      <PageHeader title={t('admin.owners.title')} description={t('admin.owners.body')} />
+      <PageHeader title={t('admin.owners.title')} />
 
       {notice !== null && (
         <Notice tone={noticeIsError ? 'error' : 'success'}>{t(NOTICE_KEYS[notice])}</Notice>
@@ -184,13 +183,7 @@ export function OwnersView({
 
         <ul className={styles.dividerList}>
           <li className={styles.dividerItem}>
-            <span className={styles.note}>{t('admin.owners.selfNote')}</span>
-          </li>
-          <li className={styles.dividerItem}>
             <span className={styles.note}>{t('admin.owners.lastOwnerNote')}</span>
-          </li>
-          <li className={styles.dividerItem}>
-            <span className={styles.note}>{t('admin.owners.noSelfRegistration')}</span>
           </li>
         </ul>
       </section>
@@ -216,7 +209,6 @@ export function OwnersView({
                 <option value="owner">{t('admin.owners.roleOwner')}</option>
                 <option value="moderator">{t('admin.owners.roleModerator')}</option>
               </select>
-              <p className={styles.hint}>{t('admin.owners.roleHint')}</p>
             </div>
             <div className={styles.formActions}>
               <SubmitButton label={t('admin.owners.createSubmit')} pendingLabel={t('admin.common.working')} />
@@ -266,7 +258,6 @@ export function OwnersView({
                 );
               })}
             </ul>
-            <p className={styles.hint}>{t('admin.owners.accessHint')}</p>
             <div className={styles.formActions}>
               <SubmitButton label={t('admin.owners.accessSave')} pendingLabel={t('admin.common.working')} />
             </div>

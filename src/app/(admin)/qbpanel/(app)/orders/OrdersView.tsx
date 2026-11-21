@@ -310,12 +310,16 @@ export function AdminOrdersView({
       ) : history ? (
         <>
           {/*
-            The order history is the same card family as the COD worklist (owner direction,
-            2026-11-20), not a table of rows: the reference shows each order as a portrait card whose
-            identity band carries what the owner scans for - reference, lifecycle state, amount - and
-            whose body carries the recorded product, the recipient and the place, over a quiet
-            time/payment footer. Every value is a column this reader already returns; the card adds no
-            field and no second read.
+            The order history is one row per order, not a portrait card (owner direction, 2026-11-20).
+            The row carries what the owner scans for - reference, lifecycle state, what was bought, who
+            receives it, the amount - each in its own column above 720px, so twelve orders read as a
+            list of twelve rather than a stack of cards. Below 720px those cells stack into the card,
+            because four columns do not fit a phone. Every value is a column this reader already
+            returns; the row adds no field and no second read.
+
+            (This block previously said the opposite - "a portrait card, not a table of rows" - which
+            contradicted the block on the row markup below it. The markup has been a row since the same
+            owner direction; the comment was stale.)
           */}
           <ul className={styles.orderList} data-admin-list="">
             {historyRows.map((row) => (

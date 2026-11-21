@@ -305,7 +305,6 @@ export function ProductForm({
           <section className={styles.formCard} aria-labelledby="pf-media">
             <div className={styles.formCardHead}>
               <h2 id="pf-media">{t('admin.catalog.sectionMedia')}</h2>
-              <p>{t('admin.catalog.sectionMediaBody')}</p>
             </div>
 
             <ProductMediaUploader
@@ -327,7 +326,6 @@ export function ProductForm({
           <section className={styles.formCard} aria-labelledby="pf-general">
             <div className={styles.formCardHead}>
               <h2 id="pf-general">{t('admin.catalog.sectionGeneral')}</h2>
-              <p>{t('admin.catalog.sectionGeneralBody')}</p>
             </div>
 
             <div className={styles.field}>
@@ -364,7 +362,6 @@ export function ProductForm({
           <section className={styles.formCard} aria-labelledby="pf-pricing">
             <div className={styles.formCardHead}>
               <h2 id="pf-pricing">{t('admin.catalog.sectionPricing')}</h2>
-              <p>{t('admin.catalog.sectionPricingBody')}</p>
             </div>
 
             <div className={styles.formGrid}>
@@ -443,7 +440,6 @@ export function ProductForm({
           <section className={styles.formCard} aria-labelledby="pf-inventory">
             <div className={styles.formCardHead}>
               <h2 id="pf-inventory">{t('admin.catalog.sectionInventory')}</h2>
-              <p>{t('admin.catalog.sectionInventoryBody')}</p>
             </div>
 
             <div className={styles.field}>
@@ -479,7 +475,6 @@ export function ProductForm({
           <section className={styles.formCard} aria-labelledby="pf-delivery">
             <div className={styles.formCardHead}>
               <h2 id="pf-delivery">{t('admin.catalog.sectionDelivery')}</h2>
-              <p>{t('admin.catalog.sectionDeliveryBody')}</p>
             </div>
 
             <div className={styles.formGrid}>
@@ -547,7 +542,6 @@ export function ProductForm({
           <section className={styles.formCard} aria-labelledby="pf-preview">
             <div className={styles.formCardHead}>
               <h2 id="pf-preview">{t('admin.catalog.previewTitle')}</h2>
-              <p>{t('admin.catalog.previewBody')}</p>
             </div>
 
             <div className={styles.previewCard}>
@@ -593,7 +587,6 @@ export function ProductForm({
           <section className={styles.formCard} aria-labelledby="pf-organisation">
             <div className={styles.formCardHead}>
               <h2 id="pf-organisation">{t('admin.catalog.sectionOrganisation')}</h2>
-              <p>{t('admin.catalog.sectionOrganisationBody')}</p>
             </div>
 
             <div className={styles.field}>

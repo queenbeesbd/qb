@@ -43,7 +43,7 @@ export function SupportSettingsView({
 
   return (
     <>
-      <PageHeader title={t('admin.support.title')} description={t('admin.support.body')} />
+      <PageHeader title={t('admin.support.title')} />
 
       {notice !== null && (
         <Notice tone={ERROR_NOTICES.includes(notice) ? 'error' : 'success'}>

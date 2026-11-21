@@ -170,7 +170,6 @@ export function PromoCodeForm({
     <>
       <PageHeader
         title={mode === 'create' ? t('admin.promo.newTitle') : t('admin.promo.editTitle')}
-        description={mode === 'edit' ? t('admin.promo.editBody') : undefined}
         actions={
           <Link className={`${styles.button} ${styles.buttonSecondary}`} href="/qbpanel/promo-codes">
             {t('admin.promo.backToList')}
@@ -406,7 +405,6 @@ export function PromoCodeForm({
             <h2 id="promo-preview" className={styles.formSubtitle}>
               {t('admin.promo.previewTitle')}
             </h2>
-            <p className={styles.hint}>{t('admin.promo.previewBody')}</p>
             <ul className={styles.previewSamples}>
               {samples.map((sample) => {
                 const discount = promoDiscountMinor(rule, sample);
